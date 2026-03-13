@@ -35,9 +35,13 @@ export async function ingest(req: Request, res: Response, next: NextFunction): P
 /** Handles POST /resumes/:resumeId/generate - triggers resume file generation. */
 export async function generate(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { resumeId } = req.params;
+    const resumeId = req.params['resumeId'];
+    if (!resumeId) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'resumeId is required' } });
+      return;
+    }
     const body = generateSchema.parse(req.body);
-    const result = await generateResume(resumeId!, body);
+    const result = await generateResume(resumeId, body);
     res.status(202).json({
       success: true,
       data: result,

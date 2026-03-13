@@ -5,6 +5,8 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   collectCoverageFrom: ['src/**/*.ts'],
   setupFiles: ['<rootDir>/tests/setup.ts'],
+  // useESM: false (default) is intentional: jest.mock() hoisting is incompatible with ESM mode.
+  // moduleNameMapper strips .js extensions so NodeNext imports resolve correctly in tests.
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { useESM: false }],
   },
