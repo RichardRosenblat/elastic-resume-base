@@ -40,6 +40,16 @@ describe('errorHandler', () => {
     expect(jsonArg.error.code).toBe('INTERNAL_ERROR');
   });
 
+  it('handles downstream error with its statusCode and code', () => {
+    const err = Object.assign(new Error('Service unavailable'), { statusCode: 503, code: 'SERVICE_UNAVAILABLE' });
+    errorHandler(err, req as Request, res as Response, next);
+    expect(res.status).toHaveBeenCalledWith(503);
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0];
+    expect(jsonArg.success).toBe(false);
+    expect(jsonArg.error.code).toBe('SERVICE_UNAVAILABLE');
+    expect(jsonArg.error.message).toBe('Service unavailable');
+  });
+
   it('handles unknown error with 500 status', () => {
     errorHandler('some string error', req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(500);

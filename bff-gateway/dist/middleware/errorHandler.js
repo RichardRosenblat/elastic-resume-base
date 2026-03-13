@@ -18,10 +18,21 @@ function errorHandler(err, req, res, _next) {
         return;
     }
     if (err instanceof Error) {
-        logger_1.logger.error('Unhandled error', { message: err.message, correlationId });
-        res.status(500).json({
+        const appError = err;
+        const statusCode = appError.statusCode ?? 500;
+        const isDownstreamError = statusCode !== 500;
+        if (isDownstreamError) {
+            logger_1.logger.warn('Downstream service error', { message: err.message, code: appError.code, statusCode, correlationId });
+        }
+        else {
+            logger_1.logger.error('Unhandled error', { message: err.message, correlationId });
+        }
+        res.status(statusCode).json({
             success: false,
-            error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
+            error: {
+                code: appError.code ?? 'INTERNAL_ERROR',
+                message: isDownstreamError ? err.message : 'An unexpected error occurred',
+            },
             correlationId,
         });
         return;
