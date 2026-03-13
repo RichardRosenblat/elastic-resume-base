@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth';
-import healthRouter from './health';
-import meRouter from './me';
-import resumesRouter from './resumes';
-import searchRouter from './search';
-import documentsRouter from './documents';
+import { authMiddleware } from '../middleware/auth.js';
+import healthRouter from './health.js';
+import meRouter from './me.js';
+import resumesRouter from './resumes.js';
+import searchRouter from './search.js';
+import documentsRouter from './documents.js';
 
 const router = Router();
 

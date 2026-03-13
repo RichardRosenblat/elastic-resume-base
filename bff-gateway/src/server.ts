@@ -1,13 +1,13 @@
-import { config } from './config';
-import { logger } from './utils/logger';
-import app from './app';
-import { getFirebaseApp } from './middleware/auth';
+import { config } from './config.js';
+import { logger } from './utils/logger.js';
+import app from './app.js';
+import { getFirebaseApp } from './middleware/auth.js';
 
 // Initialize Firebase on startup
 getFirebaseApp();
 
 const server = app.listen(config.port, () => {
-  logger.info('BFF Gateway started', { port: config.port, env: config.nodeEnv });
+  logger.info({ port: config.port, env: config.nodeEnv }, 'BFF Gateway started');
 });
 
 process.on('SIGTERM', () => {

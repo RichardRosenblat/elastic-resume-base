@@ -1,12 +1,19 @@
 import { AxiosError } from 'axios';
+import { AppError } from '../errors.js';
 
-export interface AppError {
+/** Mapped downstream error with HTTP status, code, and message. */
+export interface MappedError {
   statusCode: number;
   code: string;
   message: string;
 }
 
-export function mapDownstreamError(err: unknown): AppError {
+/**
+ * Maps an unknown error from a downstream Axios call to a structured MappedError.
+ * @param err - The error thrown by Axios or an unknown source.
+ * @returns A MappedError with appropriate status code and code.
+ */
+export function mapDownstreamError(err: unknown): MappedError {
   if (err instanceof AxiosError) {
     const status = err.response?.status ?? 503;
     if (status === 404) return { statusCode: 404, code: 'NOT_FOUND', message: 'Resource not found' };
@@ -22,3 +29,6 @@ export function mapDownstreamError(err: unknown): AppError {
   }
   return { statusCode: 502, code: 'UPSTREAM_ERROR', message: 'Upstream service error' };
 }
+
+// Re-export AppError for use in services
+export { AppError };

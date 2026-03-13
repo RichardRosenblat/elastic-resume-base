@@ -1,13 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
+import { getLive, getReady } from '../controllers/health.controller.js';
 
 const router = Router();
 
-router.get('/live', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-router.get('/ready', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' });
-});
+router.get('/live', getLive);
+router.get('/ready', getReady);
 
 export default router;

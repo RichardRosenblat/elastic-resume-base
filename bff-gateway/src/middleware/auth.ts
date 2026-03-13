@@ -1,23 +1,36 @@
 import { Request, Response, NextFunction } from 'express';
 import * as admin from 'firebase-admin';
-import { logger } from '../utils/logger';
-import { AuthenticatedRequest } from '../types';
+import { logger } from '../utils/logger.js';
+import { AuthenticatedRequest } from '../models/index.js';
 
 let firebaseApp: admin.app.App | null = null;
 
+/**
+ * Returns the initialized Firebase Admin app, initializing it on first call.
+ * @returns Firebase Admin App instance.
+ */
 export function getFirebaseApp(): admin.app.App {
   if (!firebaseApp) {
     if (admin.apps.length > 0) {
       firebaseApp = admin.apps[0]!;
     } else {
       firebaseApp = admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || 'demo-elastic-resume-base',
+        projectId: process.env['FIREBASE_PROJECT_ID'] || 'demo-elastic-resume-base',
       });
     }
   }
   return firebaseApp;
 }
 
+/** Resets the Firebase app instance (for testing only). */
+export function _resetFirebaseApp(): void {
+  firebaseApp = null;
+}
+
+/**
+ * Express middleware that verifies a Firebase ID token from the Authorization header.
+ * Sets `req.user` on success or returns 401 on failure.
+ */
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
@@ -44,7 +57,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
     next();
   } catch (err) {
-    logger.warn('Token verification failed', { correlationId: (req as AuthenticatedRequest).correlationId });
+    logger.warn({ err, correlationId: (req as AuthenticatedRequest).correlationId }, 'Token verification failed');
     res.status(401).json({
       success: false,
       error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' },

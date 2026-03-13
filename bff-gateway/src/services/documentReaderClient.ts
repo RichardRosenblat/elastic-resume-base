@@ -1,16 +1,22 @@
-import { createHttpClient } from '../utils/httpClient';
-import { config } from '../config';
-import { DocumentReadRequest, DocumentReadResponse } from '../types';
-import { mapDownstreamError } from '../utils/errorMapper';
+import { createHttpClient } from '../utils/httpClient.js';
+import { config } from '../config.js';
+import { DocumentReadRequest, DocumentReadResponse } from '../models/index.js';
+import { mapDownstreamError } from '../utils/errorMapper.js';
+import { DownstreamError } from '../errors.js';
 
 const client = createHttpClient(config.documentReaderServiceUrl);
 
+/**
+ * Reads and extracts text from a document via the document reader service.
+ * @param payload - Document read request payload.
+ * @returns DocumentReadResponse with extracted text.
+ */
 export async function readDocument(payload: DocumentReadRequest): Promise<DocumentReadResponse> {
   try {
     const response = await client.post<DocumentReadResponse>('/read', payload);
     return response.data;
   } catch (err) {
     const mapped = mapDownstreamError(err);
-    throw Object.assign(new Error(mapped.message), { statusCode: mapped.statusCode, code: mapped.code });
+    throw new DownstreamError(mapped.message, mapped.statusCode, mapped.code);
   }
 }
