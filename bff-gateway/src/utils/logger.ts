@@ -1,10 +1,15 @@
 import { pino } from 'pino';
 import { config } from '../config.js';
 
-/** Application logger using Pino. Uses pino-pretty in non-production environments. */
 export const logger = pino({
   level: config.logLevel ?? 'info',
-  ...(config.nodeEnv !== 'production' && {
-    transport: { target: 'pino-pretty' },
-  }),
+  base: { service: 'bff-gateway', version: '1.0.0' },
+  ...(config.nodeEnv !== 'production'
+    ? { transport: { target: 'pino-pretty' } }
+    : {
+        formatters: {
+          level(label: string) { return { severity: label.toUpperCase() }; },
+        },
+        messageKey: 'message',
+      }),
 });

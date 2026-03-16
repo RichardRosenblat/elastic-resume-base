@@ -15,6 +15,7 @@ const ingestSchema = z.object({
 const generateSchema = z.object({
   language: z.string().min(2).max(10),
   format: z.enum(['pdf', 'docx', 'html']),
+  outputFormats: z.array(z.enum(['pdf', 'docx', 'html'])).optional(),
 });
 
 /** Handles POST /resumes/ingest - triggers a resume ingest job. */

@@ -14,6 +14,7 @@ const configSchema = z.object({
   requestTimeoutMs: z.number().default(30000),
   logLevel: z.string().default('info'),
   allowedOrigins: z.string().default('http://localhost:3000'),
+  gcpProjectId: z.string().default('demo-elastic-resume-base'),
 });
 
 /** Application configuration type inferred from schema. */
@@ -37,6 +38,7 @@ function loadConfig(): Config {
     requestTimeoutMs: process.env['REQUEST_TIMEOUT_MS'] ? parseInt(process.env['REQUEST_TIMEOUT_MS'], 10) : undefined,
     logLevel: process.env['LOG_LEVEL'],
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
+    gcpProjectId: process.env['GCP_PROJECT_ID'],
   });
 }
 

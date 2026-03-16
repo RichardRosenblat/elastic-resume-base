@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../errors.js';
+import { reportError } from '../utils/cloudErrorReporting.js';
 
 /**
  * Express error-handling middleware.
@@ -29,6 +30,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       logger.warn({ message: err.message, code: err.code, statusCode: err.statusCode, correlationId }, 'Downstream service error');
     } else {
       logger.error({ message: err.message, correlationId }, 'Unhandled AppError');
+      reportError(err);
     }
     res.status(err.statusCode).json({
       success: false,
@@ -50,6 +52,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       logger.warn({ message: err.message, code: appError.code, statusCode, correlationId }, 'Downstream service error');
     } else {
       logger.error({ message: err.message, correlationId }, 'Unhandled error');
+      reportError(err);
     }
 
     res.status(statusCode).json({

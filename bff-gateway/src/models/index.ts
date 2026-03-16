@@ -70,9 +70,13 @@ export interface SearchResponse {
 }
 
 /** Request payload for generating a resume file. */
+export type ResumeFormat = 'pdf' | 'docx' | 'html';
+
+/** Request payload for generating a resume file. */
 export interface GenerateRequest {
   language: string;
-  format: string;
+  format: ResumeFormat;
+  outputFormats?: ResumeFormat[];
 }
 
 /** Response from the generate endpoint. */
@@ -80,6 +84,7 @@ export interface GenerateResponse {
   jobId: string;
   status: string;
   downloadUrl?: string;
+  driveLink?: string;
 }
 
 /** Request payload for reading a document. */
@@ -95,4 +100,40 @@ export interface DocumentReadRequest {
 export interface DocumentReadResponse {
   text: string;
   metadata?: Record<string, unknown>;
+}
+
+/** Request payload for creating a new Firebase Auth user. */
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  displayName?: string;
+  photoURL?: string;
+  disabled?: boolean;
+}
+
+/** Request payload for updating an existing Firebase Auth user. */
+export interface UpdateUserRequest {
+  email?: string;
+  password?: string;
+  displayName?: string;
+  photoURL?: string;
+  disabled?: boolean;
+}
+
+/** Firebase Auth user record. */
+export interface UserRecord {
+  uid: string;
+  email?: string;
+  displayName?: string;
+  photoURL?: string;
+  disabled: boolean;
+  emailVerified: boolean;
+  createdAt?: string;
+  lastLoginAt?: string;
+}
+
+/** Response from the list users endpoint. */
+export interface ListUsersResponse {
+  users: UserRecord[];
+  pageToken?: string;
 }
