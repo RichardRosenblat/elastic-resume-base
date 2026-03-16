@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import * as admin from 'firebase-admin';
-import { logger } from '../utils/logger.js';
+import { NextFunction, Request, Response } from 'express';
+import admin from "firebase-admin";
 import { AuthenticatedRequest } from '../models/index.js';
+import { logger } from '../utils/logger.js';
 
 let firebaseApp: admin.app.App | null = null;
 
@@ -11,7 +11,7 @@ let firebaseApp: admin.app.App | null = null;
  */
 export function getFirebaseApp(): admin.app.App {
   if (!firebaseApp) {
-    if (admin.apps.length > 0) {
+    if ( admin.apps && admin.apps.length > 0) {
       firebaseApp = admin.apps[0]!;
     } else {
       firebaseApp = admin.initializeApp({
