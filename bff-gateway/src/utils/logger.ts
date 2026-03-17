@@ -1,15 +1,38 @@
-import { pino } from 'pino';
+import { LoggerOptions, pino } from 'pino';
+import { createGcpLoggingPinoConfig } from '@google-cloud/pino-logging-gcp-config';
 import { config } from '../config.js';
 
-export const logger = pino({
-  level: config.logLevel ?? 'info',
-  base: { service: 'bff-gateway', version: '1.0.0' },
-  ...(config.nodeEnv !== 'production'
-    ? { transport: { target: 'pino-pretty' } }
-    : {
-        formatters: {
-          level(label: string) { return { severity: label.toUpperCase() }; },
-        },
-        messageKey: 'message',
-      }),
-});
+const logLevel = config.logLevel ?? 'info';
+
+const serviceMetadata = {
+  service: {
+    name: 'bff-gateway',
+    version: '1.0.0',
+  },
+};
+
+let finalConfig;
+
+if (config.nodeEnv !== 'production') {
+  finalConfig = {
+    level: logLevel,
+    base: serviceMetadata,
+    transport: {
+      target: 'pino-pretty',
+      options: { colorize: true },
+    },
+  };
+} else {
+  const gcpConfig = createGcpLoggingPinoConfig();
+
+  finalConfig = {
+    ...gcpConfig,
+    level: logLevel,
+    base: {
+      ...gcpConfig.base,
+      ...serviceMetadata,
+    },
+  };
+}
+
+export const logger = pino(finalConfig as LoggerOptions);
