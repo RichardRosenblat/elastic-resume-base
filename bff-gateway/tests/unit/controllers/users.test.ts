@@ -69,7 +69,8 @@ describe('Users Controller', () => {
         .send({ email: 'test@example.com', password: 'password123' });
 
       expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
     });
 
     it('returns 400 on invalid email', async () => {
@@ -79,7 +80,8 @@ describe('Users Controller', () => {
         .send({ email: 'not-an-email', password: 'password123' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Validation error');
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('returns 400 on short password', async () => {
@@ -89,7 +91,8 @@ describe('Users Controller', () => {
         .send({ email: 'test@example.com', password: '123' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Validation error');
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('returns 401 when unauthenticated', async () => {
@@ -121,7 +124,8 @@ describe('Users Controller', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ uid: 'uid123' });
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({ uid: 'uid123' });
     });
 
     it('returns 404 when NotFoundError thrown', async () => {
@@ -151,7 +155,8 @@ describe('Users Controller', () => {
         .send({ displayName: 'Updated Name' });
 
       expect(res.status).toBe(200);
-      expect(res.body.displayName).toBe('Updated Name');
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.displayName).toBe('Updated Name');
     });
 
     it('returns 403 when service throws ForbiddenError', async () => {
@@ -212,8 +217,9 @@ describe('Users Controller', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(res.status).toBe(200);
-      expect(res.body.users).toHaveLength(1);
-      expect(res.body.users[0]).toMatchObject({ uid: 'uid123' });
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.users).toHaveLength(1);
+      expect(res.body.data.users[0]).toMatchObject({ uid: 'uid123' });
     });
 
     it('returns 401 when unauthenticated', async () => {

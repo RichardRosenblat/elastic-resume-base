@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { formatSuccess } from '@elastic-resume-base/bowltie';
 import { AuthenticatedRequest } from '../models/index.js';
 import { search } from '../services/searchClient.js';
 
@@ -15,11 +16,7 @@ export async function searchHandler(req: Request, res: Response, next: NextFunct
   try {
     const body = searchSchema.parse(req.body);
     const result = await search(body);
-    res.status(200).json({
-      success: true,
-      data: result,
-      correlationId: (req as AuthenticatedRequest).correlationId,
-    });
+    res.status(200).json(formatSuccess(result, (req as AuthenticatedRequest).correlationId));
   } catch (err) {
     next(err);
   }
