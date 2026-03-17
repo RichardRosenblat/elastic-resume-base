@@ -7,7 +7,7 @@ A shared library providing a secure **Google API client** and **Google Drive per
 ## Installation
 
 ```bash
-npm install @elastic-resume-base/bugle
+npm install ../shared/Bugle
 ```
 
 ---
