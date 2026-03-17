@@ -38,3 +38,10 @@ export class DownstreamError extends AppError {
     super(message, statusCode, code);
   }
 }
+
+/** Error representing an action that is not permitted for the authenticated user (HTTP 403). */
+export class ForbiddenError extends AppError {
+  constructor(message = 'Access forbidden') {
+    super(message, 403, 'FORBIDDEN');
+  }
+}

@@ -23,9 +23,15 @@ jest.mock('../../../src/services/usersService', () => ({
   listUsers: jest.fn(),
 }));
 
+// Prevent real HTTP calls to UserAPI from within app initialization
+jest.mock('../../../src/services/userApiClient', () => ({
+  getUserRole: jest.fn().mockResolvedValue('user'),
+  getUserRolesBatch: jest.fn().mockResolvedValue({}),
+}));
+
 import * as admin from 'firebase-admin';
 import * as usersService from '../../../src/services/usersService.js';
-import { NotFoundError } from '../../../src/errors.js';
+import { ForbiddenError, NotFoundError } from '../../../src/errors.js';
 
 const mockUser = {
   uid: 'uid123',
@@ -34,13 +40,14 @@ const mockUser = {
   photoURL: undefined,
   disabled: false,
   emailVerified: false,
+  role: 'user',
   createdAt: '2024-01-01T00:00:00.000Z',
   lastLoginAt: '2024-01-02T00:00:00.000Z',
 };
 
-function setupAuth() {
+function setupAuth(uid = 'admin-uid') {
   (admin.auth as jest.Mock).mockReturnValue({
-    verifyIdToken: jest.fn().mockResolvedValue({ uid: 'admin-uid', email: 'admin@example.com' }),
+    verifyIdToken: jest.fn().mockResolvedValue({ uid, email: `${uid}@example.com` }),
   });
 }
 
@@ -92,6 +99,17 @@ describe('Users Controller', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.createUser as jest.Mock).mockRejectedValue(new ForbiddenError('Admin access required'));
+
+      const res = await request(app)
+        .post('/api/v1/users')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ email: 'test@example.com', password: 'password123' });
+
+      expect(res.status).toBe(403);
+    });
   });
 
   describe('GET /api/v1/users/:uid', () => {
@@ -116,6 +134,18 @@ describe('Users Controller', () => {
       expect(res.status).toBe(404);
     });
 
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.getUserByUid as jest.Mock).mockRejectedValue(
+        new ForbiddenError('You may only access your own profile'),
+      );
+
+      const res = await request(app)
+        .get('/api/v1/users/other-uid')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(403);
+    });
+
     it('returns 401 when unauthenticated', async () => {
       const res = await request(app).get('/api/v1/users/uid123');
       expect(res.status).toBe(401);
@@ -134,6 +164,19 @@ describe('Users Controller', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.displayName).toBe('Updated Name');
+    });
+
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.updateUser as jest.Mock).mockRejectedValue(
+        new ForbiddenError('You may only update your own profile'),
+      );
+
+      const res = await request(app)
+        .patch('/api/v1/users/other-uid')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ displayName: 'Updated Name' });
+
+      expect(res.status).toBe(403);
     });
 
     it('returns 401 when unauthenticated', async () => {
@@ -156,6 +199,16 @@ describe('Users Controller', () => {
       expect(res.status).toBe(204);
     });
 
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.deleteUser as jest.Mock).mockRejectedValue(new ForbiddenError('Admin access required'));
+
+      const res = await request(app)
+        .delete('/api/v1/users/uid123')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(403);
+    });
+
     it('returns 401 when unauthenticated', async () => {
       const res = await request(app).delete('/api/v1/users/uid123');
       expect(res.status).toBe(401);
@@ -173,6 +226,16 @@ describe('Users Controller', () => {
       expect(res.status).toBe(200);
       expect(res.body.users).toHaveLength(1);
       expect(res.body.users[0]).toMatchObject({ uid: 'uid123' });
+    });
+
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.listUsers as jest.Mock).mockRejectedValue(new ForbiddenError('Admin access required'));
+
+      const res = await request(app)
+        .get('/api/v1/users')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(403);
     });
 
     it('returns 401 when unauthenticated', async () => {

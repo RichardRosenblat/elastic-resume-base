@@ -13,7 +13,7 @@ const router = Router();
  * @swagger
  * /api/v1/users:
  *   get:
- *     summary: List users
+ *     summary: List users (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -34,6 +34,8 @@ const router = Router();
  *         description: List of users
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — admin role required
  */
 router.get('/', listUsersHandler);
 
@@ -41,7 +43,7 @@ router.get('/', listUsersHandler);
  * @swagger
  * /api/v1/users:
  *   post:
- *     summary: Create a new user
+ *     summary: Create a new user (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -71,9 +73,11 @@ router.get('/', listUsersHandler);
  *       201:
  *         description: User created
  *       400:
- *         description: Validation error
+ *         description: Validation error or disallowed email domain
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — admin role required
  */
 router.post('/', createUserHandler);
 
@@ -82,6 +86,7 @@ router.post('/', createUserHandler);
  * /api/v1/users/{uid}:
  *   get:
  *     summary: Get user by UID
+ *     description: Admins may retrieve any user. Non-admins may only retrieve their own profile.
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -96,6 +101,8 @@ router.post('/', createUserHandler);
  *         description: User record
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — non-admin users may only retrieve their own profile
  *       404:
  *         description: User not found
  */
@@ -106,6 +113,10 @@ router.get('/:uid', getUserHandler);
  * /api/v1/users/{uid}:
  *   patch:
  *     summary: Update user by UID
+ *     description: >
+ *       Admins may update any user with all fields.
+ *       Non-admins may only update their own profile and are restricted to
+ *       non-sensitive fields (displayName, photoURL).
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -125,20 +136,25 @@ router.get('/:uid', getUserHandler);
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Admin only
  *               password:
  *                 type: string
  *                 minLength: 6
+ *                 description: Admin only
  *               displayName:
  *                 type: string
  *               photoURL:
  *                 type: string
  *               disabled:
  *                 type: boolean
+ *                 description: Admin only
  *     responses:
  *       200:
  *         description: Updated user record
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — non-admin users may only update their own profile
  *       404:
  *         description: User not found
  */
@@ -148,7 +164,7 @@ router.patch('/:uid', updateUserHandler);
  * @swagger
  * /api/v1/users/{uid}:
  *   delete:
- *     summary: Delete user by UID
+ *     summary: Delete user by UID (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -163,6 +179,8 @@ router.patch('/:uid', updateUserHandler);
  *         description: User deleted
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — admin role required
  *       404:
  *         description: User not found
  */
