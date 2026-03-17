@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",

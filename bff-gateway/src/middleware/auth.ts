@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import admin from "firebase-admin";
+import { formatError } from '@elastic-resume-base/bowltie';
 import { AuthenticatedRequest } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -35,10 +36,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Missing or invalid Authorization header' },
-    });
+    res
+      .status(401)
+      .json(formatError('UNAUTHORIZED', 'Missing or invalid Authorization header'));
     return;
   }
 
@@ -58,9 +58,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     next();
   } catch (err) {
     logger.warn({ err, correlationId: (req as AuthenticatedRequest).correlationId }, 'Token verification failed');
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' },
-    });
+    res
+      .status(401)
+      .json(formatError('UNAUTHORIZED', 'Invalid or expired token'));
   }
 }

@@ -14,17 +14,6 @@ export interface AuthenticatedRequest extends Request {
   correlationId: string;
 }
 
-/** Standard API response envelope. */
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-  correlationId?: string;
-}
-
 /** User profile data. */
 export interface UserProfile {
   uid: string;

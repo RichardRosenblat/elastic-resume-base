@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../errors.js';
 import { reportError } from '../utils/cloudErrorReporting.js';
@@ -12,15 +13,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const correlationId = (req as Request & { correlationId?: string }).correlationId;
 
   if (err instanceof ZodError) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Request validation failed',
-        details: err.errors,
-      },
-      correlationId,
-    });
+    res.status(400).json(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
     return;
   }
 
@@ -35,14 +28,15 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       logger.error({ message: err.message, correlationId }, 'Unhandled AppError');
       reportError(err);
     }
-    res.status(err.statusCode).json({
-      success: false,
-      error: {
-        code: err.code,
-        message: isDownstreamError ? err.message : 'An unexpected error occurred',
-      },
-      correlationId,
-    });
+    res
+      .status(err.statusCode)
+      .json(
+        formatError(
+          err.code,
+          isDownstreamError ? err.message : 'An unexpected error occurred',
+          correlationId,
+        ),
+      );
     return;
   }
 
@@ -61,20 +55,19 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       reportError(err);
     }
 
-    res.status(statusCode).json({
-      success: false,
-      error: {
-        code: appError.code ?? 'INTERNAL_ERROR',
-        message: isDownstreamError ? err.message : 'An unexpected error occurred',
-      },
-      correlationId,
-    });
+    res
+      .status(statusCode)
+      .json(
+        formatError(
+          appError.code ?? 'INTERNAL_ERROR',
+          isDownstreamError ? err.message : 'An unexpected error occurred',
+          correlationId,
+        ),
+      );
     return;
   }
 
-  res.status(500).json({
-    success: false,
-    error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
-    correlationId,
-  });
+  res
+    .status(500)
+    .json(formatError('INTERNAL_ERROR', 'An unexpected error occurred', correlationId));
 }
