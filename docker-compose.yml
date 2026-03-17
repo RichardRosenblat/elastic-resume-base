@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # 1. Local Firebase/GCP Emulation Environment
+  firebase-emulator:
+    build:
+      context: ./firebase-emulator
+    ports:
+      - "4000:4000"   # Emulator UI
+      - "9099:9099"   # Authentication
+      - "8080:8080"   # Firestore
+      - "8085:8085"   # Pub/Sub
+    volumes:
+      - ./firebase-emulator/firebase.json:/srv/firebase/firebase.json
+
+  # 2. Node.js Backend-for-Frontend (BFF) Gateway
+  bff-gateway:
+    build:
+      context: ./bff-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_PROJECT_ID=demo-elastic-resume-base
+      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
+      - USER_API_SERVICE_URL=http://users-api:8005
+      - LOG_LEVEL=info
+    depends_on:
+      - firebase-emulator
+      - users-api
+
+  # 3. Users API Microservice
+  users-api:
+    build:
+      context: .
+      dockerfile: users-api/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - NODE_ENV=development
+      - PORT=8005
+      - FIREBASE_PROJECT_ID=demo-elastic-resume-base
+      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
+      # Set GOOGLE_SERVICE_ACCOUNT_KEY and ADMIN_SHEET_FILE_ID as needed:
+      # - GOOGLE_SERVICE_ACCOUNT_KEY=<base64-encoded-service-account-json>
+      # - ADMIN_SHEET_FILE_ID=<google-sheet-file-id>
+      - LOG_LEVEL=info
+    depends_on:
+      - firebase-emulator
