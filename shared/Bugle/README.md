@@ -5,6 +5,7 @@ A shared library providing a secure **Google API client** and **Google Drive per
 ---
 
 ## Installation
+To install Bugle you must use a relative path to the package since it is not published to npm. From the root of your project, run:
 
 ```bash
 npm install ../shared/Bugle

@@ -5,6 +5,7 @@ A shared library providing **consistent API response formatting** utilities for 
 ---
 
 ## Installation
+To install Bowltie you must use a relative path to the package since it is not published to npm. From the root of your project, run:
 
 ```bash
 npm install ../shared/Bowltie

@@ -6,13 +6,13 @@ A shared library providing **Firestore database abstractions** and **error handl
 
 ## Installation
 
-To install synapse you must use a relative path to the package since it is not published to npm
+To install synapse you must use a relative path to the package since it is not published to npm. From the root of your project, run:
 
 ```bash
 npm install ../shared/Synapse
 ```
 
-> **Note:** `firebase-admin` is a peer dependency.  If npm does not automatically install it, you may need to add it manually:
+> **Note:** `firebase-admin` is a peer dependency. If npm does not automatically install it, you may need to add it manually:
 
 ```bash
 npm install firebase-admin
