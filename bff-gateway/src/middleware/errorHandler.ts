@@ -27,7 +27,10 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   if (err instanceof AppError) {
     const isDownstreamError = err.statusCode !== 500;
     if (isDownstreamError) {
-      logger.warn({ message: err.message, code: err.code, statusCode: err.statusCode, correlationId }, 'Downstream service error');
+      logger.warn(
+        { message: err.message, code: err.code, statusCode: err.statusCode, correlationId },
+        'Downstream service error',
+      );
     } else {
       logger.error({ message: err.message, correlationId }, 'Unhandled AppError');
       reportError(err);
@@ -49,7 +52,10 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     const isDownstreamError = statusCode !== 500;
 
     if (isDownstreamError) {
-      logger.warn({ message: err.message, code: appError.code, statusCode, correlationId }, 'Downstream service error');
+      logger.warn(
+        { message: err.message, code: appError.code, statusCode, correlationId },
+        'Downstream service error',
+      );
     } else {
       logger.error({ message: err.message, correlationId }, 'Unhandled error');
       reportError(err);
