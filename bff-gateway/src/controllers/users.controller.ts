@@ -54,12 +54,11 @@ export async function createUserHandler(req: Request, res: Response, next: NextF
 
 /**
  * Handles GET /api/v1/users/:uid — retrieves a Firebase Auth user by UID.
- * Admins may retrieve any user; non-admins may only retrieve their own profile.
+ * Available to all authenticated users.
  */
 export async function getUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const requesterUid = getRequesterUid(req);
-    const user = await getUserByUid(req.params['uid'] as string, requesterUid);
+    const user = await getUserByUid(req.params['uid'] as string);
     res.status(200).json(user);
   } catch (err) {
     next(err);
@@ -102,7 +101,7 @@ export async function deleteUserHandler(req: Request, res: Response, next: NextF
 
 /**
  * Handles GET /api/v1/users — lists Firebase Auth users with optional pagination.
- * Requires admin role.
+ * Available to all authenticated users.
  */
 export async function listUsersHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -111,8 +110,7 @@ export async function listUsersHandler(req: Request, res: Response, next: NextFu
       res.status(400).json({ error: 'Validation error', details: parsed.error.errors });
       return;
     }
-    const requesterUid = getRequesterUid(req);
-    const result = await listUsers(requesterUid, parsed.data.maxResults, parsed.data.pageToken);
+    const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
     res.status(200).json(result);
   } catch (err) {
     next(err);

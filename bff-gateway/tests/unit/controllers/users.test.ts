@@ -134,18 +134,6 @@ describe('Users Controller', () => {
       expect(res.status).toBe(404);
     });
 
-    it('returns 403 when service throws ForbiddenError', async () => {
-      (usersService.getUserByUid as jest.Mock).mockRejectedValue(
-        new ForbiddenError('You may only access your own profile'),
-      );
-
-      const res = await request(app)
-        .get('/api/v1/users/other-uid')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(res.status).toBe(403);
-    });
-
     it('returns 401 when unauthenticated', async () => {
       const res = await request(app).get('/api/v1/users/uid123');
       expect(res.status).toBe(401);
@@ -226,16 +214,6 @@ describe('Users Controller', () => {
       expect(res.status).toBe(200);
       expect(res.body.users).toHaveLength(1);
       expect(res.body.users[0]).toMatchObject({ uid: 'uid123' });
-    });
-
-    it('returns 403 when service throws ForbiddenError', async () => {
-      (usersService.listUsers as jest.Mock).mockRejectedValue(new ForbiddenError('Admin access required'));
-
-      const res = await request(app)
-        .get('/api/v1/users')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(res.status).toBe(403);
     });
 
     it('returns 401 when unauthenticated', async () => {

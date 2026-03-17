@@ -13,7 +13,7 @@ const router = Router();
  * @swagger
  * /api/v1/users:
  *   get:
- *     summary: List users (admin only)
+ *     summary: List users
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -34,8 +34,6 @@ const router = Router();
  *         description: List of users
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden — admin role required
  */
 router.get('/', listUsersHandler);
 
@@ -86,7 +84,6 @@ router.post('/', createUserHandler);
  * /api/v1/users/{uid}:
  *   get:
  *     summary: Get user by UID
- *     description: Admins may retrieve any user. Non-admins may only retrieve their own profile.
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -101,8 +98,6 @@ router.post('/', createUserHandler);
  *         description: User record
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden — non-admin users may only retrieve their own profile
  *       404:
  *         description: User not found
  */

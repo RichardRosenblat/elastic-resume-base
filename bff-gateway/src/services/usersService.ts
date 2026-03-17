@@ -88,22 +88,13 @@ export async function createUser(payload: CreateUserRequest, requesterUid: strin
 }
 
 /**
- * Retrieves a Firebase Auth user by UID.
- *
- * Admins may retrieve any user. Non-admins may only retrieve their own profile.
+ * Retrieves a Firebase Auth user by UID. Available to all authenticated users.
  *
  * @param uid - UID of the user to retrieve.
- * @param requesterUid - UID of the user making the request.
  * @returns The UserRecord including the role fetched from UserAPI.
  * @throws {NotFoundError} If the user does not exist.
- * @throws {ForbiddenError} If a non-admin attempts to retrieve another user's profile.
  */
-export async function getUserByUid(uid: string, requesterUid: string): Promise<UserRecord> {
-  const requesterRole = await getUserRole(requesterUid);
-  if (requesterRole !== 'admin' && uid !== requesterUid) {
-    throw new ForbiddenError('You may only access your own profile');
-  }
-
+export async function getUserByUid(uid: string): Promise<UserRecord> {
   const app = getFirebaseApp();
   try {
     const record = await admin.auth(app).getUser(uid);
@@ -198,23 +189,15 @@ export async function deleteUser(uid: string, requesterUid: string): Promise<voi
 }
 
 /**
- * Lists Firebase Auth users with optional pagination. Requires admin role.
+ * Lists Firebase Auth users with optional pagination. Available to all authenticated users.
  *
  * Roles for all returned users are fetched from UserAPI in a single batch call.
  *
- * @param requesterUid - UID of the admin user making the request.
  * @param maxResults - Maximum number of users to return (default 100, max 1000).
  * @param pageToken - Pagination token from a previous call.
  * @returns ListUsersResponse with users (including roles) and optional next page token.
- * @throws {ForbiddenError} If the requester is not an admin.
  */
-export async function listUsers(
-  requesterUid: string,
-  maxResults?: number,
-  pageToken?: string,
-): Promise<ListUsersResponse> {
-  await checkAdminAccess(requesterUid);
-
+export async function listUsers(maxResults?: number, pageToken?: string): Promise<ListUsersResponse> {
   const app = getFirebaseApp();
   const result = await admin.auth(app).listUsers(maxResults, pageToken);
   const uids = result.users.map((u) => u.uid);

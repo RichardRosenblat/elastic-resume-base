@@ -128,43 +128,32 @@ describe('usersService', () => {
   // getUserByUid
   // ---------------------------------------------------------------------------
   describe('getUserByUid', () => {
-    it('returns user when requester is admin (any uid)', async () => {
-      (userApiClient.getUserRole as jest.Mock)
-        .mockResolvedValueOnce('admin') // requester role
-        .mockResolvedValueOnce('user'); // target user role
+    it('returns user for any authenticated requester', async () => {
+      (userApiClient.getUserRole as jest.Mock).mockResolvedValueOnce('user');
       (admin.auth as jest.Mock).mockReturnValue({
         getUser: jest.fn().mockResolvedValue(makeFirebaseRecord()),
       });
 
-      const result = await getUserByUid('uid123', 'admin-uid');
+      const result = await getUserByUid('uid123');
       expect(result.uid).toBe('uid123');
     });
 
-    it('returns own user when requester is not admin', async () => {
-      (userApiClient.getUserRole as jest.Mock)
-        .mockResolvedValueOnce('user') // requester role
-        .mockResolvedValueOnce('user'); // own role
+    it('returns another user when requester is not admin', async () => {
+      (userApiClient.getUserRole as jest.Mock).mockResolvedValueOnce('user');
       (admin.auth as jest.Mock).mockReturnValue({
-        getUser: jest.fn().mockResolvedValue(makeFirebaseRecord({ uid: 'self-uid' })),
+        getUser: jest.fn().mockResolvedValue(makeFirebaseRecord({ uid: 'other-uid' })),
       });
 
-      const result = await getUserByUid('self-uid', 'self-uid');
-      expect(result.uid).toBe('self-uid');
-    });
-
-    it('throws ForbiddenError when non-admin requests another user', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('user');
-
-      await expect(getUserByUid('other-uid', 'self-uid')).rejects.toThrow(ForbiddenError);
+      const result = await getUserByUid('other-uid');
+      expect(result.uid).toBe('other-uid');
     });
 
     it('throws NotFoundError when Firebase user does not exist', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin');
       (admin.auth as jest.Mock).mockReturnValue({
         getUser: jest.fn().mockRejectedValue(new Error('There is no user record corresponding to uid')),
       });
 
-      await expect(getUserByUid('missing-uid', 'admin-uid')).rejects.toThrow(NotFoundError);
+      await expect(getUserByUid('missing-uid')).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -291,14 +280,7 @@ describe('usersService', () => {
   // listUsers
   // ---------------------------------------------------------------------------
   describe('listUsers', () => {
-    it('throws ForbiddenError when requester is not admin', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('user');
-
-      await expect(listUsers('non-admin-uid')).rejects.toThrow(ForbiddenError);
-    });
-
-    it('returns users with roles attached when requester is admin', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin'); // requester role check
+    it('returns users with roles attached for any authenticated user', async () => {
       (userApiClient.getUserRolesBatch as jest.Mock).mockResolvedValue({ uid123: 'editor' });
       (admin.auth as jest.Mock).mockReturnValue({
         listUsers: jest.fn().mockResolvedValue({
@@ -307,13 +289,12 @@ describe('usersService', () => {
         }),
       });
 
-      const result = await listUsers('admin-uid', 10);
+      const result = await listUsers(10);
       expect(result.users).toHaveLength(1);
       expect(result.users[0]?.role).toBe('editor');
     });
 
     it('falls back to "user" role when uid is missing from batch result', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin');
       (userApiClient.getUserRolesBatch as jest.Mock).mockResolvedValue({}); // uid not in response
       (admin.auth as jest.Mock).mockReturnValue({
         listUsers: jest.fn().mockResolvedValue({
@@ -322,7 +303,7 @@ describe('usersService', () => {
         }),
       });
 
-      const result = await listUsers('admin-uid');
+      const result = await listUsers();
       expect(result.users[0]?.role).toBe('user');
     });
   });
