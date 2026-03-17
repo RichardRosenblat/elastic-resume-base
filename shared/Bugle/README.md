@@ -9,8 +9,21 @@ To install Bugle you must use a relative path to the package since it is not pub
 
 ```bash
 npm install ../shared/Bugle
+
+```
+if Bugle hasnt been built yet, you may need to build it first, from the root of the monorepo, run:
+
+```bash
+cd shared/Bugle
+npm install
+npm run build
 ```
 
+or to build all shared packages at once from the root:
+
+```bash
+.\build_shared.bat
+```
 ---
 
 ## Configuration

@@ -10,7 +10,19 @@ To install Bowltie you must use a relative path to the package since it is not p
 ```bash
 npm install ../shared/Bowltie
 ```
+if Synapse hasnt been built yet, you may need to build it first, from the root of the monorepo, run:
 
+```bash
+cd shared/Synapse
+npm install
+npm run build
+```
+
+or to build all shared packages at once from the root:
+
+```bash
+.\build_shared.bat
+```
 ---
 
 ## Quick Start
