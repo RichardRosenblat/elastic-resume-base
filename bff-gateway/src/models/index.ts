@@ -128,6 +128,8 @@ export interface UserRecord {
   photoURL?: string;
   disabled: boolean;
   emailVerified: boolean;
+  /** Role fetched from UserAPI. */
+  role: string;
   createdAt?: string;
   lastLoginAt?: string;
 }
