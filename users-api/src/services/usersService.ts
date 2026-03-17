@@ -1,0 +1,338 @@
+import * as admin from 'firebase-admin';
+import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
+import { DrivePermissionsService } from '@elastic-resume-base/bugle';
+import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
+import type { UserRecord, CreateUserRequest, UpdateUserRequest, ListUsersResponse } from '../models/index.js';
+
+/** Name of the Firestore collection where user documents are stored. */
+const USERS_COLLECTION = 'users';
+
+/** Default role assigned to newly created users. */
+const DEFAULT_ROLE = 'user';
+
+/**
+ * Returns the Firestore instance, pointing to the emulator when configured.
+ * @returns Firestore Admin instance.
+ */
+function getFirestore(): admin.firestore.Firestore {
+  return admin.firestore();
+}
+
+/**
+ * Returns `true` if the given value looks like a Firestore Timestamp
+ * (has a callable `toDate` method).
+ */
+function isTimestamp(value: unknown): value is admin.firestore.Timestamp {
+  return (
+    value !== null &&
+    value !== undefined &&
+    typeof (value as Record<string, unknown>)['toDate'] === 'function'
+  );
+}
+
+/**
+ * Maps a Firestore document snapshot to the normalised {@link UserRecord} shape.
+ *
+ * @param doc - Firestore document snapshot.
+ * @returns Normalised UserRecord.
+ * @throws {NotFoundError} If the document does not exist.
+ */
+function mapDocument(
+  doc: admin.firestore.DocumentSnapshot<admin.firestore.DocumentData>,
+): UserRecord {
+  if (!doc.exists) {
+    throw new NotFoundError(`User '${doc.id}' not found`);
+  }
+  const data = doc.data() as Record<string, unknown>;
+  return {
+    uid: doc.id,
+    email: (data['email'] as string) ?? '',
+    displayName: data['displayName'] as string | undefined,
+    photoURL: data['photoURL'] as string | undefined,
+    role: (data['role'] as string) ?? DEFAULT_ROLE,
+    disabled: Boolean(data['disabled']),
+    createdAt: isTimestamp(data['createdAt'])
+      ? data['createdAt'].toDate().toISOString()
+      : (data['createdAt'] as string | undefined),
+    updatedAt: isTimestamp(data['updatedAt'])
+      ? data['updatedAt'].toDate().toISOString()
+      : (data['updatedAt'] as string | undefined),
+  };
+}
+
+/**
+ * Validates that the email field is present and is a non-empty string.
+ *
+ * @param email - Email value to validate.
+ * @throws {ValidationError} If the email is missing or blank.
+ */
+function validateEmail(email: string): void {
+  if (!email || !email.includes('@')) {
+    throw new ValidationError('A valid email address is required');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CRUD operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a new user document in Firestore.
+ *
+ * @param data - User creation payload.
+ * @returns The newly created {@link UserRecord}.
+ * @throws {ValidationError} If the email is missing or invalid.
+ * @throws {ConflictError} If a user with the same email already exists.
+ */
+export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
+  validateEmail(data.email);
+
+  const db = getFirestore();
+
+  // Check for duplicate email
+  const existing = await db
+    .collection(USERS_COLLECTION)
+    .where('email', '==', data.email)
+    .limit(1)
+    .get();
+
+  if (!existing.empty) {
+    throw new ConflictError(`A user with email '${data.email}' already exists`);
+  }
+
+  const uid = data.uid ?? db.collection(USERS_COLLECTION).doc().id;
+  const now = admin.firestore.Timestamp.now();
+
+  const docData: Record<string, unknown> = {
+    email: data.email,
+    displayName: data.displayName ?? null,
+    photoURL: data.photoURL ?? null,
+    role: data.role ?? DEFAULT_ROLE,
+    disabled: data.disabled ?? false,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await db.collection(USERS_COLLECTION).doc(uid).set(docData);
+  logger.info({ uid, action: 'createUser' }, 'User created');
+
+  return mapDocument(await db.collection(USERS_COLLECTION).doc(uid).get());
+}
+
+/**
+ * Retrieves a user document from Firestore by UID.
+ *
+ * @param uid - Unique identifier of the user.
+ * @returns The corresponding {@link UserRecord}.
+ * @throws {NotFoundError} If no user with that UID exists.
+ */
+export async function getUserByUid(uid: string): Promise<UserRecord> {
+  const db = getFirestore();
+  const doc = await db.collection(USERS_COLLECTION).doc(uid).get();
+  return mapDocument(doc);
+}
+
+/**
+ * Updates mutable attributes of a Firestore user document.
+ *
+ * @param uid - Unique identifier of the user to update.
+ * @param data - Fields to update. Only supplied fields are changed.
+ * @returns The updated {@link UserRecord}.
+ * @throws {ValidationError} If an updated email is invalid.
+ * @throws {NotFoundError} If no user with that UID exists.
+ * @throws {ConflictError} If the new email is already taken by another user.
+ */
+export async function updateUser(uid: string, data: UpdateUserRequest): Promise<UserRecord> {
+  const db = getFirestore();
+
+  // Ensure the user exists
+  const existing = await db.collection(USERS_COLLECTION).doc(uid).get();
+  if (!existing.exists) {
+    throw new NotFoundError(`User '${uid}' not found`);
+  }
+
+  if (data.email !== undefined) {
+    validateEmail(data.email);
+    // Check that the new email is not taken by a *different* user
+    const emailConflict = await db
+      .collection(USERS_COLLECTION)
+      .where('email', '==', data.email)
+      .limit(1)
+      .get();
+
+    if (!emailConflict.empty && emailConflict.docs[0]?.id !== uid) {
+      throw new ConflictError(`A user with email '${data.email}' already exists`);
+    }
+  }
+
+  const updateData: Record<string, unknown> = {
+    updatedAt: admin.firestore.Timestamp.now(),
+  };
+
+  if (data.email !== undefined) updateData['email'] = data.email;
+  if (data.displayName !== undefined) updateData['displayName'] = data.displayName;
+  if (data.photoURL !== undefined) updateData['photoURL'] = data.photoURL;
+  if (data.role !== undefined) updateData['role'] = data.role;
+  if (data.disabled !== undefined) updateData['disabled'] = data.disabled;
+
+  await db.collection(USERS_COLLECTION).doc(uid).update(updateData);
+  logger.info({ uid, action: 'updateUser' }, 'User updated');
+
+  return mapDocument(await db.collection(USERS_COLLECTION).doc(uid).get());
+}
+
+/**
+ * Permanently removes a user document from Firestore.
+ *
+ * @param uid - Unique identifier of the user to delete.
+ * @throws {NotFoundError} If no user with that UID exists.
+ */
+export async function deleteUser(uid: string): Promise<void> {
+  const db = getFirestore();
+  const doc = await db.collection(USERS_COLLECTION).doc(uid).get();
+  if (!doc.exists) {
+    throw new NotFoundError(`User '${uid}' not found`);
+  }
+  await db.collection(USERS_COLLECTION).doc(uid).delete();
+  logger.info({ uid, action: 'deleteUser' }, 'User deleted');
+}
+
+/**
+ * Lists user documents from Firestore with optional pagination.
+ *
+ * @param maxResults - Maximum number of results to return (default: 100).
+ * @param pageToken - Opaque pagination token (base64-encoded last document UID) from a
+ *   previous call. When provided, results begin after the document with that UID.
+ * @returns A {@link ListUsersResponse} with the page of users and an optional next-page token.
+ */
+export async function listUsers(
+  maxResults = 100,
+  pageToken?: string,
+): Promise<ListUsersResponse> {
+  const db = getFirestore();
+  let query = db
+    .collection(USERS_COLLECTION)
+    .orderBy('createdAt', 'desc')
+    .limit(maxResults);
+
+  if (pageToken) {
+    const lastUid = Buffer.from(pageToken, 'base64').toString('utf-8');
+    const lastDoc = await db.collection(USERS_COLLECTION).doc(lastUid).get();
+    if (lastDoc.exists) {
+      query = query.startAfter(lastDoc);
+    }
+  }
+
+  const snapshot = await query.get();
+  const users = snapshot.docs.map(mapDocument);
+
+  let nextPageToken: string | undefined;
+  if (snapshot.docs.length === maxResults) {
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (lastDoc) {
+      nextPageToken = Buffer.from(lastDoc.id, 'utf-8').toString('base64');
+    }
+  }
+
+  return { users, pageToken: nextPageToken };
+}
+
+// ---------------------------------------------------------------------------
+// BFF access / role check
+// ---------------------------------------------------------------------------
+
+/**
+ * Determines the access role for a given user, implementing the BFF Authorization Logic.
+ *
+ * The resolution order is:
+ * 1. **Google Drive (Bugle)** — when `ADMIN_SHEET_FILE_ID` is set, the service retrieves the
+ *    list of users with access to that file.  If the user's email appears in the list, the
+ *    role `"admin"` is returned.  If the email is *not* in the list, `null` is returned
+ *    (no access).
+ * 2. **Firestore (Synapse)** — when `ADMIN_SHEET_FILE_ID` is *not* set, the service looks up
+ *    the user by UID in Firestore.  If found, the stored role is returned.  If not found,
+ *    `null` is returned (no access).
+ *
+ * @param uid - Firebase user UID (used for the Firestore lookup path).
+ * @returns The user's role string (e.g. `"admin"`, `"user"`) or `null` when the user has
+ *   no access to the application.
+ */
+export async function getUserRole(uid: string): Promise<string | null> {
+  const adminSheetFileId = config.adminSheetFileId;
+
+  if (adminSheetFileId) {
+    // --- Google Drive path (Bugle) ---
+    logger.info({ uid, action: 'getUserRole' }, 'Checking access via Google Drive');
+
+    // Look up the user's email from Firestore to use in the Drive check
+    let userEmail: string | undefined;
+    try {
+      const user = await getUserByUid(uid);
+      userEmail = user.email;
+    } catch {
+      // User not in Firestore; we still need to check Drive by email if provided
+      logger.warn({ uid }, 'User not found in Firestore; cannot determine email for Drive check');
+      return null;
+    }
+
+    if (!userEmail) {
+      return null;
+    }
+
+    const driveService = new DrivePermissionsService();
+    const emailsWithAccess = await driveService.getUsersWithFileAccess(adminSheetFileId);
+    const normalizedEmail = userEmail.toLowerCase();
+
+    if (emailsWithAccess.includes(normalizedEmail)) {
+      logger.info({ uid, email: normalizedEmail }, 'User granted admin access via Google Drive');
+      return 'admin';
+    }
+
+    logger.info({ uid, email: normalizedEmail }, 'User not found in Drive permissions; no access');
+    return null;
+  }
+
+  // --- Firestore path (Synapse) ---
+  logger.info({ uid, action: 'getUserRole' }, 'Checking access via Firestore');
+  try {
+    const user = await getUserByUid(uid);
+    logger.info({ uid, role: user.role }, 'User found in Firestore');
+    return user.role;
+  } catch {
+    logger.info({ uid }, 'User not found in Firestore; no access');
+    return null;
+  }
+}
+
+/**
+ * Retrieves roles for a batch of user UIDs from Firestore.
+ *
+ * This method always uses the Firestore data store (not the Drive/Bugle path) and is
+ * intended for quickly enriching a list of existing users with their stored roles.
+ *
+ * @param uids - Array of Firebase user UIDs.
+ * @returns A map of `uid → role` for every UID that exists in Firestore.
+ *   UIDs that are not found default to `"user"`.
+ */
+export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
+  if (uids.length === 0) {
+    return {};
+  }
+
+  const db = getFirestore();
+  const refs = uids.map((uid) => db.collection(USERS_COLLECTION).doc(uid));
+  const docs = await db.getAll(...refs);
+
+  const result: Record<string, string> = {};
+  for (const doc of docs) {
+    if (doc.exists) {
+      const data = doc.data() as Record<string, unknown>;
+      result[doc.id] = (data['role'] as string) ?? DEFAULT_ROLE;
+    } else {
+      result[doc.id] = DEFAULT_ROLE;
+    }
+  }
+
+  return result;
+}
