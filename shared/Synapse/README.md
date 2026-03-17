@@ -5,12 +5,17 @@ A shared library providing **Firestore database abstractions**, **error handling
 ---
 
 ## Installation
+To install synapse you must use a relative path to the package since it is not published to npm
 
 ```bash
-npm install @elastic-resume-base/synapse
+npm install ../shared/Synapse
 ```
 
-> **Note:** `firebase-admin` is a peer dependency.  Make sure it is installed in your consuming service.
+> **Note:** `firebase-admin` is a peer dependency.  If npm does not automatically install it, you may need to add it manually:
+
+```bash
+npm install firebase-admin
+```
 
 ---
 
