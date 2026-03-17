@@ -1,8 +1,8 @@
 /**
  * @module @elastic-resume-base/synapse
  *
- * Synapse provides shared database abstractions, error classes, and response
- * formatting utilities for Elastic Resume Base microservices.
+ * Synapse provides shared database abstractions and error classes for Elastic
+ * Resume Base microservices.
  *
  * ## Quick Start
  *
@@ -10,7 +10,6 @@
  * import {
  *   FirestoreUserRepository,
  *   NotFoundError,
- *   formatSuccess,
  * } from '@elastic-resume-base/synapse';
  * ```
  */
@@ -26,10 +25,6 @@ export {
   DownstreamError,
   isAppError,
 } from './errors.js';
-
-// Response formatting
-export { formatSuccess, formatError } from './response.js';
-export type { ResponseMeta, SuccessResponse, ErrorResponse, ApiResponse } from './response.js';
 
 // User repository interface & models
 export type {

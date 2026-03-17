@@ -1,7 +1,7 @@
 {
-  "name": "@elastic-resume-base/synapse",
+  "name": "@elastic-resume-base/bowltie",
   "version": "1.0.0",
-  "description": "Shared Firestore database abstractions and error handling for Elastic Resume Base microservices",
+  "description": "Shared API response formatting utilities for Elastic Resume Base microservices",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,10 +21,7 @@
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest --runInBand --forceExit",
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage"
   },
-  "dependencies": {
-    "firebase-admin": "12.1.0",
-    "zod": "3.23.8"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/jest": "29.5.12",
     "@types/node": "20.12.7",

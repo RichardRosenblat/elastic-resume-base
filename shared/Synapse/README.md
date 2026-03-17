@@ -1,10 +1,11 @@
 # Synapse
 
-A shared library providing **Firestore database abstractions**, **error handling**, and **response formatting** utilities for Elastic Resume Base microservices.
+A shared library providing **Firestore database abstractions** and **error handling** for Elastic Resume Base microservices. Synapse focuses solely on abstracting persistence — response formatting is handled separately by [Bowltie](../Bowltie/README.md).
 
 ---
 
 ## Installation
+
 To install synapse you must use a relative path to the package since it is not published to npm
 
 ```bash
@@ -26,23 +27,14 @@ import { initializeApp } from 'firebase-admin/app';
 import {
   FirestoreUserRepository,
   NotFoundError,
-  formatSuccess,
-  formatError,
+  isAppError,
 } from '@elastic-resume-base/synapse';
 
 const app = initializeApp();
 const userRepo = new FirestoreUserRepository(app);
 
-// Create a user
-const user = await userRepo.createUser({
-  email: 'alice@example.com',
-  password: 'secret',
-  displayName: 'Alice',
-});
-
-// Format a success response
-const response = formatSuccess(user, req.headers['x-request-id']);
-res.status(201).json(response);
+// Retrieve a user — throws NotFoundError if missing
+const user = await userRepo.getUserByUID(uid);
 ```
 
 ---
@@ -72,22 +64,6 @@ try {
     res.status(err.statusCode).json({ code: err.code, message: err.message });
   }
 }
-```
-
-### Response Formatting (`response.ts`)
-
-Provides `formatSuccess` and `formatError` helpers that produce a consistent JSON envelope across all services.
-
-```typescript
-import { formatSuccess, formatError } from '@elastic-resume-base/synapse';
-
-// Success
-res.status(200).json(formatSuccess(data, correlationId));
-// → { success: true, data: {...}, meta: { correlationId, timestamp } }
-
-// Error
-res.status(404).json(formatError('NOT_FOUND', 'User not found', correlationId));
-// → { success: false, error: { code, message }, meta: { correlationId, timestamp } }
 ```
 
 ### User Repository Interface (`interfaces/user-repository.ts`)
