@@ -20,7 +20,7 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
   const correlationId = request.correlationId;
 
   if (err instanceof ZodError) {
-    reply.code(400).send(buildErrorResponse('VALIDATION_ERROR', 'Request validation failed', correlationId));
+    void reply.code(400).send(buildErrorResponse('VALIDATION_ERROR', 'Request validation failed', correlationId));
     return;
   }
 
@@ -33,7 +33,7 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
         'Application error',
       );
     }
-    reply.code(err.statusCode).send(
+    void reply.code(err.statusCode).send(
       buildErrorResponse(
         err.code,
         err.statusCode >= 500 ? 'An unexpected error occurred' : err.message,
@@ -55,7 +55,7 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
     );
   }
 
-  reply.code(statusCode).send(
+  void reply.code(statusCode).send(
     buildErrorResponse(
       appError.code ?? 'INTERNAL_ERROR',
       statusCode >= 500 ? 'An unexpected error occurred' : err.message,

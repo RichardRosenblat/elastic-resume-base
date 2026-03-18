@@ -14,5 +14,5 @@ const searchSchema = z.object({
 export async function searchHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const body = searchSchema.parse(request.body);
   const result = await search(body);
-  reply.send(formatSuccess(result, request.correlationId));
+  void reply.send(formatSuccess(result, request.correlationId));
 }

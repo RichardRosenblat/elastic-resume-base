@@ -21,7 +21,7 @@ function sendError(
   } else {
     logger.warn({ ...logContext, correlationId }, 'Downstream service error');
   }
-  reply.code(statusCode).send(formatError(code, message, correlationId));
+  void reply.code(statusCode).send(formatError(code, message, correlationId));
 }
 
 /**
@@ -32,7 +32,7 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
   const correlationId = request.correlationId;
 
   if (err instanceof ZodError) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
     return;
   }
 

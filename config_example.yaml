@@ -72,6 +72,9 @@ systems:
   users-api:
     PORT: "8005"
 
+    # Name of the Firestore collection where user documents are stored.
+    FIRESTORE_USERS_COLLECTION: users
+
     # Google Service Account credentials (Base64-encoded JSON or raw JSON).
     # Required for Google Drive access via the Bugle shared library.
     # Leave empty to fall back to Firestore-based role checks.

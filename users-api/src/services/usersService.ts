@@ -6,7 +6,7 @@ import { logger } from '../utils/logger.js';
 import type { UserRecord, CreateUserRequest, UpdateUserRequest, ListUsersResponse } from '../models/index.js';
 
 /** Name of the Firestore collection where user documents are stored. */
-const USERS_COLLECTION = 'users';
+const USERS_COLLECTION = config.firestoreUsersCollection;
 
 /** Default role assigned to newly created users. */
 const DEFAULT_ROLE = 'user';

@@ -39,11 +39,11 @@ export async function createUserHandler(
 ): Promise<void> {
   const parsed = createUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
   const user = await createUser(parsed.data, request.user.uid);
-  reply.code(201).send(formatSuccess(user, request.correlationId));
+  void reply.code(201).send(formatSuccess(user, request.correlationId));
 }
 
 /**
@@ -55,7 +55,7 @@ export async function getUserHandler(
   reply: FastifyReply,
 ): Promise<void> {
   const user = await getUserByUid(request.params.uid);
-  reply.send(formatSuccess(user, request.correlationId));
+  void reply.send(formatSuccess(user, request.correlationId));
 }
 
 /**
@@ -69,11 +69,11 @@ export async function updateUserHandler(
 ): Promise<void> {
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
   const user = await updateUser(request.params.uid, parsed.data, request.user.uid);
-  reply.send(formatSuccess(user, request.correlationId));
+  void reply.send(formatSuccess(user, request.correlationId));
 }
 
 /**
@@ -85,7 +85,7 @@ export async function deleteUserHandler(
   reply: FastifyReply,
 ): Promise<void> {
   await deleteUser(request.params.uid, request.user.uid);
-  reply.code(204).send();
+  void reply.code(204).send();
 }
 
 /**
@@ -98,9 +98,9 @@ export async function listUsersHandler(
 ): Promise<void> {
   const parsed = listUsersQuerySchema.safeParse(request.query);
   if (!parsed.success) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
   const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
-  reply.send(formatSuccess(result, request.correlationId));
+  void reply.send(formatSuccess(result, request.correlationId));
 }

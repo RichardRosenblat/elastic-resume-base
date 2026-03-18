@@ -39,7 +39,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   const authHeader = request.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    reply.code(401).send(formatError('UNAUTHORIZED', 'Missing or invalid Authorization header'));
+    void reply.code(401).send(formatError('UNAUTHORIZED', 'Missing or invalid Authorization header'));
     return;
   }
 
@@ -52,12 +52,12 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
     request.user = {
       uid: decoded.uid,
       email: decoded.email,
-      name: decoded.name,
+      name: decoded.name as string | undefined,
       picture: decoded.picture,
     };
   } catch (err) {
     logger.warn({ err, correlationId: request.correlationId }, 'Token verification failed');
-    reply.code(401).send(formatError('UNAUTHORIZED', 'Invalid or expired token'));
+    void reply.code(401).send(formatError('UNAUTHORIZED', 'Invalid or expired token'));
     return;
   }
 
@@ -65,7 +65,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
     await checkUserAccess(request.user.uid);
   } catch (err) {
     if (err instanceof ForbiddenError) {
-      reply.code(403).send(formatError('FORBIDDEN', err.message));
+      void reply.code(403).send(formatError('FORBIDDEN', err.message));
       return;
     }
     throw err;

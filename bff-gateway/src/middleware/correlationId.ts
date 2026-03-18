@@ -12,6 +12,6 @@ export function correlationIdHook(
 ): void {
   const correlationId = (request.headers['x-correlation-id'] as string) || uuidv4();
   request.correlationId = correlationId;
-  reply.header('x-correlation-id', correlationId);
+  void reply.header('x-correlation-id', correlationId);
   done();
 }

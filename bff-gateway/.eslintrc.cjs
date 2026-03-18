@@ -1,22 +1,42 @@
 module.exports = {
+  root: true,
   parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: ['./tsconfig.json', './tsconfig.eslint.json'],
+    tsconfigRootDir: __dirname,
+    sourceType: 'module',
+  },
   plugins: ['@typescript-eslint'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
   ],
-  parserOptions: {
-    ecmaVersion: 2022,
-    sourceType: 'module',
-  },
   env: {
     node: true,
     es2022: true,
   },
   rules: {
+    '@typescript-eslint/explicit-function-return-type': 'warn',
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-    'no-console': 'error',
+    '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { arguments: false } }],
+    '@typescript-eslint/require-await': 'off',
   },
+  overrides: [
+    {
+      // Relax type-aware rules for test files: jest mocks are typed as
+      // `any`, so unsafe-member-access / unsafe-assignment / unbound-method
+      // fire on every assertion.
+      files: ['tests/**/*.ts'],
+      rules: {
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        '@typescript-eslint/unbound-method': 'off',
+      },
+    },
+  ],
+  ignorePatterns: ['dist/', 'node_modules/', 'jest.config.cjs', '.eslintrc.cjs'],
 };

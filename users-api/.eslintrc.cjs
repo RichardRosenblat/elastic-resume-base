@@ -21,17 +21,20 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { arguments: false } }],
+    '@typescript-eslint/require-await': 'off',
   },
   overrides: [
     {
-      // Relax type-aware rules for test files: supertest's res.body is typed as
-      // `any`, so unsafe-member-access / unsafe-assignment fire on every assertion.
+      // Relax type-aware rules for test files: jest mocks are typed as
+      // `any`, so unsafe-member-access / unsafe-assignment / unbound-method
+      // fire on every assertion.
       files: ['tests/**/*.ts'],
       rules: {
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
         '@typescript-eslint/no-unsafe-call': 'off',
         '@typescript-eslint/explicit-function-return-type': 'off',
+        '@typescript-eslint/unbound-method': 'off',
       },
     },
   ],
