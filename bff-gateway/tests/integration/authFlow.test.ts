@@ -53,8 +53,9 @@ describe('Auth Flow Integration', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json().success).toBe(true);
-    expect(res.json().data).toMatchObject({
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({
       uid: 'integration-user-001',
       email: 'integration@example.com',
       name: 'Integration User',

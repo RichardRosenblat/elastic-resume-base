@@ -39,7 +39,7 @@ export async function createUserHandler(
 ): Promise<void> {
   const parsed = createUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', 'Validation error'));
+    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
   const user = await createUser(parsed.data, request.user.uid);
@@ -69,7 +69,7 @@ export async function updateUserHandler(
 ): Promise<void> {
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', 'Validation error'));
+    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
   const user = await updateUser(request.params.uid, parsed.data, request.user.uid);
@@ -98,7 +98,7 @@ export async function listUsersHandler(
 ): Promise<void> {
   const parsed = listUsersQuerySchema.safeParse(request.query);
   if (!parsed.success) {
-    reply.code(400).send(formatError('VALIDATION_ERROR', 'Validation error'));
+    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
   const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);

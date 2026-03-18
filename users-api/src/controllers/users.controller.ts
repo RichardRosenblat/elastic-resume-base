@@ -56,7 +56,10 @@ export async function createUserHandler(
 ): Promise<void> {
   const parsed = createUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation error' } });
+    reply.code(400).send({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
+    });
     return;
   }
   const user = await createUser(parsed.data);
@@ -83,7 +86,10 @@ export async function updateUserHandler(
 ): Promise<void> {
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation error' } });
+    reply.code(400).send({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
+    });
     return;
   }
   const user = await updateUser(request.params.uid, parsed.data);
@@ -110,7 +116,10 @@ export async function listUsersHandler(
 ): Promise<void> {
   const parsed = listUsersQuerySchema.safeParse(request.query);
   if (!parsed.success) {
-    reply.code(400).send({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation error' } });
+    reply.code(400).send({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
+    });
     return;
   }
   const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
@@ -149,7 +158,10 @@ export async function getBatchRolesHandler(
 ): Promise<void> {
   const parsed = batchRolesSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation error' } });
+    reply.code(400).send({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
+    });
     return;
   }
   const roles = await getUserRolesBatch(parsed.data.uids);

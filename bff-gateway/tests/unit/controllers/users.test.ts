@@ -79,8 +79,9 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
     });
 
     it('returns 400 on invalid email', async () => {
@@ -92,8 +93,9 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json().success).toBe(false);
-      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+      const body = res.json();
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('returns 400 on short password', async () => {
@@ -105,8 +107,9 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json().success).toBe(false);
-      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+      const body2 = res.json();
+      expect(body2.success).toBe(false);
+      expect(body2.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('returns 401 when unauthenticated', async () => {
@@ -144,8 +147,9 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data).toMatchObject({ uid: 'uid123' });
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({ uid: 'uid123' });
     });
 
     it('returns 404 when NotFoundError thrown', async () => {
@@ -179,8 +183,9 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data.displayName).toBe('Updated Name');
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.displayName).toBe('Updated Name');
     });
 
     it('returns 403 when service throws ForbiddenError', async () => {
@@ -251,9 +256,10 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data.users).toHaveLength(1);
-      expect(res.json().data.users[0]).toMatchObject({ uid: 'uid123' });
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.users).toHaveLength(1);
+      expect(body.data.users[0]).toMatchObject({ uid: 'uid123' });
     });
 
     it('returns 401 when unauthenticated', async () => {

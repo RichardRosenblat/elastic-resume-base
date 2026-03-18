@@ -79,8 +79,9 @@ describe('users controller', () => {
       const res = await app.inject({ method: 'GET', url: '/api/v1/users' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data.users).toHaveLength(1);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.users).toHaveLength(1);
     });
 
     it('passes maxResults and pageToken query params to service', async () => {
@@ -110,8 +111,9 @@ describe('users controller', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data.uid).toBe('uid123');
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.uid).toBe('uid123');
     });
 
     it('returns 400 when email is missing', async () => {
@@ -142,8 +144,9 @@ describe('users controller', () => {
       const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid123' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data.uid).toBe('uid123');
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.uid).toBe('uid123');
     });
 
     it('returns 404 when user is not found', async () => {
@@ -225,8 +228,9 @@ describe('users controller', () => {
       const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid123/role' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data.role).toBe('admin');
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.role).toBe('admin');
     });
 
     it('returns 403 when user has no access (getUserRole returns null)', async () => {
@@ -255,9 +259,10 @@ describe('users controller', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().success).toBe(true);
-      expect(res.json().data['uid1']).toBe('admin');
-      expect(res.json().data['uid2']).toBe('user');
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data['uid1']).toBe('admin');
+      expect(body.data['uid2']).toBe('user');
     });
 
     it('returns 400 when uids is missing', async () => {

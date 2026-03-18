@@ -61,8 +61,9 @@ describe('Resumes Controller - generate endpoint', () => {
     });
 
     expect(res.statusCode).toBe(202);
-    expect(res.json().success).toBe(true);
-    expect(res.json().data).toMatchObject({ jobId: 'job-123', status: 'accepted' });
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({ jobId: 'job-123', status: 'accepted' });
     expect(fileGeneratorClient.generateResume).toHaveBeenCalledWith('rid123', {
       language: 'en',
       format: 'pdf',

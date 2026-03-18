@@ -49,8 +49,9 @@ describe('ME Route', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json().success).toBe(true);
-    expect(res.json().data).toMatchObject({
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({
       uid: 'user123',
       email: 'test@example.com',
     });
