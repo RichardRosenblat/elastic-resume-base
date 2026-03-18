@@ -227,8 +227,9 @@ describe('users controller', () => {
         .send({ uids: ['uid1', 'uid2'] });
 
       expect(res.status).toBe(200);
-      expect(res.body['uid1']).toBe('admin');
-      expect(res.body['uid2']).toBe('user');
+      expect(res.body.success).toBe(true);
+      expect(res.body.data['uid1']).toBe('admin');
+      expect(res.body.data['uid2']).toBe('user');
     });
 
     it('returns 400 when uids is missing', async () => {

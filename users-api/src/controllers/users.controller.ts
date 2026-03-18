@@ -202,7 +202,7 @@ export async function getBatchRolesHandler(
       return;
     }
     const roles = await getUserRolesBatch(parsed.data.uids);
-    res.status(200).json(roles);
+    res.status(200).json({ success: true, data: roles, correlationId: correlationId(req) });
   } catch (err) {
     next(err);
   }
