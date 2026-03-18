@@ -1,40 +1,32 @@
-import { Router } from 'express';
+import type { FastifyPluginAsync } from 'fastify';
 import { readDocumentHandler } from '../controllers/documents.controller.js';
 
-const router = Router();
+const documentsPlugin: FastifyPluginAsync = async (app) => {
+  app.post('/read', {
+    schema: {
+      tags: ['Documents'],
+      summary: 'Read and extract text from a document',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['fileReference'],
+        properties: {
+          fileReference: { type: 'string' },
+          options: {
+            type: 'object',
+            properties: {
+              extractTables: { type: 'boolean' },
+              language: { type: 'string' },
+            },
+          },
+        },
+      },
+      response: {
+        200: { type: 'object' },
+        401: { type: 'object' },
+      },
+    },
+  }, readDocumentHandler);
+};
 
-/**
- * @swagger
- * /api/v1/documents/read:
- *   post:
- *     summary: Read and extract text from a document
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - fileReference
- *             properties:
- *               fileReference:
- *                 type: string
- *               options:
- *                 type: object
- *                 properties:
- *                   extractTables:
- *                     type: boolean
- *                   language:
- *                     type: string
- *     responses:
- *       200:
- *         description: Document text extracted
- *       401:
- *         description: Unauthorized
- */
-router.post('/read', readDocumentHandler);
-
-export default router;
+export default documentsPlugin;

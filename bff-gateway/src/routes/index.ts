@@ -1,25 +1,28 @@
-import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth.js';
-import healthRouter from './health.js';
-import meRouter from './me.js';
-import resumesRouter from './resumes.js';
-import searchRouter from './search.js';
-import documentsRouter from './documents.js';
-import usersRouter from './users.js';
+import type { FastifyPluginAsync } from 'fastify';
+import { authHook } from '../middleware/auth.js';
+import healthPlugin from './health.js';
+import mePlugin from './me.js';
+import resumesPlugin from './resumes.js';
+import searchPlugin from './search.js';
+import documentsPlugin from './documents.js';
+import usersPlugin from './users.js';
 
-const router = Router();
+const routes: FastifyPluginAsync = async (app) => {
+  // Public health routes
+  await app.register(healthPlugin, { prefix: '/health' });
 
-router.use('/health', healthRouter);
+  // Protected API v1 routes (require Firebase auth)
+  await app.register(
+    async (api) => {
+      api.addHook('onRequest', authHook);
+      await api.register(mePlugin, { prefix: '/me' });
+      await api.register(resumesPlugin, { prefix: '/resumes' });
+      await api.register(searchPlugin, { prefix: '/search' });
+      await api.register(documentsPlugin, { prefix: '/documents' });
+      await api.register(usersPlugin, { prefix: '/users' });
+    },
+    { prefix: '/api/v1' },
+  );
+};
 
-const apiV1 = Router();
-apiV1.use(authMiddleware);
-
-apiV1.use('/me', meRouter);
-apiV1.use('/resumes', resumesRouter);
-apiV1.use('/search', searchRouter);
-apiV1.use('/documents', documentsRouter);
-apiV1.use('/users', usersRouter);
-
-router.use('/api/v1', apiV1);
-
-export default router;
+export default routes;

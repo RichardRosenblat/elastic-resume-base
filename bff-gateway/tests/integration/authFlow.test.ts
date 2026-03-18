@@ -1,5 +1,5 @@
-import request from 'supertest';
-import app from '../../src/app.js';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../../src/app.js';
 import { _resetFirebaseApp } from '../../src/middleware/auth.js';
 
 jest.mock('firebase-admin', () => ({
@@ -13,6 +13,18 @@ jest.mock('firebase-admin', () => ({
 import * as admin from 'firebase-admin';
 
 describe('Auth Flow Integration', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    (admin.apps as unknown[]).length = 0;
+    _resetFirebaseApp();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (admin.apps as unknown[]).length = 0;
@@ -31,14 +43,18 @@ describe('Auth Flow Integration', () => {
       verifyIdToken: jest.fn().mockResolvedValue(mockDecodedToken),
     });
 
-    const res = await request(app)
-      .get('/api/v1/me')
-      .set('Authorization', 'Bearer mock-firebase-token')
-      .set('x-correlation-id', 'test-correlation-id');
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: {
+        authorization: 'Bearer mock-firebase-token',
+        'x-correlation-id': 'test-correlation-id',
+      },
+    });
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toMatchObject({
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
+    expect(res.json().data).toMatchObject({
       uid: 'integration-user-001',
       email: 'integration@example.com',
       name: 'Integration User',

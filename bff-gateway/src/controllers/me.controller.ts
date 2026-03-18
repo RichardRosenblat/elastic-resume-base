@@ -1,10 +1,8 @@
-import { Request, Response } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { formatSuccess } from '@elastic-resume-base/bowltie';
-import { AuthenticatedRequest } from '../models/index.js';
 
 /** Returns the authenticated user's profile. */
-export function getProfile(req: Request, res: Response): void {
-  const authReq = req as AuthenticatedRequest;
-  const { uid, email, name, picture } = authReq.user;
-  res.status(200).json(formatSuccess({ uid, email, name, picture }, authReq.correlationId));
+export function getProfile(request: FastifyRequest, reply: FastifyReply): void {
+  const { uid, email, name, picture } = request.user;
+  reply.send(formatSuccess({ uid, email, name, picture }, request.correlationId));
 }

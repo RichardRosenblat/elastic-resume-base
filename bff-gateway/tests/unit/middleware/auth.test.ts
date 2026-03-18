@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import { authMiddleware, _resetFirebaseApp } from '../../../src/middleware/auth.js';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../../../src/app.js';
+import { authHook, _resetFirebaseApp } from '../../../src/middleware/auth.js';
 
-// Mock firebase-admin
 jest.mock('firebase-admin', () => ({
   apps: [],
   initializeApp: jest.fn().mockReturnValue({}),
@@ -12,58 +12,68 @@ jest.mock('firebase-admin', () => ({
 
 import * as admin from 'firebase-admin';
 
-describe('authMiddleware', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let next: NextFunction;
+describe('authHook', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    (admin.apps as unknown[]).length = 0;
+    _resetFirebaseApp();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
 
   beforeEach(() => {
-    req = { headers: {} };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-    };
-    next = jest.fn();
     jest.clearAllMocks();
-    // Reset apps array
     (admin.apps as unknown[]).length = 0;
     _resetFirebaseApp();
   });
 
   it('returns 401 when no Authorization header', async () => {
-    await authMiddleware(req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(next).not.toHaveBeenCalled();
+    const res = await app.inject({ method: 'GET', url: '/api/v1/me' });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('UNAUTHORIZED');
   });
 
   it('returns 401 when Authorization header does not start with Bearer', async () => {
-    req.headers = { authorization: 'Basic sometoken' };
-    await authMiddleware(req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(next).not.toHaveBeenCalled();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: { authorization: 'Basic sometoken' },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('UNAUTHORIZED');
   });
 
   it('returns 401 when token verification fails', async () => {
-    req.headers = { authorization: 'Bearer invalid-token' };
-    const mockVerifyIdToken = jest.fn().mockRejectedValue(new Error('Invalid token'));
-    (admin.auth as jest.Mock).mockReturnValue({ verifyIdToken: mockVerifyIdToken });
-    await authMiddleware(req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(next).not.toHaveBeenCalled();
+    (admin.auth as jest.Mock).mockReturnValue({
+      verifyIdToken: jest.fn().mockRejectedValue(new Error('Invalid token')),
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: { authorization: 'Bearer invalid-token' },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('UNAUTHORIZED');
   });
 
-  it('calls next() and sets req.user when token is valid', async () => {
-    req.headers = { authorization: 'Bearer valid-token' };
+  it('proceeds and sets request.user when token is valid', async () => {
     const decodedToken = { uid: 'user123', email: 'test@example.com', name: 'Test User', picture: 'http://pic.url' };
-    const mockVerifyIdToken = jest.fn().mockResolvedValue(decodedToken);
-    (admin.auth as jest.Mock).mockReturnValue({ verifyIdToken: mockVerifyIdToken });
-    await authMiddleware(req as Request, res as Response, next);
-    expect(next).toHaveBeenCalled();
-    expect((req as Request & { user: unknown }).user).toEqual({
-      uid: 'user123',
-      email: 'test@example.com',
-      name: 'Test User',
-      picture: 'http://pic.url',
+    (admin.auth as jest.Mock).mockReturnValue({
+      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
     });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: { authorization: 'Bearer valid-token' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.uid).toBe('user123');
   });
 });
+
+// Export authHook for completeness (was previously imported but not used directly)
+export { authHook };

@@ -1,81 +1,57 @@
-import { Router } from 'express';
+import type { FastifyPluginAsync } from 'fastify';
 import { ingest, generate } from '../controllers/resumes.controller.js';
 
-const router = Router();
+const resumesPlugin: FastifyPluginAsync = async (app) => {
+  app.post('/ingest', {
+    schema: {
+      tags: ['Resumes'],
+      summary: 'Trigger a resume ingest job',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        properties: {
+          sheetId: { type: 'string' },
+          batchId: { type: 'string' },
+          metadata: { type: 'object' },
+        },
+      },
+      response: {
+        202: { type: 'object' },
+        400: { type: 'object' },
+        401: { type: 'object' },
+      },
+    },
+  }, ingest);
 
-/**
- * @swagger
- * /api/v1/resumes/ingest:
- *   post:
- *     summary: Trigger a resume ingest job
- *     tags: [Resumes]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               sheetId:
- *                 type: string
- *               batchId:
- *                 type: string
- *               metadata:
- *                 type: object
- *     responses:
- *       202:
- *         description: Ingest job accepted
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
- */
-router.post('/ingest', ingest);
+  app.post('/:resumeId/generate', {
+    schema: {
+      tags: ['Resumes'],
+      summary: 'Generate a resume file',
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        required: ['resumeId'],
+        properties: { resumeId: { type: 'string' } },
+      },
+      body: {
+        type: 'object',
+        required: ['language', 'format'],
+        properties: {
+          language: { type: 'string' },
+          format: { type: 'string', enum: ['pdf', 'docx', 'html'] },
+          outputFormats: {
+            type: 'array',
+            items: { type: 'string', enum: ['pdf', 'docx', 'html'] },
+          },
+        },
+      },
+      response: {
+        202: { type: 'object' },
+        400: { type: 'object' },
+        401: { type: 'object' },
+      },
+    },
+  }, generate);
+};
 
-/**
- * @swagger
- * /api/v1/resumes/{resumeId}/generate:
- *   post:
- *     summary: Generate a resume file
- *     tags: [Resumes]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: resumeId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - language
- *               - format
- *             properties:
- *               language:
- *                 type: string
- *               format:
- *                 type: string
- *                 enum: [pdf, docx, html]
- *               outputFormats:
- *                 type: array
- *                 items:
- *                   type: string
- *                   enum: [pdf, docx, html]
- *     responses:
- *       202:
- *         description: Generate job accepted
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
- */
-router.post('/:resumeId/generate', generate);
-
-export default router;
+export default resumesPlugin;

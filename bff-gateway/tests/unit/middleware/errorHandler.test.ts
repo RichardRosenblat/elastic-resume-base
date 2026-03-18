@@ -1,21 +1,30 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError, z } from 'zod';
 import { errorHandler } from '../../../src/middleware/errorHandler.js';
+import { AppError } from '../../../src/errors.js';
+
+// Mock cloud error reporting to prevent real GCP calls
+jest.mock('../../../src/utils/cloudErrorReporting', () => ({
+  reportError: jest.fn(),
+}));
+
+jest.mock('../../../src/utils/logger', () => ({
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}));
+
+function makeMockReply() {
+  const reply = {
+    code: jest.fn().mockReturnThis(),
+    send: jest.fn().mockReturnThis(),
+  } as unknown as FastifyReply;
+  return reply;
+}
+
+function makeMockRequest(correlationId?: string) {
+  return { correlationId } as FastifyRequest;
+}
 
 describe('errorHandler', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let next: NextFunction;
-
-  beforeEach(() => {
-    req = {};
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-    };
-    next = jest.fn();
-  });
-
   it('handles ZodError with 400 status', () => {
     const schema = z.object({ name: z.string() });
     let zodErr: ZodError | null = null;
@@ -24,37 +33,43 @@ describe('errorHandler', () => {
     } catch (e) {
       zodErr = e as ZodError;
     }
-    errorHandler(zodErr!, req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(400);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonArg.success).toBe(false);
-    expect(jsonArg.error.code).toBe('VALIDATION_ERROR');
+    const reply = makeMockReply();
+    errorHandler(zodErr!, makeMockRequest(), reply);
+    expect(reply.code).toHaveBeenCalledWith(400);
+    const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
+    expect(sendArg.success).toBe(false);
+    expect(sendArg.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('handles AppError with its statusCode and code', () => {
+    const err = new AppError('Not found', 404, 'NOT_FOUND');
+    const reply = makeMockReply();
+    errorHandler(err, makeMockRequest(), reply);
+    expect(reply.code).toHaveBeenCalledWith(404);
+    const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
+    expect(sendArg.success).toBe(false);
+    expect(sendArg.error.code).toBe('NOT_FOUND');
+    expect(sendArg.error.message).toBe('Not found');
   });
 
   it('handles generic Error with 500 status', () => {
     const err = new Error('Something went wrong');
-    errorHandler(err, req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(500);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonArg.success).toBe(false);
-    expect(jsonArg.error.code).toBe('INTERNAL_ERROR');
+    const reply = makeMockReply();
+    errorHandler(err, makeMockRequest(), reply);
+    expect(reply.code).toHaveBeenCalledWith(500);
+    const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
+    expect(sendArg.success).toBe(false);
+    expect(sendArg.error.code).toBe('INTERNAL_ERROR');
   });
 
   it('handles downstream error with its statusCode and code', () => {
     const err = Object.assign(new Error('Service unavailable'), { statusCode: 503, code: 'SERVICE_UNAVAILABLE' });
-    errorHandler(err, req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(503);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonArg.success).toBe(false);
-    expect(jsonArg.error.code).toBe('SERVICE_UNAVAILABLE');
-    expect(jsonArg.error.message).toBe('Service unavailable');
-  });
-
-  it('handles unknown error with 500 status', () => {
-    errorHandler('some string error', req as Request, res as Response, next);
-    expect(res.status).toHaveBeenCalledWith(500);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonArg.success).toBe(false);
-    expect(jsonArg.error.code).toBe('INTERNAL_ERROR');
+    const reply = makeMockReply();
+    errorHandler(err, makeMockRequest(), reply);
+    expect(reply.code).toHaveBeenCalledWith(503);
+    const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
+    expect(sendArg.success).toBe(false);
+    expect(sendArg.error.code).toBe('SERVICE_UNAVAILABLE');
+    expect(sendArg.error.message).toBe('Service unavailable');
   });
 });

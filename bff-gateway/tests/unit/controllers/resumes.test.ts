@@ -1,5 +1,5 @@
-import request from 'supertest';
-import app from '../../../src/app.js';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../../../src/app.js';
 import { _resetFirebaseApp } from '../../../src/middleware/auth.js';
 
 jest.mock('firebase-admin', () => ({
@@ -30,6 +30,19 @@ function setupAuth() {
 }
 
 describe('Resumes Controller - generate endpoint', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    (admin.apps as unknown[]).length = 0;
+    _resetFirebaseApp();
+    setupAuth();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (admin.apps as unknown[]).length = 0;
@@ -40,14 +53,16 @@ describe('Resumes Controller - generate endpoint', () => {
   it('POST /api/v1/resumes/:rid/generate accepts outputFormats and returns response', async () => {
     (fileGeneratorClient.generateResume as jest.Mock).mockResolvedValue(mockGenerateResponse);
 
-    const res = await request(app)
-      .post('/api/v1/resumes/rid123/generate')
-      .set('Authorization', 'Bearer valid-token')
-      .send({ language: 'en', format: 'pdf', outputFormats: ['pdf', 'docx'] });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/rid123/generate',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { language: 'en', format: 'pdf', outputFormats: ['pdf', 'docx'] },
+    });
 
-    expect(res.status).toBe(202);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toMatchObject({ jobId: 'job-123', status: 'accepted' });
+    expect(res.statusCode).toBe(202);
+    expect(res.json().success).toBe(true);
+    expect(res.json().data).toMatchObject({ jobId: 'job-123', status: 'accepted' });
     expect(fileGeneratorClient.generateResume).toHaveBeenCalledWith('rid123', {
       language: 'en',
       format: 'pdf',
@@ -58,30 +73,36 @@ describe('Resumes Controller - generate endpoint', () => {
   it('POST /api/v1/resumes/:rid/generate works without outputFormats', async () => {
     (fileGeneratorClient.generateResume as jest.Mock).mockResolvedValue(mockGenerateResponse);
 
-    const res = await request(app)
-      .post('/api/v1/resumes/rid123/generate')
-      .set('Authorization', 'Bearer valid-token')
-      .send({ language: 'en', format: 'docx' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/rid123/generate',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { language: 'en', format: 'docx' },
+    });
 
-    expect(res.status).toBe(202);
-    expect(res.body.success).toBe(true);
+    expect(res.statusCode).toBe(202);
+    expect(res.json().success).toBe(true);
   });
 
   it('POST /api/v1/resumes/:rid/generate returns 400 on invalid format enum', async () => {
-    const res = await request(app)
-      .post('/api/v1/resumes/rid123/generate')
-      .set('Authorization', 'Bearer valid-token')
-      .send({ language: 'en', format: 'xlsx' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/rid123/generate',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { language: 'en', format: 'xlsx' },
+    });
 
-    expect(res.status).toBe(400);
+    expect(res.statusCode).toBe(400);
   });
 
   it('POST /api/v1/resumes/:rid/generate returns 400 on invalid outputFormats item', async () => {
-    const res = await request(app)
-      .post('/api/v1/resumes/rid123/generate')
-      .set('Authorization', 'Bearer valid-token')
-      .send({ language: 'en', format: 'pdf', outputFormats: ['pdf', 'invalid'] });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/rid123/generate',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { language: 'en', format: 'pdf', outputFormats: ['pdf', 'invalid'] },
+    });
 
-    expect(res.status).toBe(400);
+    expect(res.statusCode).toBe(400);
   });
 });

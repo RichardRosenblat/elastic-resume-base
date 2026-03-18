@@ -1,5 +1,3 @@
-import { Request } from 'express';
-
 /** Represents an authenticated Firebase user. */
 export interface AuthenticatedUser {
   uid: string;
@@ -8,10 +6,12 @@ export interface AuthenticatedUser {
   picture?: string;
 }
 
-/** Express Request extended with authenticated user and correlation ID. */
-export interface AuthenticatedRequest extends Request {
-  user: AuthenticatedUser;
-  correlationId: string;
+/** Augment FastifyRequest with authenticated user and correlation ID. */
+declare module 'fastify' {
+  interface FastifyRequest {
+    user: AuthenticatedUser;
+    correlationId: string;
+  }
 }
 
 /** User profile data. */

@@ -1,7 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess } from '@elastic-resume-base/bowltie';
-import { AuthenticatedRequest } from '../models/index.js';
 import { search } from '../services/searchClient.js';
 
 const searchSchema = z.object({
@@ -12,12 +11,8 @@ const searchSchema = z.object({
 });
 
 /** Handles POST /search - performs a semantic search. */
-export async function searchHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const body = searchSchema.parse(req.body);
-    const result = await search(body);
-    res.status(200).json(formatSuccess(result, (req as AuthenticatedRequest).correlationId));
-  } catch (err) {
-    next(err);
-  }
+export async function searchHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const body = searchSchema.parse(request.body);
+  const result = await search(body);
+  reply.send(formatSuccess(result, request.correlationId));
 }
