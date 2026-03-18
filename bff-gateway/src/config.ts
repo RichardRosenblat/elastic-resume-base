@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { loadConfigYaml } from './utils/loadConfigYaml.js';
+
+// Populate process.env from config.yaml (systems.shared + systems.bff-gateway)
+// before Zod reads process.env below. Keys already set are never overridden.
+loadConfigYaml('bff-gateway');
 
 /** Zod schema for application configuration. */
 const configSchema = z.object({

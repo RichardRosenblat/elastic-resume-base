@@ -6,7 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx src/server.ts",
-    "build": "tsc",
+    "build": "tsc --noEmit && node esbuild.config.mjs",
     "start": "node dist/server.js",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/jest": "29.5.12",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "20.12.7",
     "@types/uuid": "9.0.8",
     "@typescript-eslint/eslint-plugin": "7.8.0",

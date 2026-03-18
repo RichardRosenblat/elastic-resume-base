@@ -7,9 +7,7 @@
 #        cp config_example.yaml config.yaml
 #   2. Edit config.yaml and fill in any sensitive values
 #      (GOOGLE_SERVICE_ACCOUNT_KEY, DLQ_SLACK_WEBHOOK_URL, etc.).
-#   3. Generate per-service .env files for Docker Compose:
-#        python3 scripts/setup-env.py
-#   4. Start all services:
+#   3. Start all services — each API reads config.yaml directly at startup:
 #        docker compose up
 #
 # config.yaml is git-ignored — never commit real credentials.
@@ -19,6 +17,10 @@
 # Structure:
 #   systems.shared          — variables inherited by every service
 #   systems.<service-name>  — service-specific variables (override shared)
+#
+# Each Node.js service reads this file at startup (via src/utils/loadConfigYaml.ts),
+# merging systems.shared with its own section into process.env.
+# Keys already present in process.env are never overridden.
 # =============================================================================
 
 systems:

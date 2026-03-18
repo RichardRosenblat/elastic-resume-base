@@ -466,8 +466,9 @@ Add these scripts to `package.json`:
 ## Environment Variables
 
 - All environment variables for every service are defined in a **single nested `config.yaml`** at the repository root. The committed template is `config_example.yaml`; developers copy it to `config.yaml` (git-ignored) and fill in their values.
-- Running `python3 scripts/setup-env.py` reads `config.yaml` and generates a flat `KEY=value` `.env` file for each service (e.g. `bff-gateway/.env`). Docker Compose loads that file via `env_file` in `docker-compose.yml`. The generated `.env` files are git-ignored.
-- For local development without Docker Compose, export the relevant variables from your service's `.env` file (or run `source bff-gateway/.env`) before starting the service.
+- Each Node.js service reads `config.yaml` **directly at startup** via `src/utils/loadConfigYaml.ts`, which merges `systems.shared` with `systems.<service-name>` into `process.env`. No preprocessing script is required.
+- `loadConfigYaml` only sets keys that are **not already present** in `process.env`, so variables injected by the shell, Docker, CI, or a test harness always take precedence. If `config.yaml` cannot be found the function returns silently (graceful fallback to Zod defaults / existing env vars).
+- For local development without Docker Compose, place `config.yaml` at the repository root; `loadConfigYaml` will find it automatically when you `npm run dev` from inside or outside the service directory.
 - Validate environment variables at startup using **Zod**; fail fast if any required variable is missing.
 - Never access `process.env` directly in business logic — always go through a validated `config` module.
 - Never hardcode defaults that differ between environments; keep all defaults in the Zod schema or in `config_example.yaml`.
@@ -475,6 +476,10 @@ Add these scripts to `package.json`:
 ```typescript
 // src/config.ts
 import { z } from 'zod';
+import { loadConfigYaml } from './utils/loadConfigYaml.js';
+
+// Populate process.env from config.yaml before Zod reads it.
+loadConfigYaml('my-service');
 
 const configSchema = z.object({
   nodeEnv: z.enum(['development', 'production', 'test']).default('development'),
@@ -502,6 +507,46 @@ function loadConfig(): Config {
 
 export const config = loadConfig();
 ```
+
+---
+
+## Build Pipeline
+
+Each Node.js service uses **esbuild** for bundling alongside TypeScript for type checking.
+
+### Scripts
+
+| Script | Command | Purpose |
+|---|---|---|
+| `typecheck` | `tsc --noEmit` | Type-check only — no file output |
+| `build` | `tsc --noEmit && node esbuild.config.mjs` | Type-check then produce bundle |
+| `dev` | `tsx src/server.ts` | Run TypeScript directly (no build step) |
+
+### esbuild configuration (`esbuild.config.mjs`)
+
+```javascript
+import { build } from 'esbuild';
+
+await build({
+  entryPoints: ['src/server.ts'],
+  bundle: true,
+  platform: 'node',
+  target: 'node20',
+  format: 'esm',
+  packages: 'external',   // keep npm packages in node_modules at runtime
+  outfile: 'dist/server.js',
+  sourcemap: true,
+});
+```
+
+- **`bundle: true`** — Recursively inlines all local `import` statements into `dist/server.js`.
+- **`packages: 'external'`** — npm packages stay as `import` statements and are resolved from `node_modules/` at runtime. This avoids bundling packages that use native add-ons or dynamic `require()` calls.
+- **`format: 'esm'`** — Output is an ES module, consistent with `"type": "module"` in `package.json`.
+- **`sourcemap: true`** — Produces `dist/server.js.map` for readable stack traces.
+
+### `tsconfig.json` conventions
+
+Because esbuild handles all file emission, `tsconfig.json` should **not** include `declaration` or `declarationMap` (those are library-publishing options). The `outDir` and `rootDir` entries may be kept for reference but have no effect when `tsc` runs with `--noEmit`.
 
 ---
 

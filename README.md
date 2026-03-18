@@ -137,12 +137,8 @@ Ensure you have the following tools installed locally:
    # (GOOGLE_SERVICE_ACCOUNT_KEY, DLQ_SLACK_WEBHOOK_URL, etc.)
    ```
 
-5. **Generate per-service environment files and install dependencies:**
+5. **Install service dependencies:**
    ```bash
-   # Generate per-service .env files from your config.yaml
-   # (requires Python 3 + pyyaml: pip install pyyaml)
-   python3 scripts/setup-env.py
-
    # BFF Gateway
    cd bff-gateway && npm install
 
@@ -152,13 +148,12 @@ Ensure you have the following tools installed locally:
 
 ### Running with Docker Compose
 
-Before the first run, generate your per-service `.env` files:
+Before the first run, copy and configure the template:
 
 ```bash
-# One-time setup: copy the template, edit credentials, then generate .env files
+# One-time setup: copy the template and fill in any sensitive values
 cp config_example.yaml config.yaml
 # (edit config.yaml with your values)
-python3 scripts/setup-env.py
 ```
 
 Then start the environment:
@@ -238,8 +233,6 @@ elastic-resume-base/
 │   ├── docker-orchestration.md
 │   ├── services.md
 │   └── costs and services.md
-├── scripts/                   # Developer tooling scripts
-│   └── setup-env.py           # Generates per-service .env from config.yaml
 ├── config_example.yaml        # Environment configuration template (committed)
 │                              # Copy to config.yaml (git-ignored) and edit
 ├── .gitignore
