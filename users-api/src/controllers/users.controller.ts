@@ -18,7 +18,7 @@ const createUserSchema = z.object({
   uid: z.string().optional(),
   email: z.string().email(),
   displayName: z.string().optional(),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional(),
   role: z.string().optional(),
   disabled: z.boolean().optional(),
 });
@@ -26,7 +26,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
   displayName: z.string().optional(),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional(),
   role: z.string().optional(),
   disabled: z.boolean().optional(),
 });

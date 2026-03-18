@@ -7,7 +7,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   displayName: z.string().optional(),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional(),
   disabled: z.boolean().optional(),
 });
 
@@ -15,7 +15,7 @@ const updateUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
   displayName: z.string().optional(),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional(),
   disabled: z.boolean().optional(),
 });
 
