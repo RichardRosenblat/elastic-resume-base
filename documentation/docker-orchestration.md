@@ -1,78 +1,124 @@
 # Containerization and Local Orchestration
 
-This document outlines the containerization strategy for the microservices architecture. Utilizing Docker and Docker Compose ensures strict environmental parity across development teams and allows for seamless local emulation of Google Cloud services.
+This document outlines the containerization strategy for the microservices architecture. Using Docker and Docker Compose ensures strict environmental parity across development teams and allows for seamless local emulation of Google Cloud services.
+
+---
 
 ## 1. Repository Architecture
 
-A monorepo structure is recommended to centralize the deployment configuration and facilitate local orchestration. The repository should be structured as follows:
+The monorepo centralises all deployment configuration and facilitates local orchestration. A single `env.yaml` file at the repository root is the **authoritative source of environment variables for every service**; there are no per-service `.env` or `.env.example` files.
 
 ```text
-elasstic-resume-base/
-├── firebase-emulator/     # Custom Dockerfile for Emulators
+elastic-resume-base/
+├── firebase-emulator/     # Custom Dockerfile for Firebase Emulators
 │   ├── Dockerfile
 │   └── firebase.json
-├── bff-gateway/           # Node.js Gateway Service
+├── bff-gateway/           # Node.js BFF Gateway
 │   ├── Dockerfile
-│   ├── package.json
-│   └── index.js
-├── [service name]/      # examples: ingestor-service, vector-search-service, etc.
+│   ├── src/
+│   └── package.json
+├── users-api/             # Node.js Users API
+│   ├── Dockerfile
+│   ├── src/
+│   └── package.json
+├── [service-name]/        # Python microservices (e.g. ingestor-service, search-base)
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── main.py
-├── .env                   # Local secrets (Excluded from version control)
-└── docker-compose.yml     # Master Orchestration File
-
+├── env.yaml               # ← Single root-level environment configuration
+└── docker-compose.yml     # Master orchestration file
 ```
 
 ---
 
-## 2. Firebase Emulator Containerization
+## 2. Environment Configuration (`env.yaml`)
 
-Google does not provide a standalone, lightweight Docker image exclusively for the Firebase Emulator Suite. A custom image must be built containing Node.js (for the Firebase CLI) and Java Runtime Environment (required for the Firestore and Pub/Sub emulators).
+All environment variables for all services are stored in **`env.yaml`** at the project root.  This file ships with safe default values for local development and is committed to version control.  Sensitive values (credentials, webhook URLs, service-account keys) are intentionally left empty and must be supplied locally — never committed.
+
+> **Requires Docker Compose ≥ 2.24.0** for `env_file` YAML format support.
+
+### File layout
+
+`env.yaml` is a flat YAML key-value map organised into labelled sections:
+
+```yaml
+# Shared / Cross-Service
+NODE_ENV: development
+LOG_LEVEL: info
+GCP_PROJECT_ID: demo-elastic-resume-base
+FIREBASE_PROJECT_ID: demo-elastic-resume-base
+FIRESTORE_EMULATOR_HOST: "firebase-emulator:8080"
+FIREBASE_AUTH_EMULATOR_HOST: "firebase-emulator:9099"
+PUBSUB_EMULATOR_HOST: "firebase-emulator:8085"
+
+# BFF Gateway
+ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
+USER_API_SERVICE_URL: "http://users-api:8005"
+# … (see full file for all variables)
+
+# Users API
+GOOGLE_SERVICE_ACCOUNT_KEY: ""   # fill in locally
+ADMIN_SHEET_FILE_ID: ""          # optional
+```
+
+### Adding local secrets
+
+Because `env.yaml` is committed, do **not** write real credentials into it.  Use one of these approaches instead:
+
+1. **`docker-compose.override.yml`** (recommended) — Docker Compose automatically merges this file, and it is git-ignored:
+
+   ```yaml
+   # docker-compose.override.yml (git-ignored)
+   services:
+     users-api:
+       environment:
+         GOOGLE_SERVICE_ACCOUNT_KEY: "<your-real-value>"
+   ```
+
+2. **Shell environment variables** — export the variable in your shell before running `docker-compose up`; Docker Compose `environment:` entries without a value are passed through from the shell.
+
+---
+
+## 3. Firebase Emulator Containerization
+
+Google does not provide a standalone Docker image for the Firebase Emulator Suite. A custom image is built that contains Node.js (for the Firebase CLI) and Java Runtime Environment (required for Firestore and Pub/Sub emulators).
 
 **`firebase-emulator/Dockerfile`**
 
 ```dockerfile
-# Base image: Node.js
 FROM node:20-alpine
 
-# Install Java JRE (Required for Firestore/PubSub emulators)
+# Java JRE is required for Firestore and Pub/Sub emulators
 RUN apk add --no-cache openjdk17-jre
 
-# Install the Firebase CLI globally
 RUN npm install -g firebase-tools
 
 WORKDIR /srv/firebase
 
-# Expose required emulator ports (Auth, Firestore, Pub/Sub, UI)
 EXPOSE 9099 8080 8085 4000
 
-# Initialize emulators. The "demo-" prefix prevents the CLI from 
-# attempting to authenticate with live GCP credentials.
-CMD ["firebase", "emulators:start", "--project", "demo-elasstic-resume-base", "--host", "0.0.0.0"]
-
+CMD ["firebase", "emulators:start", "--project", "demo-elastic-resume-base", "--host", "0.0.0.0"]
 ```
 
 ---
 
-## 3. Microservice Containerization
+## 4. Microservice Containerization
 
-Each microservice requires an independent `Dockerfile` to allow for isolated builds and deployments.
+Each microservice has an independent `Dockerfile` for isolated builds and deployments.
 
-### Node.js Gateway (`bff-gateway/Dockerfile`)
+### Node.js Services (`bff-gateway`, `users-api`)
 
 ```dockerfile
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci --omit=dev
 COPY . .
-# Utilize a development dependency (e.g., nodemon) for hot-reloading
-CMD ["npm", "run", "dev"] 
-
+RUN npm run build
+CMD ["node", "dist/server.js"]
 ```
 
-### Python Ingestion Worker (`ingestor-service/Dockerfile`)
+### Python Microservices
 
 ```dockerfile
 FROM python:3.11-slim
@@ -80,79 +126,84 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-# Utilize an ASGI server (e.g., uvicorn) for hot-reloading
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
 ```
 
 ---
 
-## 4. Orchestration via Docker Compose
+## 5. Orchestration via Docker Compose
 
-The `docker-compose.yml` file, located at the repository root, orchestrates the networking and environment variables required to route local traffic to the emulators rather than production Google Cloud endpoints.
-
-**`docker-compose.yml`**
+`docker-compose.yml` reads environment variables from `env.yaml` using the `env_file` attribute with `format: yaml`.  Service-specific values that differ between containers (such as `PORT`) are set explicitly in each service's `environment:` block, which takes precedence over `env_file`.
 
 ```yaml
-version: '3.8'
-
+# docker-compose.yml (simplified excerpt)
 services:
-  # 1. Local Firebase/GCP Emulation Environment
   firebase-emulator:
     build:
       context: ./firebase-emulator
     ports:
-      - "4000:4000" # Emulator UI
-      - "9099:9099" # Authentication
-      - "8080:8080" # Firestore
-      - "8085:8085" # Pub/Sub
-    volumes:
-      - ./firebase-emulator/firebase.json:/srv/firebase/firebase.json
+      - "4000:4000"
+      - "9099:9099"
+      - "8080:8080"
+      - "8085:8085"
 
-  # 2. Node.js Backend-for-Frontend (BFF) Gateway
   bff-gateway:
     build:
       context: ./bff-gateway
     ports:
       - "3000:3000"
+    env_file:
+      - path: ./env.yaml
+        format: yaml
     environment:
-      # Directs the Firebase Admin SDK to the local emulator
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
-      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
-    volumes:
-      - ./bff-gateway:/app # Mounts local directory for hot-reloading
+      PORT: "3000"      # service-specific override
     depends_on:
       - firebase-emulator
+      - users-api
 
-  # 3. Python Ingestion Worker
-  ingestor-service:
+  users-api:
     build:
-      context: ./ingestor-service
+      context: .
+      dockerfile: users-api/Dockerfile
     ports:
-      - "8000:8000"
+      - "8005:8005"
+    env_file:
+      - path: ./env.yaml
+        format: yaml
     environment:
-      # Directs the Google Cloud Python SDK to the local emulator
-      - PUBSUB_EMULATOR_HOST=firebase-emulator:8085
-      - GOOGLE_CLOUD_PROJECT=demo-elasstic-resume-base
-    volumes:
-      - ./ingestor-service:/app # Mounts local directory for hot-reloading
+      PORT: "8005"      # service-specific override
     depends_on:
       - firebase-emulator
-
 ```
 
 ---
 
-## 5. Operational Workflow
+## 6. Operational Workflow
 
-This configuration standardizes the development loop.
-
-1. **Isolated Testing:** To execute or test a single service (e.g., a Python script), developers can build and run its container independently (`docker build -t ingestor-service .`).
-2. **Full Environment Initialization:** To initialize the entire infrastructure (Database, API Gateway, and Ingestion Pipeline), execute:
 ```bash
+# Start all services (Firebase Emulators + BFF Gateway + Users API)
 docker-compose up
 
+# Start only specific services
+docker-compose up bff-gateway users-api
+
+# Rebuild images after code changes
+docker-compose up --build
+
+# Stop and remove containers
+docker-compose down
 ```
 
+Available local endpoints after `docker-compose up`:
 
-3. **Development Loop:** Docker handles image compilation, port binding, and internal DNS routing. Volume mounts ensure that local code modifications trigger automatic reloads within the containers, while all network requests are securely routed to the offline emulators.
+| Service | URL |
+|---|---|
+| BFF Gateway | http://localhost:3000 |
+| BFF Swagger UI | http://localhost:3000/api/v1/docs |
+| Users API | http://localhost:8005 |
+| Users API Swagger UI | http://localhost:8005/api/v1/docs |
+| Firebase Emulator UI | http://localhost:4000 |
+| Firestore Emulator | http://localhost:8080 |
+| Firebase Auth Emulator | http://localhost:9099 |
+| Pub/Sub Emulator | http://localhost:8085 |
+

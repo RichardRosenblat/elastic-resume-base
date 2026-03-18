@@ -93,7 +93,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 | **Secrets** | Google Cloud KMS |
 | **Logging** | Google Cloud Logging |
 | **Containerization** | Docker + Docker Compose |
-| **BFF Language** | Node.js (Express / Fastify) |
+| **BFF Language** | Node.js (Fastify v5) |
 | **Worker Language** | Python 3.11 (FastAPI / Flask) |
 
 ---
@@ -130,8 +130,15 @@ Ensure you have the following tools installed locally:
 
 4. **Configure environment variables:**
    ```bash
-   cp .env.example .env
-   # Edit .env with your project-specific values
+   # The root env.yaml file is the single source of truth for all services.
+   # It ships with safe defaults for local development — no copying required.
+   # Fill in any sensitive values (GOOGLE_SERVICE_ACCOUNT_KEY, etc.) locally,
+   # and NEVER commit secrets to version control.
+   #
+   # For local secrets, create a git-ignored docker-compose.override.yml or
+   # export the variables in your shell before running docker-compose.
+   #
+   # See env.yaml at the project root for all available variables.
    ```
 
 5. **Install service dependencies:**
@@ -179,6 +186,14 @@ elastic-resume-base/
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
+├── users-api/                 # Node.js Users API Microservice
+│   ├── src/
+│   ├── Dockerfile
+│   └── package.json
+├── shared/                    # Shared TypeScript libraries
+│   ├── Synapse/               # Error classes + Firestore user repository
+│   ├── Bowltie/               # Response formatting utilities
+│   └── Bugle/                 # Google Auth + Drive permissions
 ├── ingestor-service/          # Python Ingestion Worker
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -214,7 +229,8 @@ elastic-resume-base/
 │   ├── docker-orchestration.md
 │   ├── services.md
 │   └── costs and services.md
-├── .env.example               # Environment variable template
+├── env.yaml                   # Single root-level environment configuration
+│                              # (replaces all per-service .env.example files)
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md

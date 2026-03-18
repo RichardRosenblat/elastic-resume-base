@@ -5,6 +5,10 @@
 # -----------------------------------------------------------------------------
 # Environment and secrets (NEVER commit these)
 # -----------------------------------------------------------------------------
+# env.yaml is checked in as a template with safe defaults.
+# If you need to add real secrets locally, create a gitignored override file:
+#   docker-compose.override.yml  (for Docker Compose overrides)
+# Or set the sensitive variables in your shell before running docker-compose.
 .env
 .env.local
 .env.*.local
