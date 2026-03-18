@@ -39,8 +39,8 @@ jest.mock('firebase-admin', () => ({
   firestore: jest.fn(),
 }));
 
-import request from 'supertest';
-import app from '../../../src/app.js';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../../../src/app.js';
 import * as usersService from '../../../src/services/usersService.js';
 import { NotFoundError } from '@elastic-resume-base/synapse';
 
@@ -53,6 +53,16 @@ const MOCK_USER = {
 };
 
 describe('users controller', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -66,24 +76,24 @@ describe('users controller', () => {
         pageToken: undefined,
       });
 
-      const res = await request(app).get('/api/v1/users');
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.users).toHaveLength(1);
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+      expect(res.json().data.users).toHaveLength(1);
     });
 
     it('passes maxResults and pageToken query params to service', async () => {
       (usersService.listUsers as jest.Mock).mockResolvedValue({ users: [], pageToken: undefined });
 
-      await request(app).get('/api/v1/users?maxResults=10&pageToken=tok123');
+      await app.inject({ method: 'GET', url: '/api/v1/users?maxResults=10&pageToken=tok123' });
 
       expect(usersService.listUsers).toHaveBeenCalledWith(10, 'tok123');
     });
 
     it('returns 400 when maxResults is invalid', async () => {
-      const res = await request(app).get('/api/v1/users?maxResults=0');
-      expect(res.status).toBe(400);
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users?maxResults=0' });
+      expect(res.statusCode).toBe(400);
     });
   });
 
@@ -93,23 +103,33 @@ describe('users controller', () => {
     it('returns 201 with the created user', async () => {
       (usersService.createUser as jest.Mock).mockResolvedValue(MOCK_USER);
 
-      const res = await request(app)
-        .post('/api/v1/users')
-        .send({ email: 'alice@example.com', displayName: 'Alice' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        payload: { email: 'alice@example.com', displayName: 'Alice' },
+      });
 
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.uid).toBe('uid123');
+      expect(res.statusCode).toBe(201);
+      expect(res.json().success).toBe(true);
+      expect(res.json().data.uid).toBe('uid123');
     });
 
     it('returns 400 when email is missing', async () => {
-      const res = await request(app).post('/api/v1/users').send({ displayName: 'Alice' });
-      expect(res.status).toBe(400);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        payload: { displayName: 'Alice' },
+      });
+      expect(res.statusCode).toBe(400);
     });
 
     it('returns 400 when email is invalid', async () => {
-      const res = await request(app).post('/api/v1/users').send({ email: 'not-an-email' });
-      expect(res.status).toBe(400);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        payload: { email: 'not-an-email' },
+      });
+      expect(res.statusCode).toBe(400);
     });
   });
 
@@ -119,11 +139,11 @@ describe('users controller', () => {
     it('returns 200 with the user record', async () => {
       (usersService.getUserByUid as jest.Mock).mockResolvedValue(MOCK_USER);
 
-      const res = await request(app).get('/api/v1/users/uid123');
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid123' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.uid).toBe('uid123');
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+      expect(res.json().data.uid).toBe('uid123');
     });
 
     it('returns 404 when user is not found', async () => {
@@ -131,8 +151,8 @@ describe('users controller', () => {
         new NotFoundError('User not found'),
       );
 
-      const res = await request(app).get('/api/v1/users/missing-uid');
-      expect(res.status).toBe(404);
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/missing-uid' });
+      expect(res.statusCode).toBe(404);
     });
   });
 
@@ -143,19 +163,23 @@ describe('users controller', () => {
       const updated = { ...MOCK_USER, displayName: 'Alice Updated' };
       (usersService.updateUser as jest.Mock).mockResolvedValue(updated);
 
-      const res = await request(app)
-        .patch('/api/v1/users/uid123')
-        .send({ displayName: 'Alice Updated' });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        payload: { displayName: 'Alice Updated' },
+      });
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.displayName).toBe('Alice Updated');
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.displayName).toBe('Alice Updated');
     });
 
     it('returns 400 when payload is invalid', async () => {
-      const res = await request(app)
-        .patch('/api/v1/users/uid123')
-        .send({ email: 'not-an-email' });
-      expect(res.status).toBe(400);
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        payload: { email: 'not-an-email' },
+      });
+      expect(res.statusCode).toBe(400);
     });
 
     it('returns 404 when user does not exist', async () => {
@@ -163,10 +187,12 @@ describe('users controller', () => {
         new NotFoundError('User not found'),
       );
 
-      const res = await request(app)
-        .patch('/api/v1/users/missing-uid')
-        .send({ displayName: 'Name' });
-      expect(res.status).toBe(404);
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/missing-uid',
+        payload: { displayName: 'Name' },
+      });
+      expect(res.statusCode).toBe(404);
     });
   });
 
@@ -176,8 +202,8 @@ describe('users controller', () => {
     it('returns 204 on successful deletion', async () => {
       (usersService.deleteUser as jest.Mock).mockResolvedValue(undefined);
 
-      const res = await request(app).delete('/api/v1/users/uid123');
-      expect(res.status).toBe(204);
+      const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/uid123' });
+      expect(res.statusCode).toBe(204);
     });
 
     it('returns 404 when user does not exist', async () => {
@@ -185,8 +211,8 @@ describe('users controller', () => {
         new NotFoundError('User not found'),
       );
 
-      const res = await request(app).delete('/api/v1/users/missing-uid');
-      expect(res.status).toBe(404);
+      const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/missing-uid' });
+      expect(res.statusCode).toBe(404);
     });
   });
 
@@ -196,20 +222,20 @@ describe('users controller', () => {
     it('returns 200 with role when user has access', async () => {
       (usersService.getUserRole as jest.Mock).mockResolvedValue('admin');
 
-      const res = await request(app).get('/api/v1/users/uid123/role');
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid123/role' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.role).toBe('admin');
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+      expect(res.json().data.role).toBe('admin');
     });
 
     it('returns 403 when user has no access (getUserRole returns null)', async () => {
       (usersService.getUserRole as jest.Mock).mockResolvedValue(null);
 
-      const res = await request(app).get('/api/v1/users/uid-no-access/role');
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid-no-access/role' });
 
-      expect(res.status).toBe(403);
-      expect(res.body.success).toBe(false);
+      expect(res.statusCode).toBe(403);
+      expect(res.json().success).toBe(false);
     });
   });
 
@@ -222,19 +248,26 @@ describe('users controller', () => {
         uid2: 'user',
       });
 
-      const res = await request(app)
-        .post('/api/v1/users/roles/batch')
-        .send({ uids: ['uid1', 'uid2'] });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/roles/batch',
+        payload: { uids: ['uid1', 'uid2'] },
+      });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data['uid1']).toBe('admin');
-      expect(res.body.data['uid2']).toBe('user');
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+      expect(res.json().data['uid1']).toBe('admin');
+      expect(res.json().data['uid2']).toBe('user');
     });
 
     it('returns 400 when uids is missing', async () => {
-      const res = await request(app).post('/api/v1/users/roles/batch').send({});
-      expect(res.status).toBe(400);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/roles/batch',
+        payload: {},
+      });
+      expect(res.statusCode).toBe(400);
     });
   });
 });
+

@@ -7,16 +7,6 @@ const mePlugin: FastifyPluginAsync = async (app) => {
       tags: ['Me'],
       summary: 'Get current user profile',
       security: [{ bearerAuth: [] }],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: { type: 'object' },
-          },
-        },
-        401: { type: 'object' },
-      },
     },
   }, getProfile);
 };

@@ -20,10 +20,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           pageToken: { type: 'string' },
         },
       },
-      response: {
-        200: { type: 'object' },
-        401: { type: 'object' },
-      },
     },
   }, listUsersHandler);
 
@@ -36,18 +32,12 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         type: 'object',
         required: ['email', 'password'],
         properties: {
-          email: { type: 'string', format: 'email' },
-          password: { type: 'string', minLength: 6 },
+          email: { type: 'string' },
+          password: { type: 'string' },
           displayName: { type: 'string' },
           photoURL: { type: 'string' },
           disabled: { type: 'boolean' },
         },
-      },
-      response: {
-        201: { type: 'object' },
-        400: { type: 'object' },
-        401: { type: 'object' },
-        403: { type: 'object' },
       },
     },
   }, createUserHandler);
@@ -61,11 +51,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         type: 'object',
         required: ['uid'],
         properties: { uid: { type: 'string' } },
-      },
-      response: {
-        200: { type: 'object' },
-        401: { type: 'object' },
-        404: { type: 'object' },
       },
     },
   }, getUserHandler);
@@ -87,18 +72,12 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
-          email: { type: 'string', format: 'email', description: 'Admin only' },
-          password: { type: 'string', minLength: 6, description: 'Admin only' },
+          email: { type: 'string', description: 'Admin only' },
+          password: { type: 'string', description: 'Admin only' },
           displayName: { type: 'string' },
           photoURL: { type: 'string' },
           disabled: { type: 'boolean', description: 'Admin only' },
         },
-      },
-      response: {
-        200: { type: 'object' },
-        401: { type: 'object' },
-        403: { type: 'object' },
-        404: { type: 'object' },
       },
     },
   }, updateUserHandler);
@@ -112,12 +91,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         type: 'object',
         required: ['uid'],
         properties: { uid: { type: 'string' } },
-      },
-      response: {
-        204: { type: 'null' },
-        401: { type: 'object' },
-        403: { type: 'object' },
-        404: { type: 'object' },
       },
     },
   }, deleteUserHandler);

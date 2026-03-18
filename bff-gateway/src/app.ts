@@ -41,11 +41,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.addHook('onRequest', correlationIdHook);
   app.addHook('onResponse', requestLoggerHook);
 
+  // Global error handler (must be set before routes)
+  app.setErrorHandler(errorHandler);
+
   // Route registration
   await app.register(routes);
-
-  // Global error handler
-  app.setErrorHandler(errorHandler);
 
   // Backward-compatible JSON spec endpoint
   app.get('/api/v1/docs.json', (_request, reply) => {

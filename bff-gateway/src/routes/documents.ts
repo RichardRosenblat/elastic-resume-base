@@ -21,10 +21,6 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
           },
         },
       },
-      response: {
-        200: { type: 'object' },
-        401: { type: 'object' },
-      },
     },
   }, readDocumentHandler);
 };

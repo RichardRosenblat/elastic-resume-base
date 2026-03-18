@@ -6,12 +6,6 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
     schema: {
       tags: ['Health'],
       summary: 'Liveness probe',
-      response: {
-        200: {
-          type: 'object',
-          properties: { status: { type: 'string', example: 'ok' } },
-        },
-      },
     },
   }, getLive);
 
@@ -19,12 +13,6 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
     schema: {
       tags: ['Health'],
       summary: 'Readiness probe',
-      response: {
-        200: {
-          type: 'object',
-          properties: { status: { type: 'string', example: 'ok' } },
-        },
-      },
     },
   }, getReady);
 };

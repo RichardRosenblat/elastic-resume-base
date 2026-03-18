@@ -12,14 +12,10 @@ const searchPlugin: FastifyPluginAsync = async (app) => {
         required: ['query'],
         properties: {
           query: { type: 'string' },
-          filters: { type: 'object' },
+          filters: { type: 'object', additionalProperties: true },
           limit: { type: 'integer' },
           offset: { type: 'integer' },
         },
-      },
-      response: {
-        200: { type: 'object' },
-        401: { type: 'object' },
       },
     },
   }, searchHandler);

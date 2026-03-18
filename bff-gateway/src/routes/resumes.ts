@@ -12,13 +12,8 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           sheetId: { type: 'string' },
           batchId: { type: 'string' },
-          metadata: { type: 'object' },
+          metadata: { type: 'object', additionalProperties: true },
         },
-      },
-      response: {
-        202: { type: 'object' },
-        400: { type: 'object' },
-        401: { type: 'object' },
       },
     },
   }, ingest);
@@ -44,11 +39,6 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
             items: { type: 'string', enum: ['pdf', 'docx', 'html'] },
           },
         },
-      },
-      response: {
-        202: { type: 'object' },
-        400: { type: 'object' },
-        401: { type: 'object' },
       },
     },
   }, generate);

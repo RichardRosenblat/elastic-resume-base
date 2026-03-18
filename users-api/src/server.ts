@@ -1,14 +1,10 @@
 import admin from 'firebase-admin';
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
-import app from './app.js';
+import { buildApp } from './app.js';
 
 /**
  * Initialises the Firebase Admin SDK.
- *
- * When `GOOGLE_SERVICE_ACCOUNT_KEY` is present, credentials are loaded from it.
- * Otherwise the SDK falls back to Application Default Credentials or the Firestore
- * emulator (controlled by the `FIRESTORE_EMULATOR_HOST` env var).
  */
 function initFirebase(): void {
   if (admin.apps.length > 0) {
@@ -37,16 +33,22 @@ function initFirebase(): void {
 
 initFirebase();
 
-const server = app.listen(config.port, () => {
+const app = await buildApp();
+
+try {
+  await app.listen({ port: config.port, host: '0.0.0.0' });
   logger.info({ port: config.port, env: config.nodeEnv }, 'Users API started');
-});
+} catch (err) {
+  logger.error({ err }, 'Failed to start Users API');
+  process.exit(1);
+}
 
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  server.close(() => {
+  app.close().then(() => {
     logger.info('Server closed');
     process.exit(0);
   });
 });
 
-export default server;
+export default app;
