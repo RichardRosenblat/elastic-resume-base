@@ -17,8 +17,8 @@ const client = createHttpClient(config.userApiServiceUrl);
 export async function getUserRole(uid: string): Promise<string> {
   // TODO: remove fallback once UserAPI is stable and always available
   try {
-    const response = await client.get<{ role: string }>(`/users/${uid}/role`);
-    return response.data.role;
+    const response = await client.get<{ success: boolean; data: { role: string } }>(`/users/${uid}/role`);
+    return response.data.data.role;
   } catch (err) {
     logger.warn({ uid, err }, 'UserAPI unavailable; defaulting role to "user"');
     return 'user';
@@ -38,8 +38,8 @@ export async function getUserRole(uid: string): Promise<string> {
 export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
   // TODO: remove fallback once UserAPI is stable and always available
   try {
-    const response = await client.post<Record<string, string>>('/users/roles/batch', { uids });
-    return response.data;
+    const response = await client.post<{ success: boolean; data: Record<string, string> }>('/users/roles/batch', { uids });
+    return response.data.data;
   } catch (err) {
     logger.warn({ uids, err }, 'UserAPI unavailable; defaulting all roles to "user"');
     return Object.fromEntries(uids.map((uid) => [uid, 'user']));
