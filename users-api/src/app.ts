@@ -3,6 +3,7 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
+import { ValidationError } from '@elastic-resume-base/synapse';
 import { config } from './config.js';
 import { setupSwagger } from './swagger.js';
 import { correlationIdHook } from './middleware/correlationId.js';
@@ -25,6 +26,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         useDefaults: true,
       },
     },
+    schemaErrorFormatter: (_errors, dataVar) => new ValidationError(`${dataVar} validation failed`),
   });
 
   // Swagger must be registered before routes so schemas are collected

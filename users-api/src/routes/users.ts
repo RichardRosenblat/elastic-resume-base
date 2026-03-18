@@ -33,7 +33,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         required: ['email'],
         properties: {
           uid: { type: 'string' },
-          email: { type: 'string', format: 'email' },
+          email: { type: 'string' },
           displayName: { type: 'string' },
           photoURL: { type: 'string' },
           role: { type: 'string' },
@@ -82,7 +82,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
-          email: { type: 'string', format: 'email' },
+          email: { type: 'string' },
           displayName: { type: 'string' },
           photoURL: { type: 'string' },
           role: { type: 'string' },
