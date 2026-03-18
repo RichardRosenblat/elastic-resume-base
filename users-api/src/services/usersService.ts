@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import { getFirestore as _getFirestore, Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore'
+import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore'
 import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
 import { config } from '../config.js';
@@ -6,7 +7,7 @@ import { logger } from '../utils/logger.js';
 import type { UserRecord, CreateUserRequest, UpdateUserRequest, ListUsersResponse } from '../models/index.js';
 
 /** Name of the Firestore collection where user documents are stored. */
-const USERS_COLLECTION = 'users';
+const USERS_COLLECTION = config.firestoreUsersCollection;
 
 /** Default role assigned to newly created users. */
 const DEFAULT_ROLE = 'user';
@@ -15,15 +16,15 @@ const DEFAULT_ROLE = 'user';
  * Returns the Firestore instance, pointing to the emulator when configured.
  * @returns Firestore Admin instance.
  */
-function getFirestore(): admin.firestore.Firestore {
-  return admin.firestore();
+function getFirestore(): Firestore {
+  return _getFirestore();
 }
 
 /**
  * Returns `true` if the given value looks like a Firestore Timestamp
  * (has a callable `toDate` method).
  */
-function isTimestamp(value: unknown): value is admin.firestore.Timestamp {
+function isTimestamp(value: unknown): value is FirestoreTimestamp {
   return (
     value !== null &&
     value !== undefined &&
@@ -39,7 +40,7 @@ function isTimestamp(value: unknown): value is admin.firestore.Timestamp {
  * @throws {NotFoundError} If the document does not exist.
  */
 function mapDocument(
-  doc: admin.firestore.DocumentSnapshot<admin.firestore.DocumentData>,
+  doc: 	DocumentSnapshot<DocumentData>,
 ): UserRecord {
   if (!doc.exists) {
     throw new NotFoundError(`User '${doc.id}' not found`);
@@ -102,7 +103,7 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
   }
 
   const uid = data.uid ?? db.collection(USERS_COLLECTION).doc().id;
-  const now = admin.firestore.Timestamp.now();
+  const now = FirestoreTimestamp.now();
 
   const docData: Record<string, unknown> = {
     email: data.email,
@@ -167,7 +168,7 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
   }
 
   const updateData: Record<string, unknown> = {
-    updatedAt: admin.firestore.Timestamp.now(),
+    updatedAt: FirestoreTimestamp.now(),
   };
 
   if (data.email !== undefined) updateData['email'] = data.email;

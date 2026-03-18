@@ -1,6 +1,8 @@
+import axios from 'axios';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
+import { ForbiddenError } from '../errors.js';
 
 const client = createHttpClient(config.userApiServiceUrl);
 
@@ -43,5 +45,29 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
   } catch (err) {
     logger.warn({ uids, err }, 'UserAPI unavailable; defaulting all roles to "user"');
     return Object.fromEntries(uids.map((uid) => [uid, 'user']));
+  }
+}
+
+/**
+ * Validates that the given user has access to this application by calling the UserAPI.
+ *
+ * Unlike `getUserRole`, this function explicitly throws a `ForbiddenError` when the
+ * UserAPI returns HTTP 403, indicating the user is not a registered application user.
+ * Network or availability errors are treated as non-blocking (graceful degradation).
+ *
+ * @param uid - Firebase user UID.
+ * @returns The user's role string if access is granted.
+ * @throws {ForbiddenError} If the UserAPI explicitly denies access (HTTP 403).
+ */
+export async function checkUserAccess(uid: string): Promise<string> {
+  try {
+    const response = await client.get<{ success: boolean; data: { role: string } }>(`/users/${uid}/role`);
+    return response.data.data.role;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 403) {
+      throw new ForbiddenError('User does not have access to this application');
+    }
+    logger.warn({ uid, err }, 'UserAPI unavailable; skipping user access check');
+    return 'user';
   }
 }

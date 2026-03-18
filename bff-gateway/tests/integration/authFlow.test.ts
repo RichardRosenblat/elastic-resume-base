@@ -10,6 +10,12 @@ jest.mock('firebase-admin', () => ({
   }),
 }));
 
+jest.mock('../../src/services/userApiClient', () => ({
+  checkUserAccess: jest.fn().mockResolvedValue('user'),
+  getUserRole: jest.fn(),
+  getUserRolesBatch: jest.fn(),
+}));
+
 import * as admin from 'firebase-admin';
 
 describe('Auth Flow Integration', () => {

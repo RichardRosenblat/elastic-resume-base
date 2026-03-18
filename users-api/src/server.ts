@@ -45,7 +45,7 @@ try {
 
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  app.close().then(() => {
+  void app.close().then(() => {
     logger.info('Server closed');
     process.exit(0);
   });

@@ -49,7 +49,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Backward-compatible JSON spec endpoint
   app.get('/api/v1/docs.json', (_request, reply) => {
-    reply.send(app.swagger());
+    void reply.send(app.swagger());
   });
 
   return app;

@@ -18,7 +18,7 @@ const createUserSchema = z.object({
   uid: z.string().optional(),
   email: z.string().email(),
   displayName: z.string().optional(),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional(),
   role: z.string().optional(),
   disabled: z.boolean().optional(),
 });
@@ -26,7 +26,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
   displayName: z.string().optional(),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional(),
   role: z.string().optional(),
   disabled: z.boolean().optional(),
 });
@@ -56,14 +56,14 @@ export async function createUserHandler(
 ): Promise<void> {
   const parsed = createUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send({
+    void reply.code(400).send({
       success: false,
       error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
     });
     return;
   }
   const user = await createUser(parsed.data);
-  reply.code(201).send({ success: true, data: user, correlationId: request.correlationId });
+  void reply.code(201).send({ success: true, data: user, correlationId: request.correlationId });
 }
 
 /**
@@ -74,7 +74,7 @@ export async function getUserHandler(
   reply: FastifyReply,
 ): Promise<void> {
   const user = await getUserByUid(request.params.uid);
-  reply.send({ success: true, data: user, correlationId: request.correlationId });
+  void reply.send({ success: true, data: user, correlationId: request.correlationId });
 }
 
 /**
@@ -86,14 +86,14 @@ export async function updateUserHandler(
 ): Promise<void> {
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send({
+    void reply.code(400).send({
       success: false,
       error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
     });
     return;
   }
   const user = await updateUser(request.params.uid, parsed.data);
-  reply.send({ success: true, data: user, correlationId: request.correlationId });
+  void reply.send({ success: true, data: user, correlationId: request.correlationId });
 }
 
 /**
@@ -104,7 +104,7 @@ export async function deleteUserHandler(
   reply: FastifyReply,
 ): Promise<void> {
   await deleteUser(request.params.uid);
-  reply.code(204).send();
+  void reply.code(204).send();
 }
 
 /**
@@ -116,14 +116,14 @@ export async function listUsersHandler(
 ): Promise<void> {
   const parsed = listUsersQuerySchema.safeParse(request.query);
   if (!parsed.success) {
-    reply.code(400).send({
+    void reply.code(400).send({
       success: false,
       error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
     });
     return;
   }
   const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
-  reply.send({ success: true, data: result, correlationId: request.correlationId });
+  void reply.send({ success: true, data: result, correlationId: request.correlationId });
 }
 
 /**
@@ -138,7 +138,7 @@ export async function getUserRoleHandler(
   const role = await getUserRole(request.params.uid);
 
   if (role === null) {
-    reply.code(403).send({
+    void reply.code(403).send({
       success: false,
       error: { code: 'FORBIDDEN', message: 'User does not have access to this application' },
       correlationId: request.correlationId,
@@ -146,7 +146,7 @@ export async function getUserRoleHandler(
     return;
   }
 
-  reply.send({ success: true, data: { role }, correlationId: request.correlationId });
+  void reply.send({ success: true, data: { role }, correlationId: request.correlationId });
 }
 
 /**
@@ -158,12 +158,12 @@ export async function getBatchRolesHandler(
 ): Promise<void> {
   const parsed = batchRolesSchema.safeParse(request.body);
   if (!parsed.success) {
-    reply.code(400).send({
+    void reply.code(400).send({
       success: false,
       error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
     });
     return;
   }
   const roles = await getUserRolesBatch(parsed.data.uids);
-  reply.send({ success: true, data: roles, correlationId: request.correlationId });
+  void reply.send({ success: true, data: roles, correlationId: request.correlationId });
 }

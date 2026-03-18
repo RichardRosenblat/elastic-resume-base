@@ -14,6 +14,12 @@ jest.mock('../../../src/services/fileGeneratorClient', () => ({
   generateResume: jest.fn(),
 }));
 
+jest.mock('../../../src/services/userApiClient', () => ({
+  checkUserAccess: jest.fn().mockResolvedValue('user'),
+  getUserRole: jest.fn().mockResolvedValue('user'),
+  getUserRolesBatch: jest.fn().mockResolvedValue({}),
+}));
+
 import * as admin from 'firebase-admin';
 import * as fileGeneratorClient from '../../../src/services/fileGeneratorClient.js';
 

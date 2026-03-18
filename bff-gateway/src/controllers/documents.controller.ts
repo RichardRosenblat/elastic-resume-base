@@ -18,5 +18,5 @@ export async function readDocumentHandler(
 ): Promise<void> {
   const body = readSchema.parse(request.body);
   const result = await readDocument(body);
-  reply.send(formatSuccess(result, request.correlationId));
+  void reply.send(formatSuccess(result, request.correlationId));
 }
