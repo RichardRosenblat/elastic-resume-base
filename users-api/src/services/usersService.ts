@@ -1,6 +1,5 @@
-import admin from 'firebase-admin';
-import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
-import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore'
+import { getFirestore as _getFirestore, Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
+import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
 import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
 import { config } from '../config.js';
@@ -14,11 +13,13 @@ const USERS_COLLECTION = config.firestoreUsersCollection;
 const DEFAULT_ROLE = 'user';
 
 /**
- * Returns the Firestore instance, pointing to the emulator when configured.
+ * Returns the Firestore instance.
+ * Uses the modular `firebase-admin/firestore` subpath export, which is the
+ * ESM-safe way to obtain Firestore in a `"type":"module"` package.
  * @returns Firestore Admin instance.
  */
 function getFirestore(): Firestore {
-  return admin.firestore() as unknown as Firestore;
+  return _getFirestore();
 }
 
 /**
