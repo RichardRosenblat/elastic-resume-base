@@ -16,6 +16,7 @@ This document defines the coding standards and best practices for the Node.js se
   - [JSDoc and Comments](#jsdoc-and-comments)
   - [Error Handling](#error-handling)
   - [Logging](#logging)
+  - [Shared Libraries](#shared-libraries)
   - [Security](#security)
   - [Dependencies](#dependencies)
   - [Testing](#testing)
@@ -274,29 +275,166 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
 - Use a structured logging library such as **Pino**. **Do not use `console.log()`** in production code.
 - Configure the logger to output JSON in production for Google Cloud Logging compatibility.
 - Attach `correlationId` to log entries via the `onRequest` hook for distributed tracing.
+- Use **`@elastic-resume-base/toolbox`** to create a shared, pre-configured logger — do not duplicate logger setup in every service.
+
+### Log Level Guidelines
+
+Use the appropriate Pino log level for every log call. The `LOG_LEVEL` environment variable controls the minimum visible level (default `info`).
+
+| Level | When to use |
+|-------|-------------|
+| `trace` | Highly granular steps: individual Firestore reads/writes, exact bytes sent/received |
+| `debug` | Useful development detail: entering a function, resolved values, branch chosen |
+| `info` | Significant lifecycle events that are always relevant: user created/updated/deleted, job accepted, service started |
+| `warn` | Recoverable problems: validation failures, downstream service unavailable (with fallback), access denied |
+| `error` | Unrecoverable errors that require operator attention: unhandled exceptions, unexpected 5xx paths |
 
 ```typescript
-import pino from 'pino';
+// src/utils/logger.ts — one-liner using the shared factory from Toolbox
+import { createLogger } from '@elastic-resume-base/toolbox';
+import { config } from '../config.js';
 
-export const logger = pino({
-  level: process.env['LOG_LEVEL'] ?? 'info',
-  ...(process.env['NODE_ENV'] !== 'production' && {
-    transport: { target: 'pino-pretty' },
-  }),
+export const logger = createLogger({
+  serviceName: 'my-service',
+  logLevel: config.logLevel,   // 'trace' | 'debug' | 'info' | 'warn' | 'error'
+  nodeEnv: config.nodeEnv,     // pretty-print in dev, GCP JSON in production
 });
 
 
-// Per-request correlation in onRequest hook
-export function correlationIdHook(request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction): void {
-  const correlationId = (request.headers['x-correlation-id'] as string) || uuidv4();
-  request.correlationId = correlationId;
-  reply.header('x-correlation-id', correlationId);
-  done();
+// Controller — debug on entry, info on mutation, warn on validation failure
+export async function createUserHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'createUserHandler: validating request body');
+  const parsed = schema.safeParse(request.body);
+  if (!parsed.success) {
+    logger.warn({ correlationId: request.correlationId, issues: parsed.error.issues }, 'createUserHandler: validation failed');
+    void reply.code(400).send(formatError('VALIDATION_ERROR', '...'));
+    return;
+  }
+  logger.info({ correlationId: request.correlationId, email: parsed.data.email }, 'createUserHandler: creating user');
+  const user = await createUser(parsed.data);
+  logger.debug({ correlationId: request.correlationId, uid: user.uid }, 'createUserHandler: user created successfully');
+  void reply.code(201).send(formatSuccess(user, request.correlationId));
+}
+
+
+// Service — trace for individual Firestore writes, debug for checks
+export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
+  logger.debug({ email: data.email }, 'createUser: checking for duplicate email');
+  const existing = await db.collection('users').where('email', '==', data.email).limit(1).get();
+  if (!existing.empty) {
+    logger.warn({ email: data.email }, 'createUser: email already exists');
+    throw new ConflictError(`A user with email '${data.email}' already exists`);
+  }
+  logger.trace({ email: data.email }, 'createUser: writing document to Firestore');
+  await db.collection('users').doc(uid).set(docData);
+  logger.info({ uid, action: 'createUser' }, 'User created');
+  return mapDocument(await db.collection('users').doc(uid).get());
 }
 ```
 
 - **Never log PII** (names, email addresses, document content, tokens).
 - Log resource identifiers (e.g., `resumeId`, `userId`) rather than the data itself.
+
+---
+
+## Shared Libraries
+
+The monorepo provides several internal packages under `shared/`. All services should use them instead of duplicating the logic. Each package has its own `README.md` with full API documentation.
+
+| Package | Import path | Purpose |
+|---------|-------------|---------|
+| **Toolbox** | `@elastic-resume-base/toolbox` | Cross-cutting utilities: `loadConfigYaml`, `createLogger`, `correlationIdHook`, `createRequestLoggerHook` |
+| **Bowltie** | `@elastic-resume-base/bowltie` | Response formatting: `formatSuccess` / `formatError` |
+| **Synapse** | `@elastic-resume-base/synapse` | Error classes (`AppError`, `NotFoundError`, `ConflictError`, …), `UserRepository` interface, `FirestoreUserRepository` |
+| **Bugle** | `@elastic-resume-base/bugle` | Google API client: `getGoogleAuthClient`, `DrivePermissionsService` |
+
+### Installing a shared library
+
+Because these packages are not published to npm, install them using a relative path:
+
+```bash
+cd my-service
+npm install ../shared/Toolbox      # adds "@elastic-resume-base/toolbox": "file:../shared/Toolbox"
+```
+
+Build the package first if it has not been built yet:
+
+```bash
+cd shared/Toolbox && npm install && npm run build
+```
+
+### Toolbox — canonical usage pattern
+
+Every service must wire up Toolbox in exactly this way:
+
+**`src/utils/logger.ts`**
+```typescript
+import { createLogger } from '@elastic-resume-base/toolbox';
+import { config } from '../config.js';
+
+export const logger = createLogger({
+  serviceName: 'my-service',
+  logLevel: config.logLevel,
+  nodeEnv: config.nodeEnv,
+});
+```
+
+**`src/utils/loadConfigYaml.ts`** (thin re-export)
+```typescript
+export { loadConfigYaml } from '@elastic-resume-base/toolbox';
+```
+
+**`src/middleware/correlationId.ts`** (thin re-export)
+```typescript
+export { correlationIdHook } from '@elastic-resume-base/toolbox';
+```
+
+**`src/middleware/requestLogger.ts`**
+```typescript
+import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { logger } from '../utils/logger.js';
+
+export const requestLoggerHook = createRequestLoggerHook(logger);
+```
+
+**`src/app.ts`** (register hooks)
+```typescript
+import { correlationIdHook } from './middleware/correlationId.js';
+import { requestLoggerHook } from './middleware/requestLogger.js';
+
+app.addHook('onRequest', correlationIdHook);
+app.addHook('onResponse', requestLoggerHook);
+```
+
+### Bowltie — response formatting
+
+Use `formatSuccess` / `formatError` from Bowltie in **all** controllers and error handlers to produce the standard JSON envelope. Do **not** build response objects manually.
+
+```typescript
+import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
+
+// Success
+void reply.code(200).send(formatSuccess(user, request.correlationId));
+// → { success: true, data: user, meta: { correlationId, timestamp } }
+
+// Error
+void reply.code(404).send(formatError('NOT_FOUND', 'User not found', request.correlationId));
+// → { success: false, error: { code: 'NOT_FOUND', message: '…' }, meta: { correlationId, timestamp } }
+```
+
+### Jest — mapping shared packages to TypeScript source
+
+Add each shared package to `moduleNameMapper` in `jest.config.cjs` so `ts-jest` can compile it alongside the service without ESM/CJS interop issues:
+
+```javascript
+moduleNameMapper: {
+  '^(\\.{1,2}/.*)\\.js$': '$1',
+  '^@elastic-resume-base/toolbox$':  '<rootDir>/../shared/Toolbox/src/index.ts',
+  '^@elastic-resume-base/bowltie$':  '<rootDir>/../shared/Bowltie/src/index.ts',
+  '^@elastic-resume-base/synapse$':  '<rootDir>/../shared/Synapse/src/index.ts',
+  '^@elastic-resume-base/bugle$':    '<rootDir>/../shared/Bugle/src/index.ts',
+},
+```
 
 ---
 
@@ -593,23 +731,17 @@ const user = await userService.findById(userId);
   - `404 Not Found` — resource does not exist
   - `409 Conflict` — resource already exists
   - `500 Internal Server Error` — unexpected server error
-- All responses must be JSON with a consistent envelope structure using `@elastic-resume-base/bowltie` (bff-gateway) or an equivalent `{ success, data/error, correlationId }` shape.
+- All responses must be JSON with a consistent envelope structure using `@elastic-resume-base/bowltie` (`formatSuccess` / `formatError`). Never build `{ success, data/error, meta }` objects manually.
 - Document all endpoints using **OpenAPI/Swagger** via `@fastify/swagger` and `@fastify/swagger-ui`.
 - Route JSON schemas should only declare `type` and `required` — leave format/length validation to Zod in the controller to ensure consistent error envelopes.
 
 ```typescript
+import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
+
 // Consistent success response envelope
-reply.code(200).send({
-  success: true,
-  data: resume,
-  correlationId: request.correlationId,
-});
+void reply.code(200).send(formatSuccess(resume, request.correlationId));
 
 // Consistent error response envelope
-reply.code(404).send({
-  success: false,
-  error: { code: 'NOT_FOUND', message: 'Resume not found' },
-  correlationId: request.correlationId,
-});
+void reply.code(404).send(formatError('NOT_FOUND', 'Resume not found', request.correlationId));
 ```
 

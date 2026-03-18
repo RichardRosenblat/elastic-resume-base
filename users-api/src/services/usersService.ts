@@ -1,4 +1,5 @@
-import { getFirestore as _getFirestore, Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore'
+import admin from 'firebase-admin';
+import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
 import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore'
 import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
@@ -17,7 +18,7 @@ const DEFAULT_ROLE = 'user';
  * @returns Firestore Admin instance.
  */
 function getFirestore(): Firestore {
-  return _getFirestore();
+  return admin.firestore() as unknown as Firestore;
 }
 
 /**

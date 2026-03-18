@@ -21,6 +21,20 @@
 **Cloud Logging**: Cloud Logging will be used for centralized logging and monitoring of all services. Each service will log relevant information, such as errors, warnings, and informational messages, to Cloud Logging. This will allow for easy monitoring and troubleshooting of the system, as well as providing insights into the performance and usage of the services.
 **document-reader**: A service responsible intaking personal documents and using OCR to extract text from them and creating a excel sheet with the extracted data. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF. This service will utilize Google Cloud Vision API for OCR processing but no extracted data or documents will be saved after the text extraction process, ensuring data privacy and security. 
 
+## Shared Libraries (Node.js)
+
+The following internal packages live under `shared/` and are consumed by the Node.js microservices (BFF Gateway, Users API):
+
+| Package | npm name | Purpose |
+|---------|----------|---------|
+| **Toolbox** | `@elastic-resume-base/toolbox` | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify middleware hooks (`correlationIdHook`, `createRequestLoggerHook`). Eliminates duplicated infrastructure code across services. |
+| **Bowltie** | `@elastic-resume-base/bowltie` | Uniform JSON response formatting via `formatSuccess` / `formatError`. Both BFF and Users API use this to produce the standard `{ success, data/error, meta }` envelope. |
+| **Synapse** | `@elastic-resume-base/synapse` | Shared error class hierarchy (`AppError`, `NotFoundError`, `ConflictError`, `ValidationError`, …) and the `UserRepository` / `FirestoreUserRepository` persistence abstraction. |
+| **Bugle** | `@elastic-resume-base/bugle` | Google API integration: `getGoogleAuthClient` and `DrivePermissionsService` for reading Google Drive file permissions. Used by Users API to determine admin access from a Google Sheet. |
+
+Each package ships with a `README.md`, full JSDoc on all exports, and its own test suite. See `documentation/coding-standards/nodejs-coding-standards.md` for usage patterns and Jest configuration.
+
+---
 
 alright lets just use tls and google sso for authentication rather than having a separate auth service,
 
