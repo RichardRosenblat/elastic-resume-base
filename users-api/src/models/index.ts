@@ -1,8 +1,9 @@
-import { Request } from 'express';
-
-/** Represents a request with a correlation ID attached. */
-export interface CorrelatedRequest extends Request {
-  correlationId: string;
+/** Augments the Fastify request type to include a correlation ID. */
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Correlation ID for distributed tracing, sourced from `x-correlation-id` header or generated. */
+    correlationId: string;
+  }
 }
 
 /** A user record stored in Firestore. */

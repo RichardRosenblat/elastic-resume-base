@@ -1,39 +1,24 @@
-import { Router } from 'express';
+import type { FastifyPluginAsync } from 'fastify';
 import { searchHandler } from '../controllers/search.controller.js';
 
-const router = Router();
+const searchPlugin: FastifyPluginAsync = async (app) => {
+  app.post('/', {
+    schema: {
+      tags: ['Search'],
+      summary: 'Perform a semantic search',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: { type: 'string' },
+          filters: { type: 'object', additionalProperties: true },
+          limit: { type: 'integer' },
+          offset: { type: 'integer' },
+        },
+      },
+    },
+  }, searchHandler);
+};
 
-/**
- * @swagger
- * /api/v1/search:
- *   post:
- *     summary: Perform a semantic search
- *     tags: [Search]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - query
- *             properties:
- *               query:
- *                 type: string
- *               filters:
- *                 type: object
- *               limit:
- *                 type: integer
- *               offset:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Search results
- *       401:
- *         description: Unauthorized
- */
-router.post('/', searchHandler);
-
-export default router;
+export default searchPlugin;

@@ -1,7 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess } from '@elastic-resume-base/bowltie';
-import { AuthenticatedRequest } from '../models/index.js';
 import { readDocument } from '../services/documentReaderClient.js';
 
 const readSchema = z.object({
@@ -13,12 +12,11 @@ const readSchema = z.object({
 });
 
 /** Handles POST /documents/read - reads and extracts text from a document. */
-export async function readDocumentHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const body = readSchema.parse(req.body);
-    const result = await readDocument(body);
-    res.status(200).json(formatSuccess(result, (req as AuthenticatedRequest).correlationId));
-  } catch (err) {
-    next(err);
-  }
+export async function readDocumentHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const body = readSchema.parse(request.body);
+  const result = await readDocument(body);
+  reply.send(formatSuccess(result, request.correlationId));
 }

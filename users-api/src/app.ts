@@ -1,29 +1,53 @@
-import express from 'express';
-import helmet from 'helmet';
-import cors from 'cors';
-import rateLimit from 'express-rate-limit';
-import { correlationIdMiddleware } from './middleware/correlationId.js';
-import { requestLogger } from './middleware/requestLogger.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import router from './routes/index.js';
+import Fastify from 'fastify';
+import helmet from '@fastify/helmet';
+import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
+import type { FastifyInstance } from 'fastify';
+import { ValidationError } from '@elastic-resume-base/synapse';
 import { config } from './config.js';
 import { setupSwagger } from './swagger.js';
+import { correlationIdHook } from './middleware/correlationId.js';
+import { requestLoggerHook } from './middleware/requestLogger.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import routes from './routes/index.js';
 
-const app = express();
+/**
+ * Builds and configures the Fastify application instance.
+ * Call `app.listen()` separately to start the server.
+ * @returns Configured Fastify instance (not yet listening).
+ */
+export async function buildApp(): Promise<FastifyInstance> {
+  const app = Fastify({
+    trustProxy: true,
+    bodyLimit: 10 * 1024 * 1024, // 10 MB
+    ajv: {
+      customOptions: {
+        coerceTypes: true,
+        useDefaults: true,
+      },
+    },
+    schemaErrorFormatter: (_errors, dataVar) => new ValidationError(`${dataVar} validation failed`),
+  });
 
-app.set('trust proxy', 1);
-app.use(helmet());
-app.use(cors({ origin: config.allowedOrigins.split(',') }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(correlationIdMiddleware);
-app.use(requestLogger);
+  // Swagger must be registered before routes so schemas are collected
+  await setupSwagger(app);
 
-setupSwagger(app);
+  // Security / cross-cutting plugins
+  await app.register(helmet);
+  await app.register(cors, { origin: config.allowedOrigins.split(',') });
+  await app.register(rateLimit, { max: 100, timeWindow: '15 minutes' });
 
-app.use(router);
+  // Global request hooks
+  app.addHook('onRequest', correlationIdHook);
+  app.addHook('onResponse', requestLoggerHook);
 
-app.use(errorHandler);
+  // Global error handler (must be set before routes)
+  app.setErrorHandler(errorHandler);
 
-export default app;
+  // Route registration
+  await app.register(routes);
+
+  return app;
+}
+
+export default buildApp;

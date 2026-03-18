@@ -93,7 +93,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 | **Secrets** | Google Cloud KMS |
 | **Logging** | Google Cloud Logging |
 | **Containerization** | Docker + Docker Compose |
-| **BFF Language** | Node.js (Express / Fastify) |
+| **BFF Language** | Node.js (Fastify v5) |
 | **Worker Language** | Python 3.11 (FastAPI / Flask) |
 
 ---
@@ -130,8 +130,11 @@ Ensure you have the following tools installed locally:
 
 4. **Configure environment variables:**
    ```bash
-   cp .env.example .env
-   # Edit .env with your project-specific values
+   # config.yaml is the single source of truth for all services.
+   # It is git-ignored; config_example.yaml is the committed template.
+   cp config_example.yaml config.yaml
+   # Edit config.yaml and fill in any sensitive values
+   # (GOOGLE_SERVICE_ACCOUNT_KEY, DLQ_SLACK_WEBHOOK_URL, etc.)
    ```
 
 5. **Install service dependencies:**
@@ -145,7 +148,15 @@ Ensure you have the following tools installed locally:
 
 ### Running with Docker Compose
 
-The fastest way to run the full local environment:
+Before the first run, copy and configure the template:
+
+```bash
+# One-time setup: copy the template and fill in any sensitive values
+cp config_example.yaml config.yaml
+# (edit config.yaml with your values)
+```
+
+Then start the environment:
 
 ```bash
 # Start all services with Firebase emulators
@@ -179,6 +190,14 @@ elastic-resume-base/
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
+├── users-api/                 # Node.js Users API Microservice
+│   ├── src/
+│   ├── Dockerfile
+│   └── package.json
+├── shared/                    # Shared TypeScript libraries
+│   ├── Synapse/               # Error classes + Firestore user repository
+│   ├── Bowltie/               # Response formatting utilities
+│   └── Bugle/                 # Google Auth + Drive permissions
 ├── ingestor-service/          # Python Ingestion Worker
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -214,7 +233,8 @@ elastic-resume-base/
 │   ├── docker-orchestration.md
 │   ├── services.md
 │   └── costs and services.md
-├── .env.example               # Environment variable template
+├── config_example.yaml        # Environment configuration template (committed)
+│                              # Copy to config.yaml (git-ignored) and edit
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md

@@ -1,78 +1,179 @@
 # Containerization and Local Orchestration
 
-This document outlines the containerization strategy for the microservices architecture. Utilizing Docker and Docker Compose ensures strict environmental parity across development teams and allows for seamless local emulation of Google Cloud services.
+This document outlines the containerization strategy for the microservices architecture. Using Docker and Docker Compose ensures strict environmental parity across development teams and allows for seamless local emulation of Google Cloud services.
+
+---
 
 ## 1. Repository Architecture
 
-A monorepo structure is recommended to centralize the deployment configuration and facilitate local orchestration. The repository should be structured as follows:
+The monorepo centralises all deployment configuration. A single `config_example.yaml` file at the repository root is the **authoritative template for all service environment variables**; the user copies it to `config.yaml` (git-ignored) and fills in their values.
 
 ```text
-elasstic-resume-base/
-├── firebase-emulator/     # Custom Dockerfile for Emulators
+elastic-resume-base/
+├── firebase-emulator/         # Custom Dockerfile for Firebase Emulators
 │   ├── Dockerfile
 │   └── firebase.json
-├── bff-gateway/           # Node.js Gateway Service
+├── bff-gateway/               # Node.js BFF Gateway
 │   ├── Dockerfile
-│   ├── package.json
-│   └── index.js
-├── [service name]/      # examples: ingestor-service, vector-search-service, etc.
+│   ├── esbuild.config.mjs     # esbuild bundle configuration
+│   └── package.json
+├── users-api/                 # Node.js Users API
 │   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── .env                   # Local secrets (Excluded from version control)
-└── docker-compose.yml     # Master Orchestration File
-
+│   ├── esbuild.config.mjs     # esbuild bundle configuration
+│   └── package.json
+├── [service-name]/            # Python microservices
+│   ├── Dockerfile
+│   └── requirements.txt
+├── config_example.yaml        # ← Committed template (safe defaults, no secrets)
+├── config.yaml                # ← Your local copy (git-ignored, fill in secrets)
+└── docker-compose.yml         # Master orchestration file
 ```
 
 ---
 
-## 2. Firebase Emulator Containerization
+## 2. Environment Configuration
 
-Google does not provide a standalone, lightweight Docker image exclusively for the Firebase Emulator Suite. A custom image must be built containing Node.js (for the Firebase CLI) and Java Runtime Environment (required for the Firestore and Pub/Sub emulators).
+All environment variables for all services are defined in a **single `config.yaml`** at the project root. This file is **git-ignored** — you create it locally by copying the committed template:
+
+```bash
+cp config_example.yaml config.yaml
+```
+
+### File structure
+
+`config.yaml` uses a nested YAML structure. The `systems.shared` section contains variables that are inherited by every service; service-specific sections override or extend the shared values.
+
+```yaml
+systems:
+
+  shared:                          # Inherited by every service
+    NODE_ENV: development
+    LOG_LEVEL: info
+    FIREBASE_PROJECT_ID: demo-elastic-resume-base
+    FIRESTORE_EMULATOR_HOST: "firebase-emulator:8080"
+    # …
+
+  bff-gateway:                     # BFF Gateway-specific values
+    PORT: "3000"
+    ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
+    USER_API_SERVICE_URL: "http://users-api:8005"
+    # …
+
+  users-api:                       # Users API-specific values
+    PORT: "8005"
+    GOOGLE_SERVICE_ACCOUNT_KEY: "" # fill in locally
+    ADMIN_SHEET_FILE_ID: ""
+    # …
+
+  # (other services follow the same pattern)
+```
+
+See `config_example.yaml` for the full set of variables and inline documentation.
+
+### How Node.js services read config.yaml
+
+Each Node.js service reads `config.yaml` **directly at startup** — no preprocessing script is needed. The `src/utils/loadConfigYaml.ts` utility in each service:
+
+1. Searches for `config.yaml` in the following order:
+   - Path given by the `CONFIG_FILE` environment variable (explicit override)
+   - `./config.yaml` relative to the current working directory (matches Docker containers where `config.yaml` is mounted at `/app/config.yaml`, and also matches running from the monorepo root)
+   - `../config.yaml` one directory up (matches running `npm run dev` from inside the service directory)
+2. Merges `systems.shared` with `systems.<service-name>` (service-specific values take precedence).
+3. Writes each merged key into `process.env` — **only if that key is not already set**, so variables injected by the shell, Docker, or a test harness always win.
+4. If `config.yaml` is not found or is malformed, the function returns silently and the service starts using Zod schema defaults and any pre-existing environment variables.
+
+### How it works with Docker Compose
+
+`docker-compose.yml` mounts `config.yaml` as a read-only file into each container:
+
+```yaml
+bff-gateway:
+  volumes:
+    - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
+
+users-api:
+  volumes:
+    - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
+```
+
+The service's WORKDIR is `/app`, so the search path `./config.yaml` resolves to `/app/config.yaml` — the mounted file.
+
+### Filling in secrets
+
+Edit `config.yaml` after copying the template. Secrets are empty strings in the example:
+
+```yaml
+systems:
+  users-api:
+    GOOGLE_SERVICE_ACCOUNT_KEY: ""   # ← paste your Base64-encoded JSON here
+    ADMIN_SHEET_FILE_ID: ""          # ← optional Google Drive file ID
+
+  dlq-notifier:
+    DLQ_SLACK_WEBHOOK_URL: ""        # ← paste your Slack webhook URL here
+```
+
+After editing `config.yaml`, restart the affected containers:
+
+```bash
+docker compose restart bff-gateway users-api
+```
+
+---
+
+## 3. Firebase Emulator Containerization
+
+Google does not provide a standalone Docker image for the Firebase Emulator Suite. A custom image is built that contains Node.js (for the Firebase CLI) and Java Runtime Environment (required for Firestore and Pub/Sub emulators).
 
 **`firebase-emulator/Dockerfile`**
 
 ```dockerfile
-# Base image: Node.js
 FROM node:20-alpine
 
-# Install Java JRE (Required for Firestore/PubSub emulators)
+# Java JRE is required for Firestore and Pub/Sub emulators
 RUN apk add --no-cache openjdk17-jre
 
-# Install the Firebase CLI globally
 RUN npm install -g firebase-tools
 
 WORKDIR /srv/firebase
 
-# Expose required emulator ports (Auth, Firestore, Pub/Sub, UI)
 EXPOSE 9099 8080 8085 4000
 
-# Initialize emulators. The "demo-" prefix prevents the CLI from 
-# attempting to authenticate with live GCP credentials.
-CMD ["firebase", "emulators:start", "--project", "demo-elasstic-resume-base", "--host", "0.0.0.0"]
-
+CMD ["firebase", "emulators:start", "--project", "demo-elastic-resume-base", "--host", "0.0.0.0"]
 ```
 
 ---
 
-## 3. Microservice Containerization
+## 4. Microservice Containerization
 
-Each microservice requires an independent `Dockerfile` to allow for isolated builds and deployments.
+Each microservice has an independent `Dockerfile` for isolated builds and deployments.
 
-### Node.js Gateway (`bff-gateway/Dockerfile`)
+### Node.js Services (`bff-gateway`, `users-api`)
+
+Both Node.js services use a two-stage Docker build. The builder stage runs `npm run build`, which:
+1. **Type-checks** the TypeScript source with `tsc --noEmit`.
+2. **Bundles** all application source files into a single `dist/server.js` using esbuild (see [Build Pipeline](#5-build-pipeline)).
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
-COPY . .
-# Utilize a development dependency (e.g., nodemon) for hot-reloading
-CMD ["npm", "run", "dev"] 
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=builder /app/dist ./dist
+EXPOSE 3000
+USER node
+CMD ["node", "dist/server.js"]
 ```
 
-### Python Ingestion Worker (`ingestor-service/Dockerfile`)
+### Python Microservices
 
 ```dockerfile
 FROM python:3.11-slim
@@ -80,79 +181,90 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-# Utilize an ASGI server (e.g., uvicorn) for hot-reloading
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
 ```
 
 ---
 
-## 4. Orchestration via Docker Compose
+## 5. Build Pipeline
 
-The `docker-compose.yml` file, located at the repository root, orchestrates the networking and environment variables required to route local traffic to the emulators rather than production Google Cloud endpoints.
+### Node.js services — esbuild bundling
 
-**`docker-compose.yml`**
-
-```yaml
-version: '3.8'
-
-services:
-  # 1. Local Firebase/GCP Emulation Environment
-  firebase-emulator:
-    build:
-      context: ./firebase-emulator
-    ports:
-      - "4000:4000" # Emulator UI
-      - "9099:9099" # Authentication
-      - "8080:8080" # Firestore
-      - "8085:8085" # Pub/Sub
-    volumes:
-      - ./firebase-emulator/firebase.json:/srv/firebase/firebase.json
-
-  # 2. Node.js Backend-for-Frontend (BFF) Gateway
-  bff-gateway:
-    build:
-      context: ./bff-gateway
-    ports:
-      - "3000:3000"
-    environment:
-      # Directs the Firebase Admin SDK to the local emulator
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
-      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
-    volumes:
-      - ./bff-gateway:/app # Mounts local directory for hot-reloading
-    depends_on:
-      - firebase-emulator
-
-  # 3. Python Ingestion Worker
-  ingestor-service:
-    build:
-      context: ./ingestor-service
-    ports:
-      - "8000:8000"
-    environment:
-      # Directs the Google Cloud Python SDK to the local emulator
-      - PUBSUB_EMULATOR_HOST=firebase-emulator:8085
-      - GOOGLE_CLOUD_PROJECT=demo-elasstic-resume-base
-    volumes:
-      - ./ingestor-service:/app # Mounts local directory for hot-reloading
-    depends_on:
-      - firebase-emulator
+The `npm run build` command for each Node.js service runs two steps in sequence:
 
 ```
+tsc --noEmit          →  TypeScript type-checking (no file output)
+node esbuild.config.mjs  →  Bundle src/server.ts → dist/server.js
+```
+
+esbuild is configured in `esbuild.config.mjs` at the service root:
+
+```javascript
+import { build } from 'esbuild';
+
+await build({
+  entryPoints: ['src/server.ts'],
+  bundle: true,
+  platform: 'node',
+  target: 'node20',
+  format: 'esm',
+  packages: 'external',   // keep npm packages in node_modules at runtime
+  outfile: 'dist/server.js',
+  sourcemap: true,
+});
+```
+
+Key options:
+- **`bundle: true`** — Recursively bundles all local `import` statements into a single file.
+- **`packages: 'external'`** — npm packages are left as `import` statements pointing at `node_modules/`; this avoids bundling packages with native add-ons or dynamic `require()` (e.g. `firebase-admin`, `@fastify/swagger-ui`).
+- **`format: 'esm'`** — Output is an ES module (matches `"type": "module"` in `package.json`).
+- **`sourcemap: true`** — Produces `dist/server.js.map` for readable stack traces.
+
+The result is a single `dist/server.js` file that the Docker runner stage executes directly.
 
 ---
 
-## 5. Operational Workflow
+## 6. Orchestration via Docker Compose
 
-This configuration standardizes the development loop.
+### First-time setup
 
-1. **Isolated Testing:** To execute or test a single service (e.g., a Python script), developers can build and run its container independently (`docker build -t ingestor-service .`).
-2. **Full Environment Initialization:** To initialize the entire infrastructure (Database, API Gateway, and Ingestion Pipeline), execute:
 ```bash
-docker-compose up
+# 1. Copy the template and fill in secrets
+cp config_example.yaml config.yaml
+# (open config.yaml and edit sensitive values)
 
+# 2. Start everything — services read config.yaml at startup
+docker compose up
 ```
 
+### Day-to-day workflow
 
-3. **Development Loop:** Docker handles image compilation, port binding, and internal DNS routing. Volume mounts ensure that local code modifications trigger automatic reloads within the containers, while all network requests are securely routed to the offline emulators.
+```bash
+# Start all services
+docker compose up
+
+# Start specific services only
+docker compose up bff-gateway users-api
+
+# Rebuild images after code changes
+docker compose up --build
+
+# Stop and remove containers
+docker compose down
+
+# Apply config changes without rebuilding images
+docker compose restart bff-gateway users-api
+```
+
+### Available local endpoints
+
+| Service | URL |
+|---|---|
+| BFF Gateway | http://localhost:3000 |
+| BFF Swagger UI | http://localhost:3000/api/v1/docs |
+| Users API | http://localhost:8005 |
+| Users API Swagger UI | http://localhost:8005/api/v1/docs |
+| Firebase Emulator UI | http://localhost:4000 |
+| Firestore Emulator | http://localhost:8080 |
+| Firebase Auth Emulator | http://localhost:9099 |
+| Pub/Sub Emulator | http://localhost:8085 |

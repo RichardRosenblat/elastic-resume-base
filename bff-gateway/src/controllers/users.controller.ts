@@ -1,17 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { createUser, getUserByUid, updateUser, deleteUser, listUsers } from '../services/usersService.js';
-import { AuthenticatedRequest } from '../models/index.js';
-
-/**
- * Extracts the authenticated user's UID from the request.
- * @param req - Express request (must have passed `authMiddleware`).
- * @returns UID of the authenticated user.
- */
-function getRequesterUid(req: Request): string {
-  return (req as AuthenticatedRequest).user.uid;
-}
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -34,36 +24,38 @@ const listUsersQuerySchema = z.object({
   pageToken: z.string().optional(),
 });
 
+type CreateUserBody = z.infer<typeof createUserSchema>;
+type UpdateUserBody = z.infer<typeof updateUserSchema>;
+type ListUsersQuery = { maxResults?: number; pageToken?: string };
+type UidParams = { uid: string };
+
 /**
  * Handles POST /api/v1/users — creates a new Firebase Auth user.
  * Requires admin role.
  */
-export async function createUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const parsed = createUserSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json(formatError('VALIDATION_ERROR', 'Validation error'));
-      return;
-    }
-    const requesterUid = getRequesterUid(req);
-    const user = await createUser(parsed.data, requesterUid);
-    res.status(201).json(formatSuccess(user, (req as AuthenticatedRequest).correlationId));
-  } catch (err) {
-    next(err);
+export async function createUserHandler(
+  request: FastifyRequest<{ Body: CreateUserBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const parsed = createUserSchema.safeParse(request.body);
+  if (!parsed.success) {
+    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    return;
   }
+  const user = await createUser(parsed.data, request.user.uid);
+  reply.code(201).send(formatSuccess(user, request.correlationId));
 }
 
 /**
  * Handles GET /api/v1/users/:uid — retrieves a Firebase Auth user by UID.
  * Available to all authenticated users.
  */
-export async function getUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const user = await getUserByUid(req.params['uid'] as string);
-    res.status(200).json(formatSuccess(user, (req as AuthenticatedRequest).correlationId));
-  } catch (err) {
-    next(err);
-  }
+export async function getUserHandler(
+  request: FastifyRequest<{ Params: UidParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const user = await getUserByUid(request.params.uid);
+  reply.send(formatSuccess(user, request.correlationId));
 }
 
 /**
@@ -71,49 +63,44 @@ export async function getUserHandler(req: Request, res: Response, next: NextFunc
  * Admins may update any user with all fields; non-admins may only update their own
  * profile with non-sensitive fields (displayName, photoURL).
  */
-export async function updateUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const parsed = updateUserSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json(formatError('VALIDATION_ERROR', 'Validation error'));
-      return;
-    }
-    const requesterUid = getRequesterUid(req);
-    const user = await updateUser(req.params['uid'] as string, parsed.data, requesterUid);
-    res.status(200).json(formatSuccess(user, (req as AuthenticatedRequest).correlationId));
-  } catch (err) {
-    next(err);
+export async function updateUserHandler(
+  request: FastifyRequest<{ Params: UidParams; Body: UpdateUserBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const parsed = updateUserSchema.safeParse(request.body);
+  if (!parsed.success) {
+    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    return;
   }
+  const user = await updateUser(request.params.uid, parsed.data, request.user.uid);
+  reply.send(formatSuccess(user, request.correlationId));
 }
 
 /**
  * Handles DELETE /api/v1/users/:uid — deletes a Firebase Auth user by UID.
  * Requires admin role.
  */
-export async function deleteUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const requesterUid = getRequesterUid(req);
-    await deleteUser(req.params['uid'] as string, requesterUid);
-    res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
+export async function deleteUserHandler(
+  request: FastifyRequest<{ Params: UidParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await deleteUser(request.params.uid, request.user.uid);
+  reply.code(204).send();
 }
 
 /**
  * Handles GET /api/v1/users — lists Firebase Auth users with optional pagination.
  * Available to all authenticated users.
  */
-export async function listUsersHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const parsed = listUsersQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      res.status(400).json(formatError('VALIDATION_ERROR', 'Validation error'));
-      return;
-    }
-    const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
-    res.status(200).json(formatSuccess(result, (req as AuthenticatedRequest).correlationId));
-  } catch (err) {
-    next(err);
+export async function listUsersHandler(
+  request: FastifyRequest<{ Querystring: ListUsersQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const parsed = listUsersQuerySchema.safeParse(request.query);
+  if (!parsed.success) {
+    reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    return;
   }
+  const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
+  reply.send(formatSuccess(result, request.correlationId));
 }

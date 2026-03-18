@@ -1,73 +1,63 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../errors.js';
 import { reportError } from '../utils/cloudErrorReporting.js';
 
+/** Logs and sends a structured error response, reporting 5xx errors to Cloud Error Reporting. */
+function sendError(
+  reply: FastifyReply,
+  statusCode: number,
+  code: string,
+  message: string,
+  correlationId: string,
+  originalErr: Error,
+  logContext: Record<string, unknown>,
+): void {
+  if (statusCode === 500) {
+    logger.error({ ...logContext, correlationId }, 'Unhandled error');
+    reportError(originalErr);
+  } else {
+    logger.warn({ ...logContext, correlationId }, 'Downstream service error');
+  }
+  reply.code(statusCode).send(formatError(code, message, correlationId));
+}
+
 /**
- * Express error-handling middleware.
+ * Fastify error handler.
  * Handles ZodError, AppError, generic Error, and unknown errors.
  */
-export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
-  const correlationId = (req as Request & { correlationId?: string }).correlationId;
+export function errorHandler(err: Error, request: FastifyRequest, reply: FastifyReply): void {
+  const correlationId = request.correlationId;
 
   if (err instanceof ZodError) {
-    res.status(400).json(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
+    reply.code(400).send(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
     return;
   }
 
   if (err instanceof AppError) {
-    const isDownstreamError = err.statusCode !== 500;
-    if (isDownstreamError) {
-      logger.warn(
-        { message: err.message, code: err.code, statusCode: err.statusCode, correlationId },
-        'Downstream service error',
-      );
-    } else {
-      logger.error({ message: err.message, correlationId }, 'Unhandled AppError');
-      reportError(err);
-    }
-    res
-      .status(err.statusCode)
-      .json(
-        formatError(
-          err.code,
-          isDownstreamError ? err.message : 'An unexpected error occurred',
-          correlationId,
-        ),
-      );
+    sendError(
+      reply,
+      err.statusCode,
+      err.code,
+      err.statusCode === 500 ? 'An unexpected error occurred' : err.message,
+      correlationId,
+      err,
+      { message: err.message, code: err.code, statusCode: err.statusCode },
+    );
     return;
   }
 
-  if (err instanceof Error) {
-    const appError = err as Error & { statusCode?: number; code?: string };
-    const statusCode = appError.statusCode ?? 500;
-    const isDownstreamError = statusCode !== 500;
-
-    if (isDownstreamError) {
-      logger.warn(
-        { message: err.message, code: appError.code, statusCode, correlationId },
-        'Downstream service error',
-      );
-    } else {
-      logger.error({ message: err.message, correlationId }, 'Unhandled error');
-      reportError(err);
-    }
-
-    res
-      .status(statusCode)
-      .json(
-        formatError(
-          appError.code ?? 'INTERNAL_ERROR',
-          isDownstreamError ? err.message : 'An unexpected error occurred',
-          correlationId,
-        ),
-      );
-    return;
-  }
-
-  res
-    .status(500)
-    .json(formatError('INTERNAL_ERROR', 'An unexpected error occurred', correlationId));
+  const appError = err as Error & { statusCode?: number; code?: string };
+  const statusCode = appError.statusCode ?? 500;
+  sendError(
+    reply,
+    statusCode,
+    appError.code ?? 'INTERNAL_ERROR',
+    statusCode === 500 ? 'An unexpected error occurred' : err.message,
+    correlationId,
+    err,
+    { message: err.message, code: appError.code, statusCode },
+  );
 }

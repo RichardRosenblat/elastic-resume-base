@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { loadConfigYaml } from './utils/loadConfigYaml.js';
+
+// Populate process.env from config.yaml (systems.shared + systems.users-api)
+// before Zod reads process.env below. Keys already set are never overridden.
+loadConfigYaml('users-api');
 
 /** Zod schema for application configuration. */
 const configSchema = z.object({

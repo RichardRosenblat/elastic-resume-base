@@ -1,23 +1,23 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from 'fastify';
 import { logger } from '../utils/logger.js';
 
 /**
- * Middleware that logs each HTTP request on response finish.
+ * Fastify onResponse hook that logs each HTTP request after the response is sent.
  */
-export function requestLogger(req: Request, res: Response, next: NextFunction): void {
-  const start = Date.now();
-  const correlationId = (req as Request & { correlationId?: string }).correlationId;
-
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    logger.info({
-      method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
-      durationMs: duration,
-      correlationId,
-    }, 'HTTP request');
-  });
-
-  next();
+export function requestLoggerHook(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  done: HookHandlerDoneFunction,
+): void {
+  logger.info(
+    {
+      method: request.method,
+      path: request.url,
+      statusCode: reply.statusCode,
+      durationMs: Math.round(reply.elapsedTime),
+      correlationId: request.correlationId,
+    },
+    'HTTP request',
+  );
+  done();
 }

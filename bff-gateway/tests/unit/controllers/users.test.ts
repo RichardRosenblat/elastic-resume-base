@@ -1,5 +1,5 @@
-import request from 'supertest';
-import app from '../../../src/app.js';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../../../src/app.js';
 import { _resetFirebaseApp } from '../../../src/middleware/auth.js';
 
 jest.mock('firebase-admin', () => ({
@@ -7,11 +7,6 @@ jest.mock('firebase-admin', () => ({
   initializeApp: jest.fn().mockReturnValue({}),
   auth: jest.fn().mockReturnValue({
     verifyIdToken: jest.fn(),
-    createUser: jest.fn(),
-    getUser: jest.fn(),
-    updateUser: jest.fn(),
-    deleteUser: jest.fn(),
-    listUsers: jest.fn(),
   }),
 }));
 
@@ -52,6 +47,19 @@ function setupAuth(uid = 'admin-uid') {
 }
 
 describe('Users Controller', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    (admin.apps as unknown[]).length = 0;
+    _resetFirebaseApp();
+    setupAuth();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (admin.apps as unknown[]).length = 0;
@@ -63,55 +71,68 @@ describe('Users Controller', () => {
     it('returns 201 on success', async () => {
       (usersService.createUser as jest.Mock).mockResolvedValue(mockUser);
 
-      const res = await request(app)
-        .post('/api/v1/users')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ email: 'test@example.com', password: 'password123' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { email: 'test@example.com', password: 'password123' },
+      });
 
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
     });
 
     it('returns 400 on invalid email', async () => {
-      const res = await request(app)
-        .post('/api/v1/users')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ email: 'not-an-email', password: 'password123' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { email: 'not-an-email', password: 'password123' },
+      });
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('returns 400 on short password', async () => {
-      const res = await request(app)
-        .post('/api/v1/users')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ email: 'test@example.com', password: '123' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { email: 'test@example.com', password: '123' },
+      });
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.statusCode).toBe(400);
+      const body2 = res.json();
+      expect(body2.success).toBe(false);
+      expect(body2.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await request(app)
-        .post('/api/v1/users')
-        .send({ email: 'test@example.com', password: 'password123' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        payload: { email: 'test@example.com', password: 'password123' },
+      });
 
-      expect(res.status).toBe(401);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 403 when service throws ForbiddenError', async () => {
       (usersService.createUser as jest.Mock).mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      const res = await request(app)
-        .post('/api/v1/users')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ email: 'test@example.com', password: 'password123' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { email: 'test@example.com', password: 'password123' },
+      });
 
-      expect(res.status).toBe(403);
+      expect(res.statusCode).toBe(403);
     });
   });
 
@@ -119,28 +140,33 @@ describe('Users Controller', () => {
     it('returns 200 on success', async () => {
       (usersService.getUserByUid as jest.Mock).mockResolvedValue(mockUser);
 
-      const res = await request(app)
-        .get('/api/v1/users/uid123')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+      });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data).toMatchObject({ uid: 'uid123' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({ uid: 'uid123' });
     });
 
     it('returns 404 when NotFoundError thrown', async () => {
       (usersService.getUserByUid as jest.Mock).mockRejectedValue(new NotFoundError('User uid123 not found'));
 
-      const res = await request(app)
-        .get('/api/v1/users/uid123')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+      });
 
-      expect(res.status).toBe(404);
+      expect(res.statusCode).toBe(404);
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await request(app).get('/api/v1/users/uid123');
-      expect(res.status).toBe(401);
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid123' });
+      expect(res.statusCode).toBe(401);
     });
   });
 
@@ -149,14 +175,17 @@ describe('Users Controller', () => {
       const updated = { ...mockUser, displayName: 'Updated Name' };
       (usersService.updateUser as jest.Mock).mockResolvedValue(updated);
 
-      const res = await request(app)
-        .patch('/api/v1/users/uid123')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ displayName: 'Updated Name' });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { displayName: 'Updated Name' },
+      });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.displayName).toBe('Updated Name');
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.displayName).toBe('Updated Name');
     });
 
     it('returns 403 when service throws ForbiddenError', async () => {
@@ -164,20 +193,24 @@ describe('Users Controller', () => {
         new ForbiddenError('You may only update your own profile'),
       );
 
-      const res = await request(app)
-        .patch('/api/v1/users/other-uid')
-        .set('Authorization', 'Bearer valid-token')
-        .send({ displayName: 'Updated Name' });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/other-uid',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { displayName: 'Updated Name' },
+      });
 
-      expect(res.status).toBe(403);
+      expect(res.statusCode).toBe(403);
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await request(app)
-        .patch('/api/v1/users/uid123')
-        .send({ displayName: 'Updated Name' });
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        payload: { displayName: 'Updated Name' },
+      });
 
-      expect(res.status).toBe(401);
+      expect(res.statusCode).toBe(401);
     });
   });
 
@@ -185,26 +218,30 @@ describe('Users Controller', () => {
     it('returns 204 on success', async () => {
       (usersService.deleteUser as jest.Mock).mockResolvedValue(undefined);
 
-      const res = await request(app)
-        .delete('/api/v1/users/uid123')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+      });
 
-      expect(res.status).toBe(204);
+      expect(res.statusCode).toBe(204);
     });
 
     it('returns 403 when service throws ForbiddenError', async () => {
       (usersService.deleteUser as jest.Mock).mockRejectedValue(new ForbiddenError('Admin access required'));
 
-      const res = await request(app)
-        .delete('/api/v1/users/uid123')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+      });
 
-      expect(res.status).toBe(403);
+      expect(res.statusCode).toBe(403);
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await request(app).delete('/api/v1/users/uid123');
-      expect(res.status).toBe(401);
+      const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/uid123' });
+      expect(res.statusCode).toBe(401);
     });
   });
 
@@ -212,19 +249,22 @@ describe('Users Controller', () => {
     it('returns 200 with users list', async () => {
       (usersService.listUsers as jest.Mock).mockResolvedValue({ users: [mockUser], pageToken: undefined });
 
-      const res = await request(app)
-        .get('/api/v1/users')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+      });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.users).toHaveLength(1);
-      expect(res.body.data.users[0]).toMatchObject({ uid: 'uid123' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.users).toHaveLength(1);
+      expect(body.data.users[0]).toMatchObject({ uid: 'uid123' });
     });
 
     it('returns 401 when unauthenticated', async () => {
-      const res = await request(app).get('/api/v1/users');
-      expect(res.status).toBe(401);
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users' });
+      expect(res.statusCode).toBe(401);
     });
   });
 });

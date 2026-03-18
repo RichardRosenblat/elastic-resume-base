@@ -1,4 +1,13 @@
-version: '3.8'
+# All environment variables are managed through config.yaml (git-ignored).
+# Each service reads the file directly at startup, loading systems.shared
+# merged with its own systems.<service-name> section.
+#
+# Before running docker-compose for the first time:
+#   cp config_example.yaml config.yaml   # copy the template (first time only)
+#   # edit config.yaml and fill in any sensitive values
+#   docker compose up
+#
+# See documentation/docker-orchestration.md for full details.
 
 services:
   # 1. Local Firebase/GCP Emulation Environment
@@ -7,9 +16,9 @@ services:
       context: ./firebase-emulator
     ports:
       - "4000:4000"   # Emulator UI
-      - "9099:9099"   # Authentication
+      - "9099:9099"   # Firebase Authentication
       - "8080:8080"   # Firestore
-      - "8085:8085"   # Pub/Sub
+      - "8085:8085"   # Cloud Pub/Sub
     volumes:
       - ./firebase-emulator/firebase.json:/srv/firebase/firebase.json
 
@@ -19,13 +28,8 @@ services:
       context: ./bff-gateway
     ports:
       - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - FIREBASE_PROJECT_ID=demo-elastic-resume-base
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
-      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
-      - USER_API_SERVICE_URL=http://users-api:8005
-      - LOG_LEVEL=info
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
     depends_on:
       - firebase-emulator
       - users-api
@@ -37,14 +41,7 @@ services:
       dockerfile: users-api/Dockerfile
     ports:
       - "8005:8005"
-    environment:
-      - NODE_ENV=development
-      - PORT=8005
-      - FIREBASE_PROJECT_ID=demo-elastic-resume-base
-      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8080
-      # Set GOOGLE_SERVICE_ACCOUNT_KEY and ADMIN_SHEET_FILE_ID as needed:
-      # - GOOGLE_SERVICE_ACCOUNT_KEY=<base64-encoded-service-account-json>
-      # - ADMIN_SHEET_FILE_ID=<google-sheet-file-id>
-      - LOG_LEVEL=info
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
     depends_on:
       - firebase-emulator

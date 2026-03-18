@@ -1,7 +1,6 @@
-import { NextFunction, Request, Response } from 'express';
-import admin from "firebase-admin";
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import admin from 'firebase-admin';
 import { formatError } from '@elastic-resume-base/bowltie';
-import { AuthenticatedRequest } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 
 let firebaseApp: admin.app.App | null = null;
@@ -12,7 +11,7 @@ let firebaseApp: admin.app.App | null = null;
  */
 export function getFirebaseApp(): admin.app.App {
   if (!firebaseApp) {
-    if ( admin.apps && admin.apps.length > 0) {
+    if (admin.apps && admin.apps.length > 0) {
       firebaseApp = admin.apps[0]!;
     } else {
       firebaseApp = admin.initializeApp({
@@ -29,16 +28,14 @@ export function _resetFirebaseApp(): void {
 }
 
 /**
- * Express middleware that verifies a Firebase ID token from the Authorization header.
- * Sets `req.user` on success or returns 401 on failure.
+ * Fastify onRequest hook that verifies a Firebase ID token from the Authorization header.
+ * Sets `request.user` on success or replies with 401 on failure.
  */
-export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const authHeader = req.headers.authorization;
+export async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const authHeader = request.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res
-      .status(401)
-      .json(formatError('UNAUTHORIZED', 'Missing or invalid Authorization header'));
+    reply.code(401).send(formatError('UNAUTHORIZED', 'Missing or invalid Authorization header'));
     return;
   }
 
@@ -48,18 +45,14 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     const app = getFirebaseApp();
     const decoded = await admin.auth(app).verifyIdToken(token);
 
-    (req as AuthenticatedRequest).user = {
+    request.user = {
       uid: decoded.uid,
       email: decoded.email,
       name: decoded.name,
       picture: decoded.picture,
     };
-
-    next();
   } catch (err) {
-    logger.warn({ err, correlationId: (req as AuthenticatedRequest).correlationId }, 'Token verification failed');
-    res
-      .status(401)
-      .json(formatError('UNAUTHORIZED', 'Invalid or expired token'));
+    logger.warn({ err, correlationId: request.correlationId }, 'Token verification failed');
+    reply.code(401).send(formatError('UNAUTHORIZED', 'Invalid or expired token'));
   }
 }

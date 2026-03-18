@@ -1,5 +1,5 @@
-import request from 'supertest';
-import app from '../../../src/app.js';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../../../src/app.js';
 import { _resetFirebaseApp } from '../../../src/middleware/auth.js';
 
 jest.mock('firebase-admin', () => ({
@@ -13,6 +13,18 @@ jest.mock('firebase-admin', () => ({
 import * as admin from 'firebase-admin';
 
 describe('ME Route', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    (admin.apps as unknown[]).length = 0;
+    _resetFirebaseApp();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (admin.apps as unknown[]).length = 0;
@@ -30,20 +42,23 @@ describe('ME Route', () => {
       verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
     });
 
-    const res = await request(app)
-      .get('/api/v1/me')
-      .set('Authorization', 'Bearer valid-token');
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: { authorization: 'Bearer valid-token' },
+    });
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toMatchObject({
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({
       uid: 'user123',
       email: 'test@example.com',
     });
   });
 
   it('GET /api/v1/me returns 401 when not authenticated', async () => {
-    const res = await request(app).get('/api/v1/me');
-    expect(res.status).toBe(401);
+    const res = await app.inject({ method: 'GET', url: '/api/v1/me' });
+    expect(res.statusCode).toBe(401);
   });
 });
