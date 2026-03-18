@@ -18,9 +18,12 @@ const client = createHttpClient(config.userApiServiceUrl);
  */
 export async function getUserRole(uid: string): Promise<string> {
   // TODO: remove fallback once UserAPI is stable and always available
+  logger.debug({ uid }, 'getUserRole: requesting role from UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(`/users/${uid}/role`);
-    return response.data.data.role;
+    const role = response.data.data.role;
+    logger.debug({ uid, role }, 'getUserRole: role retrieved from UserAPI');
+    return role;
   } catch (err) {
     logger.warn({ uid, err }, 'UserAPI unavailable; defaulting role to "user"');
     return 'user';
@@ -39,8 +42,10 @@ export async function getUserRole(uid: string): Promise<string> {
  */
 export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
   // TODO: remove fallback once UserAPI is stable and always available
+  logger.debug({ count: uids.length }, 'getUserRolesBatch: requesting batch roles from UserAPI');
   try {
     const response = await client.post<{ success: boolean; data: Record<string, string> }>('/users/roles/batch', { uids });
+    logger.debug({ count: uids.length }, 'getUserRolesBatch: batch roles retrieved from UserAPI');
     return response.data.data;
   } catch (err) {
     logger.warn({ uids, err }, 'UserAPI unavailable; defaulting all roles to "user"');
@@ -60,11 +65,15 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
  * @throws {ForbiddenError} If the UserAPI explicitly denies access (HTTP 403).
  */
 export async function checkUserAccess(uid: string): Promise<string> {
+  logger.debug({ uid }, 'checkUserAccess: verifying application access via UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(`/users/${uid}/role`);
-    return response.data.data.role;
+    const role = response.data.data.role;
+    logger.debug({ uid, role }, 'checkUserAccess: access granted');
+    return role;
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 403) {
+      logger.info({ uid }, 'checkUserAccess: UserAPI denied access (403)');
       throw new ForbiddenError('User does not have access to this application');
     }
     logger.warn({ uid, err }, 'UserAPI unavailable; skipping user access check');

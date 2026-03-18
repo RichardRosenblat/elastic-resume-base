@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
+import { logger } from '../utils/logger.js';
 import { createUser, getUserByUid, updateUser, deleteUser, listUsers } from '../services/usersService.js';
 
 const createUserSchema = z.object({
@@ -37,12 +38,19 @@ export async function createUserHandler(
   request: FastifyRequest<{ Body: CreateUserBody }>,
   reply: FastifyReply,
 ): Promise<void> {
+  logger.debug({ correlationId: request.correlationId, requesterUid: request.user.uid }, 'createUserHandler: validating request body');
   const parsed = createUserSchema.safeParse(request.body);
   if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'createUserHandler: validation failed',
+    );
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
+  logger.info({ correlationId: request.correlationId, email: parsed.data.email, requesterUid: request.user.uid }, 'createUserHandler: creating user');
   const user = await createUser(parsed.data, request.user.uid);
+  logger.debug({ correlationId: request.correlationId, uid: user.uid }, 'createUserHandler: user created successfully');
   void reply.code(201).send(formatSuccess(user, request.correlationId));
 }
 
@@ -54,7 +62,10 @@ export async function getUserHandler(
   request: FastifyRequest<{ Params: UidParams }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const user = await getUserByUid(request.params.uid);
+  const { uid } = request.params;
+  logger.debug({ correlationId: request.correlationId, uid }, 'getUserHandler: fetching user');
+  const user = await getUserByUid(uid);
+  logger.debug({ correlationId: request.correlationId, uid }, 'getUserHandler: user retrieved successfully');
   void reply.send(formatSuccess(user, request.correlationId));
 }
 
@@ -67,12 +78,20 @@ export async function updateUserHandler(
   request: FastifyRequest<{ Params: UidParams; Body: UpdateUserBody }>,
   reply: FastifyReply,
 ): Promise<void> {
+  const { uid } = request.params;
+  logger.debug({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'updateUserHandler: validating request body');
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, uid, issues: parsed.error.issues },
+      'updateUserHandler: validation failed',
+    );
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
-  const user = await updateUser(request.params.uid, parsed.data, request.user.uid);
+  logger.info({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'updateUserHandler: updating user');
+  const user = await updateUser(uid, parsed.data, request.user.uid);
+  logger.debug({ correlationId: request.correlationId, uid }, 'updateUserHandler: user updated successfully');
   void reply.send(formatSuccess(user, request.correlationId));
 }
 
@@ -84,7 +103,10 @@ export async function deleteUserHandler(
   request: FastifyRequest<{ Params: UidParams }>,
   reply: FastifyReply,
 ): Promise<void> {
-  await deleteUser(request.params.uid, request.user.uid);
+  const { uid } = request.params;
+  logger.info({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'deleteUserHandler: deleting user');
+  await deleteUser(uid, request.user.uid);
+  logger.debug({ correlationId: request.correlationId, uid }, 'deleteUserHandler: user deleted successfully');
   void reply.code(204).send();
 }
 
@@ -96,11 +118,24 @@ export async function listUsersHandler(
   request: FastifyRequest<{ Querystring: ListUsersQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'listUsersHandler: validating query params');
   const parsed = listUsersQuerySchema.safeParse(request.query);
   if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'listUsersHandler: validation failed',
+    );
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
+  logger.debug(
+    { correlationId: request.correlationId, maxResults: parsed.data.maxResults, hasPageToken: !!parsed.data.pageToken },
+    'listUsersHandler: fetching users',
+  );
   const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
+  logger.debug(
+    { correlationId: request.correlationId, count: result.users.length, hasNextPage: !!result.pageToken },
+    'listUsersHandler: users retrieved successfully',
+  );
   void reply.send(formatSuccess(result, request.correlationId));
 }
