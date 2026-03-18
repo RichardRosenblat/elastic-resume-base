@@ -465,12 +465,12 @@ Add these scripts to `package.json`:
 
 ## Environment Variables
 
-- All environment variables for every service in the project are defined in a **single `env.yaml` file** at the repository root. There are no per-service `.env` or `.env.example` files.
-- Docker Compose loads `env.yaml` via `env_file: [{path: ./env.yaml, format: yaml}]` (requires Docker Compose ≥ 2.24.0).
-- For local development without Docker Compose, export the relevant variables from `env.yaml` into your shell before starting the service.
+- All environment variables for every service are defined in a **single nested `config.yaml`** at the repository root. The committed template is `config_example.yaml`; developers copy it to `config.yaml` (git-ignored) and fill in their values.
+- Running `python3 scripts/setup-env.py` reads `config.yaml` and generates a flat `KEY=value` `.env` file for each service (e.g. `bff-gateway/.env`). Docker Compose loads that file via `env_file` in `docker-compose.yml`. The generated `.env` files are git-ignored.
+- For local development without Docker Compose, export the relevant variables from your service's `.env` file (or run `source bff-gateway/.env`) before starting the service.
 - Validate environment variables at startup using **Zod**; fail fast if any required variable is missing.
 - Never access `process.env` directly in business logic — always go through a validated `config` module.
-- Never hardcode defaults that differ between environments; keep all defaults in the Zod schema or in `env.yaml`.
+- Never hardcode defaults that differ between environments; keep all defaults in the Zod schema or in `config_example.yaml`.
 
 ```typescript
 // src/config.ts

@@ -130,19 +130,19 @@ Ensure you have the following tools installed locally:
 
 4. **Configure environment variables:**
    ```bash
-   # The root env.yaml file is the single source of truth for all services.
-   # It ships with safe defaults for local development — no copying required.
-   # Fill in any sensitive values (GOOGLE_SERVICE_ACCOUNT_KEY, etc.) locally,
-   # and NEVER commit secrets to version control.
-   #
-   # For local secrets, create a git-ignored docker-compose.override.yml or
-   # export the variables in your shell before running docker-compose.
-   #
-   # See env.yaml at the project root for all available variables.
+   # config.yaml is the single source of truth for all services.
+   # It is git-ignored; config_example.yaml is the committed template.
+   cp config_example.yaml config.yaml
+   # Edit config.yaml and fill in any sensitive values
+   # (GOOGLE_SERVICE_ACCOUNT_KEY, DLQ_SLACK_WEBHOOK_URL, etc.)
    ```
 
-5. **Install service dependencies:**
+5. **Generate per-service environment files and install dependencies:**
    ```bash
+   # Generate per-service .env files from your config.yaml
+   # (requires Python 3 + pyyaml: pip install pyyaml)
+   python3 scripts/setup-env.py
+
    # BFF Gateway
    cd bff-gateway && npm install
 
@@ -152,7 +152,16 @@ Ensure you have the following tools installed locally:
 
 ### Running with Docker Compose
 
-The fastest way to run the full local environment:
+Before the first run, generate your per-service `.env` files:
+
+```bash
+# One-time setup: copy the template, edit credentials, then generate .env files
+cp config_example.yaml config.yaml
+# (edit config.yaml with your values)
+python3 scripts/setup-env.py
+```
+
+Then start the environment:
 
 ```bash
 # Start all services with Firebase emulators
@@ -229,8 +238,10 @@ elastic-resume-base/
 │   ├── docker-orchestration.md
 │   ├── services.md
 │   └── costs and services.md
-├── env.yaml                   # Single root-level environment configuration
-│                              # (replaces all per-service .env.example files)
+├── scripts/                   # Developer tooling scripts
+│   └── setup-env.py           # Generates per-service .env from config.yaml
+├── config_example.yaml        # Environment configuration template (committed)
+│                              # Copy to config.yaml (git-ignored) and edit
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md
