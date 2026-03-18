@@ -20,6 +20,7 @@ jest.mock('../../../src/services/usersService', () => ({
 
 // Prevent real HTTP calls to UserAPI from within app initialization
 jest.mock('../../../src/services/userApiClient', () => ({
+  checkUserAccess: jest.fn().mockResolvedValue('user'),
   getUserRole: jest.fn().mockResolvedValue('user'),
   getUserRolesBatch: jest.fn().mockResolvedValue({}),
 }));

@@ -2,6 +2,8 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import admin from 'firebase-admin';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
+import { ForbiddenError } from '../errors.js';
+import { checkUserAccess } from '../services/userApiClient.js';
 
 let firebaseApp: admin.app.App | null = null;
 
@@ -30,6 +32,8 @@ export function _resetFirebaseApp(): void {
 /**
  * Fastify onRequest hook that verifies a Firebase ID token from the Authorization header.
  * Sets `request.user` on success or replies with 401 on failure.
+ * Also validates that the user is a registered application user via the UserAPI,
+ * replying with 403 if the user is not permitted.
  */
 export async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const authHeader = request.headers.authorization;
@@ -54,5 +58,16 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   } catch (err) {
     logger.warn({ err, correlationId: request.correlationId }, 'Token verification failed');
     reply.code(401).send(formatError('UNAUTHORIZED', 'Invalid or expired token'));
+    return;
+  }
+
+  try {
+    await checkUserAccess(request.user.uid);
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      reply.code(403).send(formatError('FORBIDDEN', err.message));
+      return;
+    }
+    throw err;
   }
 }
