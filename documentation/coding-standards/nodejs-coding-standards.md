@@ -6,21 +6,27 @@ This document defines the coding standards and best practices for the Node.js se
 
 ## Table of Contents
 
-- [Language and Runtime](#language-and-runtime)
-- [Style Guide](#style-guide)
-- [Project Structure](#project-structure)
-- [Naming Conventions](#naming-conventions)
-- [TypeScript Usage](#typescript-usage)
-- [JSDoc and Comments](#jsdoc-and-comments)
-- [Error Handling](#error-handling)
-- [Logging](#logging)
-- [Security](#security)
-- [Dependencies](#dependencies)
-- [Testing](#testing)
-- [Linting and Formatting](#linting-and-formatting)
-- [Environment Variables](#environment-variables)
-- [Async Programming](#async-programming)
-- [API Design](#api-design)
+- [Node.js Coding Standards](#nodejs-coding-standards)
+  - [Table of Contents](#table-of-contents)
+  - [Language and Runtime](#language-and-runtime)
+  - [Style Guide](#style-guide)
+  - [Project Structure](#project-structure)
+  - [Naming Conventions](#naming-conventions)
+  - [TypeScript Usage](#typescript-usage)
+  - [JSDoc and Comments](#jsdoc-and-comments)
+  - [Error Handling](#error-handling)
+  - [Logging](#logging)
+  - [Security](#security)
+  - [Dependencies](#dependencies)
+  - [Testing](#testing)
+  - [Linting and Formatting](#linting-and-formatting)
+  - [Environment Variables](#environment-variables)
+  - [Build Pipeline](#build-pipeline)
+    - [Scripts](#scripts)
+    - [esbuild configuration (`esbuild.config.mjs`)](#esbuild-configuration-esbuildconfigmjs)
+    - [`tsconfig.json` conventions](#tsconfigjson-conventions)
+  - [Async Programming](#async-programming)
+  - [API Design](#api-design)
 
 ---
 
@@ -449,7 +455,7 @@ Add these scripts to `package.json`:
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest --runInBand --forceExit",
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
     "lint": "eslint src/ tests/",
@@ -533,7 +539,7 @@ await build({
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  packages: 'external',   // keep npm packages in node_modules at runtime
+  packages: 'bundle',   // keep npm packages in node_modules at runtime
   outfile: 'dist/server.js',
   sourcemap: true,
 });

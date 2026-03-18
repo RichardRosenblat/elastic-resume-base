@@ -208,7 +208,7 @@ await build({
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  packages: 'external',   // keep npm packages in node_modules at runtime
+  packages: 'bundled',   // keep npm packages in node_modules at runtime
   outfile: 'dist/server.js',
   sourcemap: true,
 });

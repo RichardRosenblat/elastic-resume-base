@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc --noEmit && node esbuild.config.mjs",
     "start": "node dist/server.js",
     "lint": "eslint src/ tests/",
