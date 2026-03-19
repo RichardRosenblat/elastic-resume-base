@@ -1,15 +1,16 @@
-import Fastify from 'fastify';
-import helmet from '@fastify/helmet';
+import { ValidationError } from '@elastic-resume-base/synapse';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
-import { ValidationError } from '@elastic-resume-base/synapse';
+import Fastify from 'fastify';
 import { config } from './config.js';
-import { setupSwagger } from './swagger.js';
 import { correlationIdHook } from './middleware/correlationId.js';
-import { requestLoggerHook } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestLoggerHook } from './middleware/requestLogger.js';
 import routes from './routes/index.js';
+import { bootstrapAdminUser } from './services/usersService.js';
+import { setupSwagger } from './swagger.js';
 
 /**
  * Builds and configures the Fastify application instance.
@@ -47,6 +48,11 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Route registration
   await app.register(routes);
+
+  // admin-user bootstrap
+  app.addHook('onReady', async () => {
+    await bootstrapAdminUser();
+  });
 
   return app;
 }

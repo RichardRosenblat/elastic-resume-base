@@ -203,15 +203,14 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
     }
   }
 
+  const { email, displayName, photoURL, role, disabled } = data;
+  const fields = { email, displayName, photoURL, role, disabled };
+
   const updateData: Record<string, unknown> = {
     updatedAt: FirestoreTimestamp.now(),
+    // Filter out undefined values and merge
+    ...Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined)),
   };
-
-  if (data.email !== undefined) updateData['email'] = data.email;
-  if (data.displayName !== undefined) updateData['displayName'] = data.displayName;
-  if (data.photoURL !== undefined) updateData['photoURL'] = data.photoURL;
-  if (data.role !== undefined) updateData['role'] = data.role;
-  if (data.disabled !== undefined) updateData['disabled'] = data.disabled;
 
   logger.trace({ uid, fields: Object.keys(updateData) }, 'updateUser: writing update to Firestore');
   await db.collection(USERS_COLLECTION).doc(uid).update(updateData);
@@ -390,4 +389,33 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
     'getUserRolesBatch: roles resolved',
   );
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrapping and onready functions
+// ---------------------------------------------------------------------------
+
+
+/**
+ * Bootstraps the admin user based on the configuration.
+ * If the `bootstrapAdminUserEmail` is not set, the function will log a warning and return.
+ * @returns A promise that resolves when the admin user has been created or skipped.
+ */
+export async function bootstrapAdminUser(): Promise<void> {
+  if (!config.bootstrapAdminUserEmail) {
+    logger.warn('No bootstrap admin email configured; skipping admin user creation');
+    return;
+  }
+
+  logger.info(
+    { email: config.bootstrapAdminUserEmail },
+    'Bootstrapping admin user from configuration email',
+  );
+
+  await createUser({
+    email: config.bootstrapAdminUserEmail,
+    role: 'admin',
+    displayName: 'Admin User',
+    disabled: false,
+  });
 }

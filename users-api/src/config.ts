@@ -10,6 +10,7 @@ const configSchema = z.object({
   port: z.number().default(8005),
   nodeEnv: z.enum(['development', 'production', 'test']).default('development'),
   projectId: z.string().default('demo-elastic-resume-base'),
+  bootstrapAdminUserEmail: z.string().email().optional(),
   firestoreEmulatorHost: z.string().optional(),
   firebaseAuthEmulatorHost: z.string().optional(),
   googleServiceAccountKey: z.string().optional(),
@@ -40,6 +41,7 @@ function loadConfig(): Config {
     logLevel: process.env['LOG_LEVEL'],
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
+    bootstrapAdminUserEmail: process.env['BOOTSTRAP_ADMIN_USER_EMAIL'],
   });
 }
 
