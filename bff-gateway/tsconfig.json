@@ -13,12 +13,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "sourceMap": true,
-    "paths": {
-      "pino": ["./node_modules/pino"],
-      "js-yaml": ["./node_modules/@types/js-yaml"],
-      "@google-cloud/pino-logging-gcp-config": ["./node_modules/@google-cloud/pino-logging-gcp-config"]
-    }
+    "sourceMap": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

@@ -1,5 +1,4 @@
 import { build } from 'esbuild';
-import { resolve } from 'node:path';
 
 await build({
   entryPoints: ['src/server.ts'],
@@ -11,10 +10,6 @@ await build({
   // This avoids bundling packages that rely on native add-ons or dynamic
   // require() calls (e.g. firebase-admin, @fastify/swagger-ui).
   packages: 'external',
-  // Allow esbuild to find packages from this service's node_modules when
-  // resolving imports that originate inside shared/Toolbox/src/ (which has no
-  // node_modules of its own).
-  nodePaths: [resolve('node_modules')],
   outfile: 'dist/server.js',
   sourcemap: true,
 });
