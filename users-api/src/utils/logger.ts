@@ -1,4 +1,4 @@
-import { createLogger } from '@elastic-resume-base/toolbox';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
 import { config } from '../config.js';
 
 /**

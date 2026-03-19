@@ -1,37 +1,39 @@
 # Toolbox
 
-A shared library providing **cross-cutting utilities** for Elastic Resume Base microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested package.
+A shared collection of **cross-cutting utility functions** for Elastic Resume Base microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested source directory.
+
+Toolbox is **not** an npm package. It is a plain set of TypeScript source files that services import directly using relative paths. No build step or installation is required.
 
 ---
 
-## Installation
+## Usage
 
-To install Toolbox you must use a relative path to the package since it is not published to npm. From the service directory, run:
+Import the functions you need directly from the source files using a relative path from your service:
 
-```bash
-npm install ../shared/Toolbox
+```typescript
+import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 ```
 
-If Toolbox has not been built yet, build it first:
+Your service must have the following packages in its own `package.json` dependencies (they are **not** bundled with Toolbox):
 
-```bash
-cd shared/Toolbox
-npm install
-npm run build
-```
-
-Or to build all shared packages at once from the monorepo root:
-
-```bash
-.\build_shared.bat
-```
+- `pino`
+- `uuid`
+- `js-yaml`
+- `@google-cloud/pino-logging-gcp-config`
+- `fastify` (peer, for type compatibility)
 
 ---
 
 ## Quick Start
 
 ```typescript
-import { loadConfigYaml, createLogger, correlationIdHook, createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 
 // 1. Load config.yaml before reading process.env
 loadConfigYaml('my-service');
@@ -66,7 +68,7 @@ Loads `config.yaml` and populates `process.env` with the merged contents of `sys
 3. `config.yaml` one directory above the current working directory.
 
 ```typescript
-import { loadConfigYaml } from '@elastic-resume-base/toolbox';
+import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
 
 // Call before importing config.ts so env vars are in place when Zod reads them
 loadConfigYaml('my-service');
@@ -92,7 +94,7 @@ Factory that returns a configured [Pino](https://getpino.io/) logger instance.
 - **production** — structured JSON formatted for Google Cloud Logging, using `@google-cloud/pino-logging-gcp-config`.
 
 ```typescript
-import { createLogger } from '@elastic-resume-base/toolbox';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
 import { config } from '../config.js';
 
 export const logger = createLogger({
@@ -121,7 +123,7 @@ Fastify `onRequest` hook that attaches a correlation ID to every incoming reques
 The resolved ID is stored on `request.correlationId` and echoed back via the `x-correlation-id` response header.
 
 ```typescript
-import { correlationIdHook } from '@elastic-resume-base/toolbox';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
 
 app.addHook('onRequest', correlationIdHook);
 
@@ -146,7 +148,7 @@ Each response emits a single `info`-level log entry containing:
 | `correlationId` | Trace ID from `correlationIdHook`            |
 
 ```typescript
-import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 import { logger } from '../utils/logger.js';
 
 app.addHook('onResponse', createRequestLoggerHook(logger));
@@ -163,7 +165,7 @@ The canonical way to wire up Toolbox in a Node.js microservice:
 
 **`src/utils/logger.ts`**
 ```typescript
-import { createLogger } from '@elastic-resume-base/toolbox';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
 import { config } from '../config.js';
 
 export const logger = createLogger({
@@ -175,7 +177,8 @@ export const logger = createLogger({
 
 **`src/app.ts`** (excerpt)
 ```typescript
-import { correlationIdHook, createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 import { logger } from './utils/logger.js';
 
 // In buildApp():
@@ -185,12 +188,12 @@ app.addHook('onResponse', createRequestLoggerHook(logger));
 
 **`src/middleware/correlationId.ts`** (thin re-export)
 ```typescript
-export { correlationIdHook } from '@elastic-resume-base/toolbox';
+export { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
 ```
 
 **`src/middleware/requestLogger.ts`** (thin wrapper)
 ```typescript
-import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 import { logger } from '../utils/logger.js';
 
 export const requestLoggerHook = createRequestLoggerHook(logger);
@@ -201,8 +204,7 @@ export const requestLoggerHook = createRequestLoggerHook(logger);
 ## Development
 
 ```bash
-npm install        # Install dependencies
-npm run build      # Compile TypeScript
+npm install        # Install dev dependencies (for running Toolbox tests in isolation)
 npm run lint       # Lint source and tests
 npm run typecheck  # Type-check without emitting
 npm test           # Run unit tests
