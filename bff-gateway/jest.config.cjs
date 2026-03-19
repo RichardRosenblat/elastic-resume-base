@@ -15,5 +15,6 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
+    '^@elastic-resume-base/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',
   },
 };

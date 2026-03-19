@@ -1,17 +1,5 @@
-import type { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from 'fastify';
-import { v4 as uuidv4 } from 'uuid';
-
 /**
- * Fastify onRequest hook that attaches a correlation ID to each request.
- * Uses the incoming `x-correlation-id` header or generates a new UUID.
+ * Re-exports `correlationIdHook` from `@elastic-resume-base/toolbox`.
+ * Kept here to preserve the original import path used throughout the service.
  */
-export function correlationIdHook(
-  request: FastifyRequest,
-  reply: FastifyReply,
-  done: HookHandlerDoneFunction,
-): void {
-  const correlationId = (request.headers['x-correlation-id'] as string) || uuidv4();
-  request.correlationId = correlationId;
-  void reply.header('x-correlation-id', correlationId);
-  done();
-}
+export { correlationIdHook } from '@elastic-resume-base/toolbox';

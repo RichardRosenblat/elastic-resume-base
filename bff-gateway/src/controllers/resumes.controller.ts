@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
+import { logger } from '../utils/logger.js';
 import { triggerIngest } from '../services/downloaderClient.js';
 import { generateResume } from '../services/fileGeneratorClient.js';
 
@@ -22,8 +23,11 @@ type GenerateParams = { resumeId: string };
 
 /** Handles POST /resumes/ingest - triggers a resume ingest job. */
 export async function ingest(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'ingest: validating request body');
   const body = ingestSchema.parse(request.body);
+  logger.info({ correlationId: request.correlationId, sheetId: body.sheetId, batchId: body.batchId }, 'ingest: triggering ingest job');
   const result = await triggerIngest(body);
+  logger.debug({ correlationId: request.correlationId, jobId: result.jobId }, 'ingest: job accepted');
   void reply.code(202).send(formatSuccess(result, request.correlationId));
 }
 
@@ -34,10 +38,14 @@ export async function generate(
 ): Promise<void> {
   const resumeId = request.params.resumeId;
   if (!resumeId) {
+    logger.warn({ correlationId: request.correlationId }, 'generate: resumeId missing from params');
     void reply.code(400).send(formatError('VALIDATION_ERROR', 'resumeId is required'));
     return;
   }
+  logger.debug({ correlationId: request.correlationId, resumeId }, 'generate: validating request body');
   const body = generateSchema.parse(request.body);
+  logger.info({ correlationId: request.correlationId, resumeId, format: body.format, language: body.language }, 'generate: triggering file generation');
   const result = await generateResume(resumeId, body);
+  logger.debug({ correlationId: request.correlationId, resumeId, jobId: result.jobId }, 'generate: generation job accepted');
   void reply.code(202).send(formatSuccess(result, request.correlationId));
 }

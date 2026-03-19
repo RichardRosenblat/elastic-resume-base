@@ -1,5 +1,5 @@
-import { getFirestore as _getFirestore, Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore'
-import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore'
+import { getFirestore as _getFirestore, Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
+import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
 import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
 import { config } from '../config.js';
@@ -13,7 +13,9 @@ const USERS_COLLECTION = config.firestoreUsersCollection;
 const DEFAULT_ROLE = 'user';
 
 /**
- * Returns the Firestore instance, pointing to the emulator when configured.
+ * Returns the Firestore instance.
+ * Uses the modular `firebase-admin/firestore` subpath export, which is the
+ * ESM-safe way to obtain Firestore in a `"type":"module"` package.
  * @returns Firestore Admin instance.
  */
 function getFirestore(): Firestore {
@@ -87,10 +89,12 @@ function validateEmail(email: string): void {
  * @throws {ConflictError} If a user with the same email already exists.
  */
 export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
+  logger.debug({ email: data.email }, 'createUser: validating email');
   validateEmail(data.email);
 
   const db = getFirestore();
 
+  logger.debug({ email: data.email }, 'createUser: checking for duplicate email');
   // Check for duplicate email
   const existing = await db
     .collection(USERS_COLLECTION)
@@ -99,6 +103,7 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
     .get();
 
   if (!existing.empty) {
+    logger.warn({ email: data.email }, 'createUser: email already exists (conflict)');
     throw new ConflictError(`A user with email '${data.email}' already exists`);
   }
 
@@ -115,6 +120,7 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
     updatedAt: now,
   };
 
+  logger.trace({ uid, email: data.email, role: docData['role'] }, 'createUser: writing document to Firestore');
   await db.collection(USERS_COLLECTION).doc(uid).set(docData);
   logger.info({ uid, action: 'createUser' }, 'User created');
 
@@ -129,8 +135,14 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
  * @throws {NotFoundError} If no user with that UID exists.
  */
 export async function getUserByUid(uid: string): Promise<UserRecord> {
+  logger.debug({ uid }, 'getUserByUid: fetching document from Firestore');
   const db = getFirestore();
   const doc = await db.collection(USERS_COLLECTION).doc(uid).get();
+  if (!doc.exists) {
+    logger.debug({ uid }, 'getUserByUid: document not found');
+  } else {
+    logger.trace({ uid }, 'getUserByUid: document retrieved');
+  }
   return mapDocument(doc);
 }
 
@@ -147,15 +159,19 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
 export async function updateUser(uid: string, data: UpdateUserRequest): Promise<UserRecord> {
   const db = getFirestore();
 
+  logger.debug({ uid }, 'updateUser: checking user existence');
   // Ensure the user exists
   const existing = await db.collection(USERS_COLLECTION).doc(uid).get();
   if (!existing.exists) {
+    logger.debug({ uid }, 'updateUser: user not found');
     throw new NotFoundError(`User '${uid}' not found`);
   }
 
   if (data.email !== undefined) {
+    logger.debug({ uid, email: data.email }, 'updateUser: validating new email');
     validateEmail(data.email);
     // Check that the new email is not taken by a *different* user
+    logger.debug({ uid, email: data.email }, 'updateUser: checking email uniqueness');
     const emailConflict = await db
       .collection(USERS_COLLECTION)
       .where('email', '==', data.email)
@@ -163,6 +179,7 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
       .get();
 
     if (!emailConflict.empty && emailConflict.docs[0]?.id !== uid) {
+      logger.warn({ uid, email: data.email }, 'updateUser: email already taken by another user');
       throw new ConflictError(`A user with email '${data.email}' already exists`);
     }
   }
@@ -177,6 +194,7 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
   if (data.role !== undefined) updateData['role'] = data.role;
   if (data.disabled !== undefined) updateData['disabled'] = data.disabled;
 
+  logger.trace({ uid, fields: Object.keys(updateData) }, 'updateUser: writing update to Firestore');
   await db.collection(USERS_COLLECTION).doc(uid).update(updateData);
   logger.info({ uid, action: 'updateUser' }, 'User updated');
 
@@ -191,10 +209,13 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
  */
 export async function deleteUser(uid: string): Promise<void> {
   const db = getFirestore();
+  logger.debug({ uid }, 'deleteUser: checking user existence before delete');
   const doc = await db.collection(USERS_COLLECTION).doc(uid).get();
   if (!doc.exists) {
+    logger.debug({ uid }, 'deleteUser: user not found');
     throw new NotFoundError(`User '${uid}' not found`);
   }
+  logger.trace({ uid }, 'deleteUser: removing document from Firestore');
   await db.collection(USERS_COLLECTION).doc(uid).delete();
   logger.info({ uid, action: 'deleteUser' }, 'User deleted');
 }
@@ -211,6 +232,7 @@ export async function listUsers(
   maxResults = 100,
   pageToken?: string,
 ): Promise<ListUsersResponse> {
+  logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: building Firestore query');
   const db = getFirestore();
   let query = db
     .collection(USERS_COLLECTION)
@@ -218,13 +240,17 @@ export async function listUsers(
     .limit(maxResults);
 
   if (pageToken) {
+    logger.trace({ pageToken }, 'listUsers: resolving pagination cursor');
     const lastUid = Buffer.from(pageToken, 'base64').toString('utf-8');
     const lastDoc = await db.collection(USERS_COLLECTION).doc(lastUid).get();
     if (lastDoc.exists) {
       query = query.startAfter(lastDoc);
+    } else {
+      logger.warn({ pageToken, lastUid }, 'listUsers: pagination cursor document not found; starting from beginning');
     }
   }
 
+  logger.trace({ maxResults }, 'listUsers: executing Firestore query');
   const snapshot = await query.get();
   const users = snapshot.docs.map(mapDocument);
 
@@ -236,6 +262,7 @@ export async function listUsers(
     }
   }
 
+  logger.debug({ count: users.length, hasNextPage: !!nextPageToken }, 'listUsers: query complete');
   return { users, pageToken: nextPageToken };
 }
 
@@ -318,22 +345,31 @@ export async function getUserRole(uid: string): Promise<string | null> {
  */
 export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
   if (uids.length === 0) {
+    logger.debug('getUserRolesBatch: empty input, returning empty result');
     return {};
   }
 
+  logger.debug({ count: uids.length }, 'getUserRolesBatch: fetching roles from Firestore');
   const db = getFirestore();
   const refs = uids.map((uid) => db.collection(USERS_COLLECTION).doc(uid));
   const docs = await db.getAll(...refs);
 
   const result: Record<string, string> = {};
+  let foundCount = 0;
+  let defaultCount = 0;
+
   for (const doc of docs) {
     if (doc.exists) {
       const data = doc.data() as Record<string, unknown>;
       result[doc.id] = (data['role'] as string) ?? DEFAULT_ROLE;
+      foundCount++;
     } else {
       result[doc.id] = DEFAULT_ROLE;
+      defaultCount++;
+      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, defaulting to "user"');
     }
   }
 
+  logger.debug({ total: uids.length, found: foundCount, defaulted: defaultCount }, 'getUserRolesBatch: roles resolved');
   return result;
 }

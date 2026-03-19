@@ -77,13 +77,17 @@ function validateEmailDomain(email: string): void {
  * @throws {ValidationError} If the email domain is not in the allowed list.
  */
 export async function createUser(payload: CreateUserRequest, requesterUid: string): Promise<UserRecord> {
+  logger.debug({ requesterUid }, 'createUser: checking admin access');
   await checkAdminAccess(requesterUid);
+  logger.debug({ email: payload.email }, 'createUser: validating email domain');
   validateEmailDomain(payload.email);
 
   const app = getFirebaseApp();
-  logger.info({ action: 'createUser' }, 'Creating new user');
+  logger.info({ action: 'createUser', email: payload.email, requesterUid }, 'Creating new user');
   const record = await admin.auth(app).createUser(payload);
+  logger.debug({ uid: record.uid }, 'createUser: Firebase Auth user created, fetching role');
   const role = await getUserRole(record.uid);
+  logger.debug({ uid: record.uid, role }, 'createUser: user created successfully');
   return mapUserRecord(record, role);
 }
 
@@ -95,13 +99,17 @@ export async function createUser(payload: CreateUserRequest, requesterUid: strin
  * @throws {NotFoundError} If the user does not exist.
  */
 export async function getUserByUid(uid: string): Promise<UserRecord> {
+  logger.debug({ uid }, 'getUserByUid: fetching user from Firebase Auth');
   const app = getFirebaseApp();
   try {
     const record = await admin.auth(app).getUser(uid);
+    logger.debug({ uid }, 'getUserByUid: fetching role from UserAPI');
     const role = await getUserRole(uid);
+    logger.debug({ uid, role }, 'getUserByUid: user retrieved successfully');
     return mapUserRecord(record, role);
   } catch (err: unknown) {
     if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
+      logger.debug({ uid }, 'getUserByUid: user not found in Firebase Auth');
       throw new NotFoundError(`User ${uid} not found`);
     }
     throw err;
@@ -128,10 +136,12 @@ export async function updateUser(
   payload: UpdateUserRequest,
   requesterUid: string,
 ): Promise<UserRecord> {
+  logger.debug({ uid, requesterUid }, 'updateUser: checking requester role');
   const requesterRole = await getUserRole(requesterUid);
   const isAdmin = requesterRole === 'admin';
 
   if (!isAdmin && uid !== requesterUid) {
+    logger.warn({ uid, requesterUid }, 'updateUser: non-admin attempted to update another user');
     throw new ForbiddenError('You may only update your own profile');
   }
 
@@ -139,6 +149,7 @@ export async function updateUser(
 
   if (isAdmin) {
     if (payload.email) {
+      logger.debug({ uid, email: payload.email }, 'updateUser: validating new email domain');
       validateEmailDomain(payload.email);
     }
     updatePayload = payload;
@@ -149,16 +160,20 @@ export async function updateUser(
         (field) => [field, payload[field]],
       ),
     ) as UpdateUserRequest;
+    logger.debug({ uid, allowedFields: SELF_UPDATABLE_FIELDS }, 'updateUser: non-admin update restricted to safe fields');
   }
 
   const app = getFirebaseApp();
-  logger.info({ uid, action: 'updateUser' }, 'Updating user');
+  logger.info({ uid, action: 'updateUser', isAdmin }, 'Updating user');
   try {
     const record = await admin.auth(app).updateUser(uid, updatePayload);
+    logger.debug({ uid }, 'updateUser: Firebase Auth user updated, fetching role');
     const role = await getUserRole(uid);
+    logger.debug({ uid, role }, 'updateUser: user updated successfully');
     return mapUserRecord(record, role);
   } catch (err: unknown) {
     if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
+      logger.debug({ uid }, 'updateUser: user not found in Firebase Auth');
       throw new NotFoundError(`User ${uid} not found`);
     }
     throw err;
@@ -174,14 +189,17 @@ export async function updateUser(
  * @throws {NotFoundError} If the user does not exist.
  */
 export async function deleteUser(uid: string, requesterUid: string): Promise<void> {
+  logger.debug({ uid, requesterUid }, 'deleteUser: checking admin access');
   await checkAdminAccess(requesterUid);
 
   const app = getFirebaseApp();
-  logger.info({ uid, action: 'deleteUser' }, 'Deleting user');
+  logger.info({ uid, action: 'deleteUser', requesterUid }, 'Deleting user');
   try {
     await admin.auth(app).deleteUser(uid);
+    logger.debug({ uid }, 'deleteUser: user deleted successfully from Firebase Auth');
   } catch (err: unknown) {
     if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
+      logger.debug({ uid }, 'deleteUser: user not found in Firebase Auth');
       throw new NotFoundError(`User ${uid} not found`);
     }
     throw err;
@@ -198,11 +216,14 @@ export async function deleteUser(uid: string, requesterUid: string): Promise<voi
  * @returns ListUsersResponse with users (including roles) and optional next page token.
  */
 export async function listUsers(maxResults?: number, pageToken?: string): Promise<ListUsersResponse> {
+  logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: fetching from Firebase Auth');
   const app = getFirebaseApp();
   const result = await admin.auth(app).listUsers(maxResults, pageToken);
+  logger.debug({ count: result.users.length, hasNextPage: !!result.pageToken }, 'listUsers: fetching roles from UserAPI in batch');
   const uids = result.users.map((u) => u.uid);
   const roles = await getUserRolesBatch(uids);
 
+  logger.debug({ count: result.users.length }, 'listUsers: users retrieved successfully');
   return {
     users: result.users.map((u) => mapUserRecord(u, roles[u.uid] ?? 'user')),
     pageToken: result.pageToken,

@@ -1,38 +1,13 @@
-import { LoggerOptions, pino } from 'pino';
-import { createGcpLoggingPinoConfig } from '@google-cloud/pino-logging-gcp-config';
+import { createLogger } from '@elastic-resume-base/toolbox';
 import { config } from '../config.js';
 
-const logLevel = config.logLevel ?? 'info';
-
-const serviceMetadata = {
-  service: {
-    name: 'bff-gateway',
-    version: '1.0.0',
-  },
-};
-
-let finalConfig;
-
-if (config.nodeEnv !== 'production') {
-  finalConfig = {
-    level: logLevel,
-    base: serviceMetadata,
-    transport: {
-      target: 'pino-pretty',
-      options: { colorize: true },
-    },
-  };
-} else {
-  const gcpConfig = createGcpLoggingPinoConfig();
-
-  finalConfig = {
-    ...gcpConfig,
-    level: logLevel,
-    base: {
-      ...gcpConfig.base,
-      ...serviceMetadata,
-    },
-  };
-}
-
-export const logger = pino(finalConfig as LoggerOptions);
+/**
+ * Service-level Pino logger for bff-gateway.
+ * In development the output is pretty-printed; in production it emits
+ * Google Cloud Logging-compatible structured JSON.
+ */
+export const logger = createLogger({
+  serviceName: 'bff-gateway',
+  logLevel: config.logLevel,
+  nodeEnv: config.nodeEnv,
+});

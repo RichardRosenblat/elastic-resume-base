@@ -15,18 +15,14 @@
 
 // ── Mocks (must be declared before any imports that trigger module initialisation) ──
 
-jest.mock('firebase-admin', () => {
+jest.mock('firebase-admin/firestore', () => {
   const Timestamp = {
     now: jest.fn(() => ({ toDate: () => new Date('2024-01-01T00:00:00.000Z') })),
   };
 
-  const firestoreFn = jest.fn();
-  Object.assign(firestoreFn, { Timestamp });
-
   return {
-    apps: [],
-    initializeApp: jest.fn(),
-    firestore: firestoreFn,
+    getFirestore: jest.fn(),
+    Timestamp,
   };
 });
 
@@ -45,6 +41,8 @@ jest.mock('../../../src/config', () => ({
 
 jest.mock('../../../src/utils/logger', () => ({
   logger: {
+    trace: jest.fn(),
+    debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
@@ -53,7 +51,8 @@ jest.mock('../../../src/utils/logger', () => ({
 
 // ── Imports (after mock declarations) ──
 
-import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+import type { DocumentSnapshot, DocumentReference } from 'firebase-admin/firestore';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
 import { config } from '../../../src/config.js';
 import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
@@ -107,13 +106,13 @@ type MockQuery = {
 function makeDocSnapshot(
   id: string,
   data: Record<string, unknown> | null,
-): admin.firestore.DocumentSnapshot {
+): DocumentSnapshot {
   return {
     id,
     exists: data !== null,
     data: () => data ?? undefined,
-    ref: { id } as admin.firestore.DocumentReference,
-  } as unknown as admin.firestore.DocumentSnapshot;
+    ref: { id } as DocumentReference,
+  } as unknown as DocumentSnapshot;
 }
 
 /**
@@ -125,8 +124,8 @@ function makeDocSnapshot(
  */
 function buildMockFirestore(
   docData: Record<string, unknown> | null = null,
-  queryDocs: admin.firestore.DocumentSnapshot[] = [],
-  listDocs?: admin.firestore.DocumentSnapshot[],
+  queryDocs: DocumentSnapshot[] = [],
+  listDocs?: DocumentSnapshot[],
 ): MockFirestore {
   const getAll = jest.fn().mockResolvedValue([]);
 
@@ -193,7 +192,7 @@ describe('usersService', () => {
   describe('createUser', () => {
     it('creates a user document and returns the normalised record', async () => {
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       // Mock the duplicate-email query to return empty (no conflict)
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
@@ -217,7 +216,7 @@ describe('usersService', () => {
     it('throws ConflictError when email is already registered', async () => {
       const existingDoc = makeDocSnapshot('other-uid', USER_DATA);
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
       collMock.where.mockReturnValue({
@@ -235,7 +234,7 @@ describe('usersService', () => {
   describe('getUserByUid', () => {
     it('returns the user record for an existing UID', async () => {
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const result = await getUserByUid('uid123');
 
@@ -246,7 +245,7 @@ describe('usersService', () => {
 
     it('throws NotFoundError when the document does not exist', async () => {
       const mockFs = buildMockFirestore(null); // null → document does not exist
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       await expect(getUserByUid('missing-uid')).rejects.toThrow(NotFoundError);
     });
@@ -258,7 +257,7 @@ describe('usersService', () => {
     it('updates the user and returns the updated record', async () => {
       const updatedData = { ...USER_DATA, displayName: 'Alice Updated', role: 'editor' };
       const mockFs = buildMockFirestore(updatedData);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       // The first .get() checks existence; we override with existing doc
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
@@ -275,7 +274,7 @@ describe('usersService', () => {
 
     it('throws NotFoundError when the user does not exist', async () => {
       const mockFs = buildMockFirestore(null);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       await expect(updateUser('missing-uid', { displayName: 'Name' })).rejects.toThrow(
         NotFoundError,
@@ -284,7 +283,7 @@ describe('usersService', () => {
 
     it('throws ConflictError when the new email is taken by another user', async () => {
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
       const docRef = collMock.doc() as unknown as MockDocRef;
@@ -313,7 +312,7 @@ describe('usersService', () => {
   describe('deleteUser', () => {
     it('deletes the user when they exist', async () => {
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
       const deleteMock = jest.fn().mockResolvedValue(undefined);
@@ -329,7 +328,7 @@ describe('usersService', () => {
 
     it('throws NotFoundError when the user does not exist', async () => {
       const mockFs = buildMockFirestore(null);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       await expect(deleteUser('missing-uid')).rejects.toThrow(NotFoundError);
     });
@@ -341,7 +340,7 @@ describe('usersService', () => {
     it('returns a page of user records', async () => {
       const docs = [makeDocSnapshot('uid1', USER_DATA), makeDocSnapshot('uid2', USER_DATA)];
       const mockFs = buildMockFirestore(USER_DATA, [], docs);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
       collMock.orderBy.mockReturnValue({
@@ -357,7 +356,7 @@ describe('usersService', () => {
 
     it('returns an empty list when no users exist', async () => {
       const mockFs = buildMockFirestore(null, [], []);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
       collMock.orderBy.mockReturnValue({
@@ -381,7 +380,7 @@ describe('usersService', () => {
 
       // Mock Firestore to return the user's email
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       // Mock DrivePermissionsService.getUsersWithFileAccess to include alice's email
       const mockGetUsersWithFileAccess = jest
@@ -402,7 +401,7 @@ describe('usersService', () => {
       (config as Record<string, unknown>)['adminSheetFileId'] = 'sheet-file-id-123';
 
       const mockFs = buildMockFirestore(USER_DATA);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       // Drive list does NOT include alice's email
       const mockGetUsersWithFileAccess = jest
@@ -424,7 +423,7 @@ describe('usersService', () => {
       (config as Record<string, unknown>)['adminSheetFileId'] = undefined;
 
       const mockFs = buildMockFirestore({ ...USER_DATA, role: 'editor' });
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const role = await getUserRole('uid123');
 
@@ -439,7 +438,7 @@ describe('usersService', () => {
 
       // Firestore returns non-existing document
       const mockFs = buildMockFirestore(null);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const role = await getUserRole('missing-uid');
 
@@ -451,7 +450,7 @@ describe('usersService', () => {
 
       // User not in Firestore
       const mockFs = buildMockFirestore(null);
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       const role = await getUserRole('unknown-uid');
 
@@ -470,7 +469,7 @@ describe('usersService', () => {
 
       const mockGetAll = jest.fn().mockResolvedValue([doc1, doc2]);
       const mockFs = { collection: jest.fn(), getAll: mockGetAll };
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       // collection().doc() stubs for the ref building
       mockFs.collection.mockReturnValue({
@@ -489,7 +488,7 @@ describe('usersService', () => {
 
       const mockGetAll = jest.fn().mockResolvedValue([doc1, missingDoc]);
       const mockFs = { collection: jest.fn(), getAll: mockGetAll };
-      (admin.firestore as unknown as jest.Mock).mockReturnValue(mockFs);
+      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       mockFs.collection.mockReturnValue({
         doc: jest.fn().mockImplementation((uid: string) => ({ id: uid })),

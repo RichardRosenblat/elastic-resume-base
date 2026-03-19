@@ -16,9 +16,11 @@ export function getFirebaseApp(): admin.app.App {
     if (admin.apps && admin.apps.length > 0) {
       firebaseApp = admin.apps[0]!;
     } else {
+      logger.debug('getFirebaseApp: initializing Firebase Admin SDK');
       firebaseApp = admin.initializeApp({
         projectId: process.env['FIREBASE_PROJECT_ID'] || 'demo-elastic-resume-base',
       });
+      logger.info('getFirebaseApp: Firebase Admin SDK initialized');
     }
   }
   return firebaseApp;
@@ -38,7 +40,10 @@ export function _resetFirebaseApp(): void {
 export async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const authHeader = request.headers.authorization;
 
+  logger.trace({ correlationId: request.correlationId }, 'authHook: verifying Authorization header');
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    logger.warn({ correlationId: request.correlationId }, 'authHook: missing or malformed Authorization header');
     void reply.code(401).send(formatError('UNAUTHORIZED', 'Missing or invalid Authorization header'));
     return;
   }
@@ -47,6 +52,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
 
   try {
     const app = getFirebaseApp();
+    logger.trace({ correlationId: request.correlationId }, 'authHook: verifying Firebase ID token');
     const decoded = await admin.auth(app).verifyIdToken(token);
 
     request.user = {
@@ -55,6 +61,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
       name: decoded.name as string | undefined,
       picture: decoded.picture,
     };
+    logger.debug({ correlationId: request.correlationId, uid: decoded.uid }, 'authHook: token verified successfully');
   } catch (err) {
     logger.warn({ err, correlationId: request.correlationId }, 'Token verification failed');
     void reply.code(401).send(formatError('UNAUTHORIZED', 'Invalid or expired token'));
@@ -62,9 +69,12 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   }
 
   try {
-    await checkUserAccess(request.user.uid);
+    logger.trace({ correlationId: request.correlationId, uid: request.user.uid }, 'authHook: checking application access via UserAPI');
+    const role = await checkUserAccess(request.user.uid);
+    logger.debug({ correlationId: request.correlationId, uid: request.user.uid, role }, 'authHook: application access granted');
   } catch (err) {
     if (err instanceof ForbiddenError) {
+      logger.info({ correlationId: request.correlationId, uid: request.user.uid }, 'authHook: user denied application access');
       void reply.code(403).send(formatError('FORBIDDEN', err.message));
       return;
     }
