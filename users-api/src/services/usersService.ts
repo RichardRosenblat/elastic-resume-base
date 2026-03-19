@@ -1,10 +1,18 @@
-import { getFirestore as _getFirestore, Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
-import type { Firestore, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
-import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
+import { ConflictError, NotFoundError, ValidationError } from '@elastic-resume-base/synapse';
+import type { DocumentData, DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
+import {
+  getFirestore as _getFirestore,
+  Timestamp as FirestoreTimestamp,
+} from 'firebase-admin/firestore';
 import { config } from '../config.js';
+import type {
+  CreateUserRequest,
+  ListUsersResponse,
+  UpdateUserRequest,
+  UserRecord,
+} from '../models/index.js';
 import { logger } from '../utils/logger.js';
-import type { UserRecord, CreateUserRequest, UpdateUserRequest, ListUsersResponse } from '../models/index.js';
 
 /** Name of the Firestore collection where user documents are stored. */
 const USERS_COLLECTION = config.firestoreUsersCollection;
@@ -41,9 +49,7 @@ function isTimestamp(value: unknown): value is FirestoreTimestamp {
  * @returns Normalised UserRecord.
  * @throws {NotFoundError} If the document does not exist.
  */
-function mapDocument(
-  doc: 	DocumentSnapshot<DocumentData>,
-): UserRecord {
+function mapDocument(doc: DocumentSnapshot<DocumentData>): UserRecord {
   if (!doc.exists) {
     throw new NotFoundError(`User '${doc.id}' not found`);
   }
@@ -120,7 +126,10 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
     updatedAt: now,
   };
 
-  logger.trace({ uid, email: data.email, role: docData['role'] }, 'createUser: writing document to Firestore');
+  logger.trace(
+    { uid, email: data.email, role: docData['role'] },
+    'createUser: writing document to Firestore',
+  );
   await db.collection(USERS_COLLECTION).doc(uid).set(docData);
   logger.info({ uid, action: 'createUser' }, 'User created');
 
@@ -228,16 +237,10 @@ export async function deleteUser(uid: string): Promise<void> {
  *   previous call. When provided, results begin after the document with that UID.
  * @returns A {@link ListUsersResponse} with the page of users and an optional next-page token.
  */
-export async function listUsers(
-  maxResults = 100,
-  pageToken?: string,
-): Promise<ListUsersResponse> {
+export async function listUsers(maxResults = 100, pageToken?: string): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: building Firestore query');
   const db = getFirestore();
-  let query = db
-    .collection(USERS_COLLECTION)
-    .orderBy('createdAt', 'desc')
-    .limit(maxResults);
+  let query = db.collection(USERS_COLLECTION).orderBy('createdAt', 'desc').limit(maxResults);
 
   if (pageToken) {
     logger.trace({ pageToken }, 'listUsers: resolving pagination cursor');
@@ -246,7 +249,10 @@ export async function listUsers(
     if (lastDoc.exists) {
       query = query.startAfter(lastDoc);
     } else {
-      logger.warn({ pageToken, lastUid }, 'listUsers: pagination cursor document not found; starting from beginning');
+      logger.warn(
+        { pageToken, lastUid },
+        'listUsers: pagination cursor document not found; starting from beginning',
+      );
     }
   }
 
@@ -341,7 +347,7 @@ export async function getUserRole(uid: string): Promise<string | null> {
  *
  * @param uids - Array of Firebase user UIDs.
  * @returns A map of `uid → role` for every UID that exists in Firestore.
- *   UIDs that are not found default to `"user"`.
+ *   UIDs that are not found are ommitted from the result. If a user document exists but has no `role` field, the default role (`"user"`) is returned for that UID.
  */
 export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
   if (uids.length === 0) {
@@ -356,7 +362,7 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
 
   const result: Record<string, string> = {};
   let foundCount = 0;
-  let defaultCount = 0;
+  let notFoundCount = 0;
 
   for (const doc of docs) {
     if (doc.exists) {
@@ -364,12 +370,14 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
       result[doc.id] = (data['role'] as string) ?? DEFAULT_ROLE;
       foundCount++;
     } else {
-      result[doc.id] = DEFAULT_ROLE;
-      defaultCount++;
-      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, defaulting to "user"');
+      notFoundCount++;
+      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, ommiting');
     }
   }
 
-  logger.debug({ total: uids.length, found: foundCount, defaulted: defaultCount }, 'getUserRolesBatch: roles resolved');
+  logger.debug(
+    { total: uids.length, found: foundCount, not_found: notFoundCount },
+    'getUserRolesBatch: roles resolved',
+  );
   return result;
 }
