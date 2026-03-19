@@ -350,7 +350,7 @@ The monorepo provides several internal packages under `shared/`. All services sh
 
 ### Using Toolbox
 
-Toolbox is a plain collection of TypeScript source files — it is **not** an npm package and requires no build step. Import directly from its `src/` files using a relative path:
+Toolbox is a plain collection of TypeScript source files — it is **not** an npm package and requires no build step or `npm install`. Import directly from its `src/` files using a relative path:
 
 ```typescript
 import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
@@ -359,7 +359,7 @@ import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correl
 import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 ```
 
-All runtime dependencies used by Toolbox (`pino`, `uuid`, `js-yaml`, `@google-cloud/pino-logging-gcp-config`) must be present in the consuming service's own `package.json`.
+All runtime dependencies used by Toolbox (`pino`, `js-yaml`, `@google-cloud/pino-logging-gcp-config`) must be present in the consuming service's own `package.json`. The service's `tsconfig.json`, `jest.config.cjs`, and `esbuild.config.mjs` must also include the mapper entries described in the [canonical usage pattern](#toolbox--canonical-usage-pattern) so the TypeScript compiler, Jest, and esbuild each resolve Toolbox's dependencies from the service's own `node_modules`.
 
 ### Installing other shared libraries
 
@@ -408,6 +408,28 @@ app.addHook('onRequest', correlationIdHook);
 app.addHook('onResponse', requestLoggerHook);
 ```
 
+**`tsconfig.json`** — `paths` entries redirect Toolbox deps to the service's `node_modules`:
+```json
+"paths": {
+  "pino": ["./node_modules/pino"],
+  "js-yaml": ["./node_modules/@types/js-yaml"],
+  "@google-cloud/pino-logging-gcp-config": ["./node_modules/@google-cloud/pino-logging-gcp-config"]
+}
+```
+
+> `js-yaml` maps to `@types/js-yaml` because js-yaml's `exports` field lacks a `types` condition, preventing TypeScript's NodeNext resolver from finding `@types/js-yaml` automatically via the normal fallback path. The actual js-yaml implementation is resolved at runtime by Node.js and esbuild.
+
+**`esbuild.config.mjs`** — `nodePaths` ensures esbuild resolves Toolbox deps during bundling:
+```javascript
+import { resolve } from 'node:path';
+await build({
+  // ...
+  packages: 'external',
+  nodePaths: [resolve('node_modules')],
+  // ...
+});
+```
+
 ### Bowltie — response formatting
 
 Use `formatSuccess` / `formatError` from Bowltie in **all** controllers and error handlers to produce the standard JSON envelope. Do **not** build response objects manually.
@@ -426,7 +448,7 @@ void reply.code(404).send(formatError('NOT_FOUND', 'User not found', request.cor
 
 ### Jest — mapping shared packages to TypeScript source
 
-Add each npm-package shared library to `moduleNameMapper` in `jest.config.cjs` so `ts-jest` can compile it alongside the service without ESM/CJS interop issues. Toolbox uses direct relative imports and does not need a mapper entry:
+Add each npm-package shared library to `moduleNameMapper` in `jest.config.cjs` so `ts-jest` can compile it alongside the service without ESM/CJS interop issues. Also add entries for Toolbox's dependencies so Jest resolves them from the service's `node_modules` (Toolbox has no `node_modules` of its own):
 
 ```javascript
 moduleNameMapper: {
@@ -434,6 +456,9 @@ moduleNameMapper: {
   '^@elastic-resume-base/bowltie$':  '<rootDir>/../shared/Bowltie/src/index.ts',
   '^@elastic-resume-base/synapse$':  '<rootDir>/../shared/Synapse/src/index.ts',
   '^@elastic-resume-base/bugle$':    '<rootDir>/../shared/Bugle/src/index.ts',
+  '^pino$':                          '<rootDir>/node_modules/pino',
+  '^js-yaml$':                       '<rootDir>/node_modules/js-yaml',
+  '^@google-cloud/pino-logging-gcp-config$': '<rootDir>/node_modules/@google-cloud/pino-logging-gcp-config',
 },
 ```
 

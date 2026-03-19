@@ -1,24 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
-
-/**
- * Minimal request interface needed by the correlation ID hook.
- * Structurally compatible with `FastifyRequest`.
- * Using minimal interfaces avoids a hard dependency on the `fastify` package,
- * which prevents version-mismatch errors when Toolbox is used alongside a
- * service that already has its own `fastify` installation.
- */
-interface CorrelationRequest {
-  readonly headers: Readonly<Record<string, string | string[] | undefined>>;
-  correlationId: string;
-}
-
-/**
- * Minimal reply interface needed by the correlation ID hook.
- * Structurally compatible with `FastifyReply`.
- */
-interface CorrelationReply {
-  header(key: string, value: string): unknown;
-}
+import { randomUUID } from 'node:crypto';
 
 /**
  * Fastify `onRequest` hook that attaches a correlation ID to every incoming request
@@ -34,18 +14,37 @@ interface CorrelationReply {
  *
  * @example
  * ```typescript
- * import { correlationIdHook } from '@elastic-resume-base/toolbox';
+ * import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
  *
  * app.addHook('onRequest', correlationIdHook);
  * ```
  */
+
+/**
+ * Minimal request interface needed by the correlation ID hook.
+ * Structurally compatible with `FastifyRequest`.
+ */
+interface CorrelationRequest {
+  readonly headers: Readonly<Record<string, string | string[] | undefined>>;
+  correlationId: string;
+}
+
+/**
+ * Minimal reply interface needed by the correlation ID hook.
+ * Structurally compatible with `FastifyReply`.
+ */
+interface CorrelationReply {
+  header(key: string, value: string): unknown;
+}
+
 export function correlationIdHook(
   request: CorrelationRequest,
   reply: CorrelationReply,
   done: () => void,
 ): void {
-  const correlationId = (request.headers['x-correlation-id'] as string) || uuidv4();
+  const correlationId = (request.headers['x-correlation-id'] as string) || randomUUID();
   request.correlationId = correlationId;
   void reply.header('x-correlation-id', correlationId);
   done();
 }
+

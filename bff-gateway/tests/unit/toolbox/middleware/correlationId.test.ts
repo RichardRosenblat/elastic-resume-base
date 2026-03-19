@@ -3,7 +3,7 @@
  * Tests that the hook attaches or generates a correlation ID on every request.
  */
 
-import { correlationIdHook } from '../../../src/middleware/correlationId.js';
+import { correlationIdHook } from '../../../../../shared/Toolbox/src/middleware/correlationId.js';
 
 function makeRequest(headers: Record<string, string> = {}): {
   headers: Record<string, string>;

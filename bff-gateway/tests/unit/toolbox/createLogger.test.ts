@@ -9,7 +9,7 @@ jest.mock('@google-cloud/pino-logging-gcp-config', () => ({
   })),
 }));
 
-import { createLogger } from '../../src/createLogger.js';
+import { createLogger } from '../../../../shared/Toolbox/src/createLogger.js';
 
 describe('createLogger', () => {
   it('returns a logger with info, warn, error, debug, trace methods', () => {

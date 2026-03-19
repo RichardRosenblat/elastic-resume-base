@@ -20,10 +20,11 @@ import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/
 Your service must have the following packages in its own `package.json` dependencies (they are **not** bundled with Toolbox):
 
 - `pino`
-- `uuid`
 - `js-yaml`
+- `@types/js-yaml` (devDependency)
 - `@google-cloud/pino-logging-gcp-config`
-- `fastify` (peer, for type compatibility)
+
+The service's `tsconfig.json` and `jest.config.cjs` must also include mapper entries so TypeScript and Jest can find these packages when compiling or running Toolbox source files. See the [canonical usage pattern](#typical-service-setup) below.
 
 ---
 
@@ -199,16 +200,47 @@ import { logger } from '../utils/logger.js';
 export const requestLoggerHook = createRequestLoggerHook(logger);
 ```
 
+**`tsconfig.json`** — add `paths` to redirect Toolbox's external deps to this service's `node_modules`:
+```json
+"paths": {
+  "pino": ["./node_modules/pino"],
+  "js-yaml": ["./node_modules/@types/js-yaml"],
+  "@google-cloud/pino-logging-gcp-config": ["./node_modules/@google-cloud/pino-logging-gcp-config"]
+}
+```
+
+> **Note on `js-yaml`:** the path points to `@types/js-yaml` (not `js-yaml` itself) because js-yaml's `exports` field has no `types` condition, which prevents TypeScript's NodeNext resolution from automatically finding `@types/js-yaml`. This makes TypeScript pick up the declarations directly. At runtime, Node.js and esbuild resolve the actual js-yaml implementation through normal `node_modules` lookup.
+
+**`jest.config.cjs`** — add `moduleNameMapper` entries so Jest resolves the same packages:
+```javascript
+moduleNameMapper: {
+  '^(\\.{1,2}/.*)\\.js$': '$1',
+  '^pino$': '<rootDir>/node_modules/pino',
+  '^js-yaml$': '<rootDir>/node_modules/js-yaml',
+  '^@google-cloud/pino-logging-gcp-config$': '<rootDir>/node_modules/@google-cloud/pino-logging-gcp-config',
+},
+```
+
+**`esbuild.config.mjs`** — add `nodePaths` so esbuild can resolve Toolbox dependencies during bundling:
+```javascript
+import { resolve } from 'node:path';
+await build({
+  // ...
+  packages: 'external',
+  nodePaths: [resolve('node_modules')],
+  // ...
+});
+```
+
 ---
 
-## Development
+## Testing
+
+Toolbox has no test infrastructure of its own. Its unit tests live in `bff-gateway/tests/unit/toolbox/` and run as part of the bff-gateway test suite:
 
 ```bash
-npm install        # Install dev dependencies (for running Toolbox tests in isolation)
-npm run lint       # Lint source and tests
-npm run typecheck  # Type-check without emitting
-npm test           # Run unit tests
-npm run test:coverage  # Run tests with coverage report
+cd bff-gateway
+npm test
 ```
 
 ---

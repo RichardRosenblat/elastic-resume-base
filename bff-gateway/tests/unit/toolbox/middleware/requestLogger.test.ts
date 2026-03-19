@@ -3,8 +3,7 @@
  * Tests that the factory returns a hook that logs HTTP request details.
  */
 
-import type { Logger } from 'pino';
-import { createRequestLoggerHook } from '../../../src/middleware/requestLogger.js';
+import { createRequestLoggerHook } from '../../../../../shared/Toolbox/src/middleware/requestLogger.js';
 
 function makeRequest(overrides: Record<string, unknown> = {}): {
   method: string;
@@ -29,7 +28,7 @@ function makeReply(overrides: Record<string, unknown> = {}): { statusCode: numbe
 
 describe('createRequestLoggerHook', () => {
   it('logs an info entry with request details', () => {
-    const mockLogger = { info: jest.fn() } as unknown as Logger;
+    const mockLogger = { info: jest.fn() };
     const hook = createRequestLoggerHook(mockLogger);
     const done = jest.fn();
 
@@ -49,7 +48,7 @@ describe('createRequestLoggerHook', () => {
   });
 
   it('rounds elapsedTime to the nearest millisecond', () => {
-    const mockLogger = { info: jest.fn() } as unknown as Logger;
+    const mockLogger = { info: jest.fn() };
     const hook = createRequestLoggerHook(mockLogger);
     const done = jest.fn();
 
@@ -60,7 +59,7 @@ describe('createRequestLoggerHook', () => {
   });
 
   it('always calls done()', () => {
-    const mockLogger = { info: jest.fn() } as unknown as Logger;
+    const mockLogger = { info: jest.fn() };
     const hook = createRequestLoggerHook(mockLogger);
     const done = jest.fn();
 
