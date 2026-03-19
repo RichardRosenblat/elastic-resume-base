@@ -9,7 +9,7 @@ import { config } from '../config.js';
  * - **Production** — structured JSON formatted for Google Cloud Logging,
  *   with `service.name` and `service.version` embedded in every entry.
  */
-function createLogger(options: {
+export function createLogger(options: {
   serviceName: string;
   version?: string;
   logLevel?: string;

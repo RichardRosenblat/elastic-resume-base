@@ -5,7 +5,7 @@
 
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadConfigYaml } from '../../../../shared/Toolbox/src/loadConfigYaml.js';
+import { loadConfigYaml } from '../../../src/utils/loadConfigYaml.js';
 
 const TEMP_CONFIG = resolve(process.cwd(), '__test_config__.yaml');
 
