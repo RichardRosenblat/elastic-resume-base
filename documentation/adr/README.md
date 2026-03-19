@@ -21,7 +21,7 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 
 - **Before making a significant architectural change**, check whether an existing ADR covers the area you are working in.
 - **When proposing a new architectural decision**, create a new ADR following the template below and include it in your PR.
-- **Reference ADRs in code and documentation** using their number and title (e.g., `ADR-003: Use Cloud Pub/Sub for Inter-Service Messaging`).
+- **When reviewing a PR that includes an ADR**, ensure that the decision is well-justified, alternatives are adequately considered, and consequences are clearly outlined.
 
 ---
 
