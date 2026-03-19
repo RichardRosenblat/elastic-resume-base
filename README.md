@@ -252,8 +252,15 @@ elastic-resume-base/
 | [Docker Orchestration](documentation/docker-orchestration.md) | Containerization strategy and Docker Compose configuration |
 | [Services Overview](documentation/services.md) | Detailed description of each microservice |
 | [Costs and Scaling](documentation/costs%20and%20services.md) | Cost analysis and scaling projections |
+| [Architecture Decision Records](documentation/adr/README.md) | Records of key architectural decisions and their rationale |
+| [Data Flow](documentation/data-flow.md) | End-to-end data flow through all services |
+| [Testing Strategy](documentation/testing-strategy.md) | Testing philosophy, layers, mocking strategies, and coverage requirements |
+| [Deployment Guide](documentation/deployment.md) | Cloud Run deployment, IAM setup, Pub/Sub provisioning |
+| [Troubleshooting](documentation/troubleshooting.md) | Common issues and their solutions |
 | [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
 | [Node.js Coding Standards](documentation/coding-standards/nodejs-coding-standards.md) | Node.js style guide and best practices |
+| [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
+| [Monorepo Scripts](documentation/monorepo-scripts.md) | Reference for root-level build and utility scripts |
 | [Contributing](CONTRIBUTING.md) | How to contribute to this project |
 | [Security](SECURITY.md) | Security policy and vulnerability reporting |
 

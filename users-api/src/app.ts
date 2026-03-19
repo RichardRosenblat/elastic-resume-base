@@ -22,6 +22,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     bodyLimit: 10 * 1024 * 1024, // 10 MB
     ajv: {
       customOptions: {
+        strict: false, // allow OpenAPI annotation keywords (e.g. 'example') in schemas
         coerceTypes: true,
         useDefaults: true,
       },
