@@ -92,7 +92,7 @@ function validateEmail(email: string): void {
  * @param data - User creation payload.
  * @returns The newly created {@link UserRecord}.
  * @throws {ValidationError} If the email is missing or invalid.
- * @throws {ConflictError} If a user with the same email already exists.
+ * @throws {ConflictError} If a user with the same email or ID already exists.
  */
 export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
   logger.debug({ email: data.email }, 'createUser: validating email');
@@ -114,6 +114,16 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
   }
 
   const uid = data.uid ?? db.collection(USERS_COLLECTION).doc().id;
+
+  // Check if UID already exists
+  logger.debug({ uid }, 'createUser: checking for duplicate uid');
+  const existingById = await db.collection(USERS_COLLECTION).doc(uid).get();
+
+  if (existingById.exists) {
+    logger.warn({ uid }, 'createUser: uid already exists (conflict)');
+    throw new ConflictError(`A user with id '${uid}' already exists`);
+  }
+
   const now = FirestoreTimestamp.now();
 
   const docData: Record<string, unknown> = {
