@@ -43,7 +43,7 @@ const batchRolesSchema = z.object({
 });
 
 type UidParams = { uid: string };
-type EmailParams = { email: string };
+type EmailQuery = { email: string };
 type ListUsersQuery = { maxResults?: number; pageToken?: string };
 
 // ---------------------------------------------------------------------------
@@ -161,15 +161,15 @@ export async function listUsersHandler(
 }
 
 /**
- * Handles GET /api/v1/users/role/:email — BFF access check endpoint.
+ * Handles GET /api/v1/users/role?email=... — BFF access check endpoint.
  *
  * Returns HTTP 200 with `{ role }` on success or HTTP 403 when the user has no access.
  */
 export async function getUserRoleHandler(
-  request: FastifyRequest<{ Params: EmailParams }>,
+  request: FastifyRequest<{ Querystring: EmailQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const { email } = request.params;
+  const { email } = request.query;
   logger.debug({ correlationId: request.correlationId, email }, 'getUserRoleHandler: checking user role');
   const role = await getUserRoleByEmail(email);
 

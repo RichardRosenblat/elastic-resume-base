@@ -221,13 +221,13 @@ describe('users controller', () => {
     });
   });
 
-  // ── GET /api/v1/users/role/:email ─────────────────────────────────────────
+  // ── GET /api/v1/users/role?email= ─────────────────────────────────────────
 
-  describe('GET /api/v1/users/role/:email', () => {
+  describe('GET /api/v1/users/role?email=', () => {
     it('returns 200 with role when user has access', async () => {
       (usersService.getUserRoleByEmail as jest.Mock).mockResolvedValue('admin');
 
-      const res = await app.inject({ method: 'GET', url: '/api/v1/users/role/alice@example.com' });
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/role?email=alice%40example.com' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -238,7 +238,7 @@ describe('users controller', () => {
     it('returns 403 when user has no access (getUserRoleByEmail returns null)', async () => {
       (usersService.getUserRoleByEmail as jest.Mock).mockResolvedValue(null);
 
-      const res = await app.inject({ method: 'GET', url: '/api/v1/users/role/no-access@example.com' });
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/role?email=no-access%40example.com' });
 
       expect(res.statusCode).toBe(403);
       expect(res.json().success).toBe(false);

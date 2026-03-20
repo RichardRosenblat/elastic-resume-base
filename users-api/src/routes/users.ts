@@ -326,9 +326,9 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, getBatchRolesHandler);
 
-  // Must be registered BEFORE /:uid to prevent email path segments (e.g. /role/user@example.com)
-  // from being matched as /:uid with uid="role".
-  app.get('/role/:email', {
+  // Must be registered BEFORE /:uid to prevent the static segment "role" from being
+  // swallowed by the dynamic /:uid route.
+  app.get('/role', {
     schema: {
       tags: ['Users'],
       summary: 'Get the access role for a user by email (BFF access check)',
@@ -339,7 +339,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         'otherwise falls back to reading the `role` field from Firestore. ' +
         'Returns HTTP 200 with the resolved role on success, or HTTP 403 when the user has no access.',
       security: [{ bearerAuth: [] }],
-      params: {
+      querystring: {
         type: 'object',
         required: ['email'],
         properties: {

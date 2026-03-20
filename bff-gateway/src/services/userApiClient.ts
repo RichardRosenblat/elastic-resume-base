@@ -74,7 +74,7 @@ export async function getUserRoleByEmail(email: string): Promise<string> {
   logger.debug({ email }, 'getUserRoleByEmail: requesting role from UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(
-      `/users/role/${encodeURIComponent(email)}`,
+      `/users/role?email=${encodeURIComponent(email)}`,
     );
     const role = response.data.data.role;
     logger.debug({ email, role }, 'getUserRoleByEmail: role retrieved from UserAPI');
@@ -130,7 +130,7 @@ export async function checkUserAccess(email: string): Promise<string> {
   logger.debug({ email }, 'checkUserAccess: verifying application access via UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(
-      `/users/role/${encodeURIComponent(email)}`,
+      `/users/role?email=${encodeURIComponent(email)}`,
     );
     const role = response.data.data.role;
     logger.debug({ email, role }, 'checkUserAccess: access granted');

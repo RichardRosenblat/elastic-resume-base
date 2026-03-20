@@ -11,7 +11,7 @@ The Users API:
 
 ### BFF Authorization Logic
 
-When `bff-gateway` needs to know a user's role, it calls `GET /api/v1/users/role/:email`. The service resolves the role as follows:
+When `bff-gateway` needs to know a user's role, it calls `GET /api/v1/users/role?email=<address>`. The service resolves the role as follows:
 
 1. **If `ADMIN_SHEET_FILE_ID` is set** — Uses [Bugle](../shared/Bugle/README.md) to fetch the list of users with access to the specified Google Drive file.
    - If the user's email appears in that list → role `"admin"` is returned.
@@ -87,7 +87,7 @@ Copy `.env.example` to `.env` and fill in the values:
 | `GET` | `/api/v1/users/:uid` | Get user by UID |
 | `PATCH` | `/api/v1/users/:uid` | Update user by UID |
 | `DELETE` | `/api/v1/users/:uid` | Delete user by UID |
-| `GET` | `/api/v1/users/role/:email` | BFF access check (returns role or 403) |
+| `GET` | `/api/v1/users/role?email=<address>` | BFF access check (returns role or 403) |
 | `POST` | `/api/v1/users/roles/batch` | Batch role lookup from Firestore |
 | `GET` | `/api/v1/docs` | Swagger UI |
 | `GET` | `/api/v1/docs.json` | Swagger JSON spec |
@@ -161,7 +161,7 @@ The test suite (`tests/unit/services/usersService.test.ts`) covers all four BFF 
 
 The `bff-gateway` calls this service via `userApiClient.ts`:
 
-- `GET /api/v1/users/role/:email` → `getUserRoleByEmail(email)`
+- `GET /api/v1/users/role?email=<address>` → `getUserRoleByEmail(email)`
 - `POST /api/v1/users/roles/batch` → `getUserRolesBatch(uids)`
 
 Set the `USER_API_SERVICE_URL` environment variable in `bff-gateway` to point to this service (default: `http://localhost:8005`).
