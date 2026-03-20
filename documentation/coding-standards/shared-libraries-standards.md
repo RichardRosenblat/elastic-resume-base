@@ -8,6 +8,8 @@ This document defines the standards for developing and maintaining the shared Ty
 
 Shared libraries eliminate code duplication across Node.js microservices. They are **internal packages** — not published to npm — and are installed via relative `file:` paths in `package.json`. Each library must be independently buildable, testable, and documented.
 
+> **Exception — Toolbox:** `shared/Toolbox` is a plain collection of TypeScript source files with no `package.json`. Services import directly from its `src/` files using relative paths. No build step or `npm install` is required. See [Using Toolbox](nodejs-coding-standards.md#using-toolbox) for service integration details.
+
 ---
 
 ## Library Responsibilities
@@ -17,13 +19,13 @@ Shared libraries eliminate code duplication across Node.js microservices. They a
 | **Synapse** | `@elastic-resume-base/synapse` | Error class hierarchy (`AppError`, `NotFoundError`, `ValidationError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError`, `DownstreamError`), `UserRepository` interface, `FirestoreUserRepository` implementation |
 | **Bowltie** | `@elastic-resume-base/bowltie` | Uniform API response envelope: `formatSuccess<T>()`, `formatError()`, `SuccessResponse<T>`, `ErrorResponse`, `ApiResponse<T>` |
 | **Bugle** | `@elastic-resume-base/bugle` | Google API authentication (`getGoogleAuthClient`), Google Drive permissions (`DrivePermissionsService.getUsersWithFileAccess`) |
-| **Toolbox** | `@elastic-resume-base/toolbox` | Config loading (`loadConfigYaml`), structured logger factory (`createLogger`), Fastify hooks (`correlationIdHook`, `createRequestLoggerHook`) |
+| **Toolbox** | *(plain source, no package name)* | Config loading (`loadConfigYaml`), structured logger factory (`createLogger`), Fastify hooks (`correlationIdHook`, `createRequestLoggerHook`) |
 
 ---
 
 ## Package Structure
 
-Each library must follow this structure:
+Each library (Synapse, Bowltie, Bugle) must follow this structure:
 
 ```
 shared/<LibraryName>/
@@ -39,6 +41,22 @@ shared/<LibraryName>/
 ├── .prettierrc
 └── README.md             # API reference with usage examples
 ```
+
+**Toolbox** is an exception — it contains only `src/` and `README.md` with no build infrastructure:
+
+```
+shared/Toolbox/
+├── src/
+│   ├── index.ts
+│   ├── createLogger.ts
+│   ├── loadConfigYaml.ts
+│   └── middleware/
+│       ├── correlationId.ts
+│       └── requestLogger.ts
+└── README.md
+```
+
+Toolbox unit tests live in `bff-gateway/tests/unit/toolbox/` and run as part of the bff-gateway test suite.
 
 ---
 
@@ -79,6 +97,8 @@ shared/<LibraryName>/
 
 ## Adding a New Export to a Shared Library
 
+For **Synapse, Bowltie, or Bugle**:
+
 1. Implement the feature in `src/<module>.ts`.
 2. Export it from `src/index.ts`.
 3. Add unit tests in `tests/unit/<module>.test.ts`.
@@ -86,14 +106,26 @@ shared/<LibraryName>/
 5. Rebuild the library: `npm run build`.
 6. Update all consuming services if the API surface changes.
 
+For **Toolbox**:
+
+1. Implement the feature in `src/<module>.ts`.
+2. Export it from `src/index.ts`.
+3. Add unit tests in `bff-gateway/tests/unit/toolbox/<module>.test.ts`.
+4. Update `shared/Toolbox/README.md` with the new API.
+5. No build step required — consuming services import source directly.
+6. Ensure the consuming service's `package.json` includes any new external dependency used by the module (Toolbox has no `node_modules` of its own).
+
 ---
 
 ## Testing Shared Libraries
 
-- Run `npm test` from within the library directory.
-- Aim for **80% coverage minimum** — coverage must include all exported functions.
-- Use `jest.mock()` to isolate external dependencies (e.g., `firebase-admin`, `google-auth-library`).
-- Libraries must not have integration tests that call real GCP services.
+For **Synapse, Bowltie, and Bugle**: run `npm test` from within the library directory.
+
+For **Toolbox**: run `npm test` from within the `bff-gateway/` directory (Toolbox tests live in `bff-gateway/tests/unit/toolbox/`).
+
+Aim for **80% coverage minimum** — coverage must include all exported functions.
+Use `jest.mock()` to isolate external dependencies (e.g., `firebase-admin`, `google-auth-library`).
+Libraries must not have integration tests that call real GCP services.
 
 ---
 
@@ -110,6 +142,13 @@ npm test               # Run unit tests
 npm run test:coverage  # Run tests with coverage report
 ```
 
+**Toolbox** requires no commands — it has no `package.json`. Its tests run as part of `bff-gateway`:
+
+```bash
+cd bff-gateway
+npm test
+```
+
 ---
 
 ## Build Order
@@ -119,9 +158,10 @@ The libraries have the following build-time dependency order. Always build them 
 1. **Synapse** — no shared-lib dependencies
 2. **Bowltie** — depends on Synapse for error types
 3. **Bugle** — no shared-lib dependencies
-4. **Toolbox** — no shared-lib dependencies
 
-The `build_shared.bat` / `build_shared.sh` scripts at the repo root iterate the `shared/` directory in filesystem order, which satisfies this dependency order. **Do not rename the library directories** without updating the build scripts.
+**Toolbox** is not included in the build order — it has no `package.json` and is automatically skipped by `build_shared.bat` / `build_shared.sh`.
+
+The `build_shared.bat` / `build_shared.sh` scripts at the repo root iterate the `shared/` directory in filesystem order and only process directories that contain a `package.json`. **Do not rename the library directories** without updating the build scripts.
 
 See [Monorepo Scripts](../monorepo-scripts.md) for details on the build scripts.
 
