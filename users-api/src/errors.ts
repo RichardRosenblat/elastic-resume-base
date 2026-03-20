@@ -13,4 +13,4 @@ export {
   DownstreamError,
   UnavailableError,
   isAppError,
-} from '../../shared/Toolbox/src/errors.js';
+} from '@shared/toolbox';

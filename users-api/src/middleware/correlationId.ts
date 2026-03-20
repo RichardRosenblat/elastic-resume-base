@@ -1,1 +1,1 @@
-export { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+export { correlationIdHook } from '@shared/toolbox';

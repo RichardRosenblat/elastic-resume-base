@@ -1,4 +1,8 @@
 import { build } from 'esbuild';
+import { fileURLToPath } from 'url';
+import { resolve, dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 await build({
   entryPoints: ['src/server.ts'],
@@ -10,6 +14,9 @@ await build({
   // This avoids bundling packages that rely on native add-ons or dynamic
   // require() calls (e.g. firebase-admin, @fastify/swagger-ui).
   packages: 'external',
+  alias: {
+    '@shared/toolbox': resolve(__dirname, '../shared/Toolbox/src/index.ts'),
+  },
   outfile: 'dist/server.js',
   sourcemap: true,
 });

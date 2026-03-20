@@ -5,6 +5,11 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "outDir": "./dist",
+    "rootDir": "..",
+    "baseUrl": "..",
+    "paths": {
+      "@shared/toolbox": ["shared/Toolbox/src/index.ts"]
+    },
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
