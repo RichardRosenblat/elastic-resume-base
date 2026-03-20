@@ -65,3 +65,4 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 | [ADR-005](ADR-005-faiss-vector-search.md) | Use FAISS for Vector Similarity Search | Accepted |
 | [ADR-006](ADR-006-nodejs-for-gateway-python-for-workers.md) | Use Node.js for Gateway Services, Python for AI/Data Workers | Accepted |
 | [ADR-007](ADR-007-no-object-storage-text-only-persistence.md) | No Object Storage — Text-Only File Persistence | Accepted |
+| [ADR-008](ADR-008-uid-based-auth-and-allowlist-onboarding.md) | UID-Based Authentication and Allowlist-Driven User Onboarding | Accepted |
