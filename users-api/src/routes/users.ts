@@ -326,6 +326,55 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, getBatchRolesHandler);
 
+  // Must be registered BEFORE /:uid to prevent the static segment "role" from being
+  // swallowed by the dynamic /:uid route.
+  app.get('/role', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Get the access role for a user by email (BFF access check)',
+      description:
+        'Implements the BFF Authorization Logic used to determine whether a user ' +
+        'may access the application. ' +
+        'If `ADMIN_SHEET_FILE_ID` is configured, checks Google Drive file permissions via Bugle; ' +
+        'otherwise falls back to reading the `role` field from Firestore. ' +
+        'Returns HTTP 200 with the resolved role on success, or HTTP 403 when the user has no access.',
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: {
+            type: 'string',
+            description: "User's email address.",
+            example: 'jane.doe@example.com',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: "User's application role resolved successfully.",
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                role: {
+                  type: 'string',
+                  description: "Application-level role assigned to the user (e.g. 'admin', 'user').",
+                  example: 'user',
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, getUserRoleHandler);
+
   app.get('/:uid', {
     schema: {
       tags: ['Users'],
@@ -458,53 +507,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, deleteUserHandler);
-
-  app.get('/:uid/role', {
-    schema: {
-      tags: ['Users'],
-      summary: 'Get the access role for a user (BFF access check)',
-      description:
-        'Implements the BFF Authorization Logic used to determine whether a Firebase user ' +
-        'may access the application. ' +
-        'If `ADMIN_SHEET_FILE_ID` is configured, checks Google Drive file permissions via Bugle; ' +
-        'otherwise falls back to reading the `role` field from Firestore. ' +
-        'Returns HTTP 200 with the resolved role on success, or HTTP 403 when the user has no access.',
-      security: [{ bearerAuth: [] }],
-      params: {
-        type: 'object',
-        required: ['uid'],
-        properties: {
-          uid: {
-            type: 'string',
-            description: 'Firebase UID of the user whose role should be resolved.',
-            example: 'aB3dE5fG7hI9jK1l',
-          },
-        },
-      },
-      response: {
-        200: {
-          description: "User's application role resolved successfully.",
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: {
-              type: 'object',
-              properties: {
-                role: {
-                  type: 'string',
-                  description: "Application-level role assigned to the user (e.g. 'admin', 'user').",
-                  example: 'user',
-                },
-              },
-            },
-            meta: responseMeta,
-          },
-        },
-        403: forbiddenResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, getUserRoleHandler);
 };
 
 export default usersPlugin;

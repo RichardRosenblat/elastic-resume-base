@@ -48,8 +48,8 @@ export async function createUserHandler(
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
-  logger.info({ correlationId: request.correlationId, email: parsed.data.email, requesterUid: request.user.uid }, 'createUserHandler: creating user');
-  const user = await createUser(parsed.data, request.user.uid);
+  logger.info({ correlationId: request.correlationId, email: parsed.data.email, requesterEmail: request.user.email }, 'createUserHandler: creating user');
+  const user = await createUser(parsed.data, request.user.email ?? '');
   logger.debug({ correlationId: request.correlationId, uid: user.uid }, 'createUserHandler: user created successfully');
   void reply.code(201).send(formatSuccess(user, request.correlationId));
 }
@@ -89,8 +89,8 @@ export async function updateUserHandler(
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
-  logger.info({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'updateUserHandler: updating user');
-  const user = await updateUser(uid, parsed.data, request.user.uid);
+  logger.info({ correlationId: request.correlationId, uid, requesterEmail: request.user.email }, 'updateUserHandler: updating user');
+  const user = await updateUser(uid, parsed.data, request.user.email ?? '');
   logger.debug({ correlationId: request.correlationId, uid }, 'updateUserHandler: user updated successfully');
   void reply.send(formatSuccess(user, request.correlationId));
 }
@@ -104,8 +104,8 @@ export async function deleteUserHandler(
   reply: FastifyReply,
 ): Promise<void> {
   const { uid } = request.params;
-  logger.info({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'deleteUserHandler: deleting user');
-  await deleteUser(uid, request.user.uid);
+  logger.info({ correlationId: request.correlationId, uid, requesterEmail: request.user.email }, 'deleteUserHandler: deleting user');
+  await deleteUser(uid, request.user.email ?? '');
   logger.debug({ correlationId: request.correlationId, uid }, 'deleteUserHandler: user deleted successfully');
   void reply.code(204).send();
 }

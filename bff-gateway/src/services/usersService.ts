@@ -4,7 +4,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../errors.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
 import type { CreateUserRequest, UpdateUserRequest, UserRecord, ListUsersResponse } from '../models/index.js';
-import { getUserRole, getUserRolesBatch } from './userApiClient.js';
+import { getUserRoleByEmail, getUserRolesBatch } from './userApiClient.js';
 
 /** Profile fields a non-admin user is permitted to change on their own account. */
 const SELF_UPDATABLE_FIELDS = ['displayName', 'photoURL'] as const;
@@ -30,11 +30,11 @@ function mapUserRecord(record: admin.auth.UserRecord, role: string): UserRecord 
 
 /**
  * Asserts that the requesting user holds the `admin` role.
- * @param requesterUid - UID of the user making the request.
+ * @param requesterEmail - Email of the user making the request.
  * @throws {ForbiddenError} If the requester is not an admin.
  */
-async function checkAdminAccess(requesterUid: string): Promise<void> {
-  const role = await getUserRole(requesterUid);
+async function checkAdminAccess(requesterEmail: string): Promise<void> {
+  const role = await getUserRoleByEmail(requesterEmail);
   if (role !== 'admin') {
     throw new ForbiddenError('Admin access required');
   }
@@ -71,22 +71,22 @@ function validateEmailDomain(email: string): void {
  * Creates a new Firebase Auth user. Requires admin role.
  *
  * @param payload - User creation data.
- * @param requesterUid - UID of the admin user making the request.
+ * @param requesterEmail - Email of the admin user making the request.
  * @returns The created UserRecord including the role fetched from UserAPI.
  * @throws {ForbiddenError} If the requester is not an admin.
  * @throws {ValidationError} If the email domain is not in the allowed list.
  */
-export async function createUser(payload: CreateUserRequest, requesterUid: string): Promise<UserRecord> {
-  logger.debug({ requesterUid }, 'createUser: checking admin access');
-  await checkAdminAccess(requesterUid);
+export async function createUser(payload: CreateUserRequest, requesterEmail: string): Promise<UserRecord> {
+  logger.debug({ requesterEmail }, 'createUser: checking admin access');
+  await checkAdminAccess(requesterEmail);
   logger.debug({ email: payload.email }, 'createUser: validating email domain');
   validateEmailDomain(payload.email);
 
   const app = getFirebaseApp();
-  logger.info({ action: 'createUser', email: payload.email, requesterUid }, 'Creating new user');
+  logger.info({ action: 'createUser', email: payload.email, requesterEmail }, 'Creating new user');
   const record = await admin.auth(app).createUser(payload);
   logger.debug({ uid: record.uid }, 'createUser: Firebase Auth user created, fetching role');
-  const role = await getUserRole(record.uid);
+  const role = await getUserRoleByEmail(record.email ?? '');
   logger.debug({ uid: record.uid, role }, 'createUser: user created successfully');
   return mapUserRecord(record, role);
 }
@@ -104,7 +104,7 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
   try {
     const record = await admin.auth(app).getUser(uid);
     logger.debug({ uid }, 'getUserByUid: fetching role from UserAPI');
-    const role = await getUserRole(uid);
+    const role = await getUserRoleByEmail(record.email ?? '');
     logger.debug({ uid, role }, 'getUserByUid: user retrieved successfully');
     return mapUserRecord(record, role);
   } catch (err: unknown) {
@@ -134,15 +134,30 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
 export async function updateUser(
   uid: string,
   payload: UpdateUserRequest,
-  requesterUid: string,
+  requesterEmail: string,
 ): Promise<UserRecord> {
-  logger.debug({ uid, requesterUid }, 'updateUser: checking requester role');
-  const requesterRole = await getUserRole(requesterUid);
+  logger.debug({ uid, requesterEmail }, 'updateUser: checking requester role');
+  const requesterRole = await getUserRoleByEmail(requesterEmail);
   const isAdmin = requesterRole === 'admin';
 
-  if (!isAdmin && uid !== requesterUid) {
-    logger.warn({ uid, requesterUid }, 'updateUser: non-admin attempted to update another user');
-    throw new ForbiddenError('You may only update your own profile');
+  const app = getFirebaseApp();
+
+  if (!isAdmin) {
+    // Non-admins may only update their own profile; verify by comparing emails
+    try {
+      const targetRecord = await admin.auth(app).getUser(uid);
+      if (targetRecord.email !== requesterEmail) {
+        logger.warn({ uid, requesterEmail }, 'updateUser: non-admin attempted to update another user');
+        throw new ForbiddenError('You may only update your own profile');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ForbiddenError) throw err;
+      if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
+        logger.debug({ uid }, 'updateUser: user not found in Firebase Auth');
+        throw new NotFoundError(`User ${uid} not found`);
+      }
+      throw err;
+    }
   }
 
   let updatePayload: UpdateUserRequest;
@@ -163,12 +178,11 @@ export async function updateUser(
     logger.debug({ uid, allowedFields: SELF_UPDATABLE_FIELDS }, 'updateUser: non-admin update restricted to safe fields');
   }
 
-  const app = getFirebaseApp();
   logger.info({ uid, action: 'updateUser', isAdmin }, 'Updating user');
   try {
     const record = await admin.auth(app).updateUser(uid, updatePayload);
     logger.debug({ uid }, 'updateUser: Firebase Auth user updated, fetching role');
-    const role = await getUserRole(uid);
+    const role = await getUserRoleByEmail(record.email ?? '');
     logger.debug({ uid, role }, 'updateUser: user updated successfully');
     return mapUserRecord(record, role);
   } catch (err: unknown) {
@@ -184,16 +198,16 @@ export async function updateUser(
  * Deletes a Firebase Auth user by UID. Requires admin role.
  *
  * @param uid - UID of the user to delete.
- * @param requesterUid - UID of the admin user making the request.
+ * @param requesterEmail - Email of the admin user making the request.
  * @throws {ForbiddenError} If the requester is not an admin.
  * @throws {NotFoundError} If the user does not exist.
  */
-export async function deleteUser(uid: string, requesterUid: string): Promise<void> {
-  logger.debug({ uid, requesterUid }, 'deleteUser: checking admin access');
-  await checkAdminAccess(requesterUid);
+export async function deleteUser(uid: string, requesterEmail: string): Promise<void> {
+  logger.debug({ uid, requesterEmail }, 'deleteUser: checking admin access');
+  await checkAdminAccess(requesterEmail);
 
   const app = getFirebaseApp();
-  logger.info({ uid, action: 'deleteUser', requesterUid }, 'Deleting user');
+  logger.info({ uid, action: 'deleteUser', requesterEmail }, 'Deleting user');
   try {
     await admin.auth(app).deleteUser(uid);
     logger.debug({ uid }, 'deleteUser: user deleted successfully from Firebase Auth');

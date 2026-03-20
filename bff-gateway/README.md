@@ -56,11 +56,17 @@ All `/api/v1/*` routes require a valid Firebase ID token in the `Authorization: 
 |--------|------|:-------------:|-------------|
 | `GET` | `/health/live` | No | Liveness probe |
 | `GET` | `/health/ready` | No | Readiness probe |
+| `GET` | `/health/downstream` | No | Downstream services health status |
 | `GET` | `/api/v1/me` | Yes | Get authenticated user profile |
 | `POST` | `/api/v1/resumes/ingest` | Yes | Trigger resume ingest job |
 | `POST` | `/api/v1/resumes/:resumeId/generate` | Yes | Generate resume file |
 | `POST` | `/api/v1/search` | Yes | Search resumes |
 | `POST` | `/api/v1/documents/read` | Yes | Read/parse a document |
+| `GET` | `/api/v1/users` | Yes | List users (all authenticated users) |
+| `POST` | `/api/v1/users` | Yes (admin) | Create a new user |
+| `GET` | `/api/v1/users/:uid` | Yes | Get user by UID |
+| `PATCH` | `/api/v1/users/:uid` | Yes | Update user (admin: any field; self: displayName/photoURL only) |
+| `DELETE` | `/api/v1/users/:uid` | Yes (admin) | Delete a user |
 
 ### Request & Response Format
 

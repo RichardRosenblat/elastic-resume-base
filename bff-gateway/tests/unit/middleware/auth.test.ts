@@ -82,7 +82,7 @@ describe('authHook', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().data.uid).toBe('user123');
-    expect(userApiClient.checkUserAccess as jest.Mock).toHaveBeenCalledWith('user123');
+    expect(userApiClient.checkUserAccess as jest.Mock).toHaveBeenCalledWith('test@example.com');
   });
 
   it('returns 403 when token is valid but user is not a valid application user', async () => {

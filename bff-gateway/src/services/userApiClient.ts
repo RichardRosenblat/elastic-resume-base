@@ -58,31 +58,31 @@ function handleUserApiError(
   }
 
   logger.error({ ...context, err }, `${operationName}: UserAPI response invalid or unexpected error`);
-  throw new DownstreamError('UserAPI returned unexpected response');
+  throw new DownstreamError('UserAPI returned an invalid response format');
 }
 
 /**
  * Retrieves the role of a single user from the UserAPI service.
  *
- * @param uid - Firebase user UID.
+ * @param email - Firebase user email address.
  * @returns The user's role string (e.g. `'admin'` or `'user'`).
  * @throws {ForbiddenError} If the UserAPI returns HTTP 404 (recast to avoid leaking user existence).
  * @throws {UnavailableError} If the UserAPI returns HTTP 403, 5xx, times out, or is unreachable.
  * @throws {DownstreamError} If the UserAPI returns an unexpected response or any other error occurs during the request.
  */
-export async function getUserRole(uid: string): Promise<string> {
-  logger.debug({ uid }, 'getUserRole: requesting role from UserAPI');
+export async function getUserRoleByEmail(email: string): Promise<string> {
+  logger.debug({ email }, 'getUserRoleByEmail: requesting role from UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(
-      `/users/${uid}/role`,
+      `/users/role?email=${encodeURIComponent(email)}`,
     );
     const role = response.data.data.role;
-    logger.debug({ uid, role }, 'getUserRole: role retrieved from UserAPI');
+    logger.debug({ email, role }, 'getUserRoleByEmail: role retrieved from UserAPI');
     return role;
   } catch (err) {
     handleUserApiError(err, {
-      context: { uid },
-      operationName: 'getUserRole',
+      context: { email },
+      operationName: 'getUserRoleByEmail',
       forbiddenMsg: 'User does not have access to this application',
       unavailableActionMsg: 'retrieve user role',
     });
@@ -120,24 +120,24 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
 /**
  * Validates that the given user has access to this application by calling the UserAPI.
  *
- * @param uid - Firebase user UID.
+ * @param email - Firebase user email address.
  * @returns The user's role string if access is granted.
  * @throws {ForbiddenError} If the UserAPI returns HTTP 404 (recast to avoid leaking user existence).
  * @throws {UnavailableError} If the UserAPI returns HTTP 403, 5xx, times out, or is unreachable.
  * @throws {DownstreamError} If the UserAPI returns an unexpected response or any other error occurs during the request.
  */
-export async function checkUserAccess(uid: string): Promise<string> {
-  logger.debug({ uid }, 'checkUserAccess: verifying application access via UserAPI');
+export async function checkUserAccess(email: string): Promise<string> {
+  logger.debug({ email }, 'checkUserAccess: verifying application access via UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(
-      `/users/${uid}/role`,
+      `/users/role?email=${encodeURIComponent(email)}`,
     );
     const role = response.data.data.role;
-    logger.debug({ uid, role }, 'checkUserAccess: access granted');
+    logger.debug({ email, role }, 'checkUserAccess: access granted');
     return role;
   } catch (err) {
     handleUserApiError(err, {
-      context: { uid },
+      context: { email },
       operationName: 'checkUserAccess',
       forbiddenMsg: 'User does not have access to this application',
       unavailableActionMsg: 'verify user access',

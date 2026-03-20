@@ -1,30 +1,20 @@
 /**
  * @module @elastic-resume-base/synapse
  *
- * Synapse provides shared database abstractions and error classes for Elastic
- * Resume Base microservices.
+ * Synapse provides shared **persistence abstractions** for Elastic Resume Base
+ * microservices. It is strictly concerned with api-to-persistence connections.
+ *
+ * Error classes have moved to the Toolbox shared library. Import them from
+ * `../../../shared/Toolbox/src/errors.js` (relative path) instead.
  *
  * ## Quick Start
  *
  * ```typescript
  * import {
  *   FirestoreUserRepository,
- *   NotFoundError,
  * } from '@elastic-resume-base/synapse';
  * ```
  */
-
-// Error classes
-export {
-  AppError,
-  NotFoundError,
-  UnauthorizedError,
-  ValidationError,
-  ConflictError,
-  ForbiddenError,
-  DownstreamError,
-  isAppError,
-} from './errors.js';
 
 // User repository interface & models
 export type {

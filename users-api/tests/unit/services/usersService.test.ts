@@ -3,7 +3,7 @@
  *
  * Coverage:
  * - CRUD operations: createUser, getUserByUid, updateUser, deleteUser, listUsers
- * - BFF access check: getUserRole with Google Drive (Bugle) and Firestore (Synapse) paths
+ * - BFF access check: getUserRoleByEmail with Google Drive (Bugle) and Firestore (Synapse) paths
  * - Batch role lookup: getUserRolesBatch
  *
  * Scenarios for the BFF access logic (Task 5 requirement):
@@ -55,14 +55,14 @@ import { getFirestore } from 'firebase-admin/firestore';
 import type { DocumentSnapshot, DocumentReference } from 'firebase-admin/firestore';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
 import { config } from '../../../src/config.js';
-import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
+import { NotFoundError, ConflictError, ValidationError } from '../../../src/errors.js';
 import {
   createUser,
   getUserByUid,
   updateUser,
   deleteUser,
   listUsers,
-  getUserRole,
+  getUserRoleByEmail,
   getUserRolesBatch,
 } from '../../../src/services/usersService.js';
 
@@ -371,16 +371,12 @@ describe('usersService', () => {
     });
   });
 
-  // ── getUserRole (BFF access check) ───────────────────────────────────────
+  // ── getUserRoleByEmail (BFF access check) ────────────────────────────────
 
-  describe('getUserRole', () => {
+  describe('getUserRoleByEmail', () => {
     // Scenario 1: ADMIN_SHEET_FILE_ID is set and user email IS in Drive list → "admin"
     it('returns "admin" when ADMIN_SHEET_FILE_ID is set and user email is in Google Drive permissions', async () => {
       (config as Record<string, unknown>)['adminSheetFileId'] = 'sheet-file-id-123';
-
-      // Mock Firestore to return the user's email
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
       // Mock DrivePermissionsService.getUsersWithFileAccess to include alice's email
       const mockGetUsersWithFileAccess = jest
@@ -390,7 +386,7 @@ describe('usersService', () => {
         getUsersWithFileAccess: mockGetUsersWithFileAccess,
       }));
 
-      const role = await getUserRole('uid123');
+      const role = await getUserRoleByEmail('alice@example.com');
 
       expect(role).toBe('admin');
       expect(mockGetUsersWithFileAccess).toHaveBeenCalledWith('sheet-file-id-123');
@@ -400,9 +396,6 @@ describe('usersService', () => {
     it('returns null when ADMIN_SHEET_FILE_ID is set but user email is NOT in Google Drive permissions', async () => {
       (config as Record<string, unknown>)['adminSheetFileId'] = 'sheet-file-id-123';
 
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
       // Drive list does NOT include alice's email
       const mockGetUsersWithFileAccess = jest
         .fn()
@@ -411,7 +404,7 @@ describe('usersService', () => {
         getUsersWithFileAccess: mockGetUsersWithFileAccess,
       }));
 
-      const role = await getUserRole('uid123');
+      const role = await getUserRoleByEmail('alice@example.com');
 
       expect(role).toBeNull();
     });
@@ -422,10 +415,12 @@ describe('usersService', () => {
       // adminSheetFileId is undefined (default from beforeEach)
       (config as Record<string, unknown>)['adminSheetFileId'] = undefined;
 
-      const mockFs = buildMockFirestore({ ...USER_DATA, role: 'editor' });
+      const userDoc = makeDocSnapshot('uid123', { ...USER_DATA, role: 'editor' });
+      // Pass as listDocs (3rd arg) so the first mockQuery.get() call returns it
+      const mockFs = buildMockFirestore(null, [], [userDoc]);
       (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
-      const role = await getUserRole('uid123');
+      const role = await getUserRoleByEmail('alice@example.com');
 
       expect(role).toBe('editor');
       // DrivePermissionsService should NOT be called
@@ -436,27 +431,31 @@ describe('usersService', () => {
     it('returns null when ADMIN_SHEET_FILE_ID is not set and user is not in Firestore', async () => {
       (config as Record<string, unknown>)['adminSheetFileId'] = undefined;
 
-      // Firestore returns non-existing document
-      const mockFs = buildMockFirestore(null);
+      // Firestore returns empty query result (listDocs = [] → first get() returns empty)
+      const mockFs = buildMockFirestore(null, [], []);
       (getFirestore as jest.Mock).mockReturnValue(mockFs);
 
-      const role = await getUserRole('missing-uid');
+      const role = await getUserRoleByEmail('missing@example.com');
 
       expect(role).toBeNull();
     });
 
-    it('returns null when ADMIN_SHEET_FILE_ID is set but user is not found in Firestore (cannot determine email)', async () => {
+    it('does not call getFirestore when ADMIN_SHEET_FILE_ID is set (uses email directly for Drive check)', async () => {
       (config as Record<string, unknown>)['adminSheetFileId'] = 'sheet-file-id-123';
 
-      // User not in Firestore
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+      const mockGetUsersWithFileAccess = jest.fn().mockResolvedValue([]);
+      (DrivePermissionsService as jest.Mock).mockImplementation(() => ({
+        getUsersWithFileAccess: mockGetUsersWithFileAccess,
+      }));
 
-      const role = await getUserRole('unknown-uid');
+      const role = await getUserRoleByEmail('unknown@example.com');
 
       expect(role).toBeNull();
-      // DrivePermissionsService should NOT be instantiated since we couldn't get the email
-      expect(DrivePermissionsService).not.toHaveBeenCalled();
+      // DrivePermissionsService should be instantiated and called
+      expect(DrivePermissionsService).toHaveBeenCalled();
+      expect(mockGetUsersWithFileAccess).toHaveBeenCalledWith('sheet-file-id-123');
+      // getFirestore should NOT be called in the Drive path
+      expect(getFirestore).not.toHaveBeenCalled();
     });
   });
 

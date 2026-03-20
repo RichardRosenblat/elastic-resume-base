@@ -160,6 +160,45 @@ app.addHook('onResponse', createRequestLoggerHook(logger));
 
 ---
 
+### Error classes
+
+Canonical application-level error classes shared across all microservices. Each class maps a domain error to an HTTP status code and a machine-readable code string.
+
+Import them from `src/errors.ts` in each service (which re-exports from Toolbox), or directly from Toolbox:
+
+```typescript
+import {
+  AppError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+  ConflictError,
+  ForbiddenError,
+  DownstreamError,
+  UnavailableError,
+  isAppError,
+} from '../../../shared/Toolbox/src/errors.js';
+```
+
+| Class | HTTP | Code | When to use |
+|-------|------|------|-------------|
+| `AppError` | *(base)* | *(base)* | Base class — extend for custom domain errors |
+| `NotFoundError` | 404 | `NOT_FOUND` | Resource does not exist |
+| `UnauthorizedError` | 401 | `UNAUTHORIZED` | Missing or invalid authentication |
+| `ValidationError` | 400 | `VALIDATION_ERROR` | Request body / query param validation failure |
+| `ConflictError` | 409 | `CONFLICT` | Resource already exists (e.g. duplicate email) |
+| `ForbiddenError` | 403 | `FORBIDDEN` | Authenticated user lacks permission |
+| `DownstreamError` | 502 | `DOWNSTREAM_ERROR` | Downstream returned a response in an invalid/unexpected format |
+| `UnavailableError` | 503 | `SERVICE_UNAVAILABLE` | Downstream is unreachable, timed out, or returned a 5xx error |
+
+**`isAppError(err)`** — type-guard that returns `true` when `err` is an `AppError` instance.
+
+> **Semantic guideline for downstream errors:**
+> - Throw `DownstreamError` when a downstream service *did* respond but the response could not be parsed or did not match the expected schema.
+> - Throw `UnavailableError` when the downstream service is unreachable, the request timed out, or the service returned a 5xx status code.
+
+---
+
 ## Typical Service Setup
 
 The canonical way to wire up Toolbox in a Node.js microservice:

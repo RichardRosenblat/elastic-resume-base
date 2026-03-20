@@ -1,4 +1,4 @@
-import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
+import { createRequestLoggerHook } from '@shared/toolbox';
 import { logger } from '../utils/logger.js';
 
 /**

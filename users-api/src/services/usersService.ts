@@ -1,5 +1,5 @@
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
-import { ConflictError, NotFoundError, ValidationError } from '@elastic-resume-base/synapse';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { DocumentData, DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
 import {
   getFirestore as _getFirestore,
@@ -286,66 +286,54 @@ export async function listUsers(maxResults = 100, pageToken?: string): Promise<L
 // ---------------------------------------------------------------------------
 
 /**
- * Determines the access role for a given user, implementing the BFF Authorization Logic.
+ * Determines the access role for a given user by email, implementing the BFF Authorization Logic.
  *
  * The resolution order is:
  * 1. **Google Drive (Bugle)** — when `ADMIN_SHEET_FILE_ID` is set, the service retrieves the
- *    list of users with access to that file.  If the user's email appears in the list, the
- *    role `"admin"` is returned.  If the email is *not* in the list, `null` is returned
- *    (no access).
- * 2. **Firestore (Synapse)** — when `ADMIN_SHEET_FILE_ID` is *not* set, the service looks up
- *    the user by UID in Firestore.  If found, the stored role is returned.  If not found,
- *    `null` is returned (no access).
+ *    list of users with access to that file.  If the email appears in the list, the role
+ *    `"admin"` is returned.  If the email is *not* in the list, `null` is returned (no access).
+ * 2. **Firestore (Synapse)** — when `ADMIN_SHEET_FILE_ID` is *not* set, the service queries
+ *    Firestore by email.  If found, the stored role is returned.  If not found, `null` is
+ *    returned (no access).
  *
- * @param uid - Firebase user UID (used for the Firestore lookup path).
+ * @param email - The user's email address.
  * @returns The user's role string (e.g. `"admin"`, `"user"`) or `null` when the user has
  *   no access to the application.
  */
-export async function getUserRole(uid: string): Promise<string | null> {
+export async function getUserRoleByEmail(email: string): Promise<string | null> {
   const adminSheetFileId = config.adminSheetFileId;
 
   if (adminSheetFileId) {
-    // --- Google Drive path (Bugle) ---
-    logger.info({ uid, action: 'getUserRole' }, 'Checking access via Google Drive');
-
-    // Look up the user's email from Firestore to use in the Drive check
-    let userEmail: string | undefined;
-    try {
-      const user = await getUserByUid(uid);
-      userEmail = user.email;
-    } catch {
-      // User not in Firestore; we still need to check Drive by email if provided
-      logger.warn({ uid }, 'User not found in Firestore; cannot determine email for Drive check');
-      return null;
-    }
-
-    if (!userEmail) {
-      return null;
-    }
-
+    // --- Google Drive path (Bugle): use email directly ---
+    logger.info({ action: 'getUserRoleByEmail' }, 'Checking access via Google Drive');
     const driveService = new DrivePermissionsService();
     const emailsWithAccess = await driveService.getUsersWithFileAccess(adminSheetFileId);
-    const normalizedEmail = userEmail.toLowerCase();
+    const normalizedEmail = email.toLowerCase();
 
     if (emailsWithAccess.includes(normalizedEmail)) {
-      logger.info({ uid, email: normalizedEmail }, 'User granted admin access via Google Drive');
+      logger.info({ email: normalizedEmail }, 'User granted admin access via Google Drive');
       return 'admin';
     }
 
-    logger.info({ uid, email: normalizedEmail }, 'User not found in Drive permissions; no access');
+    logger.info({ email: normalizedEmail }, 'User not found in Drive permissions; no access');
     return null;
   }
 
-  // --- Firestore path (Synapse) ---
-  logger.info({ uid, action: 'getUserRole' }, 'Checking access via Firestore');
-  try {
-    const user = await getUserByUid(uid);
-    logger.info({ uid, role: user.role }, 'User found in Firestore');
-    return user.role;
-  } catch {
-    logger.info({ uid }, 'User not found in Firestore; no access');
+  // --- Firestore path (Synapse): query by email ---
+  logger.info({ action: 'getUserRoleByEmail' }, 'Checking access via Firestore');
+  const db = getFirestore();
+  const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email).limit(1).get();
+
+  if (snapshot.empty) {
+    logger.info({ email }, 'User not found in Firestore; no access');
     return null;
   }
+
+  const doc = snapshot.docs[0]!;
+  const data = doc.data() as Record<string, unknown>;
+  const role = (data['role'] as string) ?? DEFAULT_ROLE;
+  logger.info({ email, role }, 'User found in Firestore');
+  return role;
 }
 
 /**
@@ -381,7 +369,10 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
     } else {
       result[doc.id] = DEFAULT_ROLE;
       notFoundCount++;
-      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, using default role');
+      logger.trace(
+        { uid: doc.id },
+        'getUserRolesBatch: UID not found in Firestore, using default role',
+      );
     }
   }
 
@@ -395,7 +386,6 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
 // ---------------------------------------------------------------------------
 // Bootstrapping and onready functions
 // ---------------------------------------------------------------------------
-
 
 /**
  * Bootstraps the admin user based on the configuration.
@@ -413,10 +403,24 @@ export async function bootstrapAdminUser(): Promise<void> {
     'Bootstrapping admin user from configuration email',
   );
 
-  await createUser({
-    email: config.bootstrapAdminUserEmail,
-    role: 'admin',
-    displayName: 'Admin User',
-    disabled: false,
-  });
+  try {
+    await createUser({
+      email: config.bootstrapAdminUserEmail,
+      role: 'admin',
+      displayName: 'Admin User',
+      disabled: false,
+    });
+  } catch (error) {
+    if (error instanceof ConflictError) {
+      logger.info(
+        { email: config.bootstrapAdminUserEmail },
+        'Admin user already exists; skipping creation',
+      );
+    } else {
+      logger.error(
+        { email: config.bootstrapAdminUserEmail, error },
+        'Error occurred while bootstrapping admin user',
+      );
+    }
+  }
 }

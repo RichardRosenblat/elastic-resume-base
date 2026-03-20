@@ -32,7 +32,7 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
   const correlationId = request.correlationId;
 
   if (err instanceof ZodError) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', err.message, correlationId));
     return;
   }
 

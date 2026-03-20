@@ -14,8 +14,8 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^@elastic-resume-base/synapse$': '<rootDir>/../shared/Synapse/src/index.ts',
     '^@elastic-resume-base/bugle$': '<rootDir>/../shared/Bugle/src/index.ts',
     '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
+    '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',
   },
 };
