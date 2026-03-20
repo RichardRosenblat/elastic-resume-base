@@ -18,6 +18,17 @@ jest.mock('../../../src/services/userApiClient', () => ({
   checkUserAccess: jest.fn().mockResolvedValue('user'),
   getUserRole: jest.fn().mockResolvedValue('user'),
   getUserRolesBatch: jest.fn().mockResolvedValue({}),
+  getUserById: jest.fn().mockResolvedValue({
+    uid: 'user-uid',
+    email: 'user@example.com',
+    role: 'user',
+    enabled: true,
+    disabled: false,
+  }),
+  createUserInUsersApi: jest.fn(),
+  getAllowlistEntry: jest.fn(),
+  deleteAllowlistEntry: jest.fn(),
+  upsertAllowlistEntry: jest.fn(),
 }));
 
 import * as admin from 'firebase-admin';
@@ -31,7 +42,7 @@ const mockGenerateResponse = {
 
 function setupAuth() {
   (admin.auth as jest.Mock).mockReturnValue({
-    verifyIdToken: jest.fn().mockResolvedValue({ uid: 'user-uid', email: 'user@example.com' }),
+    verifyIdToken: jest.fn().mockResolvedValue({ uid: 'user-uid', email: 'user@example.com', email_verified: true }),
   });
 }
 

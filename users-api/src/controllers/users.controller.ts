@@ -23,6 +23,7 @@ const createUserSchema = z.object({
   photoURL: z.string().optional(),
   role: z.string().optional(),
   disabled: z.boolean().optional(),
+  enabled: z.boolean().optional(),
 });
 
 const updateUserSchema = z.object({
@@ -31,6 +32,7 @@ const updateUserSchema = z.object({
   photoURL: z.string().optional(),
   role: z.string().optional(),
   disabled: z.boolean().optional(),
+  enabled: z.boolean().optional(),
 });
 
 const listUsersQuerySchema = z.object({

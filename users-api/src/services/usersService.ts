@@ -45,6 +45,9 @@ function isTimestamp(value: unknown): value is FirestoreTimestamp {
 /**
  * Maps a Firestore document snapshot to the normalised {@link UserRecord} shape.
  *
+ * Backward-compatible: documents may store either `enabled` (new) or `disabled` (legacy).
+ * `enabled` takes precedence when present; otherwise it is derived as `!disabled`.
+ *
  * @param doc - Firestore document snapshot.
  * @returns Normalised UserRecord.
  * @throws {NotFoundError} If the document does not exist.
@@ -54,13 +57,17 @@ function mapDocument(doc: DocumentSnapshot<DocumentData>): UserRecord {
     throw new NotFoundError(`User '${doc.id}' not found`);
   }
   const data = doc.data() as Record<string, unknown>;
+  const disabled = Boolean(data['disabled']);
+  const enabled =
+    data['enabled'] !== undefined ? Boolean(data['enabled']) : !disabled;
   return {
     uid: doc.id,
     email: (data['email'] as string) ?? '',
     displayName: data['displayName'] as string | undefined,
     photoURL: data['photoURL'] as string | undefined,
     role: (data['role'] as string) ?? DEFAULT_ROLE,
-    disabled: Boolean(data['disabled']),
+    disabled,
+    enabled,
     createdAt: isTimestamp(data['createdAt'])
       ? data['createdAt'].toDate().toISOString()
       : (data['createdAt'] as string | undefined),
@@ -89,10 +96,15 @@ function validateEmail(email: string): void {
 /**
  * Creates a new user document in Firestore.
  *
+ * Idempotent by uid: if a document with the supplied `uid` already exists,
+ * the existing record is returned rather than throwing a ConflictError.
+ * Email uniqueness is still enforced (a ConflictError is thrown if another
+ * user with the same email is found).
+ *
  * @param data - User creation payload.
- * @returns The newly created {@link UserRecord}.
+ * @returns The newly created (or existing) {@link UserRecord}.
  * @throws {ValidationError} If the email is missing or invalid.
- * @throws {ConflictError} If a user with the same email or ID already exists.
+ * @throws {ConflictError} If a *different* user with the same email already exists.
  */
 export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
   logger.debug({ email: data.email }, 'createUser: validating email');
@@ -100,11 +112,30 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
 
   const db = getFirestore();
 
+  // Determine the enabled/disabled state from the payload.
+  // `enabled` takes precedence; fall back to inverse of `disabled`; default true.
+  const enabled =
+    data.enabled !== undefined
+      ? data.enabled
+      : data.disabled !== undefined
+        ? !data.disabled
+        : true;
+
+  // If a uid was provided, check for existing document first (idempotent upsert)
+  if (data.uid) {
+    logger.debug({ uid: data.uid }, 'createUser: checking for existing uid');
+    const existingById = await db.collection(USERS_COLLECTION).doc(data.uid).get();
+    if (existingById.exists) {
+      logger.info({ uid: data.uid }, 'createUser: uid already exists, returning existing record');
+      return mapDocument(existingById);
+    }
+  }
+
   logger.debug({ email: data.email }, 'createUser: checking for duplicate email');
   // Check for duplicate email
   const existing = await db
     .collection(USERS_COLLECTION)
-    .where('email', '==', data.email)
+    .where('email', '==', data.email.toLowerCase())
     .limit(1)
     .get();
 
@@ -115,29 +146,21 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
 
   const uid = data.uid ?? db.collection(USERS_COLLECTION).doc().id;
 
-  // Check if UID already exists
-  logger.debug({ uid }, 'createUser: checking for duplicate uid');
-  const existingById = await db.collection(USERS_COLLECTION).doc(uid).get();
-
-  if (existingById.exists) {
-    logger.warn({ uid }, 'createUser: uid already exists (conflict)');
-    throw new ConflictError(`A user with id '${uid}' already exists`);
-  }
-
   const now = FirestoreTimestamp.now();
 
   const docData: Record<string, unknown> = {
-    email: data.email,
+    email: data.email.toLowerCase(),
     displayName: data.displayName ?? null,
     photoURL: data.photoURL ?? null,
     role: data.role ?? DEFAULT_ROLE,
-    disabled: data.disabled ?? false,
+    disabled: !enabled,
+    enabled,
     createdAt: now,
     updatedAt: now,
   };
 
   logger.trace(
-    { uid, email: data.email, role: docData['role'] },
+    { uid, email: data.email, role: docData['role'], enabled },
     'createUser: writing document to Firestore',
   );
   await db.collection(USERS_COLLECTION).doc(uid).set(docData);
@@ -203,14 +226,21 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
     }
   }
 
-  const { email, displayName, photoURL, role, disabled } = data;
-  const fields = { email, displayName, photoURL, role, disabled };
+  const { email, displayName, photoURL, role, disabled, enabled } = data;
+  const fields = { email, displayName, photoURL, role, disabled, enabled };
 
   const updateData: Record<string, unknown> = {
     updatedAt: FirestoreTimestamp.now(),
     // Filter out undefined values and merge
     ...Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined)),
   };
+
+  // Keep disabled and enabled in sync when either is provided
+  if (enabled !== undefined && disabled === undefined) {
+    updateData['disabled'] = !enabled;
+  } else if (disabled !== undefined && enabled === undefined) {
+    updateData['enabled'] = !disabled;
+  }
 
   logger.trace({ uid, fields: Object.keys(updateData) }, 'updateUser: writing update to Firestore');
   await db.collection(USERS_COLLECTION).doc(uid).update(updateData);
@@ -322,7 +352,7 @@ export async function getUserRoleByEmail(email: string): Promise<string | null> 
   // --- Firestore path (Synapse): query by email ---
   logger.info({ action: 'getUserRoleByEmail' }, 'Checking access via Firestore');
   const db = getFirestore();
-  const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email).limit(1).get();
+  const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email.toLowerCase()).limit(1).get();
 
   if (snapshot.empty) {
     logger.info({ email }, 'User not found in Firestore; no access');
@@ -331,6 +361,17 @@ export async function getUserRoleByEmail(email: string): Promise<string | null> 
 
   const doc = snapshot.docs[0]!;
   const data = doc.data() as Record<string, unknown>;
+
+  // Check enabled state (supports both `enabled` and legacy `disabled` fields)
+  const disabled = Boolean(data['disabled']);
+  const enabled =
+    data['enabled'] !== undefined ? Boolean(data['enabled']) : !disabled;
+
+  if (!enabled) {
+    logger.info({ email }, 'User found in Firestore but account is disabled; no access');
+    return null;
+  }
+
   const role = (data['role'] as string) ?? DEFAULT_ROLE;
   logger.info({ email, role }, 'User found in Firestore');
   return role;
@@ -389,8 +430,10 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
 
 /**
  * Bootstraps the admin user based on the configuration.
- * If the `bootstrapAdminUserEmail` is not set, the function will log a warning and return.
- * @returns A promise that resolves when the admin user has been created or skipped.
+ * Instead of creating the user directly, inserts the admin email into the allowlist
+ * so that the first login triggers the full onboarding flow.
+ * If `bootstrapAdminUserEmail` is not set, the function will log a warning and return.
+ * @returns A promise that resolves when the admin user has been added to the allowlist.
  */
 export async function bootstrapAdminUser(): Promise<void> {
   if (!config.bootstrapAdminUserEmail) {
@@ -400,27 +443,20 @@ export async function bootstrapAdminUser(): Promise<void> {
 
   logger.info(
     { email: config.bootstrapAdminUserEmail },
-    'Bootstrapping admin user from configuration email',
+    'Bootstrapping admin user: upserting into allowlist',
   );
 
   try {
-    await createUser({
-      email: config.bootstrapAdminUserEmail,
-      role: 'admin',
-      displayName: 'Admin User',
-      disabled: false,
-    });
+    const { upsertAllowlistEntry } = await import('./allowlistService.js');
+    await upsertAllowlistEntry(config.bootstrapAdminUserEmail, 'admin');
+    logger.info(
+      { email: config.bootstrapAdminUserEmail },
+      'Admin user added to allowlist; will be provisioned on first login',
+    );
   } catch (error) {
-    if (error instanceof ConflictError) {
-      logger.info(
-        { email: config.bootstrapAdminUserEmail },
-        'Admin user already exists; skipping creation',
-      );
-    } else {
-      logger.error(
-        { email: config.bootstrapAdminUserEmail, error },
-        'Error occurred while bootstrapping admin user',
-      );
-    }
+    logger.error(
+      { email: config.bootstrapAdminUserEmail, error },
+      'Error occurred while bootstrapping admin user allowlist entry',
+    );
   }
 }

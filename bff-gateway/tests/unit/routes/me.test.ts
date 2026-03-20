@@ -14,6 +14,17 @@ jest.mock('../../../src/services/userApiClient', () => ({
   checkUserAccess: jest.fn().mockResolvedValue('user'),
   getUserRole: jest.fn(),
   getUserRolesBatch: jest.fn(),
+  getUserById: jest.fn().mockResolvedValue({
+    uid: 'user123',
+    email: 'test@example.com',
+    role: 'user',
+    enabled: true,
+    disabled: false,
+  }),
+  createUserInUsersApi: jest.fn(),
+  getAllowlistEntry: jest.fn(),
+  deleteAllowlistEntry: jest.fn(),
+  upsertAllowlistEntry: jest.fn(),
 }));
 
 import * as admin from 'firebase-admin';
@@ -41,6 +52,7 @@ describe('ME Route', () => {
     const decodedToken = {
       uid: 'user123',
       email: 'test@example.com',
+      email_verified: true,
       name: 'Test User',
       picture: 'http://pic.url',
     };

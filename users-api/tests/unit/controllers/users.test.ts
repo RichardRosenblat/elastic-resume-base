@@ -11,6 +11,7 @@ jest.mock('../../../src/services/usersService', () => ({
   listUsers: jest.fn(),
   getUserRoleByEmail: jest.fn(),
   getUserRolesBatch: jest.fn(),
+  bootstrapAdminUser: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../../../src/config', () => ({

@@ -14,11 +14,16 @@ jest.mock('../../../src/services/userApiClient', () => ({
   checkUserAccess: jest.fn(),
   getUserRole: jest.fn(),
   getUserRolesBatch: jest.fn(),
+  getUserById: jest.fn(),
+  createUserInUsersApi: jest.fn(),
+  getAllowlistEntry: jest.fn(),
+  deleteAllowlistEntry: jest.fn(),
+  upsertAllowlistEntry: jest.fn(),
 }));
 
 import * as admin from 'firebase-admin';
 import * as userApiClient from '../../../src/services/userApiClient.js';
-import { ForbiddenError } from '../../../src/errors.js';
+import { ForbiddenError, NotFoundError, UnavailableError } from '../../../src/errors.js';
 
 describe('authHook', () => {
   let app: FastifyInstance;
@@ -37,8 +42,14 @@ describe('authHook', () => {
     jest.clearAllMocks();
     (admin.apps as unknown[]).length = 0;
     _resetFirebaseApp();
-    // Default: UserAPI grants access
-    (userApiClient.checkUserAccess as jest.Mock).mockResolvedValue('user');
+    // Default: user exists and is enabled
+    (userApiClient.getUserById as jest.Mock).mockResolvedValue({
+      uid: 'user123',
+      email: 'test@example.com',
+      role: 'user',
+      enabled: true,
+      disabled: false,
+    });
   });
 
   it('returns 401 when no Authorization header', async () => {
@@ -71,7 +82,13 @@ describe('authHook', () => {
   });
 
   it('proceeds and sets request.user when token is valid and user has access', async () => {
-    const decodedToken = { uid: 'user123', email: 'test@example.com', name: 'Test User', picture: 'http://pic.url' };
+    const decodedToken = {
+      uid: 'user123',
+      email: 'test@example.com',
+      email_verified: true,
+      name: 'Test User',
+      picture: 'http://pic.url',
+    };
     (admin.auth as jest.Mock).mockReturnValue({
       verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
     });
@@ -82,16 +99,52 @@ describe('authHook', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().data.uid).toBe('user123');
-    expect(userApiClient.checkUserAccess as jest.Mock).toHaveBeenCalledWith('test@example.com');
+    expect(userApiClient.getUserById as jest.Mock).toHaveBeenCalledWith('user123');
   });
 
-  it('returns 403 when token is valid but user is not a valid application user', async () => {
-    const decodedToken = { uid: 'unregistered-uid', email: 'ghost@example.com', name: 'Ghost', picture: '' };
+  it('returns 403 when token is valid but user account is disabled', async () => {
+    const decodedToken = {
+      uid: 'disabled-uid',
+      email: 'disabled@example.com',
+      email_verified: true,
+      name: 'Disabled User',
+      picture: '',
+    };
     (admin.auth as jest.Mock).mockReturnValue({
       verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
     });
-    (userApiClient.checkUserAccess as jest.Mock).mockRejectedValue(
-      new ForbiddenError('User does not have access to this application'),
+    (userApiClient.getUserById as jest.Mock).mockResolvedValue({
+      uid: 'disabled-uid',
+      email: 'disabled@example.com',
+      role: 'user',
+      enabled: false,
+      disabled: true,
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: { authorization: 'Bearer valid-token-disabled' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('FORBIDDEN');
+  });
+
+  it('returns 403 when token is valid but user is not in Users collection or allowlist', async () => {
+    const decodedToken = {
+      uid: 'unregistered-uid',
+      email: 'ghost@example.com',
+      email_verified: true,
+      name: 'Ghost',
+      picture: '',
+    };
+    (admin.auth as jest.Mock).mockReturnValue({
+      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
+    });
+    (userApiClient.getUserById as jest.Mock).mockRejectedValue(
+      new NotFoundError('User not found'),
+    );
+    (userApiClient.getAllowlistEntry as jest.Mock).mockRejectedValue(
+      new NotFoundError('No allowlist entry'),
     );
     const res = await app.inject({
       method: 'GET',
@@ -102,21 +155,70 @@ describe('authHook', () => {
     expect(res.json().error.code).toBe('FORBIDDEN');
   });
 
-  it('proceeds when UserAPI is unavailable (graceful degradation)', async () => {
-    const decodedToken = { uid: 'user123', email: 'test@example.com', name: 'Test User', picture: 'http://pic.url' };
+  it('provisions user from allowlist and grants access on first login', async () => {
+    const decodedToken = {
+      uid: 'new-uid',
+      email: 'newuser@example.com',
+      email_verified: true,
+      name: 'New User',
+      picture: '',
+    };
     (admin.auth as jest.Mock).mockReturnValue({
       verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
     });
-    // checkUserAccess falls back to 'user' on network errors (no throw)
-    (userApiClient.checkUserAccess as jest.Mock).mockResolvedValue('user');
+    (userApiClient.getUserById as jest.Mock).mockRejectedValue(
+      new NotFoundError('User not found'),
+    );
+    (userApiClient.getAllowlistEntry as jest.Mock).mockResolvedValue({
+      email: 'newuser@example.com',
+      role: 'admin',
+    });
+    (userApiClient.createUserInUsersApi as jest.Mock).mockResolvedValue({
+      uid: 'new-uid',
+      email: 'newuser@example.com',
+      role: 'admin',
+      enabled: true,
+      disabled: false,
+    });
+    (userApiClient.deleteAllowlistEntry as jest.Mock).mockResolvedValue(undefined);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      headers: { authorization: 'Bearer valid-token-new-user' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(userApiClient.createUserInUsersApi as jest.Mock).toHaveBeenCalledWith({
+      uid: 'new-uid',
+      email: 'newuser@example.com',
+      role: 'admin',
+      enabled: true,
+    });
+    expect(userApiClient.deleteAllowlistEntry as jest.Mock).toHaveBeenCalledWith('newuser@example.com');
+  });
+
+  it('returns 503 when Users API is unavailable (fail-closed)', async () => {
+    const decodedToken = {
+      uid: 'user123',
+      email: 'test@example.com',
+      email_verified: true,
+      name: 'Test User',
+      picture: 'http://pic.url',
+    };
+    (admin.auth as jest.Mock).mockReturnValue({
+      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
+    });
+    (userApiClient.getUserById as jest.Mock).mockRejectedValue(
+      new UnavailableError('UserAPI unreachable'),
+    );
     const res = await app.inject({
       method: 'GET',
       url: '/api/v1/me',
       headers: { authorization: 'Bearer valid-token' },
     });
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(503);
   });
 });
 
 // Export authHook for completeness (was previously imported but not used directly)
 export { authHook };
+

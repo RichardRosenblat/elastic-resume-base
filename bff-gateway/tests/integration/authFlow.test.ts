@@ -14,9 +14,21 @@ jest.mock('../../src/services/userApiClient', () => ({
   checkUserAccess: jest.fn().mockResolvedValue('user'),
   getUserRole: jest.fn(),
   getUserRolesBatch: jest.fn(),
+  getUserById: jest.fn().mockResolvedValue({
+    uid: 'integration-user-001',
+    email: 'integration@example.com',
+    role: 'user',
+    enabled: true,
+    disabled: false,
+  }),
+  createUserInUsersApi: jest.fn(),
+  getAllowlistEntry: jest.fn(),
+  deleteAllowlistEntry: jest.fn(),
+  upsertAllowlistEntry: jest.fn(),
 }));
 
 import * as admin from 'firebase-admin';
+import * as userApiClient from '../../src/services/userApiClient.js';
 
 describe('Auth Flow Integration', () => {
   let app: FastifyInstance;
@@ -35,12 +47,21 @@ describe('Auth Flow Integration', () => {
     jest.clearAllMocks();
     (admin.apps as unknown[]).length = 0;
     _resetFirebaseApp();
+    // Restore default mock after clearAllMocks
+    (userApiClient.getUserById as jest.Mock).mockResolvedValue({
+      uid: 'integration-user-001',
+      email: 'integration@example.com',
+      role: 'user',
+      enabled: true,
+      disabled: false,
+    });
   });
 
   it('GET /api/v1/me with valid mocked Firebase token returns user profile', async () => {
     const mockDecodedToken = {
       uid: 'integration-user-001',
       email: 'integration@example.com',
+      email_verified: true,
       name: 'Integration User',
       picture: 'https://example.com/photo.jpg',
     };
@@ -69,3 +90,4 @@ describe('Auth Flow Integration', () => {
     expect(res.headers['x-correlation-id']).toBe('test-correlation-id');
   });
 });
+

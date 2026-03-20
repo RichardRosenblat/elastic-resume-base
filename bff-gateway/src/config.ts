@@ -22,6 +22,8 @@ const configSchema = z.object({
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
   userApiServiceUrl: z.string().url().default('http://localhost:8005'),
   allowedEmailDomains: z.string().default(''),
+  /** Domain for automatic onboarding. Users with emails ending in this domain get a disabled account. */
+  allowedDomain: z.string().default(''),
 });
 
 /** Application configuration type inferred from schema. */
@@ -48,6 +50,7 @@ function loadConfig(): Config {
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     userApiServiceUrl: process.env['USER_API_SERVICE_URL'],
     allowedEmailDomains: process.env['ALLOWED_EMAIL_DOMAINS'],
+    allowedDomain: process.env['ALLOWED_DOMAIN'],
   });
 }
 

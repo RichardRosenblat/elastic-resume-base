@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { config } from '../config.js';
-import { DownstreamError, ForbiddenError, UnavailableError } from '../errors.js';
+import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, UnavailableError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
 import { logger } from '../utils/logger.js';
 
@@ -161,3 +161,181 @@ export async function checkUserAccess(email: string): Promise<string> {
     });
   }
 }
+
+/** Shape of a user record returned by the Users API. */
+export interface UsersApiUserRecord {
+  uid: string;
+  email: string;
+  role: string;
+  enabled: boolean;
+  disabled: boolean;
+  displayName?: string;
+  photoURL?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Shape of an allowlist entry returned by the Users API. */
+export interface UsersApiAllowlistEntry {
+  email: string;
+  role?: string;
+}
+
+/**
+ * Retrieves a user record from the Users API by Firebase UID.
+ *
+ * @param uid - Firebase user UID.
+ * @returns The {@link UsersApiUserRecord} if found.
+ * @throws {NotFoundError} If the user does not exist (HTTP 404).
+ * @throws {UnavailableError} If the UserAPI is unreachable or returns a 5xx error.
+ * @throws {DownstreamError} If the UserAPI returns an unexpected response.
+ */
+export async function getUserById(uid: string): Promise<UsersApiUserRecord> {
+  logger.debug({ uid }, 'getUserById: fetching user from UserAPI');
+  try {
+    const response = await client.get<{ success: boolean; data: UsersApiUserRecord }>(
+      `/api/v1/users/${encodeURIComponent(uid)}`,
+    );
+    logger.debug({ uid }, 'getUserById: user retrieved from UserAPI');
+    return response.data.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      throw new NotFoundError(`User '${uid}' not found`);
+    }
+    handleUserApiError(err, {
+      context: { uid },
+      operationName: 'getUserById',
+      forbiddenMsg: 'User not found',
+      unavailableActionMsg: 'retrieve user',
+    });
+  }
+}
+
+/**
+ * Creates a new user in the Users API (Firestore).
+ *
+ * This call is idempotent by uid: if a user with the same uid already exists,
+ * the existing record is returned.
+ *
+ * @param payload - User creation data including uid, email, role, and enabled flag.
+ * @returns The created (or existing) {@link UsersApiUserRecord}.
+ * @throws {UnavailableError} If the UserAPI is unreachable or returns a 5xx error.
+ * @throws {DownstreamError} If the UserAPI returns an unexpected response.
+ */
+export async function createUserInUsersApi(payload: {
+  uid: string;
+  email: string;
+  role?: string;
+  enabled?: boolean;
+}): Promise<UsersApiUserRecord> {
+  logger.debug({ uid: payload.uid, email: payload.email }, 'createUserInUsersApi: creating user in UserAPI');
+  try {
+    const response = await client.post<{ success: boolean; data: UsersApiUserRecord }>(
+      '/api/v1/users',
+      payload,
+    );
+    logger.debug({ uid: payload.uid }, 'createUserInUsersApi: user created in UserAPI');
+    return response.data.data;
+  } catch (err) {
+    // Handle idempotency: if the user already exists (409), fetch and return them
+    if (axios.isAxiosError(err) && err.response?.status === 409) {
+      logger.info({ uid: payload.uid }, 'createUserInUsersApi: conflict – fetching existing user');
+      return getUserById(payload.uid);
+    }
+    handleUserApiError(err, {
+      context: { uid: payload.uid, email: payload.email },
+      operationName: 'createUserInUsersApi',
+      forbiddenMsg: 'Unable to create user',
+      unavailableActionMsg: 'create user',
+    });
+  }
+}
+
+/**
+ * Retrieves an allowlist entry from the Users API by email address.
+ *
+ * @param email - Email address to look up.
+ * @returns The {@link UsersApiAllowlistEntry} if found.
+ * @throws {NotFoundError} If no allowlist entry exists for the given email.
+ * @throws {UnavailableError} If the UserAPI is unreachable or returns a 5xx error.
+ * @throws {DownstreamError} If the UserAPI returns an unexpected response.
+ */
+export async function getAllowlistEntry(email: string): Promise<UsersApiAllowlistEntry> {
+  logger.debug({ email }, 'getAllowlistEntry: checking allowlist via UserAPI');
+  try {
+    const response = await client.get<{ success: boolean; data: UsersApiAllowlistEntry }>(
+      `/api/v1/allowlist/${encodeURIComponent(email.toLowerCase())}`,
+    );
+    logger.debug({ email }, 'getAllowlistEntry: entry found');
+    return response.data.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      throw new NotFoundError(`No allowlist entry for '${email}'`);
+    }
+    handleUserApiError(err, {
+      context: { email },
+      operationName: 'getAllowlistEntry',
+      forbiddenMsg: 'Allowlist entry not found',
+      unavailableActionMsg: 'check allowlist',
+    });
+  }
+}
+
+/**
+ * Removes an allowlist entry from the Users API.
+ *
+ * @param email - Email address to remove from the allowlist.
+ * @throws {UnavailableError} If the UserAPI is unreachable or returns a 5xx error.
+ * @throws {DownstreamError} If the UserAPI returns an unexpected response.
+ */
+export async function deleteAllowlistEntry(email: string): Promise<void> {
+  logger.debug({ email }, 'deleteAllowlistEntry: removing allowlist entry via UserAPI');
+  try {
+    await client.delete(`/api/v1/allowlist/${encodeURIComponent(email.toLowerCase())}`);
+    logger.debug({ email }, 'deleteAllowlistEntry: entry removed');
+  } catch (err) {
+    // Ignore 404 – entry may have been removed by a concurrent request
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      logger.info({ email }, 'deleteAllowlistEntry: entry not found (already deleted)');
+      return;
+    }
+    handleUserApiError(err, {
+      context: { email },
+      operationName: 'deleteAllowlistEntry',
+      forbiddenMsg: 'Unable to delete allowlist entry',
+      unavailableActionMsg: 'delete allowlist entry',
+    });
+  }
+}
+
+/**
+ * Creates or updates an allowlist entry in the Users API (idempotent).
+ *
+ * @param email - Email address to add/update.
+ * @param role - Optional role to assign on onboarding.
+ * @returns The upserted {@link UsersApiAllowlistEntry}.
+ * @throws {UnavailableError} If the UserAPI is unreachable or returns a 5xx error.
+ * @throws {DownstreamError} If the UserAPI returns an unexpected response.
+ */
+export async function upsertAllowlistEntry(
+  email: string,
+  role?: string,
+): Promise<UsersApiAllowlistEntry> {
+  logger.debug({ email, role }, 'upsertAllowlistEntry: upserting allowlist entry via UserAPI');
+  try {
+    const response = await client.post<{ success: boolean; data: UsersApiAllowlistEntry }>(
+      '/api/v1/allowlist',
+      { email: email.toLowerCase(), role },
+    );
+    logger.debug({ email }, 'upsertAllowlistEntry: entry upserted');
+    return response.data.data;
+  } catch (err) {
+    handleUserApiError(err, {
+      context: { email },
+      operationName: 'upsertAllowlistEntry',
+      forbiddenMsg: 'Unable to upsert allowlist entry',
+      unavailableActionMsg: 'upsert allowlist entry',
+    });
+  }
+}
+

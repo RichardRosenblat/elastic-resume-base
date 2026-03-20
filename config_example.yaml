@@ -59,6 +59,12 @@ systems:
     # Timeout (milliseconds) applied to every downstream service call
     REQUEST_TIMEOUT_MS: "30000"
 
+    # Domain for automatic onboarding. Users whose email ends with this domain
+    # will be auto-provisioned with an DISABLED account on first login.
+    # They must be explicitly enabled by an admin before they can access the app.
+    # Leave empty to disable domain-based onboarding.
+    ALLOWED_DOMAIN: ""
+
     # Downstream microservice base URLs (Docker Compose service names)
     DOWNLOADER_SERVICE_URL: "http://ingestor-service:8001"
     SEARCH_BASE_SERVICE_URL: "http://search-base:8002"
@@ -74,6 +80,13 @@ systems:
 
     # Name of the Firestore collection where user documents are stored.
     FIRESTORE_USERS_COLLECTION: users
+
+    # Name of the Firestore collection where allowlist documents are stored.
+    FIRESTORE_ALLOWLIST_COLLECTION: allowlist
+
+    # Email to insert into the allowlist on startup (with role 'admin').
+    # On first login this email will be provisioned as an admin user.
+    BOOTSTRAP_ADMIN_USER_EMAIL: ""
 
     # Google Service Account credentials (Base64-encoded JSON or raw JSON).
     # Required for Google Drive access via the Bugle shared library.
