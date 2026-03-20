@@ -60,7 +60,7 @@ systems:
     REQUEST_TIMEOUT_MS: "30000"
 
     # Domain for automatic onboarding. Users whose email ends with this domain
-    # will be auto-provisioned with an DISABLED account on first login.
+    # will be auto-provisioned with a DISABLED account on first login.
     # They must be explicitly enabled by an admin before they can access the app.
     # Leave empty to disable domain-based onboarding.
     ALLOWED_DOMAIN: ""
