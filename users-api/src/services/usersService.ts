@@ -1,5 +1,5 @@
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
-import { ConflictError, NotFoundError, ValidationError } from '@elastic-resume-base/synapse';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { DocumentData, DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
 import {
   getFirestore as _getFirestore,

@@ -10,7 +10,7 @@ jest.mock('firebase-admin', () => ({
 }));
 
 jest.mock('../../../src/services/userApiClient', () => ({
-  getUserRole: jest.fn(),
+  getUserRoleByEmail: jest.fn(),
   getUserRolesBatch: jest.fn(),
 }));
 
@@ -79,7 +79,7 @@ describe('usersService', () => {
   // ---------------------------------------------------------------------------
   describe('createUser', () => {
     it('throws ForbiddenError when requester is not admin', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('user');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('user');
 
       await expect(
         createUser({ email: 'new@example.com', password: 'pass123' }, 'non-admin-uid'),
@@ -87,7 +87,7 @@ describe('usersService', () => {
     });
 
     it('creates user and returns record with role when requester is admin', async () => {
-      (userApiClient.getUserRole as jest.Mock)
+      (userApiClient.getUserRoleByEmail as jest.Mock)
         .mockResolvedValueOnce('admin') // requester role check
         .mockResolvedValueOnce('user'); // new user's role
       (admin.auth as jest.Mock).mockReturnValue({
@@ -101,7 +101,7 @@ describe('usersService', () => {
     });
 
     it('throws ValidationError when email domain is disallowed', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('admin');
       (config as Record<string, unknown>)['allowedEmailDomains'] = 'allowed.com';
 
       await expect(
@@ -110,7 +110,7 @@ describe('usersService', () => {
     });
 
     it('succeeds when email domain is in the allowed list', async () => {
-      (userApiClient.getUserRole as jest.Mock)
+      (userApiClient.getUserRoleByEmail as jest.Mock)
         .mockResolvedValueOnce('admin')
         .mockResolvedValueOnce('user');
       (admin.auth as jest.Mock).mockReturnValue({
@@ -129,7 +129,7 @@ describe('usersService', () => {
   // ---------------------------------------------------------------------------
   describe('getUserByUid', () => {
     it('returns user for any authenticated requester', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValueOnce('user');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValueOnce('user');
       (admin.auth as jest.Mock).mockReturnValue({
         getUser: jest.fn().mockResolvedValue(makeFirebaseRecord()),
       });
@@ -139,7 +139,7 @@ describe('usersService', () => {
     });
 
     it('returns another user when requester is not admin', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValueOnce('user');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValueOnce('user');
       (admin.auth as jest.Mock).mockReturnValue({
         getUser: jest.fn().mockResolvedValue(makeFirebaseRecord({ uid: 'other-uid' })),
       });
@@ -162,14 +162,14 @@ describe('usersService', () => {
   // ---------------------------------------------------------------------------
   describe('updateUser', () => {
     it('allows admin to update any user with all fields', async () => {
-      (userApiClient.getUserRole as jest.Mock)
+      (userApiClient.getUserRoleByEmail as jest.Mock)
         .mockResolvedValueOnce('admin') // requester
         .mockResolvedValueOnce('user'); // target after update
       (admin.auth as jest.Mock).mockReturnValue({
         updateUser: jest.fn().mockResolvedValue(makeFirebaseRecord()),
       });
 
-      const result = await updateUser('uid123', { displayName: 'New Name', disabled: true }, 'admin-uid');
+      const result = await updateUser('uid123', { displayName: 'New Name', disabled: true }, 'admin@example.com');
       expect(result.uid).toBe('uid123');
 
       // Verify that the admin payload including 'disabled' was forwarded to Firebase
@@ -180,35 +180,37 @@ describe('usersService', () => {
     });
 
     it('allows non-admin to update their own displayName and photoURL', async () => {
-      (userApiClient.getUserRole as jest.Mock)
+      (userApiClient.getUserRoleByEmail as jest.Mock)
         .mockResolvedValueOnce('user') // requester
         .mockResolvedValueOnce('user'); // target after update
       (admin.auth as jest.Mock).mockReturnValue({
+        getUser: jest.fn().mockResolvedValue(makeFirebaseRecord({ email: 'user@example.com' })),
         updateUser: jest.fn().mockResolvedValue(makeFirebaseRecord()),
       });
 
-      await updateUser('self-uid', { displayName: 'New Name', photoURL: 'https://img.example.com/photo.jpg' }, 'self-uid');
+      await updateUser('uid123', { displayName: 'New Name', photoURL: 'https://img.example.com/photo.jpg' }, 'user@example.com');
 
       const authMock = (admin.auth as jest.Mock).mock.results[0]?.value as { updateUser: jest.Mock };
       // Non-admin update must NOT include sensitive fields
-      expect(authMock.updateUser).toHaveBeenCalledWith('self-uid', {
+      expect(authMock.updateUser).toHaveBeenCalledWith('uid123', {
         displayName: 'New Name',
         photoURL: 'https://img.example.com/photo.jpg',
       });
     });
 
     it('strips sensitive fields (password, email, disabled) from non-admin self-update', async () => {
-      (userApiClient.getUserRole as jest.Mock)
+      (userApiClient.getUserRoleByEmail as jest.Mock)
         .mockResolvedValueOnce('user')
         .mockResolvedValueOnce('user');
       (admin.auth as jest.Mock).mockReturnValue({
+        getUser: jest.fn().mockResolvedValue(makeFirebaseRecord({ email: 'user@example.com' })),
         updateUser: jest.fn().mockResolvedValue(makeFirebaseRecord()),
       });
 
       await updateUser(
-        'self-uid',
+        'uid123',
         { displayName: 'Safe', email: 'hacker@evil.com', password: 'newpass', disabled: false },
-        'self-uid',
+        'user@example.com',
       );
 
       const authMock = (admin.auth as jest.Mock).mock.results[0]?.value as { updateUser: jest.Mock };
@@ -220,30 +222,33 @@ describe('usersService', () => {
     });
 
     it('throws ForbiddenError when non-admin tries to update another user', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('user');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('user');
+      (admin.auth as jest.Mock).mockReturnValue({
+        getUser: jest.fn().mockResolvedValue(makeFirebaseRecord({ email: 'other@example.com' })),
+      });
 
       await expect(
-        updateUser('other-uid', { displayName: 'Hacked' }, 'self-uid'),
+        updateUser('other-uid', { displayName: 'Hacked' }, 'self@example.com'),
       ).rejects.toThrow(ForbiddenError);
     });
 
     it('throws ValidationError when admin sets a disallowed email domain', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('admin');
       (config as Record<string, unknown>)['allowedEmailDomains'] = 'company.com';
 
       await expect(
-        updateUser('uid123', { email: 'user@blocked.org' }, 'admin-uid'),
+        updateUser('uid123', { email: 'user@blocked.org' }, 'admin@company.com'),
       ).rejects.toThrow(ValidationError);
     });
 
     it('throws NotFoundError when Firebase user does not exist', async () => {
-      (userApiClient.getUserRole as jest.Mock)
+      (userApiClient.getUserRoleByEmail as jest.Mock)
         .mockResolvedValueOnce('admin');
       (admin.auth as jest.Mock).mockReturnValue({
         updateUser: jest.fn().mockRejectedValue(new Error('There is no user record corresponding to uid')),
       });
 
-      await expect(updateUser('missing-uid', { displayName: 'Name' }, 'admin-uid')).rejects.toThrow(NotFoundError);
+      await expect(updateUser('missing-uid', { displayName: 'Name' }, 'admin@company.com')).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -252,13 +257,13 @@ describe('usersService', () => {
   // ---------------------------------------------------------------------------
   describe('deleteUser', () => {
     it('throws ForbiddenError when requester is not admin', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('user');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('user');
 
       await expect(deleteUser('uid123', 'non-admin-uid')).rejects.toThrow(ForbiddenError);
     });
 
     it('deletes user when requester is admin', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('admin');
       const deleteMock = jest.fn().mockResolvedValue(undefined);
       (admin.auth as jest.Mock).mockReturnValue({ deleteUser: deleteMock });
 
@@ -267,7 +272,7 @@ describe('usersService', () => {
     });
 
     it('throws NotFoundError when Firebase user does not exist', async () => {
-      (userApiClient.getUserRole as jest.Mock).mockResolvedValue('admin');
+      (userApiClient.getUserRoleByEmail as jest.Mock).mockResolvedValue('admin');
       (admin.auth as jest.Mock).mockReturnValue({
         deleteUser: jest.fn().mockRejectedValue(new Error('There is no user record corresponding to uid')),
       });

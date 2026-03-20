@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { getLive, getReady } from '../controllers/health.controller.js';
+import { getLive, getReady, getDownstream } from '../controllers/health.controller.js';
 
 const healthPlugin: FastifyPluginAsync = async (app) => {
   app.get('/live', {
@@ -47,6 +47,37 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, getReady);
+
+  app.get('/downstream', {
+    schema: {
+      tags: ['Health'],
+      summary: 'Downstream services status',
+      description:
+        'Checks the health of all downstream services and returns their status. ' +
+        'Always returns HTTP 200; individual service availability is reflected in the response body.',
+      response: {
+        200: {
+          description: 'Downstream service statuses.',
+          type: 'object',
+          properties: {
+            downstream: {
+              type: 'object',
+              additionalProperties: {
+                type: 'object',
+                properties: {
+                  status: {
+                    type: 'string',
+                    enum: ['ok', 'degraded'],
+                    description: '"ok" if reachable, "degraded" if not.',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, getDownstream);
 };
 
 export default healthPlugin;

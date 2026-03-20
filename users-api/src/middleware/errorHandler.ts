@@ -2,7 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
-import { AppError } from '@elastic-resume-base/synapse';
+import { AppError } from '../errors.js';
 
 /**
  * Fastify error handler.

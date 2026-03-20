@@ -1,4 +1,4 @@
-import { ValidationError } from '@elastic-resume-base/synapse';
+import { ValidationError } from './errors.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';

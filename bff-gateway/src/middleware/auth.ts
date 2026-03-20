@@ -71,7 +71,13 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
 
   try {
     logger.trace({ correlationId: request.correlationId, uid: request.user.uid }, 'authHook: checking application access via UserAPI');
-    const role = await checkUserAccess(request.user.uid);
+    const email = request.user.email;
+    if (!email) {
+      logger.warn({ correlationId: request.correlationId, uid: request.user.uid }, 'authHook: user has no email, cannot verify access');
+      void reply.code(403).send(formatError('FORBIDDEN', 'User account has no email address'));
+      return;
+    }
+    const role = await checkUserAccess(email);
     request.user.role = role; // Update the user's role after successful access check
     logger.debug({ correlationId: request.correlationId, uid: request.user.uid, role }, 'authHook: application access granted');
   } catch (err) {

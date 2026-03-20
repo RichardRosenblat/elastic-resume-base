@@ -44,7 +44,7 @@ jest.mock('firebase-admin', () => ({
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
 import * as usersService from '../../../src/services/usersService.js';
-import { NotFoundError } from '@elastic-resume-base/synapse';
+import { NotFoundError } from '../../../src/errors.js';
 
 const MOCK_USER = {
   uid: 'uid123',

@@ -55,7 +55,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import type { DocumentSnapshot, DocumentReference } from 'firebase-admin/firestore';
 import { DrivePermissionsService } from '@elastic-resume-base/bugle';
 import { config } from '../../../src/config.js';
-import { NotFoundError, ConflictError, ValidationError } from '@elastic-resume-base/synapse';
+import { NotFoundError, ConflictError, ValidationError } from '../../../src/errors.js';
 import {
   createUser,
   getUserByUid,
