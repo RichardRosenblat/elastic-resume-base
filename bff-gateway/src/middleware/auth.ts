@@ -60,6 +60,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
       email: decoded.email,
       name: decoded.name as string | undefined,
       picture: decoded.picture,
+      role: 'user', // Default role; will be validated and potentially overridden after this step
     };
     logger.debug({ correlationId: request.correlationId, uid: decoded.uid }, 'authHook: token verified successfully');
   } catch (err) {
@@ -71,6 +72,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   try {
     logger.trace({ correlationId: request.correlationId, uid: request.user.uid }, 'authHook: checking application access via UserAPI');
     const role = await checkUserAccess(request.user.uid);
+    request.user.role = role; // Update the user's role after successful access check
     logger.debug({ correlationId: request.correlationId, uid: request.user.uid, role }, 'authHook: application access granted');
   } catch (err) {
     if (err instanceof ForbiddenError) {

@@ -4,6 +4,7 @@ export interface AuthenticatedUser {
   email?: string;
   name?: string;
   picture?: string;
+  role: string; // Added role property to the AuthenticatedUser interface
 }
 
 /** Augment FastifyRequest with authenticated user and correlation ID. */

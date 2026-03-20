@@ -17,16 +17,20 @@ const client = createHttpClient(config.userApiServiceUrl);
  * @returns The user's role string (e.g. `'admin'` or `'user'`).
  */
 export async function getUserRole(uid: string): Promise<string> {
-  // TODO: remove fallback once UserAPI is stable and always available
   logger.debug({ uid }, 'getUserRole: requesting role from UserAPI');
+
   try {
-    const response = await client.get<{ success: boolean; data: { role: string } }>(`/users/${uid}/role`);
+    const response = await client.get<{ success: boolean; data: { role: string } }>(
+      `/users/${uid}/role`
+    );
+
     const role = response.data.data.role;
     logger.debug({ uid, role }, 'getUserRole: role retrieved from UserAPI');
+
     return role;
   } catch (err) {
-    logger.warn({ uid, err }, 'UserAPI unavailable; defaulting role to "user"');
-    return 'user';
+    logger.error({ uid, err }, 'UserAPI unavailable; denying access');
+    throw new ForbiddenError('Unable to verify user role (UserAPI unavailable)');
   }
 }
 
