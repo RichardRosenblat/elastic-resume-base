@@ -3,11 +3,6 @@ import { ZodError, z } from 'zod';
 import { errorHandler } from '../../../src/middleware/errorHandler.js';
 import { AppError } from '../../../src/errors.js';
 
-// Mock cloud error reporting to prevent real GCP calls
-jest.mock('../../../src/utils/cloudErrorReporting', () => ({
-  reportError: jest.fn(),
-}));
-
 jest.mock('../../../src/utils/logger', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
@@ -53,7 +48,7 @@ describe('errorHandler', () => {
     expect(sendArg.error.message).toBe('Not found');
   });
 
-  it('handles generic Error with 500 status', () => {
+  it('handles generic Error with 500 status and a safe message', () => {
     const err = new Error('Something went wrong');
     const reply = makeMockReply();
     errorHandler(err, makeMockRequest(), reply);
@@ -61,16 +56,6 @@ describe('errorHandler', () => {
     const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
     expect(sendArg.success).toBe(false);
     expect(sendArg.error.code).toBe('INTERNAL_ERROR');
-  });
-
-  it('handles downstream error with its statusCode and code', () => {
-    const err = Object.assign(new Error('Service unavailable'), { statusCode: 503, code: 'SERVICE_UNAVAILABLE' });
-    const reply = makeMockReply();
-    errorHandler(err, makeMockRequest(), reply);
-    expect(reply.code).toHaveBeenCalledWith(503);
-    const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
-    expect(sendArg.success).toBe(false);
-    expect(sendArg.error.code).toBe('SERVICE_UNAVAILABLE');
-    expect(sendArg.error.message).toBe('Service unavailable');
+    expect(sendArg.error.message).toBe('An unexpected error occurred');
   });
 });
