@@ -369,7 +369,10 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
     } else {
       result[doc.id] = DEFAULT_ROLE;
       notFoundCount++;
-      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, using default role');
+      logger.trace(
+        { uid: doc.id },
+        'getUserRolesBatch: UID not found in Firestore, using default role',
+      );
     }
   }
 
@@ -383,7 +386,6 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
 // ---------------------------------------------------------------------------
 // Bootstrapping and onready functions
 // ---------------------------------------------------------------------------
-
 
 /**
  * Bootstraps the admin user based on the configuration.
@@ -401,10 +403,24 @@ export async function bootstrapAdminUser(): Promise<void> {
     'Bootstrapping admin user from configuration email',
   );
 
-  await createUser({
-    email: config.bootstrapAdminUserEmail,
-    role: 'admin',
-    displayName: 'Admin User',
-    disabled: false,
-  });
+  try {
+    await createUser({
+      email: config.bootstrapAdminUserEmail,
+      role: 'admin',
+      displayName: 'Admin User',
+      disabled: false,
+    });
+  } catch (error) {
+    if (error instanceof ConflictError) {
+      logger.info(
+        { email: config.bootstrapAdminUserEmail },
+        'Admin user already exists; skipping creation',
+      );
+    } else {
+      logger.error(
+        { email: config.bootstrapAdminUserEmail, error },
+        'Error occurred while bootstrapping admin user',
+      );
+    }
+  }
 }
