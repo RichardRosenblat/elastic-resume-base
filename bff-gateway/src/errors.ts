@@ -32,10 +32,17 @@ export class ValidationError extends AppError {
   }
 }
 
-/** Error representing a failure in a downstream service (HTTP 502 by default). */
+/** Error representing a service that returned an invalid response (HTTP 502 by default). */
 export class DownstreamError extends AppError {
-  constructor(message = 'Downstream service error', statusCode = 502, code = 'DOWNSTREAM_ERROR') {
-    super(message, statusCode, code);
+  constructor(message = 'Invalid response from downstream service') {
+    super(message, 502, 'DOWNSTREAM_ERROR');
+  }
+}
+
+/** Error representing a service that is currently unavailable (HTTP 503). */
+export class UnavailableError extends AppError {
+  constructor(message = 'Service unavailable') {
+    super(message, 503, 'SERVICE_UNAVAILABLE');
   }
 }
 
