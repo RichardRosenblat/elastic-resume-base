@@ -1,63 +1,36 @@
-/**
- * NOTE: Use the modular 'getAuth(app)' syntax instead of the legacy 'admin.auth(app)'.
- * The legacy syntax often causes "admin.auth is not a function" errors in ESM/TypeScript 
- * environments due to module resolution behavior.
- */
-import { getAuth } from 'firebase-admin/auth';
-import type { UserRecord as FirebaseAuthUserRecord } from 'firebase-admin/auth';
-import { getFirebaseApp } from '../middleware/auth.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../errors.js';
+import { ForbiddenError } from '../errors.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
 import type {
-  CreateUserRequest,
+  ListUsersResponse,
+  PreApprovedUser,
+  UpdatePreApprovedRequest,
   UpdateUserRequest,
   UserRecord,
-  ListUsersResponse,
 } from '../models/index.js';
-import { getUserRoleByEmail, getUserRolesBatch } from './userApiClient.js';
+import {
+  getUserById,
+  listUsersFromApi,
+  updateUserInApi,
+  deleteUserFromApi,
+  listPreApprovedFromApi,
+  getPreApprovedFromApi,
+  addPreApprovedInApi,
+  deletePreApprovedFromApi,
+  updatePreApprovedInApi,
+} from './userApiClient.js';
 
-/** Profile fields a non-admin user is permitted to change on their own account. */
-const SELF_UPDATABLE_FIELDS = ['displayName', 'photoURL'] as const;
+/** Fields a non-admin user is permitted to change on their own account. */
+const SELF_UPDATABLE_FIELDS: (keyof UpdateUserRequest)[] = ['email'];
 
-/**
- * Maps a Firebase Admin UserRecord to our UserRecord model.
- * @param record - Raw Firebase Auth user record.
- * @param role - Role string obtained from UserAPI.
- */
-function mapUserRecord(record: FirebaseAuthUserRecord, role: string): UserRecord {
-  return {
-    uid: record.uid,
-    email: record.email,
-    displayName: record.displayName,
-    photoURL: record.photoURL,
-    disabled: record.disabled,
-    emailVerified: record.emailVerified,
-    role,
-    createdAt: record.metadata.creationTime,
-    lastLoginAt: record.metadata.lastSignInTime,
-  };
-}
-
-/**
- * Asserts that the requesting user holds the `admin` role.
- * @param requesterEmail - Email of the user making the request.
- * @throws {ForbiddenError} If the requester is not an admin.
- */
-async function checkAdminAccess(requesterEmail: string): Promise<void> {
-  const role = await getUserRoleByEmail(requesterEmail);
-  if (role !== 'admin') {
-    throw new ForbiddenError('Admin access required');
-  }
-}
+/** Fields that only an admin user can change. */
+const ADMIN_ONLY_FIELDS: (keyof UpdateUserRequest)[] = ['role', 'enable'];
 
 /**
  * Validates that the email's domain is within the configured list of allowed domains.
  *
- * An empty `ALLOWED_EMAIL_DOMAINS` configuration means no domain restrictions are applied.
- *
  * @param email - Email address to validate.
- * @throws {ValidationError} If the domain is not in the allowed list.
+ * @throws {ForbiddenError} If the domain is not in the allowed list.
  */
 function validateEmailDomain(email: string): void {
   const allowedDomains = config.allowedEmailDomains
@@ -65,208 +38,169 @@ function validateEmailDomain(email: string): void {
     .map((d) => d.trim())
     .filter(Boolean);
 
-  // TODO: implement more robust check (e.g. DNS validation, wildcard support, disposable-email detection)
   if (allowedDomains.length === 0) {
-    return; // No domain restriction configured — all domains are allowed
+    return;
   }
 
   const domain = email.split('@')[1]?.toLowerCase();
   if (!domain || !allowedDomains.includes(domain)) {
-    throw new ValidationError(
+    throw new ForbiddenError(
       `Email domain is not allowed. Permitted domains: ${allowedDomains.join(', ')}`,
     );
   }
 }
 
-/**
- * Creates a new Firebase Auth user. Requires admin role.
- *
- * @param payload - User creation data.
- * @param requesterEmail - Email of the admin user making the request.
- * @returns The created UserRecord including the role fetched from UserAPI.
- * @throws {ForbiddenError} If the requester is not an admin.
- * @throws {ValidationError} If the email domain is not in the allowed list.
- */
-export async function createUser(
-  payload: CreateUserRequest,
-  requesterEmail: string,
-): Promise<UserRecord> {
-  logger.debug({ requesterEmail }, 'createUser: checking admin access');
-  await checkAdminAccess(requesterEmail);
-  logger.debug({ email: payload.email }, 'createUser: validating email domain');
-  validateEmailDomain(payload.email);
-
-  const app = getFirebaseApp();
-  logger.info({ action: 'createUser', email: payload.email, requesterEmail }, 'Creating new user');
-  const record = await getAuth(app).createUser(payload);
-  logger.debug({ uid: record.uid }, 'createUser: Firebase Auth user created, fetching role');
-  const role = await getUserRoleByEmail(record.email ?? '');
-  logger.debug({ uid: record.uid, role }, 'createUser: user created successfully');
-  return mapUserRecord(record, role);
-}
+// ---------------------------------------------------------------------------
+// User management (proxied to users-api)
+// ---------------------------------------------------------------------------
 
 /**
- * Retrieves a Firebase Auth user by UID. Available to all authenticated users.
- *
- * @param uid - UID of the user to retrieve.
- * @returns The UserRecord including the role fetched from UserAPI.
- * @throws {NotFoundError} If the user does not exist.
+ * Retrieves a single user by UID.
  */
 export async function getUserByUid(uid: string): Promise<UserRecord> {
-  logger.debug({ uid }, 'getUserByUid: fetching user from Firebase Auth');
-  const app = getFirebaseApp();
-  try {
-    const record = await getAuth(app).getUser(uid);
-    logger.debug({ uid }, 'getUserByUid: fetching role from UserAPI');
-    const role = await getUserRoleByEmail(record.email ?? '');
-    logger.debug({ uid, role }, 'getUserByUid: user retrieved successfully');
-    return mapUserRecord(record, role);
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
-      logger.debug({ uid }, 'getUserByUid: user not found in Firebase Auth');
-      throw new NotFoundError(`User ${uid} not found`);
-    }
-    throw err;
-  }
+  logger.debug({ uid }, 'getUserByUid: fetching user from UserAPI');
+  return getUserById(uid);
 }
 
 /**
- * Updates a Firebase Auth user by UID.
- *
- * Admins may update any user with all payload fields.
- * Non-admins may only update their own profile and are restricted to
- * non-sensitive fields: `displayName` and `photoURL`.
+ * Lists users with optional pagination.
+ */
+export async function listUsers(maxResults?: number, pageToken?: string): Promise<ListUsersResponse> {
+  logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: fetching users from UserAPI');
+  return listUsersFromApi(maxResults, pageToken);
+}
+
+/**
+ * Updates a user. Admins can update any field; non-admins can only update their own
+ * safe fields (email).
  *
  * @param uid - UID of the user to update.
  * @param payload - Fields to update.
  * @param requesterUid - UID of the user making the request.
- * @returns The updated UserRecord including the role fetched from UserAPI.
- * @throws {ForbiddenError} If a non-admin attempts to update another user's profile.
- * @throws {ValidationError} If an admin sets a new email with a disallowed domain.
- * @throws {NotFoundError} If the user does not exist.
+ * @param requesterRole - Role of the user making the request.
+ * @returns The updated UserRecord.
+ * @throws {ForbiddenError} If a non-admin tries to update another user or restricted fields.
  */
 export async function updateUser(
   uid: string,
   payload: UpdateUserRequest,
-  requesterEmail: string,
+  requesterUid: string,
+  requesterRole: string,
 ): Promise<UserRecord> {
-  logger.debug({ uid, requesterEmail }, 'updateUser: checking requester role');
-  const requesterRole = await getUserRoleByEmail(requesterEmail);
   const isAdmin = requesterRole === 'admin';
 
-  const app = getFirebaseApp();
-
   if (!isAdmin) {
-    // Non-admins may only update their own profile; verify by comparing emails
-    try {
-      const targetRecord = await getAuth(app).getUser(uid);
-      if (targetRecord.email !== requesterEmail) {
-        logger.warn(
-          { uid, requesterEmail },
-          'updateUser: non-admin attempted to update another user',
-        );
-        throw new ForbiddenError('You may only update your own profile');
+    if (uid !== requesterUid) {
+      logger.warn({ uid, requesterUid }, 'updateUser: non-admin tried to update another user');
+      throw new ForbiddenError('You may only update your own profile');
+    }
+
+    // Non-admins cannot update role or enable
+    for (const field of ADMIN_ONLY_FIELDS) {
+      if (payload[field] !== undefined) {
+        logger.warn({ uid, field }, 'updateUser: non-admin tried to update restricted field');
+        throw new ForbiddenError(`You do not have permission to update the '${field}' field`);
       }
-    } catch (err: unknown) {
-      if (err instanceof ForbiddenError) throw err;
-      if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
-        logger.debug({ uid }, 'updateUser: user not found in Firebase Auth');
-        throw new NotFoundError(`User ${uid} not found`);
+    }
+
+    // Restrict to safe fields only
+    const safePayload: UpdateUserRequest = {};
+    for (const field of SELF_UPDATABLE_FIELDS) {
+      if (payload[field] !== undefined) {
+        (safePayload as Record<string, unknown>)[field] = payload[field];
       }
-      throw err;
     }
+
+    if (safePayload.email) {
+      validateEmailDomain(safePayload.email);
+    }
+
+    logger.debug({ uid, requesterUid }, 'updateUser: non-admin self-update');
+    return updateUserInApi(uid, safePayload);
   }
 
-  let updatePayload: UpdateUserRequest;
-
-  if (isAdmin) {
-    if (payload.email) {
-      logger.debug({ uid, email: payload.email }, 'updateUser: validating new email domain');
-      validateEmailDomain(payload.email);
-    }
-    updatePayload = payload;
-  } else {
-    // Non-admins may only change non-sensitive profile fields
-    updatePayload = Object.fromEntries(
-      SELF_UPDATABLE_FIELDS.filter((field) => payload[field] !== undefined).map((field) => [
-        field,
-        payload[field],
-      ]),
-    ) as UpdateUserRequest;
-    logger.debug(
-      { uid, allowedFields: SELF_UPDATABLE_FIELDS },
-      'updateUser: non-admin update restricted to safe fields',
-    );
+  // Admin update — validate email domain if email is being changed
+  if (payload.email) {
+    validateEmailDomain(payload.email);
   }
 
-  logger.info({ uid, action: 'updateUser', isAdmin }, 'Updating user');
-  try {
-    const record = await getAuth(app).updateUser(uid, updatePayload);
-    logger.debug({ uid }, 'updateUser: Firebase Auth user updated, fetching role');
-    const role = await getUserRoleByEmail(record.email ?? '');
-    logger.debug({ uid, role }, 'updateUser: user updated successfully');
-    return mapUserRecord(record, role);
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
-      logger.debug({ uid }, 'updateUser: user not found in Firebase Auth');
-      throw new NotFoundError(`User ${uid} not found`);
-    }
-    throw err;
-  }
+  logger.debug({ uid, requesterUid }, 'updateUser: admin update');
+  return updateUserInApi(uid, payload);
 }
 
 /**
- * Deletes a Firebase Auth user by UID. Requires admin role.
+ * Deletes a user. Requires admin role.
  *
  * @param uid - UID of the user to delete.
- * @param requesterEmail - Email of the admin user making the request.
+ * @param requesterRole - Role of the user making the request.
  * @throws {ForbiddenError} If the requester is not an admin.
- * @throws {NotFoundError} If the user does not exist.
  */
-export async function deleteUser(uid: string, requesterEmail: string): Promise<void> {
-  logger.debug({ uid, requesterEmail }, 'deleteUser: checking admin access');
-  await checkAdminAccess(requesterEmail);
-
-  const app = getFirebaseApp();
-  logger.info({ uid, action: 'deleteUser', requesterEmail }, 'Deleting user');
-  try {
-    await getAuth(app).deleteUser(uid);
-    logger.debug({ uid }, 'deleteUser: user deleted successfully from Firebase Auth');
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
-      logger.debug({ uid }, 'deleteUser: user not found in Firebase Auth');
-      throw new NotFoundError(`User ${uid} not found`);
-    }
-    throw err;
+export async function deleteUser(uid: string, requesterRole: string): Promise<void> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
   }
+  logger.debug({ uid }, 'deleteUser: deleting user via UserAPI');
+  return deleteUserFromApi(uid);
+}
+
+// ---------------------------------------------------------------------------
+// Pre-approve management (admin only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lists all pre-approved users.
+ */
+export async function listPreApproved(): Promise<PreApprovedUser[]> {
+  logger.debug('listPreApproved: fetching pre-approved users from UserAPI');
+  return listPreApprovedFromApi();
 }
 
 /**
- * Lists Firebase Auth users with optional pagination. Available to all authenticated users.
- *
- * Roles for all returned users are fetched from UserAPI in a single batch call.
- *
- * @param maxResults - Maximum number of users to return (default 100, max 1000).
- * @param pageToken - Pagination token from a previous call.
- * @returns ListUsersResponse with users (including roles) and optional next page token.
+ * Gets a specific pre-approved user by email.
  */
-export async function listUsers(
-  maxResults?: number,
-  pageToken?: string,
-): Promise<ListUsersResponse> {
-  logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: fetching from Firebase Auth');
-  const app = getFirebaseApp();
-  const result = await getAuth(app).listUsers(maxResults, pageToken);
-  logger.debug(
-    { count: result.users.length, hasNextPage: !!result.pageToken },
-    'listUsers: fetching roles from UserAPI in batch',
-  );
-  const uids = result.users.map((u) => u.uid);
-  const roles = await getUserRolesBatch(uids);
+export async function getPreApproved(email: string): Promise<PreApprovedUser> {
+  logger.debug({ email }, 'getPreApproved: fetching pre-approved user from UserAPI');
+  return getPreApprovedFromApi(email);
+}
 
-  logger.debug({ count: result.users.length }, 'listUsers: users retrieved successfully');
-  return {
-    users: result.users.map((u) => mapUserRecord(u, roles[u.uid] ?? 'user')),
-    pageToken: result.pageToken,
-  };
+/**
+ * Adds a user to the pre-approved list. Requires admin role.
+ */
+export async function addPreApproved(
+  email: string,
+  role: string,
+  requesterRole: string,
+): Promise<PreApprovedUser> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  validateEmailDomain(email);
+  logger.debug({ email, role }, 'addPreApproved: adding pre-approved user via UserAPI');
+  return addPreApprovedInApi(email, role);
+}
+
+/**
+ * Deletes a pre-approved user. Requires admin role.
+ */
+export async function deletePreApproved(email: string, requesterRole: string): Promise<void> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ email }, 'deletePreApproved: deleting pre-approved user via UserAPI');
+  return deletePreApprovedFromApi(email);
+}
+
+/**
+ * Updates a pre-approved user. Requires admin role.
+ */
+export async function updatePreApproved(
+  email: string,
+  data: UpdatePreApprovedRequest,
+  requesterRole: string,
+): Promise<PreApprovedUser> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ email }, 'updatePreApproved: updating pre-approved user via UserAPI');
+  return updatePreApprovedInApi(email, data);
 }

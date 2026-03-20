@@ -1,5 +1,4 @@
-import { DrivePermissionsService } from '@elastic-resume-base/bugle';
-import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors.js';
 import type { DocumentData, DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
 import {
   getFirestore as _getFirestore,
@@ -7,6 +6,8 @@ import {
 } from 'firebase-admin/firestore';
 import { config } from '../config.js';
 import type {
+  AuthorizeRequest,
+  AuthorizeResponse,
   CreateUserRequest,
   ListUsersResponse,
   UpdateUserRequest,
@@ -16,6 +17,9 @@ import { logger } from '../utils/logger.js';
 
 /** Name of the Firestore collection where user documents are stored. */
 const USERS_COLLECTION = config.firestoreUsersCollection;
+
+/** Name of the Firestore collection where pre-approved user documents are stored. */
+const PRE_APPROVED_COLLECTION = config.firestorePreApprovedUsersCollection;
 
 /** Default role assigned to newly created users. */
 const DEFAULT_ROLE = 'user';
@@ -28,18 +32,6 @@ const DEFAULT_ROLE = 'user';
  */
 function getFirestore(): Firestore {
   return _getFirestore();
-}
-
-/**
- * Returns `true` if the given value looks like a Firestore Timestamp
- * (has a callable `toDate` method).
- */
-function isTimestamp(value: unknown): value is FirestoreTimestamp {
-  return (
-    value !== null &&
-    value !== undefined &&
-    typeof (value as Record<string, unknown>)['toDate'] === 'function'
-  );
 }
 
 /**
@@ -57,16 +49,8 @@ function mapDocument(doc: DocumentSnapshot<DocumentData>): UserRecord {
   return {
     uid: doc.id,
     email: (data['email'] as string) ?? '',
-    displayName: data['displayName'] as string | undefined,
-    photoURL: data['photoURL'] as string | undefined,
     role: (data['role'] as string) ?? DEFAULT_ROLE,
-    disabled: Boolean(data['disabled']),
-    createdAt: isTimestamp(data['createdAt'])
-      ? data['createdAt'].toDate().toISOString()
-      : (data['createdAt'] as string | undefined),
-    updatedAt: isTimestamp(data['updatedAt'])
-      ? data['updatedAt'].toDate().toISOString()
-      : (data['updatedAt'] as string | undefined),
+    enable: Boolean(data['enable']),
   };
 }
 
@@ -83,6 +67,95 @@ function validateEmail(email: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Authorization Logic
+// ---------------------------------------------------------------------------
+
+/**
+ * Implements the BFF Authorization Logic.
+ *
+ * Resolution order:
+ * 1. Check `users` collection by uid — if found, return role and enable status.
+ * 2. Check `pre_approved_users` collection by email — if found, promote to `users` with enable=true.
+ * 3. Check email domain against ALLOWED_EMAIL_DOMAINS — if matched, create in `users` with enable=false.
+ * 4. Return 403 if no match.
+ *
+ * @param request - Object containing uid and email from the Firebase token.
+ * @returns The user's role and enable status.
+ * @throws {ForbiddenError} If the user is not allowed access.
+ */
+export async function authorizeUser(request: AuthorizeRequest): Promise<AuthorizeResponse> {
+  const { uid, email } = request;
+  logger.debug({ uid, email }, 'authorizeUser: starting authorization');
+
+  const db = getFirestore();
+
+  // Step 1: Check users collection by uid
+  logger.trace({ uid }, 'authorizeUser: checking users collection');
+  const userDoc = await db.collection(USERS_COLLECTION).doc(uid).get();
+  if (userDoc.exists) {
+    const data = userDoc.data() as Record<string, unknown>;
+    const role = (data['role'] as string) ?? DEFAULT_ROLE;
+    const enable = Boolean(data['enable']);
+    logger.debug({ uid, role, enable }, 'authorizeUser: user found in users collection');
+    return { role, enable };
+  }
+
+  // Step 2: Check pre_approved_users collection by email
+  logger.trace({ email }, 'authorizeUser: checking pre_approved_users collection');
+  const preApprovedSnapshot = await db
+    .collection(PRE_APPROVED_COLLECTION)
+    .where('email', '==', email)
+    .limit(1)
+    .get();
+
+  if (!preApprovedSnapshot.empty) {
+    const preApprovedDoc = preApprovedSnapshot.docs[0]!;
+    const preApprovedData = preApprovedDoc.data() as Record<string, unknown>;
+    const role = (preApprovedData['role'] as string) ?? DEFAULT_ROLE;
+
+    logger.info({ uid, email, role }, 'authorizeUser: user found in pre_approved_users, promoting to users');
+
+    // Create user in users collection with enable=true
+    await db.collection(USERS_COLLECTION).doc(uid).set({
+      email,
+      role,
+      enable: true,
+    });
+
+    // Delete from pre_approved_users
+    await preApprovedDoc.ref.delete();
+
+    logger.debug({ uid, email, role }, 'authorizeUser: user promoted successfully');
+    return { role, enable: true };
+  }
+
+  // Step 3: Check email domain
+  const allowedDomains = config.allowedEmailDomains
+    .split(',')
+    .map((d) => d.trim())
+    .filter(Boolean);
+
+  if (allowedDomains.length > 0) {
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (domain && allowedDomains.includes(domain)) {
+      logger.info({ uid, email, domain }, 'authorizeUser: email domain is allowed, creating user with enable=false');
+
+      await db.collection(USERS_COLLECTION).doc(uid).set({
+        email,
+        role: DEFAULT_ROLE,
+        enable: false,
+      });
+
+      return { role: DEFAULT_ROLE, enable: false };
+    }
+  }
+
+  // Step 4: No access
+  logger.info({ uid, email }, 'authorizeUser: user has no access');
+  throw new ForbiddenError('User does not have access to this application');
+}
+
+// ---------------------------------------------------------------------------
 // CRUD operations
 // ---------------------------------------------------------------------------
 
@@ -92,28 +165,14 @@ function validateEmail(email: string): void {
  * @param data - User creation payload.
  * @returns The newly created {@link UserRecord}.
  * @throws {ValidationError} If the email is missing or invalid.
- * @throws {ConflictError} If a user with the same email or ID already exists.
+ * @throws {ConflictError} If a user with the same uid already exists.
  */
 export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
   logger.debug({ email: data.email }, 'createUser: validating email');
   validateEmail(data.email);
 
   const db = getFirestore();
-
-  logger.debug({ email: data.email }, 'createUser: checking for duplicate email');
-  // Check for duplicate email
-  const existing = await db
-    .collection(USERS_COLLECTION)
-    .where('email', '==', data.email)
-    .limit(1)
-    .get();
-
-  if (!existing.empty) {
-    logger.warn({ email: data.email }, 'createUser: email already exists (conflict)');
-    throw new ConflictError(`A user with email '${data.email}' already exists`);
-  }
-
-  const uid = data.uid ?? db.collection(USERS_COLLECTION).doc().id;
+  const { uid, email, role, enable } = data;
 
   // Check if UID already exists
   logger.debug({ uid }, 'createUser: checking for duplicate uid');
@@ -124,20 +183,14 @@ export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
     throw new ConflictError(`A user with id '${uid}' already exists`);
   }
 
-  const now = FirestoreTimestamp.now();
-
   const docData: Record<string, unknown> = {
-    email: data.email,
-    displayName: data.displayName ?? null,
-    photoURL: data.photoURL ?? null,
-    role: data.role ?? DEFAULT_ROLE,
-    disabled: data.disabled ?? false,
-    createdAt: now,
-    updatedAt: now,
+    email,
+    role: role ?? DEFAULT_ROLE,
+    enable: enable ?? false,
   };
 
   logger.trace(
-    { uid, email: data.email, role: docData['role'] },
+    { uid, email, role: docData['role'] },
     'createUser: writing document to Firestore',
   );
   await db.collection(USERS_COLLECTION).doc(uid).set(docData);
@@ -171,15 +224,12 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
  * @param uid - Unique identifier of the user to update.
  * @param data - Fields to update. Only supplied fields are changed.
  * @returns The updated {@link UserRecord}.
- * @throws {ValidationError} If an updated email is invalid.
  * @throws {NotFoundError} If no user with that UID exists.
- * @throws {ConflictError} If the new email is already taken by another user.
  */
 export async function updateUser(uid: string, data: UpdateUserRequest): Promise<UserRecord> {
   const db = getFirestore();
 
   logger.debug({ uid }, 'updateUser: checking user existence');
-  // Ensure the user exists
   const existing = await db.collection(USERS_COLLECTION).doc(uid).get();
   if (!existing.exists) {
     logger.debug({ uid }, 'updateUser: user not found');
@@ -189,26 +239,12 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
   if (data.email !== undefined) {
     logger.debug({ uid, email: data.email }, 'updateUser: validating new email');
     validateEmail(data.email);
-    // Check that the new email is not taken by a *different* user
-    logger.debug({ uid, email: data.email }, 'updateUser: checking email uniqueness');
-    const emailConflict = await db
-      .collection(USERS_COLLECTION)
-      .where('email', '==', data.email)
-      .limit(1)
-      .get();
-
-    if (!emailConflict.empty && emailConflict.docs[0]?.id !== uid) {
-      logger.warn({ uid, email: data.email }, 'updateUser: email already taken by another user');
-      throw new ConflictError(`A user with email '${data.email}' already exists`);
-    }
   }
 
-  const { email, displayName, photoURL, role, disabled } = data;
-  const fields = { email, displayName, photoURL, role, disabled };
+  const { email, role, enable } = data;
+  const fields = { email, role, enable };
 
   const updateData: Record<string, unknown> = {
-    updatedAt: FirestoreTimestamp.now(),
-    // Filter out undefined values and merge
     ...Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined)),
   };
 
@@ -249,7 +285,7 @@ export async function deleteUser(uid: string): Promise<void> {
 export async function listUsers(maxResults = 100, pageToken?: string): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: building Firestore query');
   const db = getFirestore();
-  let query = db.collection(USERS_COLLECTION).orderBy('createdAt', 'desc').limit(maxResults);
+  let query = db.collection(USERS_COLLECTION).orderBy('email', 'asc').limit(maxResults);
 
   if (pageToken) {
     logger.trace({ pageToken }, 'listUsers: resolving pagination cursor');
@@ -282,115 +318,14 @@ export async function listUsers(maxResults = 100, pageToken?: string): Promise<L
 }
 
 // ---------------------------------------------------------------------------
-// BFF access / role check
-// ---------------------------------------------------------------------------
-
-/**
- * Determines the access role for a given user by email, implementing the BFF Authorization Logic.
- *
- * The resolution order is:
- * 1. **Google Drive (Bugle)** — when `ADMIN_SHEET_FILE_ID` is set, the service retrieves the
- *    list of users with access to that file.  If the email appears in the list, the role
- *    `"admin"` is returned.  If the email is *not* in the list, `null` is returned (no access).
- * 2. **Firestore (Synapse)** — when `ADMIN_SHEET_FILE_ID` is *not* set, the service queries
- *    Firestore by email.  If found, the stored role is returned.  If not found, `null` is
- *    returned (no access).
- *
- * @param email - The user's email address.
- * @returns The user's role string (e.g. `"admin"`, `"user"`) or `null` when the user has
- *   no access to the application.
- */
-export async function getUserRoleByEmail(email: string): Promise<string | null> {
-  const adminSheetFileId = config.adminSheetFileId;
-
-  if (adminSheetFileId) {
-    // --- Google Drive path (Bugle): use email directly ---
-    logger.info({ action: 'getUserRoleByEmail' }, 'Checking access via Google Drive');
-    const driveService = new DrivePermissionsService();
-    const emailsWithAccess = await driveService.getUsersWithFileAccess(adminSheetFileId);
-    const normalizedEmail = email.toLowerCase();
-
-    if (emailsWithAccess.includes(normalizedEmail)) {
-      logger.info({ email: normalizedEmail }, 'User granted admin access via Google Drive');
-      return 'admin';
-    }
-
-    logger.info({ email: normalizedEmail }, 'User not found in Drive permissions; no access');
-    return null;
-  }
-
-  // --- Firestore path (Synapse): query by email ---
-  logger.info({ action: 'getUserRoleByEmail' }, 'Checking access via Firestore');
-  const db = getFirestore();
-  const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email).limit(1).get();
-
-  if (snapshot.empty) {
-    logger.info({ email }, 'User not found in Firestore; no access');
-    return null;
-  }
-
-  const doc = snapshot.docs[0]!;
-  const data = doc.data() as Record<string, unknown>;
-  const role = (data['role'] as string) ?? DEFAULT_ROLE;
-  logger.info({ email, role }, 'User found in Firestore');
-  return role;
-}
-
-/**
- * Retrieves roles for a batch of user UIDs from Firestore.
- *
- * This method always uses the Firestore data store (not the Drive/Bugle path) and is
- * intended for quickly enriching a list of existing users with their stored roles.
- *
- * @param uids - Array of Firebase user UIDs.
- * @returns A map of `uid → role` for every UID in the input array.
- *   UIDs that are not found in Firestore are included with the default role (`"user"`). If a user document exists but has no `role` field, the default role (`"user"`) is also returned for that UID.
- */
-export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
-  if (uids.length === 0) {
-    logger.debug('getUserRolesBatch: empty input, returning empty result');
-    return {};
-  }
-
-  logger.debug({ count: uids.length }, 'getUserRolesBatch: fetching roles from Firestore');
-  const db = getFirestore();
-  const refs = uids.map((uid) => db.collection(USERS_COLLECTION).doc(uid));
-  const docs = await db.getAll(...refs);
-
-  const result: Record<string, string> = {};
-  let foundCount = 0;
-  let notFoundCount = 0;
-
-  for (const doc of docs) {
-    if (doc.exists) {
-      const data = doc.data() as Record<string, unknown>;
-      result[doc.id] = (data['role'] as string) ?? DEFAULT_ROLE;
-      foundCount++;
-    } else {
-      result[doc.id] = DEFAULT_ROLE;
-      notFoundCount++;
-      logger.trace(
-        { uid: doc.id },
-        'getUserRolesBatch: UID not found in Firestore, using default role',
-      );
-    }
-  }
-
-  logger.debug(
-    { total: uids.length, found: foundCount, not_found: notFoundCount },
-    'getUserRolesBatch: roles resolved',
-  );
-  return result;
-}
-
-// ---------------------------------------------------------------------------
 // Bootstrapping and onready functions
 // ---------------------------------------------------------------------------
 
 /**
  * Bootstraps the admin user based on the configuration.
- * If the `bootstrapAdminUserEmail` is not set, the function will log a warning and return.
- * @returns A promise that resolves when the admin user has been created or skipped.
+ * Adds the admin email to the `pre_approved_users` collection if it does not already exist
+ * in either `users` or `pre_approved_users`.
+ * @returns A promise that resolves when the admin user has been pre-approved or skipped.
  */
 export async function bootstrapAdminUser(): Promise<void> {
   if (!config.bootstrapAdminUserEmail) {
@@ -398,29 +333,44 @@ export async function bootstrapAdminUser(): Promise<void> {
     return;
   }
 
-  logger.info(
-    { email: config.bootstrapAdminUserEmail },
-    'Bootstrapping admin user from configuration email',
-  );
+  const email = config.bootstrapAdminUserEmail;
+  logger.info({ email }, 'Bootstrapping admin user from configuration email');
 
+  const db = getFirestore();
+
+  // Idempotency check: is there already a user with this email in `users`?
+  const usersSnapshot = await db
+    .collection(USERS_COLLECTION)
+    .where('email', '==', email)
+    .limit(1)
+    .get();
+
+  if (!usersSnapshot.empty) {
+    logger.info({ email }, 'Admin user already exists in users collection; skipping pre-approval');
+    return;
+  }
+
+  // Idempotency check: is the email already in `pre_approved_users`?
+  const preApprovedSnapshot = await db
+    .collection(PRE_APPROVED_COLLECTION)
+    .where('email', '==', email)
+    .limit(1)
+    .get();
+
+  if (!preApprovedSnapshot.empty) {
+    logger.info({ email }, 'Admin email already in pre_approved_users; skipping');
+    return;
+  }
+
+  // Add to pre_approved_users with admin role
   try {
-    await createUser({
-      email: config.bootstrapAdminUserEmail,
+    await db.collection(PRE_APPROVED_COLLECTION).add({
+      email,
       role: 'admin',
-      displayName: 'Admin User',
-      disabled: false,
     });
+    logger.info({ email }, 'Admin email added to pre_approved_users successfully');
   } catch (error) {
-    if (error instanceof ConflictError) {
-      logger.info(
-        { email: config.bootstrapAdminUserEmail },
-        'Admin user already exists; skipping creation',
-      );
-    } else {
-      logger.error(
-        { email: config.bootstrapAdminUserEmail, error },
-        'Error occurred while bootstrapping admin user',
-      );
-    }
+    logger.error({ email, error }, 'Error occurred while bootstrapping admin user');
   }
 }
+

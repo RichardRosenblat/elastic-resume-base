@@ -1,18 +1,21 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  authorizeHandler,
   createUserHandler,
   getUserHandler,
   updateUserHandler,
   deleteUserHandler,
   listUsersHandler,
-  getUserRoleHandler,
-  getBatchRolesHandler,
+  getPreApprovedHandler,
+  addPreApprovedHandler,
+  deletePreApprovedHandler,
+  updatePreApprovedHandler,
 } from '../controllers/users.controller.js';
 
-/** Reusable schema for a Firestore user document as returned by the Users API. */
-const firestoreUserSchema = {
+/** Reusable schema for a user record in the `users` Firestore collection. */
+const userRecordSchema = {
   type: 'object',
-  description: 'Firestore user document.',
+  description: 'User document from the users Firestore collection.',
   properties: {
     uid: {
       type: 'string',
@@ -25,26 +28,34 @@ const firestoreUserSchema = {
       description: "User's email address.",
       example: 'jane.doe@example.com',
     },
-    displayName: {
-      type: 'string',
-      description: "User's human-readable display name.",
-      example: 'Jane Doe',
-    },
-    photoURL: {
-      type: 'string',
-      format: 'uri',
-      description: "URL of the user's profile photo.",
-      example: 'https://example.com/photo.jpg',
-    },
     role: {
       type: 'string',
       description: "Application-level role assigned to the user (e.g. 'admin', 'user').",
       example: 'user',
     },
-    disabled: {
+    enable: {
       type: 'boolean',
-      description: 'Whether the user account is disabled.',
-      example: false,
+      description: 'Whether the user account is enabled and allowed to access protected routes.',
+      example: true,
+    },
+  },
+} as const;
+
+/** Reusable schema for a pre-approved user record. */
+const preApprovedUserSchema = {
+  type: 'object',
+  description: 'Pre-approved user document from the pre_approved_users Firestore collection.',
+  properties: {
+    email: {
+      type: 'string',
+      format: 'email',
+      description: "User's email address.",
+      example: 'jane.doe@example.com',
+    },
+    role: {
+      type: 'string',
+      description: "Application-level role to assign when the user first logs in.",
+      example: 'admin',
     },
   },
 } as const;
@@ -113,7 +124,7 @@ const forbiddenResponse = {
 
 /** Reusable schema for 404 not-found responses. */
 const notFoundResponse = {
-  description: 'The requested user was not found.',
+  description: 'The requested resource was not found.',
   type: 'object',
   properties: {
     success: { type: 'boolean', example: false },
@@ -156,15 +167,73 @@ const internalErrorResponse = {
 } as const;
 
 const usersPlugin: FastifyPluginAsync = async (app) => {
+  // ── Unauthenticated Routes ──────────────────────────────────────────────────
+
+  app.post('/authorize', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Authorize a user (BFF login flow)',
+      description:
+        'Implements the BFF Authorization Logic. ' +
+        'Called by the BFF during the login flow to determine if a user is authorized ' +
+        'and to obtain their role and enable status. ' +
+        'Checks the users collection, pre_approved_users collection, and allowed email domains in that order.',
+      body: {
+        type: 'object',
+        required: ['uid', 'email'],
+        properties: {
+          uid: {
+            type: 'string',
+            description: 'Firebase UID from the authentication token.',
+            example: 'aB3dE5fG7hI9jK1l',
+          },
+          email: {
+            type: 'string',
+            description: "User's email address from the authentication token.",
+            example: 'jane.doe@example.com',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'User authorization result.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                role: {
+                  type: 'string',
+                  description: "User's application role.",
+                  example: 'user',
+                },
+                enable: {
+                  type: 'boolean',
+                  description: 'Whether the user is enabled to access protected routes.',
+                  example: true,
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, authorizeHandler);
+
+  // ── Admin & User Routes ─────────────────────────────────────────────────────
+
   app.get('/', {
     schema: {
       tags: ['Users'],
       summary: 'List users',
       description:
-        'Returns a paginated list of Firestore user documents. ' +
-        'Use `pageToken` from the previous response to fetch the next page. ' +
-        'Called internally by the BFF gateway for admin user-management operations.',
-      security: [{ bearerAuth: [] }],
+        'Returns a paginated list of user documents from the users collection. ' +
+        'Called internally by the BFF gateway.',
       querystring: {
         type: 'object',
         properties: {
@@ -185,7 +254,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
       response: {
         200: {
-          description: 'Paginated list of Firestore user documents.',
+          description: 'Paginated list of user documents.',
           type: 'object',
           properties: {
             success: { type: 'boolean', example: true },
@@ -194,12 +263,12 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
               properties: {
                 users: {
                   type: 'array',
-                  description: 'Array of Firestore user documents on this page.',
-                  items: firestoreUserSchema,
+                  description: 'Array of user documents on this page.',
+                  items: userRecordSchema,
                 },
                 pageToken: {
                   type: 'string',
-                  description: 'Cursor to pass as `pageToken` to retrieve the next page. Absent on the last page.',
+                  description: 'Cursor to pass as pageToken to retrieve the next page.',
                   example: 'eyJsYXN0VWlkIjoiYUIzZEU1ZkcifQ==',
                 },
               },
@@ -213,23 +282,161 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, listUsersHandler);
 
-  app.post('/', {
+  // Must be registered BEFORE /:uid to avoid route conflicts with static segments
+  app.get('/pre-approve', {
     schema: {
       tags: ['Users'],
-      summary: 'Create a new user',
+      summary: 'List or get pre-approved users (admin only)',
       description:
-        'Creates a new Firestore user document. ' +
-        'If `uid` is not provided, a new UID is generated. ' +
-        'The `email` field is required. ' +
-        'The optional `role` field sets the application-level role (defaults to `user` if omitted).',
-      security: [{ bearerAuth: [] }],
+        'Returns all pre-approved users, or a specific one if email query param is provided.',
+      querystring: {
+        type: 'object',
+        properties: {
+          email: {
+            type: 'string',
+            description: 'Optional email to retrieve a specific pre-approved user.',
+            example: 'jane.doe@example.com',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Pre-approved user(s) retrieved successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {},
+            meta: responseMeta,
+          },
+        },
+        404: notFoundResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, getPreApprovedHandler);
+
+  app.post('/pre-approve', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Add a pre-approved user (admin only)',
+      description: 'Adds an email and role to the pre_approved_users collection.',
       body: {
+        type: 'object',
+        required: ['email', 'role'],
+        properties: {
+          email: {
+            type: 'string',
+            description: "Email address to pre-approve.",
+            example: 'jane.doe@example.com',
+          },
+          role: {
+            type: 'string',
+            description: "Role to assign when the user first logs in.",
+            example: 'admin',
+          },
+        },
+      },
+      response: {
+        201: {
+          description: 'Pre-approved user added successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: preApprovedUserSchema,
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, addPreApprovedHandler);
+
+  app.delete('/pre-approve', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Delete a pre-approved user (admin only)',
+      description: 'Removes a user from the pre_approved_users collection by email.',
+      querystring: {
         type: 'object',
         required: ['email'],
         properties: {
+          email: {
+            type: 'string',
+            description: 'Email address of the pre-approved user to remove.',
+            example: 'jane.doe@example.com',
+          },
+        },
+      },
+      response: {
+        204: {
+          description: 'Pre-approved user removed successfully. No response body.',
+          type: 'null',
+        },
+        400: validationErrorResponse,
+        404: notFoundResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, deletePreApprovedHandler);
+
+  app.patch('/pre-approve', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Update a pre-approved user (admin only)',
+      description: 'Updates a pre-approved user in the pre_approved_users collection.',
+      querystring: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: {
+            type: 'string',
+            description: 'Email address of the pre-approved user to update.',
+            example: 'jane.doe@example.com',
+          },
+        },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          role: {
+            type: 'string',
+            description: 'Updated role to assign.',
+            example: 'user',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Pre-approved user updated successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: preApprovedUserSchema,
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        404: notFoundResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, updatePreApprovedHandler);
+
+  // ── Admin Only Routes ───────────────────────────────────────────────────────
+
+  app.post('/', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Create a new user (admin only)',
+      description: 'Creates a new user document directly in the users Firestore collection.',
+      body: {
+        type: 'object',
+        required: ['uid', 'email'],
+        properties: {
           uid: {
             type: 'string',
-            description: 'Optional Firebase UID to use for the new user document. Generated automatically if omitted.',
+            description: 'Firebase UID for the new user document.',
             example: 'aB3dE5fG7hI9jK1l',
           },
           email: {
@@ -237,24 +444,14 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             description: "New user's email address.",
             example: 'jane.doe@example.com',
           },
-          displayName: {
-            type: 'string',
-            description: "Human-readable display name for the new user.",
-            example: 'Jane Doe',
-          },
-          photoURL: {
-            type: 'string',
-            description: "URL of the new user's profile photo.",
-            example: 'https://example.com/photo.jpg',
-          },
           role: {
             type: 'string',
-            description: "Application-level role for the user (e.g. 'admin', 'user'). Defaults to 'user'.",
+            description: "Application-level role (defaults to 'user').",
             example: 'user',
           },
-          disabled: {
+          enable: {
             type: 'boolean',
-            description: 'Whether to create the account in a disabled state.',
+            description: 'Whether the user is enabled (defaults to false).',
             example: false,
           },
         },
@@ -265,7 +462,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           type: 'object',
           properties: {
             success: { type: 'boolean', example: true },
-            data: firestoreUserSchema,
+            data: userRecordSchema,
             meta: responseMeta,
           },
         },
@@ -275,114 +472,11 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, createUserHandler);
 
-  // Must be registered BEFORE /:uid to avoid route conflicts
-  app.post('/roles/batch', {
-    schema: {
-      tags: ['Users'],
-      summary: 'Get roles for multiple users',
-      description:
-        'Returns a map of `{ uid → role }` for the provided list of UIDs. ' +
-        'Used by the BFF gateway to resolve roles in bulk. ' +
-        'UIDs not found in Firestore are omitted from the response.',
-      security: [{ bearerAuth: [] }],
-      body: {
-        type: 'object',
-        required: ['uids'],
-        properties: {
-          uids: {
-            type: 'array',
-            items: {
-              type: 'string',
-              description: 'A Firebase UID.',
-              example: 'aB3dE5fG7hI9jK1l',
-            },
-            minItems: 1,
-            description: 'List of Firebase UIDs to look up (at least one required).',
-            example: ['aB3dE5fG7hI9jK1l', 'mN2oP4qR6sT8uV0w'],
-          },
-        },
-      },
-      response: {
-        200: {
-          description: 'Role map retrieved successfully.',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: {
-              type: 'object',
-              additionalProperties: {
-                type: 'string',
-                description: "Role assigned to the user (e.g. 'admin', 'user').",
-              },
-              description: 'Map of uid → role for each found user.',
-              example: { aB3dE5fG7hI9jK1l: 'admin', mN2oP4qR6sT8uV0w: 'user' },
-            },
-            meta: responseMeta,
-          },
-        },
-        400: validationErrorResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, getBatchRolesHandler);
-
-  // Must be registered BEFORE /:uid to prevent the static segment "role" from being
-  // swallowed by the dynamic /:uid route.
-  app.get('/role', {
-    schema: {
-      tags: ['Users'],
-      summary: 'Get the access role for a user by email (BFF access check)',
-      description:
-        'Implements the BFF Authorization Logic used to determine whether a user ' +
-        'may access the application. ' +
-        'If `ADMIN_SHEET_FILE_ID` is configured, checks Google Drive file permissions via Bugle; ' +
-        'otherwise falls back to reading the `role` field from Firestore. ' +
-        'Returns HTTP 200 with the resolved role on success, or HTTP 403 when the user has no access.',
-      security: [{ bearerAuth: [] }],
-      querystring: {
-        type: 'object',
-        required: ['email'],
-        properties: {
-          email: {
-            type: 'string',
-            description: "User's email address.",
-            example: 'jane.doe@example.com',
-          },
-        },
-      },
-      response: {
-        200: {
-          description: "User's application role resolved successfully.",
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: {
-              type: 'object',
-              properties: {
-                role: {
-                  type: 'string',
-                  description: "Application-level role assigned to the user (e.g. 'admin', 'user').",
-                  example: 'user',
-                },
-              },
-            },
-            meta: responseMeta,
-          },
-        },
-        403: forbiddenResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, getUserRoleHandler);
-
   app.get('/:uid', {
     schema: {
       tags: ['Users'],
       summary: 'Get user by UID',
-      description:
-        'Retrieves a single Firestore user document by Firebase UID. ' +
-        'Returns 404 if no document exists for the given UID.',
-      security: [{ bearerAuth: [] }],
+      description: 'Retrieves a single user document from the users Firestore collection by UID.',
       params: {
         type: 'object',
         required: ['uid'],
@@ -400,7 +494,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           type: 'object',
           properties: {
             success: { type: 'boolean', example: true },
-            data: firestoreUserSchema,
+            data: userRecordSchema,
             meta: responseMeta,
           },
         },
@@ -413,12 +507,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.patch('/:uid', {
     schema: {
       tags: ['Users'],
-      summary: 'Update user by UID',
-      description:
-        'Partially updates a Firestore user document. ' +
-        'Only the provided fields are changed; all other fields remain unchanged. ' +
-        'Returns 404 if no document exists for the given UID.',
-      security: [{ bearerAuth: [] }],
+      summary: 'Update user by UID (admin only)',
+      description: 'Partially updates a user document in the users Firestore collection.',
       params: {
         type: 'object',
         required: ['uid'],
@@ -435,28 +525,18 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           email: {
             type: 'string',
-            description: "Updated email address.",
+            description: 'Updated email address.',
             example: 'new.email@example.com',
-          },
-          displayName: {
-            type: 'string',
-            description: 'Updated display name.',
-            example: 'Jane Smith',
-          },
-          photoURL: {
-            type: 'string',
-            description: 'Updated profile photo URL.',
-            example: 'https://example.com/new-photo.jpg',
           },
           role: {
             type: 'string',
-            description: "Updated application-level role (e.g. 'admin', 'user').",
+            description: "Updated role.",
             example: 'admin',
           },
-          disabled: {
+          enable: {
             type: 'boolean',
             description: 'Enable or disable the account.',
-            example: false,
+            example: true,
           },
         },
       },
@@ -466,7 +546,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           type: 'object',
           properties: {
             success: { type: 'boolean', example: true },
-            data: firestoreUserSchema,
+            data: userRecordSchema,
             meta: responseMeta,
           },
         },
@@ -480,12 +560,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.delete('/:uid', {
     schema: {
       tags: ['Users'],
-      summary: 'Delete user by UID',
-      description:
-        'Permanently removes a Firestore user document. ' +
-        'Returns 404 if no document exists for the given UID. ' +
-        'This action cannot be undone.',
-      security: [{ bearerAuth: [] }],
+      summary: 'Delete user by UID (admin only)',
+      description: 'Permanently removes a user document from the users Firestore collection.',
       params: {
         type: 'object',
         required: ['uid'],

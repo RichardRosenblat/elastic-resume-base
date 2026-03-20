@@ -4,7 +4,8 @@ export interface AuthenticatedUser {
   email?: string;
   name?: string;
   picture?: string;
-  role: string; // Added role property to the AuthenticatedUser interface
+  role: string;
+  enable: boolean;
 }
 
 /** Augment FastifyRequest with authenticated user and correlation ID. */
@@ -92,40 +93,40 @@ export interface DocumentReadResponse {
   metadata?: Record<string, unknown>;
 }
 
-/** Request payload for creating a new Firebase Auth user. */
-export interface CreateUserRequest {
+/** Request payload for creating a new pre-approved user. */
+export interface CreatePreApprovedRequest {
   email: string;
-  password: string;
-  displayName?: string;
-  photoURL?: string;
-  disabled?: boolean;
+  role: string;
 }
 
-/** Request payload for updating an existing Firebase Auth user. */
+/** Request payload for updating an existing user. */
 export interface UpdateUserRequest {
   email?: string;
-  password?: string;
-  displayName?: string;
-  photoURL?: string;
-  disabled?: boolean;
+  role?: string;
+  enable?: boolean;
 }
 
-/** Firebase Auth user record. */
+/** Request payload for updating a pre-approved user. */
+export interface UpdatePreApprovedRequest {
+  role?: string;
+}
+
+/** Firebase Auth user record enriched with role and enable status from users-api. */
 export interface UserRecord {
   uid: string;
   email?: string;
-  displayName?: string;
-  photoURL?: string;
-  disabled: boolean;
-  emailVerified: boolean;
-  /** Role fetched from UserAPI. */
   role: string;
-  createdAt?: string;
-  lastLoginAt?: string;
+  enable: boolean;
 }
 
 /** Response from the list users endpoint. */
 export interface ListUsersResponse {
   users: UserRecord[];
   pageToken?: string;
+}
+
+/** Pre-approved user record. */
+export interface PreApprovedUser {
+  email: string;
+  role: string;
 }

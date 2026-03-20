@@ -1,84 +1,43 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
-  createUserHandler,
+  listUsersHandler,
   getUserHandler,
   updateUserHandler,
   deleteUserHandler,
-  listUsersHandler,
+  getPreApprovedHandler,
+  addPreApprovedHandler,
+  deletePreApprovedHandler,
+  updatePreApprovedHandler,
 } from '../controllers/users.controller.js';
 
-/** Reusable schema for a Firebase Auth user record as returned by the BFF gateway. */
+/** Reusable schema for a user record from the users-api. */
 const userRecordSchema = {
   type: 'object',
-  description: 'Firebase Auth user record enriched with role information.',
+  description: 'User record from the users-api.',
   properties: {
-    uid: {
-      type: 'string',
-      description: 'Firebase UID — unique identifier for the user.',
-      example: 'aB3dE5fG7hI9jK1l',
-    },
-    email: {
-      type: 'string',
-      format: 'email',
-      description: "User's email address.",
-      example: 'jane.doe@example.com',
-    },
-    displayName: {
-      type: 'string',
-      description: "User's human-readable display name.",
-      example: 'Jane Doe',
-    },
-    photoURL: {
-      type: 'string',
-      format: 'uri',
-      description: "URL of the user's profile photo.",
-      example: 'https://example.com/photo.jpg',
-    },
-    disabled: {
-      type: 'boolean',
-      description: 'Whether the account has been disabled in Firebase Auth.',
-      example: false,
-    },
-    emailVerified: {
-      type: 'boolean',
-      description: "Whether the user's email address has been verified.",
-      example: true,
-    },
-    role: {
-      type: 'string',
-      description: "Application-level role assigned to the user (e.g. 'admin', 'user').",
-      example: 'user',
-    },
-    createdAt: {
-      type: 'string',
-      format: 'date-time',
-      description: 'ISO-8601 timestamp when the Firebase Auth account was created.',
-      example: '2025-06-01T08:00:00.000Z',
-    },
-    lastLoginAt: {
-      type: 'string',
-      format: 'date-time',
-      description: "ISO-8601 timestamp of the user's most recent sign-in.",
-      example: '2026-01-15T10:30:00.000Z',
-    },
+    uid: { type: 'string', example: 'aB3dE5fG7hI9jK1l' },
+    email: { type: 'string', format: 'email', example: 'jane.doe@example.com' },
+    role: { type: 'string', example: 'user' },
+    enable: { type: 'boolean', example: true },
   },
 } as const;
 
-/** Reusable schema for the standard success response envelope. */
+/** Reusable schema for a pre-approved user record. */
+const preApprovedUserSchema = {
+  type: 'object',
+  description: 'Pre-approved user record.',
+  properties: {
+    email: { type: 'string', format: 'email', example: 'jane.doe@example.com' },
+    role: { type: 'string', example: 'admin' },
+  },
+} as const;
+
+/** Reusable schema for the standard success response metadata. */
 const successMeta = {
   type: 'object',
   properties: {
-    correlationId: {
-      type: 'string',
-      description: 'Request correlation ID for distributed tracing.',
-      example: 'req-abc123',
-    },
-    timestamp: {
-      type: 'string',
-      format: 'date-time',
-      description: 'ISO-8601 timestamp when the response was generated.',
-      example: '2026-01-15T10:30:00.000Z',
-    },
+    correlationId: { type: 'string', example: 'req-abc123' },
+    timestamp: { type: 'string', format: 'date-time', example: '2026-01-15T10:30:00.000Z' },
   },
 } as const;
 
@@ -150,7 +109,7 @@ const forbiddenResponse = {
 
 /** Reusable schema for 404 not-found responses. */
 const notFoundResponse = {
-  description: 'The requested user was not found.',
+  description: 'The requested resource was not found.',
   type: 'object',
   properties: {
     success: { type: 'boolean', example: false },
@@ -193,31 +152,19 @@ const internalErrorResponse = {
 } as const;
 
 const usersPlugin: FastifyPluginAsync = async (app) => {
+  // ── Admin & User Routes ─────────────────────────────────────────────────────
+
   app.get('/', {
     schema: {
       tags: ['Users'],
       summary: 'List users',
-      description:
-        'Returns a paginated list of Firebase Auth user accounts. ' +
-        'Use `pageToken` from the previous response to fetch the next page. ' +
-        'Requires authentication; available to all authenticated application users.',
+      description: 'Returns a paginated list of users. Available to all authenticated users.',
       security: [{ bearerAuth: [] }],
       querystring: {
         type: 'object',
         properties: {
-          maxResults: {
-            type: 'integer',
-            minimum: 1,
-            maximum: 1000,
-            default: 100,
-            description: 'Maximum number of users to return per page (1–1000).',
-            example: 50,
-          },
-          pageToken: {
-            type: 'string',
-            description: 'Pagination token returned by the previous list call.',
-            example: 'eyJhbGciOiJSUzI1NiJ9...',
-          },
+          maxResults: { type: 'integer', minimum: 1, maximum: 1000, default: 100, example: 50 },
+          pageToken: { type: 'string', example: 'eyJhbGciOiJSUzI1NiJ9...' },
         },
       },
       response: {
@@ -229,16 +176,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             data: {
               type: 'object',
               properties: {
-                users: {
-                  type: 'array',
-                  description: 'Array of user records on this page.',
-                  items: userRecordSchema,
-                },
-                pageToken: {
-                  type: 'string',
-                  description: 'Token to pass as `pageToken` to retrieve the next page. Absent when there are no more pages.',
-                  example: 'eyJhbGciOiJSUzI1NiJ9...',
-                },
+                users: { type: 'array', items: userRecordSchema },
+                pageToken: { type: 'string', example: 'eyJhbGciOiJSUzI1NiJ9...' },
               },
             },
             meta: successMeta,
@@ -252,54 +191,58 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, listUsersHandler);
 
-  app.post('/', {
+  // Must be registered BEFORE /:uid to avoid route conflicts
+  app.get('/pre-approve', {
     schema: {
       tags: ['Users'],
-      summary: 'Create a new user (admin only)',
-      description:
-        'Creates a new Firebase Auth user account. ' +
-        'Requires the `admin` role. ' +
-        'The `email` field must belong to one of the configured allowed domains (if any). ' +
-        'The `password` must be at least 6 characters long.',
+      summary: 'List or get pre-approved users (admin only)',
+      description: 'Lists all pre-approved users, or gets a specific one by email.',
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          email: { type: 'string', example: 'jane.doe@example.com' },
+        },
+      },
+      response: {
+        200: {
+          description: 'Pre-approved user(s) retrieved successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {},
+            meta: successMeta,
+          },
+        },
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        404: notFoundResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, getPreApprovedHandler);
+
+  app.post('/pre-approve', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Add a pre-approved user (admin only)',
+      description: 'Adds an email and role to the pre-approved users list.',
       security: [{ bearerAuth: [] }],
       body: {
         type: 'object',
-        required: ['email', 'password'],
+        required: ['email', 'role'],
         properties: {
-          email: {
-            type: 'string',
-            description: "New user's email address. Must be within the configured allowed domains.",
-            example: 'jane.doe@example.com',
-          },
-          password: {
-            type: 'string',
-            description: 'Initial password for the account (minimum 6 characters).',
-            example: 'S3cur3P@ssw0rd',
-          },
-          displayName: {
-            type: 'string',
-            description: "Human-readable display name for the new user.",
-            example: 'Jane Doe',
-          },
-          photoURL: {
-            type: 'string',
-            description: "URL of the new user's profile photo.",
-            example: 'https://example.com/photo.jpg',
-          },
-          disabled: {
-            type: 'boolean',
-            description: 'Whether to create the account in a disabled state.',
-            example: false,
-          },
+          email: { type: 'string', example: 'jane.doe@example.com' },
+          role: { type: 'string', example: 'admin' },
         },
       },
       response: {
         201: {
-          description: 'User created successfully.',
+          description: 'Pre-approved user added successfully.',
           type: 'object',
           properties: {
             success: { type: 'boolean', example: true },
-            data: userRecordSchema,
+            data: preApprovedUserSchema,
             meta: successMeta,
           },
         },
@@ -309,25 +252,83 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         500: internalErrorResponse,
       },
     },
-  }, createUserHandler);
+  }, addPreApprovedHandler);
+
+  app.delete('/pre-approve', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Delete a pre-approved user (admin only)',
+      description: 'Removes a user from the pre-approved list by email.',
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', example: 'jane.doe@example.com' },
+        },
+      },
+      response: {
+        204: { description: 'Pre-approved user removed successfully.', type: 'null' },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        404: notFoundResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, deletePreApprovedHandler);
+
+  app.patch('/pre-approve', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Update a pre-approved user (admin only)',
+      description: 'Updates a pre-approved user\'s role.',
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', example: 'jane.doe@example.com' },
+        },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          role: { type: 'string', example: 'user' },
+        },
+      },
+      response: {
+        200: {
+          description: 'Pre-approved user updated successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: preApprovedUserSchema,
+            meta: successMeta,
+          },
+        },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        404: notFoundResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, updatePreApprovedHandler);
+
+  // ── Admin Only Routes ───────────────────────────────────────────────────────
 
   app.get('/:uid', {
     schema: {
       tags: ['Users'],
       summary: 'Get user by UID',
-      description:
-        'Retrieves a single Firebase Auth user record by UID. ' +
-        'Available to all authenticated application users.',
+      description: 'Retrieves a single user record by UID. Available to all authenticated users.',
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         required: ['uid'],
         properties: {
-          uid: {
-            type: 'string',
-            description: 'Firebase UID of the user to retrieve.',
-            example: 'aB3dE5fG7hI9jK1l',
-          },
+          uid: { type: 'string', example: 'aB3dE5fG7hI9jK1l' },
         },
       },
       response: {
@@ -353,51 +354,22 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Users'],
       summary: 'Update user by UID',
       description:
-        'Updates a Firebase Auth user account. ' +
-        'Admins may update any user with any field. ' +
-        'Non-admins may only update their own profile and are restricted to ' +
-        'non-sensitive fields (`displayName`, `photoURL`). ' +
-        'Attempting to update another user or a restricted field as a non-admin returns 403.',
+        'Updates a user. Admins may update any user with any field. ' +
+        'Non-admins may only update their own email.',
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         required: ['uid'],
         properties: {
-          uid: {
-            type: 'string',
-            description: 'Firebase UID of the user to update.',
-            example: 'aB3dE5fG7hI9jK1l',
-          },
+          uid: { type: 'string', example: 'aB3dE5fG7hI9jK1l' },
         },
       },
       body: {
         type: 'object',
         properties: {
-          email: {
-            type: 'string',
-            description: 'New email address. Admin only.',
-            example: 'new.email@example.com',
-          },
-          password: {
-            type: 'string',
-            description: 'New password (minimum 6 characters). Admin only.',
-            example: 'N3wS3cur3P@ss',
-          },
-          displayName: {
-            type: 'string',
-            description: 'New display name. Available to the user for their own account.',
-            example: 'Jane Smith',
-          },
-          photoURL: {
-            type: 'string',
-            description: 'New profile photo URL. Available to the user for their own account.',
-            example: 'https://example.com/new-photo.jpg',
-          },
-          disabled: {
-            type: 'boolean',
-            description: 'Enable or disable the account. Admin only.',
-            example: false,
-          },
+          email: { type: 'string', example: 'new.email@example.com' },
+          role: { type: 'string', example: 'admin', description: 'Admin only.' },
+          enable: { type: 'boolean', example: true, description: 'Admin only.' },
         },
       },
       response: {
@@ -423,27 +395,17 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     schema: {
       tags: ['Users'],
       summary: 'Delete user by UID (admin only)',
-      description:
-        'Permanently deletes a Firebase Auth user account. ' +
-        'Requires the `admin` role. ' +
-        'This action cannot be undone.',
+      description: 'Permanently deletes a user. Requires the admin role.',
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         required: ['uid'],
         properties: {
-          uid: {
-            type: 'string',
-            description: 'Firebase UID of the user to delete.',
-            example: 'aB3dE5fG7hI9jK1l',
-          },
+          uid: { type: 'string', example: 'aB3dE5fG7hI9jK1l' },
         },
       },
       response: {
-        204: {
-          description: 'User deleted successfully. No response body.',
-          type: 'null',
-        },
+        204: { description: 'User deleted successfully.', type: 'null' },
         401: unauthorizedResponse,
         403: forbiddenResponse,
         404: notFoundResponse,

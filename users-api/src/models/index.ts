@@ -6,49 +6,60 @@ declare module 'fastify' {
   }
 }
 
-/** A user record stored in Firestore. */
+/** A user record stored in the `users` Firestore collection. */
 export interface UserRecord {
   uid: string;
   email: string;
-  displayName?: string;
-  photoURL?: string;
   role: string;
-  disabled: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  enable: boolean;
 }
 
-/** Request payload for creating a new user. */
-export interface CreateUserRequest {
-  uid?: string;
+/** A pre-approved user record stored in the `pre_approved_users` Firestore collection. */
+export interface PreApprovedUser {
   email: string;
-  displayName?: string;
-  photoURL?: string;
-  role?: string;
-  disabled?: boolean;
+  role: string;
+}
+
+/** Request payload for the authorize endpoint. */
+export interface AuthorizeRequest {
+  uid: string;
+  email: string;
+}
+
+/** Response from the authorize endpoint. */
+export interface AuthorizeResponse {
+  role: string;
+  enable: boolean;
+}
+
+/** Request payload for creating a new user internally. */
+export interface CreateUserRequest {
+  uid: string;
+  email: string;
+  role: string;
+  enable: boolean;
 }
 
 /** Request payload for updating an existing user. */
 export interface UpdateUserRequest {
   email?: string;
-  displayName?: string;
-  photoURL?: string;
   role?: string;
-  disabled?: boolean;
+  enable?: boolean;
+}
+
+/** Request payload for adding a pre-approved user. */
+export interface AddPreApprovedRequest {
+  email: string;
+  role: string;
+}
+
+/** Request payload for updating a pre-approved user. */
+export interface UpdatePreApprovedRequest {
+  role?: string;
 }
 
 /** Paginated list users response. */
 export interface ListUsersResponse {
   users: UserRecord[];
   pageToken?: string;
-}
-
-/** Response from the role/access check endpoint. */
-export interface RoleResponse {
-  role: string;
-}
-
-/** Request body for batch role lookup. */
-export interface BatchRolesRequest {
-  uids: string[];
 }
