@@ -1,9 +1,20 @@
-import * as admin from 'firebase-admin';
+/**
+ * NOTE: Use the modular 'getAuth(app)' syntax instead of the legacy 'admin.auth(app)'.
+ * The legacy syntax often causes "admin.auth is not a function" errors in ESM/TypeScript 
+ * environments due to module resolution behavior.
+ */
+import { getAuth } from 'firebase-admin/auth';
+import type { UserRecord as FirebaseAuthUserRecord } from 'firebase-admin/auth';
 import { getFirebaseApp } from '../middleware/auth.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../errors.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config.js';
-import type { CreateUserRequest, UpdateUserRequest, UserRecord, ListUsersResponse } from '../models/index.js';
+import type {
+  CreateUserRequest,
+  UpdateUserRequest,
+  UserRecord,
+  ListUsersResponse,
+} from '../models/index.js';
 import { getUserRoleByEmail, getUserRolesBatch } from './userApiClient.js';
 
 /** Profile fields a non-admin user is permitted to change on their own account. */
@@ -14,7 +25,7 @@ const SELF_UPDATABLE_FIELDS = ['displayName', 'photoURL'] as const;
  * @param record - Raw Firebase Auth user record.
  * @param role - Role string obtained from UserAPI.
  */
-function mapUserRecord(record: admin.auth.UserRecord, role: string): UserRecord {
+function mapUserRecord(record: FirebaseAuthUserRecord, role: string): UserRecord {
   return {
     uid: record.uid,
     email: record.email,
@@ -76,7 +87,10 @@ function validateEmailDomain(email: string): void {
  * @throws {ForbiddenError} If the requester is not an admin.
  * @throws {ValidationError} If the email domain is not in the allowed list.
  */
-export async function createUser(payload: CreateUserRequest, requesterEmail: string): Promise<UserRecord> {
+export async function createUser(
+  payload: CreateUserRequest,
+  requesterEmail: string,
+): Promise<UserRecord> {
   logger.debug({ requesterEmail }, 'createUser: checking admin access');
   await checkAdminAccess(requesterEmail);
   logger.debug({ email: payload.email }, 'createUser: validating email domain');
@@ -84,7 +98,7 @@ export async function createUser(payload: CreateUserRequest, requesterEmail: str
 
   const app = getFirebaseApp();
   logger.info({ action: 'createUser', email: payload.email, requesterEmail }, 'Creating new user');
-  const record = await admin.auth(app).createUser(payload);
+  const record = await getAuth(app).createUser(payload);
   logger.debug({ uid: record.uid }, 'createUser: Firebase Auth user created, fetching role');
   const role = await getUserRoleByEmail(record.email ?? '');
   logger.debug({ uid: record.uid, role }, 'createUser: user created successfully');
@@ -102,7 +116,7 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
   logger.debug({ uid }, 'getUserByUid: fetching user from Firebase Auth');
   const app = getFirebaseApp();
   try {
-    const record = await admin.auth(app).getUser(uid);
+    const record = await getAuth(app).getUser(uid);
     logger.debug({ uid }, 'getUserByUid: fetching role from UserAPI');
     const role = await getUserRoleByEmail(record.email ?? '');
     logger.debug({ uid, role }, 'getUserByUid: user retrieved successfully');
@@ -145,9 +159,12 @@ export async function updateUser(
   if (!isAdmin) {
     // Non-admins may only update their own profile; verify by comparing emails
     try {
-      const targetRecord = await admin.auth(app).getUser(uid);
+      const targetRecord = await getAuth(app).getUser(uid);
       if (targetRecord.email !== requesterEmail) {
-        logger.warn({ uid, requesterEmail }, 'updateUser: non-admin attempted to update another user');
+        logger.warn(
+          { uid, requesterEmail },
+          'updateUser: non-admin attempted to update another user',
+        );
         throw new ForbiddenError('You may only update your own profile');
       }
     } catch (err: unknown) {
@@ -171,16 +188,20 @@ export async function updateUser(
   } else {
     // Non-admins may only change non-sensitive profile fields
     updatePayload = Object.fromEntries(
-      SELF_UPDATABLE_FIELDS.filter((field) => payload[field] !== undefined).map(
-        (field) => [field, payload[field]],
-      ),
+      SELF_UPDATABLE_FIELDS.filter((field) => payload[field] !== undefined).map((field) => [
+        field,
+        payload[field],
+      ]),
     ) as UpdateUserRequest;
-    logger.debug({ uid, allowedFields: SELF_UPDATABLE_FIELDS }, 'updateUser: non-admin update restricted to safe fields');
+    logger.debug(
+      { uid, allowedFields: SELF_UPDATABLE_FIELDS },
+      'updateUser: non-admin update restricted to safe fields',
+    );
   }
 
   logger.info({ uid, action: 'updateUser', isAdmin }, 'Updating user');
   try {
-    const record = await admin.auth(app).updateUser(uid, updatePayload);
+    const record = await getAuth(app).updateUser(uid, updatePayload);
     logger.debug({ uid }, 'updateUser: Firebase Auth user updated, fetching role');
     const role = await getUserRoleByEmail(record.email ?? '');
     logger.debug({ uid, role }, 'updateUser: user updated successfully');
@@ -209,7 +230,7 @@ export async function deleteUser(uid: string, requesterEmail: string): Promise<v
   const app = getFirebaseApp();
   logger.info({ uid, action: 'deleteUser', requesterEmail }, 'Deleting user');
   try {
-    await admin.auth(app).deleteUser(uid);
+    await getAuth(app).deleteUser(uid);
     logger.debug({ uid }, 'deleteUser: user deleted successfully from Firebase Auth');
   } catch (err: unknown) {
     if (err instanceof Error && err.message.toLowerCase().includes('no user record')) {
@@ -229,11 +250,17 @@ export async function deleteUser(uid: string, requesterEmail: string): Promise<v
  * @param pageToken - Pagination token from a previous call.
  * @returns ListUsersResponse with users (including roles) and optional next page token.
  */
-export async function listUsers(maxResults?: number, pageToken?: string): Promise<ListUsersResponse> {
+export async function listUsers(
+  maxResults?: number,
+  pageToken?: string,
+): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: fetching from Firebase Auth');
   const app = getFirebaseApp();
-  const result = await admin.auth(app).listUsers(maxResults, pageToken);
-  logger.debug({ count: result.users.length, hasNextPage: !!result.pageToken }, 'listUsers: fetching roles from UserAPI in batch');
+  const result = await getAuth(app).listUsers(maxResults, pageToken);
+  logger.debug(
+    { count: result.users.length, hasNextPage: !!result.pageToken },
+    'listUsers: fetching roles from UserAPI in batch',
+  );
   const uids = result.users.map((u) => u.uid);
   const roles = await getUserRolesBatch(uids);
 
@@ -243,4 +270,3 @@ export async function listUsers(maxResults?: number, pageToken?: string): Promis
     pageToken: result.pageToken,
   };
 }
-

@@ -20,7 +20,12 @@ const client = createHttpClient(config.userApiServiceUrl);
  */
 function handleUserApiError(
   err: unknown,
-  { context, operationName, forbiddenMsg, unavailableActionMsg }: {
+  {
+    context,
+    operationName,
+    forbiddenMsg,
+    unavailableActionMsg,
+  }: {
     context: Record<string, unknown>;
     operationName: string;
     forbiddenMsg: string;
@@ -28,6 +33,10 @@ function handleUserApiError(
   },
 ): never {
   if (axios.isAxiosError(err)) {
+    logger.debug(
+      { ...context, status: err?.response?.status, data: err?.response?.data as unknown },
+      `${operationName}: UserAPI response details`,
+    );
     if (err.response?.status === 404) {
       logger.info(
         context,
@@ -38,7 +47,9 @@ function handleUserApiError(
 
     if (err.response?.status === 403) {
       logger.info(context, `${operationName}: UserAPI denied access (403)`);
-      throw new UnavailableError(`UserAPI is currently unavailable; cannot ${unavailableActionMsg}`);
+      throw new UnavailableError(
+        `UserAPI is currently unavailable; cannot ${unavailableActionMsg}`,
+      );
     }
 
     if (err.code === 'ECONNABORTED') {
@@ -52,12 +63,18 @@ function handleUserApiError(
     }
 
     if (err.response?.status >= 500) {
-      logger.error({ ...context, status: err.response.status }, `${operationName}: UserAPI internal error`);
+      logger.error(
+        { ...context, status: err.response.status },
+        `${operationName}: UserAPI internal error`,
+      );
       throw new UnavailableError('UserAPI failure');
     }
   }
 
-  logger.error({ ...context, err }, `${operationName}: UserAPI response invalid or unexpected error`);
+  logger.error(
+    { ...context, err },
+    `${operationName}: UserAPI response invalid or unexpected error`,
+  );
   throw new DownstreamError('UserAPI returned an invalid response format');
 }
 
@@ -74,7 +91,7 @@ export async function getUserRoleByEmail(email: string): Promise<string> {
   logger.debug({ email }, 'getUserRoleByEmail: requesting role from UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(
-      `/users/role?email=${encodeURIComponent(email)}`,
+      `/api/v1/users/role?email=${encodeURIComponent(email)}`,
     );
     const role = response.data.data.role;
     logger.debug({ email, role }, 'getUserRoleByEmail: role retrieved from UserAPI');
@@ -102,7 +119,7 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
   logger.debug({ count: uids.length }, 'getUserRolesBatch: requesting batch roles from UserAPI');
   try {
     const response = await client.post<{ success: boolean; data: Record<string, string> }>(
-      '/users/roles/batch',
+      '/api/v1/users/roles/batch',
       { uids },
     );
     logger.debug({ count: uids.length }, 'getUserRolesBatch: batch roles retrieved from UserAPI');
@@ -130,7 +147,7 @@ export async function checkUserAccess(email: string): Promise<string> {
   logger.debug({ email }, 'checkUserAccess: verifying application access via UserAPI');
   try {
     const response = await client.get<{ success: boolean; data: { role: string } }>(
-      `/users/role?email=${encodeURIComponent(email)}`,
+      `/api/v1/users/role?email=${encodeURIComponent(email)}`,
     );
     const role = response.data.data.role;
     logger.debug({ email, role }, 'checkUserAccess: access granted');
