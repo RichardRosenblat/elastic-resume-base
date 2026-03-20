@@ -8,7 +8,7 @@ import {
   updateUser,
   deleteUser,
   listUsers,
-  getUserRole,
+  getUserRoleByEmail,
   getUserRolesBatch,
 } from '../services/usersService.js';
 
@@ -43,6 +43,7 @@ const batchRolesSchema = z.object({
 });
 
 type UidParams = { uid: string };
+type EmailParams = { email: string };
 type ListUsersQuery = { maxResults?: number; pageToken?: string };
 
 // ---------------------------------------------------------------------------
@@ -160,27 +161,27 @@ export async function listUsersHandler(
 }
 
 /**
- * Handles GET /api/v1/users/:uid/role — BFF access check endpoint.
+ * Handles GET /api/v1/users/role/:email — BFF access check endpoint.
  *
  * Returns HTTP 200 with `{ role }` on success or HTTP 403 when the user has no access.
  */
 export async function getUserRoleHandler(
-  request: FastifyRequest<{ Params: UidParams }>,
+  request: FastifyRequest<{ Params: EmailParams }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const { uid } = request.params;
-  logger.debug({ correlationId: request.correlationId, uid }, 'getUserRoleHandler: checking user role');
-  const role = await getUserRole(uid);
+  const { email } = request.params;
+  logger.debug({ correlationId: request.correlationId, email }, 'getUserRoleHandler: checking user role');
+  const role = await getUserRoleByEmail(email);
 
   if (role === null) {
-    logger.info({ correlationId: request.correlationId, uid }, 'getUserRoleHandler: user has no application access');
+    logger.info({ correlationId: request.correlationId, email }, 'getUserRoleHandler: user has no application access');
     void reply.code(403).send(
       formatError('FORBIDDEN', 'User does not have access to this application', request.correlationId),
     );
     return;
   }
 
-  logger.debug({ correlationId: request.correlationId, uid, role }, 'getUserRoleHandler: role resolved');
+  logger.debug({ correlationId: request.correlationId, email, role }, 'getUserRoleHandler: role resolved');
   void reply.send(formatSuccess({ role }, request.correlationId));
 }
 
