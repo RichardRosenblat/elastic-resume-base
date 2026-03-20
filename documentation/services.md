@@ -25,9 +25,9 @@
 
 The following internal packages live under `shared/` and are consumed by the Node.js microservices (BFF Gateway, Users API):
 
-| Package | npm name | Purpose |
-|---------|----------|---------|
-| **Toolbox** | `@elastic-resume-base/toolbox` | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify middleware hooks (`correlationIdHook`, `createRequestLoggerHook`). Eliminates duplicated infrastructure code across services. |
+| Package | Import | Purpose |
+|---------|--------|---------|
+| **Toolbox** | `shared/Toolbox/src/` (relative path) | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify middleware hooks (`correlationIdHook`, `createRequestLoggerHook`). Plain TypeScript source files — no build step required. |
 | **Bowltie** | `@elastic-resume-base/bowltie` | Uniform JSON response formatting via `formatSuccess` / `formatError`. Both BFF and Users API use this to produce the standard `{ success, data/error, meta }` envelope. |
 | **Synapse** | `@elastic-resume-base/synapse` | Shared error class hierarchy (`AppError`, `NotFoundError`, `ConflictError`, `ValidationError`, …) and the `UserRepository` / `FirestoreUserRepository` persistence abstraction. |
 | **Bugle** | `@elastic-resume-base/bugle` | Google API integration: `getGoogleAuthClient` and `DrivePermissionsService` for reading Google Drive file permissions. Used by Users API to determine admin access from a Google Sheet. |

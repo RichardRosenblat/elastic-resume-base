@@ -1,4 +1,11 @@
-import type { Logger } from 'pino';
+/**
+ * Minimal logger interface required by the request logger hook.
+ * Structurally compatible with `pino.Logger` — services pass their own Pino
+ * instance without creating a type dependency on Pino inside Toolbox.
+ */
+interface MinimalLogger {
+  info(data: Record<string, unknown>, msg: string): void;
+}
 
 /**
  * Minimal request interface needed by the request logger hook.
@@ -39,17 +46,17 @@ interface LoggableReply {
  *
  * @example
  * ```typescript
- * import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+ * import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
  * import { logger } from '../utils/logger.js';
  *
  * app.addHook('onResponse', createRequestLoggerHook(logger));
  * ```
  *
- * @param logger - A Pino {@link Logger} instance (or compatible interface) used to emit the log entry.
+ * @param logger - A Pino logger instance (or any object with an `info` method) used to emit the log entry.
  * @returns A hook function compatible with Fastify's `onResponse` hook signature.
  */
 export function createRequestLoggerHook(
-  logger: Logger,
+  logger: MinimalLogger,
 ): (request: LoggableRequest, reply: LoggableReply, done: () => void) => void {
   return function requestLoggerHook(
     request: LoggableRequest,

@@ -355,8 +355,8 @@ export async function getUserRole(uid: string): Promise<string | null> {
  * intended for quickly enriching a list of existing users with their stored roles.
  *
  * @param uids - Array of Firebase user UIDs.
- * @returns A map of `uid → role` for every UID that exists in Firestore.
- *   UIDs that are not found are ommitted from the result. If a user document exists but has no `role` field, the default role (`"user"`) is returned for that UID.
+ * @returns A map of `uid → role` for every UID in the input array.
+ *   UIDs that are not found in Firestore are included with the default role (`"user"`). If a user document exists but has no `role` field, the default role (`"user"`) is also returned for that UID.
  */
 export async function getUserRolesBatch(uids: string[]): Promise<Record<string, string>> {
   if (uids.length === 0) {
@@ -379,8 +379,9 @@ export async function getUserRolesBatch(uids: string[]): Promise<Record<string, 
       result[doc.id] = (data['role'] as string) ?? DEFAULT_ROLE;
       foundCount++;
     } else {
+      result[doc.id] = DEFAULT_ROLE;
       notFoundCount++;
-      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, ommiting');
+      logger.trace({ uid: doc.id }, 'getUserRolesBatch: UID not found in Firestore, using default role');
     }
   }
 

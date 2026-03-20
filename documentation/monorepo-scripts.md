@@ -31,7 +31,8 @@ The shared libraries are built in the following order, which satisfies their dep
 1. **Synapse** (`shared/Synapse`) — error class hierarchy, `UserRepository` interface, `FirestoreUserRepository`
 2. **Bowltie** (`shared/Bowltie`) — API response envelope; depends on Synapse error types
 3. **Bugle** (`shared/Bugle`) — Google Auth and Drive permissions; no shared-lib dependencies
-4. **Toolbox** (`shared/Toolbox`) — config loading, logger factory, Fastify hooks; no shared-lib dependencies
+
+> **Toolbox** (`shared/Toolbox`) has no `package.json` and is automatically skipped by the build scripts. It is a plain source collection imported directly via relative paths — no build or install step required.
 
 > The `shared/` directory is iterated in filesystem (alphabetical) order, which matches this build sequence. **Do not rename the library directories** without verifying the resulting build order.
 

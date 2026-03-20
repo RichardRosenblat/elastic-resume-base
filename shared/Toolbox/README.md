@@ -1,37 +1,40 @@
 # Toolbox
 
-A shared library providing **cross-cutting utilities** for Elastic Resume Base microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested package.
+A shared collection of **cross-cutting utility functions** for Elastic Resume Base microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested source directory.
+
+Toolbox is **not** an npm package. It is a plain set of TypeScript source files that services import directly using relative paths. No build step or installation is required.
 
 ---
 
-## Installation
+## Usage
 
-To install Toolbox you must use a relative path to the package since it is not published to npm. From the service directory, run:
+Import the functions you need directly from the source files using a relative path from your service:
 
-```bash
-npm install ../shared/Toolbox
+```typescript
+import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 ```
 
-If Toolbox has not been built yet, build it first:
+Your service must have the following packages in its own `package.json` dependencies (they are **not** bundled with Toolbox):
 
-```bash
-cd shared/Toolbox
-npm install
-npm run build
-```
+- `pino`
+- `js-yaml`
+- `@types/js-yaml` (devDependency)
+- `@google-cloud/pino-logging-gcp-config`
 
-Or to build all shared packages at once from the monorepo root:
-
-```bash
-.\build_shared.bat
-```
+The service's `tsconfig.json` and `jest.config.cjs` must also include mapper entries so TypeScript and Jest can find these packages when compiling or running Toolbox source files. See the [canonical usage pattern](#typical-service-setup) below.
 
 ---
 
 ## Quick Start
 
 ```typescript
-import { loadConfigYaml, createLogger, correlationIdHook, createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 
 // 1. Load config.yaml before reading process.env
 loadConfigYaml('my-service');
@@ -66,7 +69,7 @@ Loads `config.yaml` and populates `process.env` with the merged contents of `sys
 3. `config.yaml` one directory above the current working directory.
 
 ```typescript
-import { loadConfigYaml } from '@elastic-resume-base/toolbox';
+import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
 
 // Call before importing config.ts so env vars are in place when Zod reads them
 loadConfigYaml('my-service');
@@ -92,7 +95,7 @@ Factory that returns a configured [Pino](https://getpino.io/) logger instance.
 - **production** — structured JSON formatted for Google Cloud Logging, using `@google-cloud/pino-logging-gcp-config`.
 
 ```typescript
-import { createLogger } from '@elastic-resume-base/toolbox';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
 import { config } from '../config.js';
 
 export const logger = createLogger({
@@ -121,7 +124,7 @@ Fastify `onRequest` hook that attaches a correlation ID to every incoming reques
 The resolved ID is stored on `request.correlationId` and echoed back via the `x-correlation-id` response header.
 
 ```typescript
-import { correlationIdHook } from '@elastic-resume-base/toolbox';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
 
 app.addHook('onRequest', correlationIdHook);
 
@@ -146,7 +149,7 @@ Each response emits a single `info`-level log entry containing:
 | `correlationId` | Trace ID from `correlationIdHook`            |
 
 ```typescript
-import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 import { logger } from '../utils/logger.js';
 
 app.addHook('onResponse', createRequestLoggerHook(logger));
@@ -163,7 +166,7 @@ The canonical way to wire up Toolbox in a Node.js microservice:
 
 **`src/utils/logger.ts`**
 ```typescript
-import { createLogger } from '@elastic-resume-base/toolbox';
+import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
 import { config } from '../config.js';
 
 export const logger = createLogger({
@@ -175,7 +178,8 @@ export const logger = createLogger({
 
 **`src/app.ts`** (excerpt)
 ```typescript
-import { correlationIdHook, createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 import { logger } from './utils/logger.js';
 
 // In buildApp():
@@ -185,28 +189,58 @@ app.addHook('onResponse', createRequestLoggerHook(logger));
 
 **`src/middleware/correlationId.ts`** (thin re-export)
 ```typescript
-export { correlationIdHook } from '@elastic-resume-base/toolbox';
+export { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
 ```
 
 **`src/middleware/requestLogger.ts`** (thin wrapper)
 ```typescript
-import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
+import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
 import { logger } from '../utils/logger.js';
 
 export const requestLoggerHook = createRequestLoggerHook(logger);
 ```
 
+**`tsconfig.json`** — add `paths` to redirect Toolbox's external deps to this service's `node_modules`:
+```json
+"paths": {
+  "pino": ["./node_modules/pino"],
+  "js-yaml": ["./node_modules/@types/js-yaml"],
+  "@google-cloud/pino-logging-gcp-config": ["./node_modules/@google-cloud/pino-logging-gcp-config"]
+}
+```
+
+> **Note on `js-yaml`:** the path points to `@types/js-yaml` (not `js-yaml` itself) because js-yaml's `exports` field has no `types` condition, which prevents TypeScript's NodeNext resolution from automatically finding `@types/js-yaml`. This makes TypeScript pick up the declarations directly. At runtime, Node.js and esbuild resolve the actual js-yaml implementation through normal `node_modules` lookup.
+
+**`jest.config.cjs`** — add `moduleNameMapper` entries so Jest resolves the same packages:
+```javascript
+moduleNameMapper: {
+  '^(\\.{1,2}/.*)\\.js$': '$1',
+  '^pino$': '<rootDir>/node_modules/pino',
+  '^js-yaml$': '<rootDir>/node_modules/js-yaml',
+  '^@google-cloud/pino-logging-gcp-config$': '<rootDir>/node_modules/@google-cloud/pino-logging-gcp-config',
+},
+```
+
+**`esbuild.config.mjs`** — add `nodePaths` so esbuild can resolve Toolbox dependencies during bundling:
+```javascript
+import { resolve } from 'node:path';
+await build({
+  // ...
+  packages: 'external',
+  nodePaths: [resolve('node_modules')],
+  // ...
+});
+```
+
 ---
 
-## Development
+## Testing
+
+Toolbox has no test infrastructure of its own. Its unit tests live in `bff-gateway/tests/unit/toolbox/` and run as part of the bff-gateway test suite:
 
 ```bash
-npm install        # Install dependencies
-npm run build      # Compile TypeScript
-npm run lint       # Lint source and tests
-npm run typecheck  # Type-check without emitting
-npm test           # Run unit tests
-npm run test:coverage  # Run tests with coverage report
+cd bff-gateway
+npm test
 ```
 
 ---
