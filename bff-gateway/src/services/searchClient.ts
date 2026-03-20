@@ -28,7 +28,7 @@ export async function search(payload: SearchRequest): Promise<SearchResponse> {
         logger.warn({ query: payload.query, status: err.response.status }, 'search: search service server error');
         throw new UnavailableError('Search service error');
       }
-      throw new DownstreamError('Search service returned unexpected response');
+      throw new DownstreamError('Search service returned an invalid response format');
     }
     throw new DownstreamError('Unexpected error from Search service');
   }

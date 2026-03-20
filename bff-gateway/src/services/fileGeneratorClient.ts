@@ -29,7 +29,7 @@ export async function generateResume(resumeId: string, payload: GenerateRequest)
         logger.warn({ resumeId, status: err.response.status }, 'generateResume: file generator service server error');
         throw new UnavailableError('FileGenerator service error');
       }
-      throw new DownstreamError('FileGenerator service returned unexpected response');
+      throw new DownstreamError('FileGenerator service returned an invalid response format');
     }
     throw new DownstreamError('Unexpected error from FileGenerator service');
   }

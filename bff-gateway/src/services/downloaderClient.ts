@@ -28,7 +28,7 @@ export async function triggerIngest(payload: IngestRequest): Promise<IngestRespo
         logger.warn({ sheetId: payload.sheetId, batchId: payload.batchId, status: err.response.status }, 'triggerIngest: downloader service server error');
         throw new UnavailableError('Downloader service error');
       }
-      throw new DownstreamError('Downloader service returned unexpected response');
+      throw new DownstreamError('Downloader service returned an invalid response format');
     }
     throw new DownstreamError('Unexpected error from Downloader service');
   }

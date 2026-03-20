@@ -58,7 +58,7 @@ function handleUserApiError(
   }
 
   logger.error({ ...context, err }, `${operationName}: UserAPI response invalid or unexpected error`);
-  throw new DownstreamError('UserAPI returned unexpected response');
+  throw new DownstreamError('UserAPI returned an invalid response format');
 }
 
 /**

@@ -28,7 +28,7 @@ export async function readDocument(payload: DocumentReadRequest): Promise<Docume
         logger.warn({ fileReference: payload.fileReference, status: err.response.status }, 'readDocument: document reader service server error');
         throw new UnavailableError('DocumentReader service error');
       }
-      throw new DownstreamError('DocumentReader service returned unexpected response');
+      throw new DownstreamError('DocumentReader service returned an invalid response format');
     }
     throw new DownstreamError('Unexpected error from DocumentReader service');
   }
