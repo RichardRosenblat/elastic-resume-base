@@ -326,7 +326,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, getBatchRolesHandler);
 
-  // Must be registered BEFORE /:uid to ensure correct route matching
+  // Must be registered BEFORE /:uid to prevent email path segments (e.g. /role/user@example.com)
+  // from being matched as /:uid with uid="role".
   app.get('/role/:email', {
     schema: {
       tags: ['Users'],

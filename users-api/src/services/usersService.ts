@@ -329,7 +329,10 @@ export async function getUserRoleByEmail(email: string): Promise<string | null> 
     return null;
   }
 
-  const doc = snapshot.docs[0]!;
+  const doc = snapshot.docs[0];
+  if (!doc) {
+    return null;
+  }
   const data = doc.data() as Record<string, unknown>;
   const role = (data['role'] as string) ?? DEFAULT_ROLE;
   logger.info({ email, role }, 'User found in Firestore');
