@@ -5,7 +5,8 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../",
+    "emitDeclarationOnly": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
@@ -16,7 +17,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
