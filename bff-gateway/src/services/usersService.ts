@@ -1,11 +1,12 @@
 import { ForbiddenError } from '../errors.js';
 import { logger } from '../utils/logger.js';
-import { config } from '../config.js';
 import type {
   ListUsersResponse,
+  PreApprovedFilters,
   PreApprovedUser,
   UpdatePreApprovedRequest,
   UpdateUserRequest,
+  UserFilters,
   UserRecord,
 } from '../models/index.js';
 import {
@@ -26,30 +27,6 @@ const SELF_UPDATABLE_FIELDS: (keyof UpdateUserRequest)[] = ['email'];
 /** Fields that only an admin user can change. */
 const ADMIN_ONLY_FIELDS: (keyof UpdateUserRequest)[] = ['role', 'enable'];
 
-/**
- * Validates that the email's domain is within the configured list of allowed domains.
- *
- * @param email - Email address to validate.
- * @throws {ForbiddenError} If the domain is not in the allowed list.
- */
-function validateEmailDomain(email: string): void {
-  const allowedDomains = config.allowedEmailDomains
-    .split(',')
-    .map((d) => d.trim())
-    .filter(Boolean);
-
-  if (allowedDomains.length === 0) {
-    return;
-  }
-
-  const domain = email.split('@')[1]?.toLowerCase();
-  if (!domain || !allowedDomains.includes(domain)) {
-    throw new ForbiddenError(
-      `Email domain is not allowed. Permitted domains: ${allowedDomains.join(', ')}`,
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // User management (proxied to users-api)
 // ---------------------------------------------------------------------------
@@ -63,16 +40,16 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
 }
 
 /**
- * Lists users with optional pagination.
+ * Lists users with optional pagination and filtering.
  */
-export async function listUsers(maxResults?: number, pageToken?: string): Promise<ListUsersResponse> {
-  logger.debug({ maxResults, hasPageToken: !!pageToken }, 'listUsers: fetching users from UserAPI');
-  return listUsersFromApi(maxResults, pageToken);
+export async function listUsers(maxResults?: number, pageToken?: string, filters?: UserFilters): Promise<ListUsersResponse> {
+  logger.debug({ maxResults, hasPageToken: !!pageToken, filters }, 'listUsers: fetching users from UserAPI');
+  return listUsersFromApi(maxResults, pageToken, filters);
 }
 
 /**
  * Updates a user. Admins can update any field; non-admins can only update their own
- * safe fields (email).
+ * safe fields (email). Non-admins cannot update role or enable fields.
  *
  * @param uid - UID of the user to update.
  * @param payload - Fields to update.
@@ -111,17 +88,8 @@ export async function updateUser(
       }
     }
 
-    if (safePayload.email) {
-      validateEmailDomain(safePayload.email);
-    }
-
     logger.debug({ uid, requesterUid }, 'updateUser: non-admin self-update');
     return updateUserInApi(uid, safePayload);
-  }
-
-  // Admin update — validate email domain if email is being changed
-  if (payload.email) {
-    validateEmailDomain(payload.email);
   }
 
   logger.debug({ uid, requesterUid }, 'updateUser: admin update');
@@ -148,17 +116,33 @@ export async function deleteUser(uid: string, requesterRole: string): Promise<vo
 // ---------------------------------------------------------------------------
 
 /**
- * Lists all pre-approved users.
+ * Lists all pre-approved users with optional filtering.
+ * Requires admin role.
+ *
+ * @param requesterRole - Role of the user making the request.
+ * @param filters - Optional filters (role).
+ * @throws {ForbiddenError} If the requester is not an admin.
  */
-export async function listPreApproved(): Promise<PreApprovedUser[]> {
-  logger.debug('listPreApproved: fetching pre-approved users from UserAPI');
-  return listPreApprovedFromApi();
+export async function listPreApproved(requesterRole: string, filters?: PreApprovedFilters): Promise<PreApprovedUser[]> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ filters }, 'listPreApproved: fetching pre-approved users from UserAPI');
+  return listPreApprovedFromApi(filters);
 }
 
 /**
  * Gets a specific pre-approved user by email.
+ * Requires admin role.
+ *
+ * @param email - Email of the pre-approved user.
+ * @param requesterRole - Role of the user making the request.
+ * @throws {ForbiddenError} If the requester is not an admin.
  */
-export async function getPreApproved(email: string): Promise<PreApprovedUser> {
+export async function getPreApproved(email: string, requesterRole: string): Promise<PreApprovedUser> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
   logger.debug({ email }, 'getPreApproved: fetching pre-approved user from UserAPI');
   return getPreApprovedFromApi(email);
 }
@@ -174,7 +158,6 @@ export async function addPreApproved(
   if (requesterRole !== 'admin') {
     throw new ForbiddenError('Admin access required');
   }
-  validateEmailDomain(email);
   logger.debug({ email, role }, 'addPreApproved: adding pre-approved user via UserAPI');
   return addPreApprovedInApi(email, role);
 }

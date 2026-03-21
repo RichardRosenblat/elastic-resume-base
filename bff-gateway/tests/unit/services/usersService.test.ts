@@ -17,7 +17,7 @@ jest.mock('../../../src/services/userApiClient', () => ({
 
 jest.mock('../../../src/config', () => ({
   config: {
-    allowedEmailDomains: '',
+    onboardableEmailDomains: '',
     userApiServiceUrl: 'http://localhost:8005',
     requestTimeoutMs: 30000,
     nodeEnv: 'test',
@@ -34,7 +34,6 @@ jest.mock('../../../src/config', () => ({
 }));
 
 import * as userApiClient from '../../../src/services/userApiClient.js';
-import { config } from '../../../src/config.js';
 import { ForbiddenError } from '../../../src/errors.js';
 import {
   getUserByUid,
@@ -42,6 +41,7 @@ import {
   updateUser,
   deleteUser,
   listPreApproved,
+  getPreApproved,
   addPreApproved,
   deletePreApproved,
 } from '../../../src/services/usersService.js';
@@ -61,7 +61,6 @@ const mockPreApproved = {
 describe('usersService (bff-gateway)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (config as Record<string, unknown>)['allowedEmailDomains'] = '';
   });
 
   // ---------------------------------------------------------------------------
@@ -81,7 +80,7 @@ describe('usersService (bff-gateway)', () => {
   // listUsers
   // ---------------------------------------------------------------------------
   describe('listUsers', () => {
-    it('returns users list from UserAPI', async () => {
+    it('returns users list from UserAPI without filters', async () => {
       (userApiClient.listUsersFromApi as jest.Mock).mockResolvedValue({
         users: [mockUser],
         pageToken: undefined,
@@ -89,7 +88,17 @@ describe('usersService (bff-gateway)', () => {
 
       const result = await listUsers(10);
       expect(result.users).toHaveLength(1);
-      expect(userApiClient.listUsersFromApi).toHaveBeenCalledWith(10, undefined);
+      expect(userApiClient.listUsersFromApi).toHaveBeenCalledWith(10, undefined, undefined);
+    });
+
+    it('passes filters to UserAPI', async () => {
+      (userApiClient.listUsersFromApi as jest.Mock).mockResolvedValue({
+        users: [mockUser],
+        pageToken: undefined,
+      });
+
+      await listUsers(10, undefined, { role: 'admin', enable: true });
+      expect(userApiClient.listUsersFromApi).toHaveBeenCalledWith(10, undefined, { role: 'admin', enable: true });
     });
   });
 
@@ -110,7 +119,6 @@ describe('usersService (bff-gateway)', () => {
 
       const result = await updateUser('uid123', { email: 'new@example.com' }, 'uid123', 'user');
       expect(result.email).toBe('new@example.com');
-      // Should only pass email to the API
       expect(userApiClient.updateUserInApi).toHaveBeenCalledWith('uid123', { email: 'new@example.com' });
     });
 
@@ -126,12 +134,11 @@ describe('usersService (bff-gateway)', () => {
       ).rejects.toThrow(ForbiddenError);
     });
 
-    it('throws ForbiddenError when admin sets an email with disallowed domain', async () => {
-      (config as Record<string, unknown>)['allowedEmailDomains'] = 'company.com';
+    it('allows admin to update email without domain validation', async () => {
+      (userApiClient.updateUserInApi as jest.Mock).mockResolvedValue({ ...mockUser, email: 'user@any-domain.org' });
 
-      await expect(
-        updateUser('uid123', { email: 'user@blocked.org' }, 'admin-uid', 'admin'),
-      ).rejects.toThrow(ForbiddenError);
+      const result = await updateUser('uid123', { email: 'user@any-domain.org' }, 'admin-uid', 'admin');
+      expect(result.email).toBe('user@any-domain.org');
     });
   });
 
@@ -152,6 +159,47 @@ describe('usersService (bff-gateway)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // listPreApproved
+  // ---------------------------------------------------------------------------
+  describe('listPreApproved', () => {
+    it('throws ForbiddenError when requester is not admin', async () => {
+      await expect(listPreApproved('user')).rejects.toThrow(ForbiddenError);
+    });
+
+    it('returns list from UserAPI when admin', async () => {
+      (userApiClient.listPreApprovedFromApi as jest.Mock).mockResolvedValue([mockPreApproved]);
+
+      const result = await listPreApproved('admin');
+      expect(result).toHaveLength(1);
+      expect(userApiClient.listPreApprovedFromApi).toHaveBeenCalledWith(undefined);
+    });
+
+    it('passes filters to UserAPI', async () => {
+      (userApiClient.listPreApprovedFromApi as jest.Mock).mockResolvedValue([mockPreApproved]);
+
+      await listPreApproved('admin', { role: 'admin' });
+      expect(userApiClient.listPreApprovedFromApi).toHaveBeenCalledWith({ role: 'admin' });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getPreApproved
+  // ---------------------------------------------------------------------------
+  describe('getPreApproved', () => {
+    it('throws ForbiddenError when requester is not admin', async () => {
+      await expect(getPreApproved('test@example.com', 'user')).rejects.toThrow(ForbiddenError);
+    });
+
+    it('returns pre-approved user when admin', async () => {
+      (userApiClient.getPreApprovedFromApi as jest.Mock).mockResolvedValue(mockPreApproved);
+
+      const result = await getPreApproved('test@example.com', 'admin');
+      expect(result.email).toBe('test@example.com');
+      expect(userApiClient.getPreApprovedFromApi).toHaveBeenCalledWith('test@example.com');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Pre-approve management
   // ---------------------------------------------------------------------------
   describe('addPreApproved', () => {
@@ -166,10 +214,14 @@ describe('usersService (bff-gateway)', () => {
       expect(result.email).toBe('test@example.com');
     });
 
-    it('throws ForbiddenError when email domain is not allowed', async () => {
-      (config as Record<string, unknown>)['allowedEmailDomains'] = 'company.com';
+    it('adds pre-approved user with any email domain (no domain validation)', async () => {
+      (userApiClient.addPreApprovedInApi as jest.Mock).mockResolvedValue({
+        email: 'test@any-domain.org',
+        role: 'admin',
+      });
 
-      await expect(addPreApproved('test@blocked.org', 'admin', 'admin')).rejects.toThrow(ForbiddenError);
+      const result = await addPreApproved('test@any-domain.org', 'admin', 'admin');
+      expect(result.email).toBe('test@any-domain.org');
     });
   });
 
@@ -183,15 +235,6 @@ describe('usersService (bff-gateway)', () => {
 
       await deletePreApproved('test@example.com', 'admin');
       expect(userApiClient.deletePreApprovedFromApi).toHaveBeenCalledWith('test@example.com');
-    });
-  });
-
-  describe('listPreApproved', () => {
-    it('returns list from UserAPI', async () => {
-      (userApiClient.listPreApprovedFromApi as jest.Mock).mockResolvedValue([mockPreApproved]);
-
-      const result = await listPreApproved();
-      expect(result).toHaveLength(1);
     });
   });
 });

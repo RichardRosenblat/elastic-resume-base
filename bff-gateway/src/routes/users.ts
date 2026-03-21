@@ -1,5 +1,8 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, RouteHandlerMethod } from 'fastify';
+import { requireAdminHook } from '../middleware/auth.js';
 import {
+  getMeHandler,
+  updateMeHandler,
   listUsersHandler,
   getUserHandler,
   updateUserHandler,
@@ -152,6 +155,62 @@ const internalErrorResponse = {
 } as const;
 
 const usersPlugin: FastifyPluginAsync = async (app) => {
+  // ── Self-service Routes (authenticated user's own profile) ──────────────────
+
+  // Must be registered BEFORE /:uid to avoid route conflicts
+  app.get('/me', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Get authenticated user profile',
+      description: 'Returns the authenticated user\'s profile from the users store.',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: 'Authenticated user profile retrieved successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: userRecordSchema,
+            meta: successMeta,
+          },
+        },
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, getMeHandler);
+
+  app.patch('/me', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Update authenticated user profile',
+      description: 'Updates the authenticated user\'s own profile. Cannot update role or enable fields.',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        properties: {
+          email: { type: 'string', example: 'new.email@example.com' },
+        },
+      },
+      response: {
+        200: {
+          description: 'User profile updated successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: userRecordSchema,
+            meta: successMeta,
+          },
+        },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, updateMeHandler);
+
   // ── Admin & User Routes ─────────────────────────────────────────────────────
 
   app.get('/', {
@@ -165,6 +224,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           maxResults: { type: 'integer', minimum: 1, maximum: 1000, default: 100, example: 50 },
           pageToken: { type: 'string', example: 'eyJhbGciOiJSUzI1NiJ9...' },
+          role: { type: 'string', example: 'admin', description: 'Filter by role.' },
+          enable: { type: 'string', enum: ['true', 'false'], description: 'Filter by enabled status.' },
         },
       },
       response: {
@@ -202,6 +263,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         type: 'object',
         properties: {
           email: { type: 'string', example: 'jane.doe@example.com' },
+          filterRole: { type: 'string', example: 'admin', description: 'Filter list by role.' },
         },
       },
       response: {
@@ -220,9 +282,10 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         500: internalErrorResponse,
       },
     },
-  }, getPreApprovedHandler);
+  }, getPreApprovedHandler as RouteHandlerMethod);
 
   app.post('/pre-approve', {
+    preHandler: [requireAdminHook],
     schema: {
       tags: ['Users'],
       summary: 'Add a pre-approved user (admin only)',
@@ -255,6 +318,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   }, addPreApprovedHandler);
 
   app.delete('/pre-approve', {
+    preHandler: [requireAdminHook],
     schema: {
       tags: ['Users'],
       summary: 'Delete a pre-approved user (admin only)',
@@ -276,9 +340,10 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         500: internalErrorResponse,
       },
     },
-  }, deletePreApprovedHandler);
+  }, deletePreApprovedHandler as RouteHandlerMethod);
 
   app.patch('/pre-approve', {
+    preHandler: [requireAdminHook],
     schema: {
       tags: ['Users'],
       summary: 'Update a pre-approved user (admin only)',
@@ -314,7 +379,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         500: internalErrorResponse,
       },
     },
-  }, updatePreApprovedHandler);
+  }, updatePreApprovedHandler as RouteHandlerMethod);
 
   // ── Admin Only Routes ───────────────────────────────────────────────────────
 
@@ -389,9 +454,10 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         500: internalErrorResponse,
       },
     },
-  }, updateUserHandler);
+  }, updateUserHandler as RouteHandlerMethod);
 
   app.delete('/:uid', {
+    preHandler: [requireAdminHook],
     schema: {
       tags: ['Users'],
       summary: 'Delete user by UID (admin only)',
@@ -412,7 +478,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         500: internalErrorResponse,
       },
     },
-  }, deleteUserHandler);
+  }, deleteUserHandler as RouteHandlerMethod);
 };
 
 export default usersPlugin;

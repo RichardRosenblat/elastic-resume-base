@@ -78,6 +78,56 @@ describe('Users Controller', () => {
     setupAuth();
   });
 
+  describe('GET /api/v1/users/me', () => {
+    it('returns 200 with current user profile', async () => {
+      (usersService.getUserByUid as jest.Mock).mockResolvedValue(mockUser);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/me',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({ uid: 'uid123', email: 'test@example.com' });
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/me' });
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
+  describe('PATCH /api/v1/users/me', () => {
+    it('returns 200 on successful self-update', async () => {
+      const updated = { ...mockUser, email: 'updated@example.com' };
+      (usersService.updateUser as jest.Mock).mockResolvedValue(updated);
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/me',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { email: 'updated@example.com' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.email).toBe('updated@example.com');
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/me',
+        payload: { email: 'test@example.com' },
+      });
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
   describe('GET /api/v1/users/:uid', () => {
     it('returns 200 on success', async () => {
       (usersService.getUserByUid as jest.Mock).mockResolvedValue(mockUser);
@@ -202,6 +252,23 @@ describe('Users Controller', () => {
       expect(body.success).toBe(true);
       expect(body.data.users).toHaveLength(1);
       expect(body.data.users[0]).toMatchObject({ uid: 'uid123' });
+    });
+
+    it('passes role filter to service', async () => {
+      (usersService.listUsers as jest.Mock).mockResolvedValue({ users: [mockUser], pageToken: undefined });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users?role=admin',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(usersService.listUsers).toHaveBeenCalledWith(
+        expect.any(Number),
+        undefined,
+        { role: 'admin' },
+      );
     });
 
     it('returns 401 when unauthenticated', async () => {

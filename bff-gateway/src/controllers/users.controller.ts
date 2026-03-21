@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
+import type { UpdateUserRequest } from '../models/index.js';
 import {
   getUserByUid,
   listUsers,
@@ -32,11 +33,42 @@ const addPreApprovedSchema = z.object({
 const listUsersQuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(1000).default(100),
   pageToken: z.string().optional(),
+  role: z.string().optional(),
+  enable: z.string().optional(),
 });
 
 type UidParams = { uid: string };
 type EmailQuery = { email?: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string };
+type ListUsersQuery = { maxResults?: number; pageToken?: string; role?: string; enable?: string };
+
+/**
+ * Handles GET /api/v1/users/me — returns the authenticated user's profile from users store.
+ */
+export async function getMeHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { uid } = request.user;
+  logger.debug({ uid }, 'getMeHandler: fetching authenticated user profile');
+  const user = await getUserByUid(uid);
+  void reply.send(formatSuccess(user, request.correlationId));
+}
+
+/**
+ * Handles PATCH /api/v1/users/me — updates the authenticated user's own profile.
+ */
+export async function updateMeHandler(
+  request: FastifyRequest<{ Body: UpdateUserRequest }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const { uid, role } = request.user;
+  logger.debug({ uid }, 'updateMeHandler: validating request body');
+  const parsed = updateUserSchema.safeParse(request.body);
+  if (!parsed.success) {
+    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    return;
+  }
+  logger.debug({ uid }, 'updateMeHandler: updating authenticated user profile');
+  const updated = await updateUser(uid, parsed.data, uid, role ?? 'user');
+  void reply.send(formatSuccess(updated, request.correlationId));
+}
 
 /**
  * Handles GET /api/v1/users — lists users via UserAPI.
@@ -51,8 +83,13 @@ export async function listUsersHandler(
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
+  const { maxResults, pageToken, role, enable } = parsed.data;
+  const filters = {
+    ...(role !== undefined ? { role } : {}),
+    ...(enable !== undefined ? { enable: enable === 'true' } : {}),
+  };
   logger.debug({ correlationId: request.correlationId }, 'listUsersHandler: fetching users');
-  const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
+  const result = await listUsers(maxResults, pageToken, Object.keys(filters).length > 0 ? filters : undefined);
   void reply.send(formatSuccess(result, request.correlationId));
 }
 
@@ -71,8 +108,8 @@ export async function getUserHandler(
 
 /**
  * Handles PATCH /api/v1/users/:uid — updates a user.
- * Admins can update any user with any field.
- * Non-admins can only update their own email.
+ * Admins may update any user with any field.
+ * Non-admins may only update their own email.
  */
 export async function updateUserHandler(
   request: FastifyRequest<{ Params: UidParams }>,
@@ -99,7 +136,7 @@ export async function deleteUserHandler(
 ): Promise<void> {
   const { uid } = request.params;
   logger.info({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'deleteUserHandler: deleting user');
-  await deleteUser(uid, request.user.role);
+  await deleteUser(uid, request.user.role ?? 'user');
   void reply.code(204).send();
 }
 
@@ -107,17 +144,19 @@ export async function deleteUserHandler(
  * Handles GET /api/v1/users/pre-approve — lists or gets pre-approved users (admin only).
  */
 export async function getPreApprovedHandler(
-  request: FastifyRequest<{ Querystring: EmailQuery }>,
+  request: FastifyRequest<{ Querystring: EmailQuery & { filterRole?: string } }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const { email } = request.query;
+  const { role } = request.user;
+  const { email, filterRole } = request.query;
   if (email) {
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching specific user');
-    const user = await getPreApproved(email);
+    const user = await getPreApproved(email, role ?? 'user');
     void reply.send(formatSuccess(user, request.correlationId));
   } else {
     logger.debug({ correlationId: request.correlationId }, 'getPreApprovedHandler: listing all');
-    const users = await listPreApproved();
+    const filters = filterRole ? { role: filterRole } : undefined;
+    const users = await listPreApproved(role ?? 'user', filters);
     void reply.send(formatSuccess(users, request.correlationId));
   }
 }
@@ -136,7 +175,7 @@ export async function addPreApprovedHandler(
     return;
   }
   logger.info({ correlationId: request.correlationId, email: parsed.data.email }, 'addPreApprovedHandler: adding pre-approved user');
-  const user = await addPreApproved(parsed.data.email, parsed.data.role, request.user.role);
+  const user = await addPreApproved(parsed.data.email, parsed.data.role, request.user.role ?? 'user');
   void reply.code(201).send(formatSuccess(user, request.correlationId));
 }
 
@@ -153,7 +192,7 @@ export async function deletePreApprovedHandler(
     return;
   }
   logger.info({ correlationId: request.correlationId, email }, 'deletePreApprovedHandler: deleting pre-approved user');
-  await deletePreApproved(email, request.user.role);
+  await deletePreApproved(email, request.user.role ?? 'user');
   void reply.code(204).send();
 }
 
@@ -175,6 +214,6 @@ export async function updatePreApprovedHandler(
     return;
   }
   logger.info({ correlationId: request.correlationId, email }, 'updatePreApprovedHandler: updating pre-approved user');
-  const user = await updatePreApproved(email, parsed.data, request.user.role);
+  const user = await updatePreApproved(email, parsed.data, request.user.role ?? 'user');
   void reply.send(formatSuccess(user, request.correlationId));
 }
