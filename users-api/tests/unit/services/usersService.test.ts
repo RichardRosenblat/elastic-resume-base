@@ -9,14 +9,10 @@
 
 // ── Mocks (must be declared before any imports that trigger module initialisation) ──
 
-jest.mock('firebase-admin/firestore', () => {
-  const Timestamp = {
-    now: jest.fn(() => ({ toDate: () => new Date('2024-01-01T00:00:00.000Z') })),
-  };
-
+jest.mock('@elastic-resume-base/synapse', () => {
   return {
-    getFirestore: jest.fn(),
-    Timestamp,
+    FirestoreUserDocumentStore: jest.fn(),
+    FirestorePreApprovedStore: jest.fn(),
   };
 });
 
@@ -27,7 +23,7 @@ jest.mock('../../../src/config', () => ({
     projectId: 'demo-test',
     firestoreUsersCollection: 'users',
     firestorePreApprovedUsersCollection: 'pre_approved_users',
-    allowedEmailDomains: '',
+    onboardableEmailDomains: '',
     bootstrapAdminUserEmail: undefined as string | undefined,
   },
 }));
@@ -44,8 +40,7 @@ jest.mock('../../../src/utils/logger', () => ({
 
 // ── Imports (after mock declarations) ──
 
-import { getFirestore } from 'firebase-admin/firestore';
-import type { DocumentSnapshot, DocumentReference } from 'firebase-admin/firestore';
+import { FirestoreUserDocumentStore, FirestorePreApprovedStore } from '@elastic-resume-base/synapse';
 import { config } from '../../../src/config.js';
 import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../../src/errors.js';
 import {
@@ -56,216 +51,114 @@ import {
   deleteUser,
   listUsers,
   bootstrapAdminUser,
+  _resetStores,
 } from '../../../src/services/usersService.js';
-
-// ── Types ──
-
-type MockFirestore = {
-  collection: jest.Mock;
-  getAll?: jest.Mock;
-};
-
-type MockCollection = {
-  doc: jest.Mock;
-  where: jest.Mock;
-  orderBy: jest.Mock;
-  limit: jest.Mock;
-  get: jest.Mock;
-  add: jest.Mock;
-};
-
-type MockDocRef = {
-  id: string;
-  set: jest.Mock;
-  get: jest.Mock;
-  update: jest.Mock;
-  delete: jest.Mock;
-  ref?: { delete: jest.Mock };
-};
-
-type MockQuery = {
-  limit: jest.Mock;
-  startAfter: jest.Mock;
-  get: jest.Mock;
-  where: jest.Mock;
-  orderBy: jest.Mock;
-};
-
-// ── Helpers ──
-
-/**
- * Creates a fake Firestore document snapshot.
- */
-function makeDocSnapshot(
-  id: string,
-  data: Record<string, unknown> | null,
-): DocumentSnapshot {
-  const ref = {
-    id,
-    delete: jest.fn().mockResolvedValue(undefined),
-  } as unknown as DocumentReference;
-
-  return {
-    id,
-    exists: data !== null,
-    data: () => data ?? undefined,
-    ref,
-  } as unknown as DocumentSnapshot;
-}
-
-/**
- * Builds a minimal mock Firestore instance.
- */
-function buildMockFirestore(
-  docData: Record<string, unknown> | null = null,
-  queryDocs: DocumentSnapshot[] = [],
-): MockFirestore {
-  const mockDocRef: MockDocRef = {
-    id: 'uid123',
-    set: jest.fn().mockResolvedValue(undefined),
-    get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', docData)),
-    update: jest.fn().mockResolvedValue(undefined),
-    delete: jest.fn().mockResolvedValue(undefined),
-  };
-
-  const mockQuery: MockQuery = {
-    limit: jest.fn().mockReturnThis(),
-    startAfter: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({ docs: queryDocs, empty: queryDocs.length === 0 }),
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-  };
-
-  const mockCollection: MockCollection = {
-    doc: jest.fn().mockReturnValue(mockDocRef),
-    where: jest.fn().mockReturnValue(mockQuery),
-    orderBy: jest.fn().mockReturnValue(mockQuery),
-    limit: jest.fn().mockReturnValue(mockQuery),
-    get: jest.fn().mockResolvedValue({ docs: queryDocs, empty: queryDocs.length === 0 }),
-    add: jest.fn().mockResolvedValue({ id: 'new-doc-id' }),
-  };
-
-  const mockFirestore: MockFirestore = {
-    collection: jest.fn().mockReturnValue(mockCollection),
-  };
-
-  return mockFirestore;
-}
 
 // ── Default user data ──
 
-const USER_DATA: Record<string, unknown> = {
+const MOCK_USER = {
+  uid: 'uid123',
   email: 'alice@example.com',
   role: 'user',
   enable: true,
 };
+
+// ── Helpers ──
+
+/** Creates fresh store mocks and wires up the constructor mocks to return them. */
+function setupMocks() {
+  const userStore = {
+    createUser: jest.fn(),
+    getUserByUid: jest.fn(),
+    getUserByEmail: jest.fn(),
+    updateUser: jest.fn(),
+    deleteUser: jest.fn(),
+    listUsers: jest.fn(),
+  };
+  const preApprovedStore = {
+    add: jest.fn(),
+    getByEmail: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    list: jest.fn(),
+  };
+
+  (FirestoreUserDocumentStore as jest.Mock).mockImplementation(() => userStore);
+  (FirestorePreApprovedStore as jest.Mock).mockImplementation(() => preApprovedStore);
+
+  // Reset singletons so constructors are invoked fresh on next service call
+  _resetStores();
+
+  return { userStore, preApprovedStore };
+}
 
 // ── Test suite ──
 
 describe('usersService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (config as Record<string, unknown>)['allowedEmailDomains'] = '';
+    (config as Record<string, unknown>)['onboardableEmailDomains'] = '';
     (config as Record<string, unknown>)['bootstrapAdminUserEmail'] = undefined;
   });
 
   // ── authorizeUser ──────────────────────────────────────────────────────────
 
   describe('authorizeUser', () => {
-    it('returns role and enable when user exists in users collection', async () => {
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+    it('returns role and enable when user exists in users store', async () => {
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(MOCK_USER);
 
       const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
 
       expect(result.role).toBe('user');
       expect(result.enable).toBe(true);
+      expect(userStore.getUserByUid).toHaveBeenCalledWith('uid123');
     });
 
-    it('promotes user from pre_approved_users when not in users collection', async () => {
-      const mockFs = buildMockFirestore(null); // user doc does not exist
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const preApprovedDoc = makeDocSnapshot('pre-doc-id', { email: 'alice@example.com', role: 'admin' });
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      // First call: doc().get() returns null (user not in users collection)
-      collMock.doc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', null)),
-        set: jest.fn().mockResolvedValue(undefined),
-      });
-      // Second call: where().limit().get() for pre_approved_users returns a doc
-      collMock.where.mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ empty: false, docs: [preApprovedDoc] }),
-        }),
-      });
+    it('promotes user from pre-approved store when not in users store', async () => {
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue({ email: 'alice@example.com', role: 'admin' });
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+      preApprovedStore.delete.mockResolvedValue(undefined);
 
       const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
 
       expect(result.role).toBe('admin');
       expect(result.enable).toBe(true);
+      expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+      expect(preApprovedStore.delete).toHaveBeenCalledWith('alice@example.com');
     });
 
-    it('creates user with enable=false when email domain is allowed', async () => {
-      (config as Record<string, unknown>)['allowedEmailDomains'] = 'example.com';
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      const setMock = jest.fn().mockResolvedValue(undefined);
-      collMock.doc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', null)),
-        set: setMock,
-      });
-      collMock.where.mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
-        }),
-      });
+    it('creates user with enable=false when email domain is onboardable', async () => {
+      (config as Record<string, unknown>)['onboardableEmailDomains'] = 'example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
 
       const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
 
       expect(result.role).toBe('user');
       expect(result.enable).toBe(false);
+      expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
     });
 
-    it('throws ForbiddenError when user not in any collection and domain not allowed', async () => {
-      (config as Record<string, unknown>)['allowedEmailDomains'] = 'company.com';
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      collMock.doc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', null)),
-        set: jest.fn(),
-      });
-      collMock.where.mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
-        }),
-      });
+    it('throws ForbiddenError when user not in any store and domain not onboardable', async () => {
+      (config as Record<string, unknown>)['onboardableEmailDomains'] = 'company.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
 
       await expect(
         authorizeUser({ uid: 'uid123', email: 'alice@blocked.com' }),
       ).rejects.toThrow(ForbiddenError);
     });
 
-    it('throws ForbiddenError when no allowed domains configured and user not found', async () => {
-      (config as Record<string, unknown>)['allowedEmailDomains'] = '';
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      collMock.doc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', null)),
-        set: jest.fn(),
-      });
-      collMock.where.mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
-        }),
-      });
+    it('throws ForbiddenError when no onboardable domains configured and user not found', async () => {
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
 
       await expect(
         authorizeUser({ uid: 'uid123', email: 'alice@example.com' }),
@@ -276,18 +169,9 @@ describe('usersService', () => {
   // ── createUser ────────────────────────────────────────────────────────────
 
   describe('createUser', () => {
-    it('creates a user document and returns the normalised record', async () => {
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      const docRef = {
-        get: jest.fn()
-          .mockResolvedValueOnce(makeDocSnapshot('uid123', null)) // UID does not exist
-          .mockResolvedValueOnce(makeDocSnapshot('uid123', USER_DATA)), // after set
-        set: jest.fn().mockResolvedValue(undefined),
-      };
-      collMock.doc.mockReturnValue(docRef);
+    it('creates a user and returns the record', async () => {
+      const { userStore } = setupMocks();
+      userStore.createUser.mockResolvedValue(MOCK_USER);
 
       const result = await createUser({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: true });
 
@@ -297,17 +181,13 @@ describe('usersService', () => {
     });
 
     it('throws ValidationError when email is invalid', async () => {
+      setupMocks();
       await expect(createUser({ uid: 'uid123', email: 'not-an-email', role: 'user', enable: false })).rejects.toThrow(ValidationError);
     });
 
     it('throws ConflictError when uid already exists', async () => {
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      collMock.doc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', USER_DATA)), // exists!
-      });
+      const { userStore } = setupMocks();
+      userStore.createUser.mockRejectedValue(new ConflictError('already exists'));
 
       await expect(createUser({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false })).rejects.toThrow(ConflictError);
     });
@@ -317,8 +197,8 @@ describe('usersService', () => {
 
   describe('getUserByUid', () => {
     it('returns the user record for an existing UID', async () => {
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(MOCK_USER);
 
       const result = await getUserByUid('uid123');
 
@@ -328,9 +208,9 @@ describe('usersService', () => {
       expect(result.enable).toBe(true);
     });
 
-    it('throws NotFoundError when the document does not exist', async () => {
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+    it('throws NotFoundError when the user does not exist', async () => {
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
 
       await expect(getUserByUid('missing-uid')).rejects.toThrow(NotFoundError);
     });
@@ -340,18 +220,9 @@ describe('usersService', () => {
 
   describe('updateUser', () => {
     it('updates the user and returns the updated record', async () => {
-      const updatedData = { ...USER_DATA, enable: false, role: 'admin' };
-      const mockFs = buildMockFirestore(updatedData);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      const docRef = {
-        get: jest.fn()
-          .mockResolvedValueOnce(makeDocSnapshot('uid123', USER_DATA)) // existence check
-          .mockResolvedValueOnce(makeDocSnapshot('uid123', updatedData)), // final fetch
-        update: jest.fn().mockResolvedValue(undefined),
-      };
-      collMock.doc.mockReturnValue(docRef);
+      const updatedData = { ...MOCK_USER, enable: false, role: 'admin' };
+      const { userStore } = setupMocks();
+      userStore.updateUser.mockResolvedValue(updatedData);
 
       const result = await updateUser('uid123', { enable: false, role: 'admin' });
 
@@ -360,22 +231,14 @@ describe('usersService', () => {
     });
 
     it('throws NotFoundError when the user does not exist', async () => {
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+      const { userStore } = setupMocks();
+      userStore.updateUser.mockRejectedValue(new NotFoundError('not found'));
 
       await expect(updateUser('missing-uid', { role: 'admin' })).rejects.toThrow(NotFoundError);
     });
 
     it('throws ValidationError when email is invalid', async () => {
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      collMock.doc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', USER_DATA)),
-        update: jest.fn(),
-      });
-
+      setupMocks();
       await expect(updateUser('uid123', { email: 'bad-email' })).rejects.toThrow(ValidationError);
     });
   });
@@ -384,24 +247,16 @@ describe('usersService', () => {
 
   describe('deleteUser', () => {
     it('deletes the user when they exist', async () => {
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      const deleteMock = jest.fn().mockResolvedValue(undefined);
-      collMock.doc.mockReturnValue({
-        id: 'uid123',
-        get: jest.fn().mockResolvedValue(makeDocSnapshot('uid123', USER_DATA)),
-        delete: deleteMock,
-      });
+      const { userStore } = setupMocks();
+      userStore.deleteUser.mockResolvedValue(undefined);
 
       await deleteUser('uid123');
-      expect(deleteMock).toHaveBeenCalled();
+      expect(userStore.deleteUser).toHaveBeenCalledWith('uid123');
     });
 
     it('throws NotFoundError when the user does not exist', async () => {
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+      const { userStore } = setupMocks();
+      userStore.deleteUser.mockRejectedValue(new NotFoundError('not found'));
 
       await expect(deleteUser('missing-uid')).rejects.toThrow(NotFoundError);
     });
@@ -411,16 +266,8 @@ describe('usersService', () => {
 
   describe('listUsers', () => {
     it('returns a page of user records', async () => {
-      const docs = [makeDocSnapshot('uid1', USER_DATA), makeDocSnapshot('uid2', USER_DATA)];
-      const mockFs = buildMockFirestore(USER_DATA);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      collMock.orderBy.mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ docs, empty: false }),
-        }),
-      });
+      const { userStore } = setupMocks();
+      userStore.listUsers.mockResolvedValue({ users: [MOCK_USER, MOCK_USER], pageToken: undefined });
 
       const result = await listUsers(2);
       expect(result.users).toHaveLength(2);
@@ -428,19 +275,20 @@ describe('usersService', () => {
     });
 
     it('returns an empty list when no users exist', async () => {
-      const mockFs = buildMockFirestore(null);
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
-
-      const collMock = (mockFs as unknown as MockFirestore).collection('users') as MockCollection;
-      collMock.orderBy.mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ docs: [], empty: true }),
-        }),
-      });
+      const { userStore } = setupMocks();
+      userStore.listUsers.mockResolvedValue({ users: [], pageToken: undefined });
 
       const result = await listUsers();
       expect(result.users).toHaveLength(0);
       expect(result.pageToken).toBeUndefined();
+    });
+
+    it('passes filters to the store', async () => {
+      const { userStore } = setupMocks();
+      userStore.listUsers.mockResolvedValue({ users: [], pageToken: undefined });
+
+      await listUsers(10, undefined, { role: 'admin' });
+      expect(userStore.listUsers).toHaveBeenCalledWith(10, undefined, { role: 'admin' });
     });
   });
 
@@ -449,52 +297,42 @@ describe('usersService', () => {
   describe('bootstrapAdminUser', () => {
     it('skips when no bootstrap email is configured', async () => {
       (config as Record<string, unknown>)['bootstrapAdminUserEmail'] = undefined;
+      const { userStore } = setupMocks();
+
       await bootstrapAdminUser();
-      expect(getFirestore).not.toHaveBeenCalled();
+
+      expect(userStore.getUserByEmail).not.toHaveBeenCalled();
     });
 
-    it('adds admin email to pre_approved_users when not already present', async () => {
+    it('adds admin email to pre-approved store when not already present', async () => {
       (config as Record<string, unknown>)['bootstrapAdminUserEmail'] = 'admin@example.com';
-
-      const addMock = jest.fn().mockResolvedValue({ id: 'new-id' });
-      const mockFs = {
-        collection: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockReturnValue({
-              get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
-            }),
-          }),
-          add: addMock,
-        }),
-      };
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByEmail.mockResolvedValue(null);
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      preApprovedStore.add.mockResolvedValue({ email: 'admin@example.com', role: 'admin' });
 
       await bootstrapAdminUser();
 
-      expect(addMock).toHaveBeenCalledWith({ email: 'admin@example.com', role: 'admin' });
+      expect(preApprovedStore.add).toHaveBeenCalledWith({ email: 'admin@example.com', role: 'admin' });
     });
 
-    it('skips if admin email already in users collection', async () => {
+    it('skips if admin email already in users store', async () => {
       (config as Record<string, unknown>)['bootstrapAdminUserEmail'] = 'admin@example.com';
-
-      const addMock = jest.fn();
-      const mockFs = {
-        collection: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockReturnValue({
-              get: jest.fn().mockResolvedValue({
-                empty: false,
-                docs: [makeDocSnapshot('uid1', { email: 'admin@example.com', role: 'admin', enable: true })],
-              }),
-            }),
-          }),
-          add: addMock,
-        }),
-      };
-      (getFirestore as jest.Mock).mockReturnValue(mockFs);
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByEmail.mockResolvedValue({ uid: 'uid1', email: 'admin@example.com', role: 'admin', enable: true });
 
       await bootstrapAdminUser();
-      expect(addMock).not.toHaveBeenCalled();
+      expect(preApprovedStore.add).not.toHaveBeenCalled();
+    });
+
+    it('skips if admin email already in pre-approved store', async () => {
+      (config as Record<string, unknown>)['bootstrapAdminUserEmail'] = 'admin@example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByEmail.mockResolvedValue(null);
+      preApprovedStore.getByEmail.mockResolvedValue({ email: 'admin@example.com', role: 'admin' });
+
+      await bootstrapAdminUser();
+      expect(preApprovedStore.add).not.toHaveBeenCalled();
     });
   });
 });

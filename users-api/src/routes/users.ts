@@ -225,64 +225,9 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, authorizeHandler);
 
-  // ── Admin & User Routes ─────────────────────────────────────────────────────
 
-  app.get('/', {
-    schema: {
-      tags: ['Users'],
-      summary: 'List users',
-      description:
-        'Returns a paginated list of user documents from the users collection. ' +
-        'Called internally by the BFF gateway.',
-      querystring: {
-        type: 'object',
-        properties: {
-          maxResults: {
-            type: 'integer',
-            minimum: 1,
-            maximum: 1000,
-            default: 100,
-            description: 'Maximum number of users to return per page (1–1000).',
-            example: 50,
-          },
-          pageToken: {
-            type: 'string',
-            description: 'Pagination cursor returned by the previous list call.',
-            example: 'eyJsYXN0VWlkIjoiYUIzZEU1ZkcifQ==',
-          },
-        },
-      },
-      response: {
-        200: {
-          description: 'Paginated list of user documents.',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: {
-              type: 'object',
-              properties: {
-                users: {
-                  type: 'array',
-                  description: 'Array of user documents on this page.',
-                  items: userRecordSchema,
-                },
-                pageToken: {
-                  type: 'string',
-                  description: 'Cursor to pass as pageToken to retrieve the next page.',
-                  example: 'eyJsYXN0VWlkIjoiYUIzZEU1ZkcifQ==',
-                },
-              },
-            },
-            meta: responseMeta,
-          },
-        },
-        400: validationErrorResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, listUsersHandler);
+  // ── Admin Only Routes (pre-approve) ──────────────────────────────────────────
 
-  // Must be registered BEFORE /:uid to avoid route conflicts with static segments
   app.get('/pre-approve', {
     schema: {
       tags: ['Users'],
@@ -296,6 +241,11 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             type: 'string',
             description: 'Optional email to retrieve a specific pre-approved user.',
             example: 'jane.doe@example.com',
+          },
+          role: {
+            type: 'string',
+            description: 'Filter pre-approved users by role (ignored when email is provided).',
+            example: 'admin',
           },
         },
       },
@@ -423,7 +373,76 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, updatePreApprovedHandler);
 
-  // ── Admin Only Routes ───────────────────────────────────────────────────────
+
+  // ── Admin & User Routes ─────────────────────────────────────────────────────
+
+
+  app.get('/', {
+    schema: {
+      tags: ['Users'],
+      summary: 'List users',
+      description:
+        'Returns a paginated list of user documents from the users collection. ' +
+        'Called internally by the BFF gateway.',
+      querystring: {
+        type: 'object',
+        properties: {
+          maxResults: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 1000,
+            default: 100,
+            description: 'Maximum number of users to return per page (1–1000).',
+            example: 50,
+          },
+          pageToken: {
+            type: 'string',
+            description: 'Pagination cursor returned by the previous list call.',
+            example: 'eyJsYXN0VWlkIjoiYUIzZEU1ZkcifQ==',
+          },
+          role: {
+            type: 'string',
+            description: 'Filter users by role.',
+            example: 'admin',
+          },
+          enable: {
+            type: 'string',
+            enum: ['true', 'false'],
+            description: 'Filter users by enabled status.',
+            example: 'true',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Paginated list of user documents.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                users: {
+                  type: 'array',
+                  description: 'Array of user documents on this page.',
+                  items: userRecordSchema,
+                },
+                pageToken: {
+                  type: 'string',
+                  description: 'Cursor to pass as pageToken to retrieve the next page.',
+                  example: 'eyJsYXN0VWlkIjoiYUIzZEU1ZkcifQ==',
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, listUsersHandler);
+
 
   app.post('/', {
     schema: {

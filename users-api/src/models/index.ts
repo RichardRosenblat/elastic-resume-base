@@ -6,7 +6,7 @@ declare module 'fastify' {
   }
 }
 
-/** A user record stored in the `users` Firestore collection. */
+/** A user record managed by the users service. */
 export interface UserRecord {
   uid: string;
   email: string;
@@ -14,7 +14,7 @@ export interface UserRecord {
   enable: boolean;
 }
 
-/** A pre-approved user record stored in the `pre_approved_users` Firestore collection. */
+/** A pre-approved user record managed by the users service. */
 export interface PreApprovedUser {
   email: string;
   role: string;
@@ -32,7 +32,7 @@ export interface AuthorizeResponse {
   enable: boolean;
 }
 
-/** Request payload for creating a new user internally. */
+/** Request payload for creating a new user. */
 export interface CreateUserRequest {
   uid: string;
   email: string;
@@ -47,6 +47,12 @@ export interface UpdateUserRequest {
   enable?: boolean;
 }
 
+/** Filters for querying users. */
+export interface UserFilters {
+  role?: string;
+  enable?: boolean;
+}
+
 /** Request payload for adding a pre-approved user. */
 export interface AddPreApprovedRequest {
   email: string;
@@ -55,6 +61,11 @@ export interface AddPreApprovedRequest {
 
 /** Request payload for updating a pre-approved user. */
 export interface UpdatePreApprovedRequest {
+  role?: string;
+}
+
+/** Filters for querying pre-approved users. */
+export interface PreApprovedFilters {
   role?: string;
 }
 

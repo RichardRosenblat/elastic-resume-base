@@ -30,7 +30,7 @@ jest.mock('../../../src/config', () => ({
     allowedOrigins: 'http://localhost:3000',
     firestoreUsersCollection: 'users',
     firestorePreApprovedUsersCollection: 'pre_approved_users',
-    allowedEmailDomains: '',
+    onboardableEmailDomains: '',
   },
 }));
 
@@ -158,7 +158,7 @@ describe('users controller', () => {
 
       await app.inject({ method: 'GET', url: '/api/v1/users?maxResults=10&pageToken=tok123' });
 
-      expect(usersService.listUsers).toHaveBeenCalledWith(10, 'tok123');
+      expect(usersService.listUsers).toHaveBeenCalledWith(10, 'tok123', undefined);
     });
 
     it('returns 400 when maxResults is invalid', async () => {

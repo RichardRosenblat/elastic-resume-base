@@ -44,6 +44,11 @@ const updateUserSchema = z.object({
 const listUsersQuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(1000).default(100),
   pageToken: z.string().optional(),
+  role: z.string().optional(),
+  enable: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
 const addPreApprovedSchema = z.object({
@@ -55,9 +60,14 @@ const updatePreApprovedSchema = z.object({
   role: z.string().min(1).optional(),
 });
 
+const listPreApprovedQuerySchema = z.object({
+  email: z.string().optional(),
+  role: z.string().optional(),
+});
+
 type UidParams = { uid: string };
-type EmailQuery = { email?: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string };
+type ListUsersQuery = { maxResults?: number; pageToken?: string; role?: string; enable?: string };
+type ListPreApprovedQuery = { email?: string; role?: string };
 
 // ---------------------------------------------------------------------------
 // Authorize Handler (Unauthenticated)
@@ -192,7 +202,7 @@ export async function deleteUserHandler(
 }
 
 /**
- * Handles GET /api/v1/users — lists Firestore user documents with optional pagination.
+ * Handles GET /api/v1/users — lists user documents with optional pagination and filtering.
  */
 export async function listUsersHandler(
   request: FastifyRequest<{ Querystring: ListUsersQuery }>,
@@ -210,11 +220,15 @@ export async function listUsersHandler(
     );
     return;
   }
+
+  const { maxResults, pageToken, role, enable } = parsed.data;
+  const filters = role !== undefined || enable !== undefined ? { role, enable } : undefined;
+
   logger.debug(
-    { correlationId: request.correlationId, maxResults: parsed.data.maxResults, hasPageToken: !!parsed.data.pageToken },
+    { correlationId: request.correlationId, maxResults, hasPageToken: !!pageToken, filters },
     'listUsersHandler: fetching users page',
   );
-  const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
+  const result = await listUsers(maxResults, pageToken, filters);
   logger.debug(
     { correlationId: request.correlationId, count: result.users.length, hasNextPage: !!result.pageToken },
     'listUsersHandler: users page retrieved',
@@ -229,12 +243,21 @@ export async function listUsersHandler(
 /**
  * Handles GET /api/v1/users/pre-approve — lists all pre-approved users or gets one by email.
  * If `email` query param is provided, retrieves the specific pre-approved user.
+ * If `role` query param is provided (without email), filters the list by role.
  */
 export async function getPreApprovedHandler(
-  request: FastifyRequest<{ Querystring: EmailQuery }>,
+  request: FastifyRequest<{ Querystring: ListPreApprovedQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const { email } = request.query;
+  const parsed = listPreApprovedQuerySchema.safeParse(request.query);
+  if (!parsed.success) {
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+    );
+    return;
+  }
+
+  const { email, role } = parsed.data;
 
   if (email) {
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching single pre-approved user');
@@ -242,8 +265,9 @@ export async function getPreApprovedHandler(
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: pre-approved user retrieved');
     void reply.send(formatSuccess(user, request.correlationId));
   } else {
-    logger.debug({ correlationId: request.correlationId }, 'getPreApprovedHandler: listing all pre-approved users');
-    const users = await listPreApprovedUsers();
+    const filters = role !== undefined ? { role } : undefined;
+    logger.debug({ correlationId: request.correlationId, filters }, 'getPreApprovedHandler: listing pre-approved users');
+    const users = await listPreApprovedUsers(filters);
     logger.debug({ correlationId: request.correlationId, count: users.length }, 'getPreApprovedHandler: pre-approved users listed');
     void reply.send(formatSuccess(users, request.correlationId));
   }
@@ -278,7 +302,7 @@ export async function addPreApprovedHandler(
  * Handles DELETE /api/v1/users/pre-approve?email=... — removes a user from the pre-approved list.
  */
 export async function deletePreApprovedHandler(
-  request: FastifyRequest<{ Querystring: EmailQuery }>,
+  request: FastifyRequest<{ Querystring: ListPreApprovedQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
   const { email } = request.query;
@@ -298,7 +322,7 @@ export async function deletePreApprovedHandler(
  * Handles PATCH /api/v1/users/pre-approve?email=... — updates a pre-approved user.
  */
 export async function updatePreApprovedHandler(
-  request: FastifyRequest<{ Querystring: EmailQuery }>,
+  request: FastifyRequest<{ Querystring: ListPreApprovedQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
   const { email } = request.query;
