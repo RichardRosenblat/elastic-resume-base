@@ -1,4 +1,4 @@
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors.js';
+import { ForbiddenError, NotFoundError, ValidationError } from '../errors.js';
 import {
   FirestoreUserDocumentStore,
   FirestorePreApprovedStore,
