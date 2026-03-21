@@ -22,10 +22,8 @@
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage"
   },
   "dependencies": {
+    "firebase-admin": "12.1.0",
     "zod": "3.23.8"
-  },
-  "peerDependencies": {
-    "firebase-admin": ">=12.0.0"
   },
   "devDependencies": {
     "@types/jest": "29.5.12",
