@@ -222,7 +222,10 @@ export async function listUsersHandler(
   }
 
   const { maxResults, pageToken, role, enable } = parsed.data;
-  const filters = role !== undefined || enable !== undefined ? { role, enable } : undefined;
+  const filters =
+    role !== undefined || enable !== undefined
+      ? { ...(role !== undefined && { role }), ...(enable !== undefined && { enable }) }
+      : undefined;
 
   logger.debug(
     { correlationId: request.correlationId, maxResults, hasPageToken: !!pageToken, filters },
