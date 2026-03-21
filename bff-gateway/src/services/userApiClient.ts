@@ -58,7 +58,7 @@ function handleUserApiError(
       throw new UnavailableError('UserAPI unreachable');
     }
 
-    if (err.response.status >= 500) {
+    if (err.response?.status !== undefined && err.response.status >= 500) {
       logger.error(
         { ...context, status: err.response.status },
         `${operationName}: UserAPI internal error`,

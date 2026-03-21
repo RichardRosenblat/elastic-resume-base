@@ -254,6 +254,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
 
   // Must be registered BEFORE /:uid to avoid route conflicts
   app.get('/pre-approve', {
+    preHandler: [requireAdminHook],
     schema: {
       tags: ['Users'],
       summary: 'List or get pre-approved users (admin only)',

@@ -84,12 +84,12 @@ export async function listUsersHandler(
     return;
   }
   const { maxResults, pageToken, role, enable } = parsed.data;
-  const filters = {
-    ...(role !== undefined ? { role } : {}),
-    ...(enable !== undefined ? { enable: enable === 'true' } : {}),
-  };
+  const filters: { role?: string; enable?: boolean } = {};
+  if (role !== undefined) filters.role = role;
+  if (enable !== undefined) filters.enable = enable === 'true';
+  const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
   logger.debug({ correlationId: request.correlationId }, 'listUsersHandler: fetching users');
-  const result = await listUsers(maxResults, pageToken, Object.keys(filters).length > 0 ? filters : undefined);
+  const result = await listUsers(maxResults, pageToken, finalFilters);
   void reply.send(formatSuccess(result, request.correlationId));
 }
 

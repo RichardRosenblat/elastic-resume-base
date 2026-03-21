@@ -52,10 +52,6 @@ systems:
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
 
-    # Comma-separated list of allowed email domains for user creation / update.
-    # Leave empty to allow all domains.
-    ALLOWED_EMAIL_DOMAINS: ""
-
     # Timeout (milliseconds) applied to every downstream service call
     REQUEST_TIMEOUT_MS: "30000"
 
@@ -75,15 +71,18 @@ systems:
     # Name of the Firestore collection where user documents are stored.
     FIRESTORE_USERS_COLLECTION: users
 
-    # Google Service Account credentials (Base64-encoded JSON or raw JSON).
-    # Required for Google Drive access via the Bugle shared library.
-    # Leave empty to fall back to Firestore-based role checks.
-    GOOGLE_SERVICE_ACCOUNT_KEY: ""
+    # Name of the Firestore collection where pre-approved user documents are stored.
+    FIRESTORE_PRE_APPROVED_USERS_COLLECTION: pre_approved_users
 
-    # Optional: Google Drive File ID used to determine admin access.
-    # When set, GET /api/v1/users/:uid/role checks Drive permissions via Bugle.
-    # When unset, the endpoint falls back to the 'role' field in Firestore.
-    ADMIN_SHEET_FILE_ID: ""
+    # Email address of the initial admin user.
+    # On startup, the Users API will add this email to the pre-approved users collection
+    # with the 'admin' role, unless it already exists in either collection.
+    BOOTSTRAP_ADMIN_USER_EMAIL: ""
+
+    # Comma-separated list of email domains that are automatically onboarded.
+    # Users from these domains are registered with enable=false and must be approved by an admin.
+    # Leave empty to disable automatic onboarding (only pre-approved users gain access).
+    ONBOARDABLE_EMAIL_DOMAINS: ""
 
   # ---------------------------------------------------------------------------
   # Ingestor Service (Python — port 8001)

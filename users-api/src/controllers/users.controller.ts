@@ -222,16 +222,16 @@ export async function listUsersHandler(
   }
 
   const { maxResults, pageToken, role, enable } = parsed.data;
-  const filters =
-    role !== undefined || enable !== undefined
-      ? { ...(role !== undefined && { role }), ...(enable !== undefined && { enable }) }
-      : undefined;
+  const filters: { role?: string; enable?: boolean } = {};
+  if (role !== undefined) filters.role = role;
+  if (enable !== undefined) filters.enable = enable;
+  const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
 
   logger.debug(
     { correlationId: request.correlationId, maxResults, hasPageToken: !!pageToken, filters },
     'listUsersHandler: fetching users page',
   );
-  const result = await listUsers(maxResults, pageToken, filters);
+  const result = await listUsers(maxResults, pageToken, finalFilters);
   logger.debug(
     { correlationId: request.correlationId, count: result.users.length, hasNextPage: !!result.pageToken },
     'listUsersHandler: users page retrieved',
