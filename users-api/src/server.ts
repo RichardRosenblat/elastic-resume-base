@@ -1,37 +1,13 @@
-import admin from 'firebase-admin';
+import { initializePersistence } from '@elastic-resume-base/synapse';
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import { buildApp } from './app.js';
 
-/**
- * Initialises the Firebase Admin SDK.
- */
-function initFirebase(): void {
-  if (admin.apps.length > 0) {
-    return;
-  }
-
-  const appOptions: admin.AppOptions = {
-    projectId: config.projectId,
-  };
-
-  if (config.googleServiceAccountKey) {
-    try {
-      const raw = config.googleServiceAccountKey.trim();
-      const decoded = raw.startsWith('{')
-        ? raw
-        : Buffer.from(raw, 'base64').toString('utf-8');
-      const credentials = JSON.parse(decoded) as admin.ServiceAccount;
-      appOptions.credential = admin.credential.cert(credentials);
-    } catch {
-      logger.warn('Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY; using default credentials');
-    }
-  }
-
-  admin.initializeApp(appOptions);
-}
-
-initFirebase();
+// Initialise the persistence layer (Firebase Admin SDK) before any store is used.
+initializePersistence({
+  projectId: config.projectId,
+  serviceAccountKey: config.googleServiceAccountKey,
+});
 
 const app = await buildApp();
 

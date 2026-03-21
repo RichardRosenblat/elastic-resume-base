@@ -44,12 +44,6 @@ jest.mock('../../../src/utils/logger', () => ({
   },
 }));
 
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn(),
-  firestore: jest.fn(),
-}));
-
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
 import * as usersService from '../../../src/services/usersService.js';

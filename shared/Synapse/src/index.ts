@@ -1,22 +1,33 @@
 /**
  * @module @elastic-resume-base/synapse
  *
- * Synapse provides shared **persistence abstractions** for Elastic Resume Base
- * microservices. It is strictly concerned with api-to-persistence connections.
- *
- * Error classes have moved to the Toolbox shared library. Import them from
- * `../../../shared/Toolbox/src/errors.js` (relative path) instead.
+ * Synapse is the **sole** persistence layer for Elastic Resume Base
+ * microservices. It owns every aspect of the Firebase / Firestore connection —
+ * from SDK initialisation through to data-access abstractions — so that
+ * consuming services can remain free of any direct `firebase-admin` dependency.
  *
  * ## Quick Start
  *
  * ```typescript
  * import {
- *   FirestoreUserRepository,
+ *   initializePersistence,
+ *   FirestoreUserDocumentStore,
  * } from '@elastic-resume-base/synapse';
+ *
+ * // Call once at application startup, before using any store.
+ * initializePersistence({ projectId: 'my-project' });
  * ```
  */
 
+// ---------------------------------------------------------------------------
+// Persistence initialisation (must be called before using any store)
+// ---------------------------------------------------------------------------
+export type { PersistenceOptions } from './persistence.js';
+export { initializePersistence } from './persistence.js';
+
+// ---------------------------------------------------------------------------
 // User repository interface & models
+// ---------------------------------------------------------------------------
 export type {
   UserRepository,
   CreateUserData,
