@@ -1,3 +1,9 @@
+/**
+ * Application error classes for internal Synapse use.
+ * These are mirrors of the canonical definitions in shared/Toolbox/src/errors.ts.
+ * Synapse is strictly a persistence library — external consumers should import
+ * error classes from Toolbox directly.
+ */
 /** Base class for application errors with HTTP status code and machine-readable error code. */
 export declare class AppError extends Error {
     readonly statusCode: number;
@@ -24,9 +30,9 @@ export declare class ConflictError extends AppError {
 export declare class ForbiddenError extends AppError {
     constructor(message?: string);
 }
-/** Error representing a failure in a downstream service (HTTP 502 by default). */
+/** Error representing a failure in a downstream service (HTTP 502). */
 export declare class DownstreamError extends AppError {
-    constructor(message?: string, statusCode?: number, code?: string);
+    constructor(message?: string);
 }
 /**
  * Checks whether the given value is an {@link AppError}.
