@@ -294,6 +294,36 @@ describe('Users Controller', () => {
       );
     });
 
+    it('passes enable filter to service', async () => {
+      (usersService.listUsers as jest.Mock).mockResolvedValue({ users: [mockUser], pageToken: undefined });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users?enable=false',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(usersService.listUsers).toHaveBeenCalledWith(
+        expect.any(Number),
+        undefined,
+        { enable: false },
+      );
+    });
+
+    it('returns 400 when enable is invalid (not true or false)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users?enable=invalid',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+      expect(body.error.message).toContain('enable');
+    });
+
     it('returns 401 when unauthenticated', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/v1/users' });
       expect(res.statusCode).toBe(401);

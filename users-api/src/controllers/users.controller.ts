@@ -24,7 +24,7 @@ import {
  */
 function formatZodErrors(issues: ZodIssue[]): string {
   return issues
-    .map((issue) => issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
+    .map((issue) => issue.path.length !== 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
     .join('; ');
 }
 

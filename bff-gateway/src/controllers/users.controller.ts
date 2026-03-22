@@ -22,7 +22,7 @@ import {
  */
 function formatZodErrors(issues: ZodIssue[]): string {
   return issues
-    .map((issue) => issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
+    .map((issue) => issue.path.length !== 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
     .join('; ');
 }
 
@@ -62,7 +62,9 @@ const listUsersQuerySchema = z.object({
   role: z.enum(['admin', 'user'], {
     errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
   }).optional(),
-  enable: z.string().optional(),
+  enable: z.enum(['true', 'false'], {
+    errorMap: () => ({ message: "enable must be 'true' or 'false'" }),
+  }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
 const getPreApprovedQuerySchema = z.object({
@@ -122,7 +124,7 @@ export async function listUsersHandler(
   const filters: { email?: string; role?: string; enable?: boolean } = {};
   if (emailFilter !== undefined) filters.email = emailFilter;
   if (role !== undefined) filters.role = role;
-  if (enable !== undefined) filters.enable = enable === 'true';
+  if (enable !== undefined) filters.enable = enable;
   const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
   logger.debug({ correlationId: request.correlationId }, 'listUsersHandler: fetching users');
   const result = await listUsers(maxResults, pageToken, finalFilters);
