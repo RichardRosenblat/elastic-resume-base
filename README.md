@@ -105,7 +105,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 Ensure you have the following tools installed locally:
 
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
-- [Node.js](https://nodejs.org/) v20+ (for the BFF Gateway)
+- [Node.js](https://nodejs.org/) v22+ (for the BFF Gateway)
 - [Python](https://www.python.org/downloads/) v3.11+ (for Python microservices)
 - [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
 - [Firebase CLI](https://firebase.google.com/docs/cli)

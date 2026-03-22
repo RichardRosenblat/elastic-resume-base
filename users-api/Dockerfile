@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy shared libraries first so they can be referenced by the service
@@ -15,7 +15,7 @@ COPY users-api/tsconfig.json ./
 COPY users-api/src ./src
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # Copy shared libraries for runtime reference

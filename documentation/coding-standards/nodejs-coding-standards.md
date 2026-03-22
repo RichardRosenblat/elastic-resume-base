@@ -33,8 +33,8 @@ This document defines the coding standards and best practices for the Node.js se
 
 ## Language and Runtime
 
-- Use **Node.js v20 LTS** or higher.
-- All services must specify a pinned Node.js version in their `Dockerfile` (`FROM node:20-alpine`).
+- Use **Node.js v22 LTS** or higher.
+- All services must specify a pinned Node.js version in their `Dockerfile` (`FROM node:22-alpine`).
 - Use **TypeScript** for all source files. JavaScript (`.js`) is only acceptable for configuration files (e.g., `jest.config.cjs`, `eslint.config.js`) when TypeScript is not supported.
 - Target **ES2022** or higher in `tsconfig.json`.
 - Use **ECMAScript Modules (ESM)** with `"type": "module"` in `package.json`.
@@ -701,7 +701,7 @@ await build({
   entryPoints: ['src/server.ts'],
   bundle: true,
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   format: 'esm',
   packages: 'bundle',   // keep npm packages in node_modules at runtime
   outfile: 'dist/server.js',
