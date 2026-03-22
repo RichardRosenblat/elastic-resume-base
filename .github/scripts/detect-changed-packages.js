@@ -38,6 +38,29 @@ try {
   console.warn('Could not read commit message:', err.message);
 }
 
+// ── Dependency graph expansion ─────────────────────────────────────────────
+/**
+ * Given a set of directly-changed packages, returns those packages PLUS every
+ * package in `allPkgs` whose `dependsOn` list (transitively) overlaps the
+ * changed set.  This ensures that if `shared/Bowltie` changes, `bff-gateway`
+ * and `users-api` are automatically included in the test run.
+ */
+function expandDependents(changed, allPkgs) {
+  const selectedIds = new Set(changed.map(p => p.id));
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const pkg of allPkgs) {
+      if (!selectedIds.has(pkg.id) && Array.isArray(pkg.dependsOn) &&
+          pkg.dependsOn.some(dep => selectedIds.has(dep))) {
+        selectedIds.add(pkg.id);
+        grew = true;
+      }
+    }
+  }
+  return allPkgs.filter(p => selectedIds.has(p.id));
+}
+
 // ── Select packages ────────────────────────────────────────────────────────
 let selected = [];
 
@@ -67,7 +90,10 @@ if (!skipTests) {
         console.log('No package-specific changes detected — falling back to all packages.');
         selected = allPackages;
       } else {
-        console.log(`Packages to test: ${selected.map(p => p.name).join(', ')}`);
+        // Expand: if a package is selected, also include every package that depends on it
+        // (transitively), so downstream consumers are re-tested when shared code changes.
+        selected = expandDependents(selected, allPackages);
+        console.log(`Packages to test (incl. dependents): ${selected.map(p => p.name).join(', ')}`);
       }
     } catch (err) {
       console.warn('Change detection failed — falling back to all packages:', err.message);

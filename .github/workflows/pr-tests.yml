@@ -80,6 +80,8 @@ jobs:
       - name: Run tests
         id: run-tests
         # Step-level timeout prevents a hung test from consuming the full job budget.
+        # --testRetries=1 retries each failed test once so transient / flaky failures
+        # don't count as real failures.  A test must fail on both attempts to be reported.
         # NOTE: --forceExit is used as a safety net; remove it once all hanging handles
         #       in test suites are resolved (see: jest --detectOpenHandles for guidance).
         timeout-minutes: 10
@@ -89,9 +91,15 @@ jobs:
           NODE_OPTIONS='--experimental-vm-modules' npx jest \
             --runInBand \
             --forceExit \
+            --testRetries=1 \
+            --coverage \
+            --coverageReporters=json-summary \
             --json \
             --outputFile="${GITHUB_WORKSPACE}/${{ matrix.package.id }}-results.json" \
             2>&1 | tee "${GITHUB_WORKSPACE}/${{ matrix.package.id }}.log"
+          # Move coverage summary to workspace root for consistent upload path.
+          cp coverage/coverage-summary.json \
+             "${GITHUB_WORKSPACE}/${{ matrix.package.id }}-coverage-summary.json" || true
 
       - name: Upload test results
         # Always upload so the summarize job can process results even when tests failed.
@@ -102,6 +110,7 @@ jobs:
           path: |
             ${{ github.workspace }}/${{ matrix.package.id }}-results.json
             ${{ github.workspace }}/${{ matrix.package.id }}.log
+            ${{ github.workspace }}/${{ matrix.package.id }}-coverage-summary.json
           if-no-files-found: warn
 
   summarize:

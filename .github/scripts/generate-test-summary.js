@@ -50,7 +50,7 @@ for (const pkg of packages) {
   const resultsFile = path.join(resultsDir, `${pkg.id}-results.json`);
 
   if (!fs.existsSync(resultsFile)) {
-    rows.push({ pkg, status: 'missing', passed: 0, failed: 0, skipped: 0, durationMs: null });
+    rows.push({ pkg, status: 'missing', passed: 0, failed: 0, skipped: 0, durationMs: null, coverage: null });
     continue;
   }
 
@@ -58,7 +58,7 @@ for (const pkg of packages) {
   try {
     results = JSON.parse(fs.readFileSync(resultsFile, 'utf-8'));
   } catch {
-    rows.push({ pkg, status: 'invalid', passed: 0, failed: 0, skipped: 0, durationMs: null });
+    rows.push({ pkg, status: 'invalid', passed: 0, failed: 0, skipped: 0, durationMs: null, coverage: null });
     continue;
   }
 
@@ -83,7 +83,25 @@ for (const pkg of packages) {
   totalSkipped    += skipped;
   totalDurationMs += durationMs;
 
-  rows.push({ pkg, status: results.success ? 'passed' : 'failed', passed, failed, skipped, durationMs });
+  // ── Coverage ───────────────────────────────────────────────────────────────
+  let coverage = null;
+  const coverageFile = path.join(resultsDir, `${pkg.id}-coverage-summary.json`);
+  if (fs.existsSync(coverageFile)) {
+    try {
+      const cov = JSON.parse(fs.readFileSync(coverageFile, 'utf-8'));
+      if (cov.total) {
+        coverage = {
+          lines:     cov.total.lines?.pct     ?? null,
+          branches:  cov.total.branches?.pct  ?? null,
+          functions: cov.total.functions?.pct ?? null,
+        };
+      }
+    } catch {
+      // Coverage file present but unreadable — treat as unavailable.
+    }
+  }
+
+  rows.push({ pkg, status: results.success ? 'passed' : 'failed', passed, failed, skipped, durationMs, coverage });
 }
 
 // ── Sort: failed packages first, then alphabetically ─────────────────────────
@@ -102,6 +120,15 @@ function fmtDuration(ms) {
 function fmtPassRate(passed, total) {
   if (total === 0) return '—';
   return `${Math.round((passed / total) * 100)}%`;
+}
+
+function fmtCoverage(pct) {
+  if (pct === null || pct === undefined) return '—';
+  const n = typeof pct === 'number' ? Math.round(pct) : NaN;
+  if (isNaN(n)) return '—';
+  // Color-code thresholds: <50% ❌, 50-79% ⚠️, ≥80% ✅
+  const icon = n < 50 ? '🔴' : n < 80 ? '🟡' : '🟢';
+  return `${icon} ${n}%`;
 }
 
 function statusBadge(status) {
@@ -131,6 +158,7 @@ if (testsSkipped || !hasAnyResults) {
 const tableRows = rows.map(r => {
   const pkgLabel = r.status === 'failed' ? `**${r.pkg.name}**` : r.pkg.name;
   const rowTotal = r.passed + r.failed + r.skipped;
+  const cov = r.coverage;
   return [
     `| ${pkgLabel}`,
     statusBadge(r.status),
@@ -138,7 +166,10 @@ const tableRows = rows.map(r => {
     r.failed,
     r.skipped,
     fmtPassRate(r.passed, rowTotal),
-    `${fmtDuration(r.durationMs)} |`,
+    fmtDuration(r.durationMs),
+    cov ? fmtCoverage(cov.lines)     : '—',
+    cov ? fmtCoverage(cov.branches)  : '—',
+    `${cov ? fmtCoverage(cov.functions) : '—'} |`,
   ].join(' | ');
 });
 
@@ -165,10 +196,10 @@ const lines = [
   headline,
   failureSection,
   '',
-  '| Package | Status | ✅ Passed | ❌ Failed | ⏭️ Skipped | 📊 Pass Rate | ⏱️ Duration |',
-  '|---------|--------|----------:|----------:|----------:|----------:|----------:|',
+  '| Package | Status | ✅ Passed | ❌ Failed | ⏭️ Skipped | 📊 Pass Rate | ⏱️ Duration | 📝 Lines | 🌿 Branches | 🔧 Functions |',
+  '|---------|--------|----------:|----------:|----------:|----------:|----------:|----------:|----------:|----------:|',
   ...tableRows,
-  `| **Total** | | **${totalPassed}** | **${totalFailed}** | **${totalSkipped}** | **${passRate}** | **${fmtDuration(totalDurationMs)}** |`,
+  `| **Total** | | **${totalPassed}** | **${totalFailed}** | **${totalSkipped}** | **${passRate}** | **${fmtDuration(totalDurationMs)}** | | | |`,
   '',
   modeNote,
 ];
