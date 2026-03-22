@@ -1,0 +1,107 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "resumes": "Resumes",
+    "search": "Search",
+    "documents": "Documents",
+    "account": "Account",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign In",
+    "signInWithGoogle": "Sign in with Google",
+    "forgotPassword": "Forgot password?",
+    "welcomeBack": "Welcome back",
+    "invalidCredentials": "Invalid email or password",
+    "loginError": "An error occurred during login"
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "yourProfile": "Your Profile",
+    "profile": "Profile",
+    "role": "Role",
+    "status": "Status",
+    "active": "Active",
+    "pending": "Pending",
+    "statistics": "Statistics",
+    "recentActivity": "Recent Activity",
+    "comingSoon": "Coming Soon",
+    "featureNotAvailable": "This feature is not yet available"
+  },
+  "users": {
+    "title": "Users",
+    "addUser": "Add User",
+    "editUser": "Edit User",
+    "deleteUser": "Delete User",
+    "preApprove": "Pre-approve",
+    "role": "Role",
+    "enabled": "Enabled",
+    "actions": "Actions",
+    "confirmDelete": "Are you sure you want to delete this user?",
+    "noUsersFound": "No users found",
+    "preApprovedUsers": "Pre-approved Users",
+    "addPreApproved": "Add Pre-approved User",
+    "uid": "UID",
+    "email": "Email",
+    "deleteSuccess": "User deleted successfully",
+    "updateSuccess": "User updated successfully"
+  },
+  "resumes": {
+    "title": "Resumes",
+    "ingestResumes": "Ingest Resumes",
+    "generateResume": "Generate Resume",
+    "sheetId": "Sheet ID",
+    "batchId": "Batch ID",
+    "submit": "Submit",
+    "language": "Language",
+    "format": "Format",
+    "loading": "Loading resumes...",
+    "noResumesFound": "No resumes found"
+  },
+  "search": {
+    "title": "Search",
+    "searchResumes": "Search Resumes",
+    "searchQuery": "Search query",
+    "results": "Results",
+    "noResults": "No results found",
+    "loading": "Searching..."
+  },
+  "account": {
+    "title": "Account Settings",
+    "updateEmail": "Update Email",
+    "newEmail": "New Email",
+    "languagePreference": "Language Preference",
+    "saveChanges": "Save Changes"
+  },
+  "pending": {
+    "title": "Account Pending Approval",
+    "message": "Your account is pending approval by an administrator. Please check back later.",
+    "logout": "Logout"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "notFound": "Not Found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "of": "of",
+    "rowsPerPage": "Rows per page",
+    "featureNotAvailable": "This feature is not yet available",
+    "contactAdministrator": "Please contact your administrator for access",
+    "or": "or"
+  }
+}

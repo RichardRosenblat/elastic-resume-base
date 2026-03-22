@@ -1,0 +1,166 @@
+import { useState } from 'react';
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Alert,
+  CircularProgress,
+  Divider,
+} from '@mui/material';
+import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
+import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { triggerResumeIngest, generateResume } from '../../services/api';
+import ErrorMessage from '../../components/ErrorMessage';
+
+export default function ResumesPage() {
+  const { t } = useTranslation();
+  const features = useFeatureFlags();
+  const [sheetId, setSheetId] = useState('');
+  const [ingestLoading, setIngestLoading] = useState(false);
+  const [ingestSuccess, setIngestSuccess] = useState<string | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [resumeId, setResumeId] = useState('');
+  const [language, setLanguage] = useState('en');
+  const [format, setFormat] = useState('pdf');
+  const [generateLoading, setGenerateLoading] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const handleIngest = async () => {
+    setIngestLoading(true);
+    setIngestError(null);
+    setIngestSuccess(null);
+    try {
+      const job = await triggerResumeIngest({ sheetId });
+      setIngestSuccess(`Job ${job.jobId} submitted`);
+    } catch {
+      setIngestError(t('common.error'));
+    } finally {
+      setIngestLoading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    setGenerateLoading(true);
+    setGenerateError(null);
+    try {
+      const blob = await generateResume(resumeId, { language, format });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `resume-${resumeId}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setGenerateError(t('common.error'));
+    } finally {
+      setGenerateLoading(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Typography variant="h4" gutterBottom>{t('resumes.title')}</Typography>
+
+      {!features.resumeIngest && !features.resumeGenerate && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          {t('common.featureNotAvailable')}
+        </Alert>
+      )}
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            <CloudUploadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            {t('resumes.ingestResumes')}
+          </Typography>
+          {!features.resumeIngest && (
+            <Typography variant="body2" color="text.secondary">{t('dashboard.comingSoon')}</Typography>
+          )}
+          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="flex-start">
+            <TextField
+              label={t('resumes.sheetId')}
+              value={sheetId}
+              onChange={(e) => setSheetId(e.target.value)}
+              size="small"
+              disabled={!features.resumeIngest}
+            />
+            <Button
+              variant="contained"
+              onClick={() => { void handleIngest(); }}
+              disabled={!features.resumeIngest || ingestLoading || !sheetId}
+              startIcon={ingestLoading ? <CircularProgress size={16} /> : undefined}
+            >
+              {t('resumes.submit')}
+            </Button>
+          </Box>
+          {ingestSuccess && <Alert severity="success" sx={{ mt: 2 }}>{ingestSuccess}</Alert>}
+          {ingestError && <ErrorMessage message={ingestError} onClose={() => setIngestError(null)} />}
+        </CardContent>
+      </Card>
+
+      <Divider sx={{ my: 3 }} />
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            <DownloadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            {t('resumes.generateResume')}
+          </Typography>
+          {!features.resumeGenerate && (
+            <Typography variant="body2" color="text.secondary">{t('dashboard.comingSoon')}</Typography>
+          )}
+          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="flex-start">
+            <TextField
+              label={t('resumes.batchId')}
+              value={resumeId}
+              onChange={(e) => setResumeId(e.target.value)}
+              size="small"
+              disabled={!features.resumeGenerate}
+            />
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>{t('resumes.language')}</InputLabel>
+              <Select
+                value={language}
+                label={t('resumes.language')}
+                onChange={(e) => setLanguage(e.target.value)}
+                disabled={!features.resumeGenerate}
+              >
+                <MenuItem value="en">English</MenuItem>
+                <MenuItem value="pt-BR">Português</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel>{t('resumes.format')}</InputLabel>
+              <Select
+                value={format}
+                label={t('resumes.format')}
+                onChange={(e) => setFormat(e.target.value)}
+                disabled={!features.resumeGenerate}
+              >
+                <MenuItem value="pdf">PDF</MenuItem>
+                <MenuItem value="docx">DOCX</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              variant="contained"
+              onClick={() => { void handleGenerate(); }}
+              disabled={!features.resumeGenerate || generateLoading || !resumeId}
+              startIcon={generateLoading ? <CircularProgress size={16} /> : undefined}
+            >
+              {t('resumes.submit')}
+            </Button>
+          </Box>
+          {generateError && <ErrorMessage message={generateError} onClose={() => setGenerateError(null)} />}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
