@@ -135,6 +135,7 @@ export default function ResumesPage() {
               >
                 <MenuItem value="en">English</MenuItem>
                 <MenuItem value="pt-BR">Português</MenuItem>
+                <MenuItem value="es">Español</MenuItem>
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 100 }}>
