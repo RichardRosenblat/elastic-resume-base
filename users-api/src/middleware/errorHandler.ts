@@ -2,7 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
-import { AppError } from '@elastic-resume-base/synapse';
+import { AppError } from '../errors.js';
 
 /**
  * Fastify error handler.
@@ -14,7 +14,7 @@ export function errorHandler(err: Error, request: FastifyRequest, reply: Fastify
 
   if (err instanceof ZodError) {
     logger.warn({ correlationId, issues: err.issues }, 'Request validation failed');
-    void reply.code(400).send(formatError('VALIDATION_ERROR', 'Request validation failed', correlationId));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', err.message, correlationId));
     return;
   }
 

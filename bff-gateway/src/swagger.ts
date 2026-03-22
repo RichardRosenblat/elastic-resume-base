@@ -23,7 +23,8 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
       tags: [
         { name: 'Health', description: 'Liveness and readiness probes for the BFF Gateway service.' },
         { name: 'Me', description: 'Authenticated user self-service endpoints.' },
-        { name: 'Users', description: 'User management — CRUD operations on Firebase Auth accounts.' },
+        { name: 'Users', description: 'User management — CRUD operations on user accounts.' },
+        { name: 'Pre-Approved Users', description: 'Management of the pre-approved users list (admin only).' },
         { name: 'Resumes', description: 'Resume ingestion and generation jobs.' },
         { name: 'Search', description: 'Semantic search across resume content.' },
         { name: 'Documents', description: 'Document reading and text extraction.' },

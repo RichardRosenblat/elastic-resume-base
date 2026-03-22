@@ -3,76 +3,129 @@ import { z } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import {
-  createUser,
+  authorizeUser,
   getUserByUid,
   updateUser,
   deleteUser,
   listUsers,
-  getUserRole,
-  getUserRolesBatch,
 } from '../services/usersService.js';
+import {
+  getPreApprovedUser,
+  listPreApprovedUsers,
+  addToPreApproved,
+  deleteFromPreApproved,
+  updatePreApproved,
+} from '../services/preApprovedUsersService.js';
+
 
 // ---------------------------------------------------------------------------
 // Validation schemas
 // ---------------------------------------------------------------------------
 
-const createUserSchema = z.object({
-  uid: z.string().optional(),
-  email: z.string().email(),
-  displayName: z.string().optional(),
-  photoURL: z.string().optional(),
-  role: z.string().optional(),
-  disabled: z.boolean().optional(),
+const authorizeSchema = z.object({
+  uid: z.string({ required_error: 'uid is required', invalid_type_error: 'uid must be a string' }).min(1, { message: 'uid must not be empty' }),
+  email: z.string({ required_error: 'email is required', invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
 });
 
-const updateUserSchema = z.object({
-  email: z.string().email().optional(),
-  displayName: z.string().optional(),
-  photoURL: z.string().optional(),
-  role: z.string().optional(),
-  disabled: z.boolean().optional(),
-});
+const updateUserSchema = z
+  .object({
+    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
+  })
+  .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
+    message: 'Request body must contain at least one valid field to update (email, role, or enable)',
+  });
 
 const listUsersQuerySchema = z.object({
-  maxResults: z.coerce.number().int().min(1).max(1000).default(100),
+  maxResults: z.coerce.number().int({ message: 'maxResults must be an integer' }).min(1, { message: 'maxResults must be at least 1' }).max(1000, { message: 'maxResults must be at most 1000' }).default(100),
   pageToken: z.string().optional(),
+  email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
+  enable: z.enum(['true', 'false'], {
+    errorMap: () => ({ message: "enable must be 'true' or 'false'" }),
+  }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
-const batchRolesSchema = z.object({
-  uids: z.array(z.string()).min(1),
+const addPreApprovedSchema = z.object({
+  email: z.string({ required_error: 'email is required', invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }),
+});
+
+const updatePreApprovedSchema = z.object({
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
+});
+
+const listPreApprovedQuerySchema = z.object({
+  email: z.string({ invalid_type_error: 'email must be a string' }).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
 });
 
 type UidParams = { uid: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string };
+type ListUsersQuery = { maxResults?: number; pageToken?: string; email?: string; role?: string; enable?: string };
+type ListPreApprovedQuery = { email?: string; role?: string };
 
 // ---------------------------------------------------------------------------
-// Handlers
+// Authorize Handler (Unauthenticated)
 // ---------------------------------------------------------------------------
 
 /**
- * Handles POST /api/v1/users — creates a new Firestore user document.
+ * Handles POST /api/v1/users/authorize — BFF login flow endpoint.
+ * Returns the user's role and enable status based on the authorization logic.
  */
-export async function createUserHandler(
+export async function authorizeHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  logger.debug({ correlationId: request.correlationId }, 'createUserHandler: validating request body');
-  const parsed = createUserSchema.safeParse(request.body);
+  logger.debug({ correlationId: request.correlationId }, 'authorizeHandler: validating request body');
+  const parsed = authorizeSchema.safeParse(request.body);
   if (!parsed.success) {
     logger.warn(
       { correlationId: request.correlationId, issues: parsed.error.issues },
-      'createUserHandler: validation failed',
+      'authorizeHandler: validation failed',
     );
     void reply.code(400).send(
       formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
     );
     return;
   }
-  logger.info({ correlationId: request.correlationId, email: parsed.data.email }, 'createUserHandler: creating user');
-  const user = await createUser(parsed.data);
-  logger.debug({ correlationId: request.correlationId, uid: user.uid }, 'createUserHandler: user created successfully');
-  void reply.code(201).send(formatSuccess(user, request.correlationId));
+
+  const { uid, email } = parsed.data;
+  logger.debug({ correlationId: request.correlationId, uid, email }, 'authorizeHandler: authorizing user');
+
+  try {
+    const result = await authorizeUser({ uid, email });
+    logger.debug({ correlationId: request.correlationId, uid, ...result }, 'authorizeHandler: authorization result');
+    void reply.send(formatSuccess(result, request.correlationId));
+  } catch (err) {
+    // Use code-based check instead of `instanceof ForbiddenError` to guard against module
+    // identity mismatches: error classes bundled inside external modules (e.g. Synapse) are
+    // separate class objects at runtime, so `instanceof` can return false for a logically
+    // equivalent error.  Comparing the `.code` string is always safe across module boundaries.
+    if ((err as { code?: string }).code === 'FORBIDDEN') {
+      logger.info({ correlationId: request.correlationId, uid, email }, 'authorizeHandler: user denied access');
+      void reply.code(403).send(
+        formatError('FORBIDDEN', (err as Error).message, request.correlationId),
+      );
+      return;
+    }
+    throw err;
+  }
 }
+
+// ---------------------------------------------------------------------------
+// User CRUD Handlers
+// ---------------------------------------------------------------------------
 
 /**
  * Handles GET /api/v1/users/:uid — retrieves a Firestore user document by UID.
@@ -129,7 +182,7 @@ export async function deleteUserHandler(
 }
 
 /**
- * Handles GET /api/v1/users — lists Firestore user documents with optional pagination.
+ * Handles GET /api/v1/users — lists user documents with optional pagination and filtering.
  */
 export async function listUsersHandler(
   request: FastifyRequest<{ Querystring: ListUsersQuery }>,
@@ -147,11 +200,19 @@ export async function listUsersHandler(
     );
     return;
   }
+
+  const { maxResults, pageToken, email: emailFilter, role, enable } = parsed.data;
+  const filters: { email?: string; role?: string; enable?: boolean } = {};
+  if (emailFilter !== undefined) filters.email = emailFilter;
+  if (role !== undefined) filters.role = role;
+  if (enable !== undefined) filters.enable = enable;
+  const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
+
   logger.debug(
-    { correlationId: request.correlationId, maxResults: parsed.data.maxResults, hasPageToken: !!parsed.data.pageToken },
+    { correlationId: request.correlationId, maxResults, hasPageToken: !!pageToken, filters },
     'listUsersHandler: fetching users page',
   );
-  const result = await listUsers(parsed.data.maxResults, parsed.data.pageToken);
+  const result = await listUsers(maxResults, pageToken, finalFilters);
   logger.debug(
     { correlationId: request.correlationId, count: result.users.length, hasNextPage: !!result.pageToken },
     'listUsersHandler: users page retrieved',
@@ -159,56 +220,116 @@ export async function listUsersHandler(
   void reply.send(formatSuccess(result, request.correlationId));
 }
 
+// ---------------------------------------------------------------------------
+// Pre-Approve Handlers
+// ---------------------------------------------------------------------------
+
 /**
- * Handles GET /api/v1/users/:uid/role — BFF access check endpoint.
- *
- * Returns HTTP 200 with `{ role }` on success or HTTP 403 when the user has no access.
+ * Handles GET /api/v1/users/pre-approve — lists all pre-approved users or gets one by email.
+ * If `email` query param is provided, retrieves the specific pre-approved user.
+ * If `role` query param is provided (without email), filters the list by role.
  */
-export async function getUserRoleHandler(
-  request: FastifyRequest<{ Params: UidParams }>,
+export async function getPreApprovedHandler(
+  request: FastifyRequest<{ Querystring: ListPreApprovedQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const { uid } = request.params;
-  logger.debug({ correlationId: request.correlationId, uid }, 'getUserRoleHandler: checking user role');
-  const role = await getUserRole(uid);
-
-  if (role === null) {
-    logger.info({ correlationId: request.correlationId, uid }, 'getUserRoleHandler: user has no application access');
-    void reply.code(403).send(
-      formatError('FORBIDDEN', 'User does not have access to this application', request.correlationId),
+  const parsed = listPreApprovedQuerySchema.safeParse(request.query);
+  if (!parsed.success) {
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
     );
     return;
   }
 
-  logger.debug({ correlationId: request.correlationId, uid, role }, 'getUserRoleHandler: role resolved');
-  void reply.send(formatSuccess({ role }, request.correlationId));
+  const { email, role } = parsed.data;
+
+  if (email) {
+    logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching single pre-approved user');
+    const user = await getPreApprovedUser(email);
+    logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: pre-approved user retrieved');
+    void reply.send(formatSuccess(user, request.correlationId));
+  } else {
+    const filters = role !== undefined ? { role } : undefined;
+    logger.debug({ correlationId: request.correlationId, filters }, 'getPreApprovedHandler: listing pre-approved users');
+    const users = await listPreApprovedUsers(filters);
+    logger.debug({ correlationId: request.correlationId, count: users.length }, 'getPreApprovedHandler: pre-approved users listed');
+    void reply.send(formatSuccess(users, request.correlationId));
+  }
 }
 
 /**
- * Handles POST /api/v1/users/roles/batch — batch role lookup from Firestore.
+ * Handles POST /api/v1/users/pre-approve — adds a user to the pre-approved list.
  */
-export async function getBatchRolesHandler(
+export async function addPreApprovedHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  logger.debug({ correlationId: request.correlationId }, 'getBatchRolesHandler: validating request body');
-  const parsed = batchRolesSchema.safeParse(request.body);
+  logger.debug({ correlationId: request.correlationId }, 'addPreApprovedHandler: validating request body');
+  const parsed = addPreApprovedSchema.safeParse(request.body);
   if (!parsed.success) {
     logger.warn(
       { correlationId: request.correlationId, issues: parsed.error.issues },
-      'getBatchRolesHandler: validation failed',
+      'addPreApprovedHandler: validation failed',
     );
     void reply.code(400).send(
       formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
     );
     return;
   }
-  logger.debug(
-    { correlationId: request.correlationId, count: parsed.data.uids.length },
-    'getBatchRolesHandler: fetching batch roles',
-  );
-  const roles = await getUserRolesBatch(parsed.data.uids);
-  logger.debug({ correlationId: request.correlationId }, 'getBatchRolesHandler: batch roles retrieved');
-  void reply.send(formatSuccess(roles, request.correlationId));
+  logger.info({ correlationId: request.correlationId, email: parsed.data.email }, 'addPreApprovedHandler: adding pre-approved user');
+  const user = await addToPreApproved(parsed.data);
+  logger.debug({ correlationId: request.correlationId, email: parsed.data.email }, 'addPreApprovedHandler: pre-approved user added');
+  void reply.code(201).send(formatSuccess(user, request.correlationId));
 }
 
+/**
+ * Handles DELETE /api/v1/users/pre-approve?email=... — removes a user from the pre-approved list.
+ */
+export async function deletePreApprovedHandler(
+  request: FastifyRequest<{ Querystring: ListPreApprovedQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const { email } = request.query;
+  if (!email) {
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', 'email query parameter is required', request.correlationId),
+    );
+    return;
+  }
+  logger.info({ correlationId: request.correlationId, email }, 'deletePreApprovedHandler: deleting pre-approved user');
+  await deleteFromPreApproved(email);
+  logger.debug({ correlationId: request.correlationId, email }, 'deletePreApprovedHandler: pre-approved user deleted');
+  void reply.code(204).send();
+}
+
+/**
+ * Handles PATCH /api/v1/users/pre-approve?email=... — updates a pre-approved user.
+ */
+export async function updatePreApprovedHandler(
+  request: FastifyRequest<{ Querystring: ListPreApprovedQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const { email } = request.query;
+  if (!email) {
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', 'email query parameter is required', request.correlationId),
+    );
+    return;
+  }
+  logger.debug({ correlationId: request.correlationId, email }, 'updatePreApprovedHandler: validating request body');
+  const parsed = updatePreApprovedSchema.safeParse(request.body);
+  if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'updatePreApprovedHandler: validation failed',
+    );
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+    );
+    return;
+  }
+  logger.info({ correlationId: request.correlationId, email }, 'updatePreApprovedHandler: updating pre-approved user');
+  const user = await updatePreApproved(email, parsed.data);
+  logger.debug({ correlationId: request.correlationId, email }, 'updatePreApprovedHandler: pre-approved user updated');
+  void reply.send(formatSuccess(user, request.correlationId));
+}

@@ -25,7 +25,7 @@ function makeMockRequest(correlationId?: string) {
 }
 
 describe('errorHandler', () => {
-  it('handles ZodError with 400 status', () => {
+  it('handles ZodError with 400 status and the specific validation message', () => {
     const schema = z.object({ name: z.string() });
     let zodErr: ZodError | null = null;
     try {
@@ -39,6 +39,7 @@ describe('errorHandler', () => {
     const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
     expect(sendArg.success).toBe(false);
     expect(sendArg.error.code).toBe('VALIDATION_ERROR');
+    expect(sendArg.error.message).toBe(zodErr!.message);
   });
 
   it('handles AppError with its statusCode and code', () => {

@@ -12,8 +12,24 @@
  * - **`createRequestLoggerHook`** — Factory returning a Fastify `onResponse`
  *   hook that logs structured HTTP request/response details.
  *
+ * - **Error classes** — `AppError`, `NotFoundError`, `UnauthorizedError`,
+ *   `ValidationError`, `ConflictError`, `ForbiddenError`, `DownstreamError`,
+ *   `UnavailableError`, `isAppError` — canonical HTTP-mapped application errors
+ *   shared across all microservices.
+ *
  * @module @elastic-resume-base/toolbox
  */
 
 export { correlationIdHook } from './middleware/correlationId.js';
 export { createRequestLoggerHook } from './middleware/requestLogger.js';
+export {
+  AppError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+  ConflictError,
+  ForbiddenError,
+  DownstreamError,
+  UnavailableError,
+  isAppError,
+} from './errors.js';

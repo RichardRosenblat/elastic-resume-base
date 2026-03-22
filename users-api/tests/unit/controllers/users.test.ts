@@ -1,16 +1,23 @@
 /**
  * Unit tests for the users controller handlers.
- * Mocks the usersService module to test HTTP layer behaviour in isolation.
+ * Mocks the usersService and preApprovedUsersService modules to test HTTP layer behaviour.
  */
 
 jest.mock('../../../src/services/usersService', () => ({
-  createUser: jest.fn(),
+  authorizeUser: jest.fn(),
   getUserByUid: jest.fn(),
   updateUser: jest.fn(),
   deleteUser: jest.fn(),
   listUsers: jest.fn(),
-  getUserRole: jest.fn(),
-  getUserRolesBatch: jest.fn(),
+  bootstrapAdminUser: jest.fn(),
+}));
+
+jest.mock('../../../src/services/preApprovedUsersService', () => ({
+  getPreApprovedUser: jest.fn(),
+  listPreApprovedUsers: jest.fn(),
+  addToPreApproved: jest.fn(),
+  deleteFromPreApproved: jest.fn(),
+  updatePreApproved: jest.fn(),
 }));
 
 jest.mock('../../../src/config', () => ({
@@ -20,7 +27,9 @@ jest.mock('../../../src/config', () => ({
     port: 8005,
     projectId: 'demo-test',
     allowedOrigins: 'http://localhost:3000',
-    adminSheetFileId: undefined,
+    firestoreUsersCollection: 'users',
+    firestorePreApprovedUsersCollection: 'pre_approved_users',
+    onboardableEmailDomains: '',
   },
 }));
 
@@ -34,24 +43,22 @@ jest.mock('../../../src/utils/logger', () => ({
   },
 }));
 
-// Mock Firestore and Firebase Admin for app initialisation
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn(),
-  firestore: jest.fn(),
-}));
-
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
 import * as usersService from '../../../src/services/usersService.js';
-import { NotFoundError } from '@elastic-resume-base/synapse';
+import * as preApprovedService from '../../../src/services/preApprovedUsersService.js';
+import { NotFoundError, ForbiddenError } from '../../../src/errors.js';
 
 const MOCK_USER = {
   uid: 'uid123',
   email: 'alice@example.com',
-  displayName: 'Alice',
   role: 'user',
-  disabled: false,
+  enable: true,
+};
+
+const MOCK_PRE_APPROVED = {
+  email: 'alice@example.com',
+  role: 'admin',
 };
 
 describe('users controller', () => {
@@ -67,6 +74,59 @@ describe('users controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  // ── POST /api/v1/users/authorize ────────────────────────────────────────────
+
+  describe('POST /api/v1/users/authorize', () => {
+    it('returns 200 with role and enable when user is authorized', async () => {
+      (usersService.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/authorize',
+        payload: { uid: 'uid123', email: 'alice@example.com' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.role).toBe('user');
+      expect(body.data.enable).toBe(true);
+    });
+
+    it('returns 403 when user is forbidden', async () => {
+      (usersService.authorizeUser as jest.Mock).mockRejectedValue(
+        new ForbiddenError('User does not have access to this application'),
+      );
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/authorize',
+        payload: { uid: 'uid123', email: 'blocked@example.com' },
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('FORBIDDEN');
+    });
+
+    it('returns 400 when uid is missing', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/authorize',
+        payload: { email: 'alice@example.com' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when email is invalid', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/authorize',
+        payload: { uid: 'uid123', email: 'not-an-email' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   // ── GET /api/v1/users ──────────────────────────────────────────────────────
@@ -91,48 +151,11 @@ describe('users controller', () => {
 
       await app.inject({ method: 'GET', url: '/api/v1/users?maxResults=10&pageToken=tok123' });
 
-      expect(usersService.listUsers).toHaveBeenCalledWith(10, 'tok123');
+      expect(usersService.listUsers).toHaveBeenCalledWith(10, 'tok123', undefined);
     });
 
     it('returns 400 when maxResults is invalid', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/v1/users?maxResults=0' });
-      expect(res.statusCode).toBe(400);
-    });
-  });
-
-  // ── POST /api/v1/users ─────────────────────────────────────────────────────
-
-  describe('POST /api/v1/users', () => {
-    it('returns 201 with the created user', async () => {
-      (usersService.createUser as jest.Mock).mockResolvedValue(MOCK_USER);
-
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users',
-        payload: { email: 'alice@example.com', displayName: 'Alice' },
-      });
-
-      expect(res.statusCode).toBe(201);
-      const body = res.json();
-      expect(body.success).toBe(true);
-      expect(body.data.uid).toBe('uid123');
-    });
-
-    it('returns 400 when email is missing', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users',
-        payload: { displayName: 'Alice' },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('returns 400 when email is invalid', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users',
-        payload: { email: 'not-an-email' },
-      });
       expect(res.statusCode).toBe(400);
     });
   });
@@ -165,17 +188,17 @@ describe('users controller', () => {
 
   describe('PATCH /api/v1/users/:uid', () => {
     it('returns 200 with the updated user', async () => {
-      const updated = { ...MOCK_USER, displayName: 'Alice Updated' };
+      const updated = { ...MOCK_USER, enable: false };
       (usersService.updateUser as jest.Mock).mockResolvedValue(updated);
 
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/uid123',
-        payload: { displayName: 'Alice Updated' },
+        payload: { enable: false },
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().data.displayName).toBe('Alice Updated');
+      expect(res.json().data.enable).toBe(false);
     });
 
     it('returns 400 when payload is invalid', async () => {
@@ -183,6 +206,15 @@ describe('users controller', () => {
         method: 'PATCH',
         url: '/api/v1/users/uid123',
         payload: { email: 'not-an-email' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when payload is empty', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        payload: {},
       });
       expect(res.statusCode).toBe(400);
     });
@@ -195,7 +227,7 @@ describe('users controller', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/missing-uid',
-        payload: { displayName: 'Name' },
+        payload: { role: 'admin' },
       });
       expect(res.statusCode).toBe(404);
     });
@@ -221,60 +253,148 @@ describe('users controller', () => {
     });
   });
 
-  // ── GET /api/v1/users/:uid/role ────────────────────────────────────────────
+  // ── GET /api/v1/users/pre-approve ─────────────────────────────────────────
 
-  describe('GET /api/v1/users/:uid/role', () => {
-    it('returns 200 with role when user has access', async () => {
-      (usersService.getUserRole as jest.Mock).mockResolvedValue('admin');
+  describe('GET /api/v1/users/pre-approve', () => {
+    it('returns 200 with list of pre-approved users', async () => {
+      (preApprovedService.listPreApprovedUsers as jest.Mock).mockResolvedValue([MOCK_PRE_APPROVED]);
 
-      const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid123/role' });
+      const res = await app.inject({ method: 'GET', url: '/api/v1/users/pre-approve' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.success).toBe(true);
-      expect(body.data.role).toBe('admin');
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].email).toBe('alice@example.com');
     });
 
-    it('returns 403 when user has no access (getUserRole returns null)', async () => {
-      (usersService.getUserRole as jest.Mock).mockResolvedValue(null);
+    it('returns 200 with a specific pre-approved user when email is provided', async () => {
+      (preApprovedService.getPreApprovedUser as jest.Mock).mockResolvedValue(MOCK_PRE_APPROVED);
 
-      const res = await app.inject({ method: 'GET', url: '/api/v1/users/uid-no-access/role' });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/pre-approve?email=alice%40example.com',
+      });
 
-      expect(res.statusCode).toBe(403);
-      expect(res.json().success).toBe(false);
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.data.email).toBe('alice@example.com');
+    });
+
+    it('returns 404 when specific pre-approved user is not found', async () => {
+      (preApprovedService.getPreApprovedUser as jest.Mock).mockRejectedValue(
+        new NotFoundError('Not found'),
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/pre-approve?email=nobody%40example.com',
+      });
+      expect(res.statusCode).toBe(404);
     });
   });
 
-  // ── POST /api/v1/users/roles/batch ────────────────────────────────────────
+  // ── POST /api/v1/users/pre-approve ────────────────────────────────────────
 
-  describe('POST /api/v1/users/roles/batch', () => {
-    it('returns the roles map', async () => {
-      (usersService.getUserRolesBatch as jest.Mock).mockResolvedValue({
-        uid1: 'admin',
-        uid2: 'user',
-      });
+  describe('POST /api/v1/users/pre-approve', () => {
+    it('returns 201 with the created pre-approved user', async () => {
+      (preApprovedService.addToPreApproved as jest.Mock).mockResolvedValue(MOCK_PRE_APPROVED);
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/v1/users/roles/batch',
-        payload: { uids: ['uid1', 'uid2'] },
+        url: '/api/v1/users/pre-approve',
+        payload: { email: 'alice@example.com', role: 'admin' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.data.email).toBe('alice@example.com');
+      expect(body.data.role).toBe('admin');
+    });
+
+    it('returns 400 when email is missing', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/pre-approve',
+        payload: { role: 'admin' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when role is invalid (not admin or user)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/pre-approve',
+        payload: { email: 'alice@example.com', role: 'superuser' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
+  // ── DELETE /api/v1/users/pre-approve?email= ───────────────────────────────
+
+  describe('DELETE /api/v1/users/pre-approve', () => {
+    it('returns 204 on successful deletion', async () => {
+      (preApprovedService.deleteFromPreApproved as jest.Mock).mockResolvedValue(undefined);
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/pre-approve?email=alice%40example.com',
+      });
+      expect(res.statusCode).toBe(204);
+    });
+
+    it('returns 400 when email is missing', async () => {
+      const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/pre-approve' });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 404 when pre-approved user is not found', async () => {
+      (preApprovedService.deleteFromPreApproved as jest.Mock).mockRejectedValue(
+        new NotFoundError('Not found'),
+      );
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/pre-approve?email=nobody%40example.com',
+      });
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
+  // ── PATCH /api/v1/users/pre-approve?email= ────────────────────────────────
+
+  describe('PATCH /api/v1/users/pre-approve', () => {
+    it('returns 200 with the updated pre-approved user', async () => {
+      const updated = { email: 'alice@example.com', role: 'user' };
+      (preApprovedService.updatePreApproved as jest.Mock).mockResolvedValue(updated);
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=alice%40example.com',
+        payload: { role: 'user' },
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json();
-      expect(body.success).toBe(true);
-      expect(body.data['uid1']).toBe('admin');
-      expect(body.data['uid2']).toBe('user');
+      expect(res.json().data.role).toBe('user');
     });
 
-    it('returns 400 when uids is missing', async () => {
+    it('returns 400 when email is missing', async () => {
       const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users/roles/batch',
-        payload: {},
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve',
+        payload: { role: 'user' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when role is invalid (not admin or user)', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=alice%40example.com',
+        payload: { role: 'superuser' },
       });
       expect(res.statusCode).toBe(400);
     });
   });
 });
-

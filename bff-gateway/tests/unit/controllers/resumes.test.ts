@@ -15,9 +15,16 @@ jest.mock('../../../src/services/fileGeneratorClient', () => ({
 }));
 
 jest.mock('../../../src/services/userApiClient', () => ({
-  checkUserAccess: jest.fn().mockResolvedValue('user'),
-  getUserRole: jest.fn().mockResolvedValue('user'),
-  getUserRolesBatch: jest.fn().mockResolvedValue({}),
+  authorizeUser: jest.fn().mockResolvedValue({ role: 'user', enable: true }),
+  getUserById: jest.fn(),
+  listUsersFromApi: jest.fn(),
+  updateUserInApi: jest.fn(),
+  deleteUserFromApi: jest.fn(),
+  listPreApprovedFromApi: jest.fn(),
+  getPreApprovedFromApi: jest.fn(),
+  addPreApprovedInApi: jest.fn(),
+  deletePreApprovedFromApi: jest.fn(),
+  updatePreApprovedInApi: jest.fn(),
 }));
 
 import * as admin from 'firebase-admin';

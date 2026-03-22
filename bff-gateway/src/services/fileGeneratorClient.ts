@@ -1,9 +1,9 @@
+import axios from 'axios';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { GenerateRequest, GenerateResponse } from '../models/index.js';
-import { mapDownstreamError } from '../utils/errorMapper.js';
-import { DownstreamError } from '../errors.js';
+import { DownstreamError, UnavailableError } from '../errors.js';
 
 const client = createHttpClient(config.fileGeneratorServiceUrl);
 
@@ -20,8 +20,17 @@ export async function generateResume(resumeId: string, payload: GenerateRequest)
     logger.info({ resumeId, jobId: response.data.jobId, status: response.data.status }, 'generateResume: generation job accepted');
     return response.data;
   } catch (err) {
-    const mapped = mapDownstreamError(err);
-    logger.warn({ resumeId, code: mapped.code, statusCode: mapped.statusCode }, 'generateResume: downstream error from file generator service');
-    throw new DownstreamError(mapped.message, mapped.statusCode, mapped.code);
+    if (axios.isAxiosError(err)) {
+      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
+        logger.warn({ resumeId }, 'generateResume: file generator service unavailable');
+        throw new UnavailableError('FileGenerator service unavailable');
+      }
+      if (err.response.status >= 500) {
+        logger.warn({ resumeId, status: err.response.status }, 'generateResume: file generator service server error');
+        throw new UnavailableError('FileGenerator service error');
+      }
+      throw new DownstreamError('FileGenerator service returned an invalid response format');
+    }
+    throw new DownstreamError('Unexpected error from FileGenerator service');
   }
 }

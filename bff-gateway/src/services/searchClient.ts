@@ -1,9 +1,9 @@
+import axios from 'axios';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { SearchRequest, SearchResponse } from '../models/index.js';
-import { mapDownstreamError } from '../utils/errorMapper.js';
-import { DownstreamError } from '../errors.js';
+import { DownstreamError, UnavailableError } from '../errors.js';
 
 const client = createHttpClient(config.searchBaseServiceUrl);
 
@@ -19,8 +19,17 @@ export async function search(payload: SearchRequest): Promise<SearchResponse> {
     logger.debug({ resultCount: response.data.results?.length }, 'search: response received from search service');
     return response.data;
   } catch (err) {
-    const mapped = mapDownstreamError(err);
-    logger.warn({ code: mapped.code, statusCode: mapped.statusCode }, 'search: downstream error from search service');
-    throw new DownstreamError(mapped.message, mapped.statusCode, mapped.code);
+    if (axios.isAxiosError(err)) {
+      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
+        logger.warn({ query: payload.query }, 'search: search service unavailable');
+        throw new UnavailableError('Search service unavailable');
+      }
+      if (err.response.status >= 500) {
+        logger.warn({ query: payload.query, status: err.response.status }, 'search: search service server error');
+        throw new UnavailableError('Search service error');
+      }
+      throw new DownstreamError('Search service returned an invalid response format');
+    }
+    throw new DownstreamError('Unexpected error from Search service');
   }
 }
