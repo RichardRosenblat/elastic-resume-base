@@ -29,7 +29,7 @@ Install the following tools before you begin:
 |------|---------|---------|
 | [Git](https://git-scm.com/) | Any recent | Source control |
 | [Docker](https://docs.docker.com/get-docker/) + [Docker Compose](https://docs.docker.com/compose/install/) | Compose v2+ | Running all services locally |
-| [Node.js](https://nodejs.org/) | v20+ | BFF Gateway and Users API |
+| [Node.js](https://nodejs.org/) | v22+ | BFF Gateway and Users API |
 | [Python](https://www.python.org/downloads/) | v3.11+ | All Python microservices |
 | [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install) | Latest | Application Default Credentials and GCP access |
 | [Firebase CLI](https://firebase.google.com/docs/cli) | Latest | Local Firebase Emulator Suite |

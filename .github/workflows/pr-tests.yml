@@ -68,7 +68,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           # Each package has its own lock file; cache key is derived from it.
           cache-dependency-path: ${{ matrix.package.path }}/package-lock.json
@@ -90,6 +90,7 @@ jobs:
           set -o pipefail
           NODE_OPTIONS='--experimental-vm-modules' npx jest \
             --runInBand \
+            --verbose \
             --forceExit \
             --testRetries=1 \
             --coverage \

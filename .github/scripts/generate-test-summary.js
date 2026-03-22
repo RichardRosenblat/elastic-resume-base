@@ -68,12 +68,18 @@ for (const pkg of packages) {
   const failed  = results.numFailedTests  || 0;
   const skipped = results.numPendingTests || 0;
 
-  // Sum per-file runtimes for wall-clock duration (tests run --runInBand so sum == total)
+  // Sum per-file runtimes for wall-clock duration (tests run --runInBand so sum == total).
+  // Jest JSON output provides perfStats.end and perfStats.start (ms epoch timestamps);
+  // perfStats.runtime is not a standard Jest field so we fall back to end - start.
   let durationMs = 0;
   if (Array.isArray(results.testResults)) {
     for (const r of results.testResults) {
-      if (r.perfStats && typeof r.perfStats.runtime === 'number') {
-        durationMs += r.perfStats.runtime;
+      if (r.perfStats) {
+        if (typeof r.perfStats.runtime === 'number') {
+          durationMs += r.perfStats.runtime;
+        } else if (typeof r.perfStats.end === 'number' && typeof r.perfStats.start === 'number') {
+          durationMs += r.perfStats.end - r.perfStats.start;
+        }
       }
     }
   }
