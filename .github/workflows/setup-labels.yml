@@ -13,6 +13,7 @@ jobs:
     name: Sync repository labels
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       issues: write
     steps:
       - name: Checkout
