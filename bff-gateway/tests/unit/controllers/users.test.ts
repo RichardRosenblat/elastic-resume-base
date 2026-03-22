@@ -180,6 +180,17 @@ describe('Users Controller', () => {
       expect(body.data.email).toBe('updated@example.com');
     });
 
+    it('returns 400 when payload is empty', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
     it('returns 403 when service throws ForbiddenError', async () => {
       (usersService.updateUser as jest.Mock).mockRejectedValue(
         new ForbiddenError('You may only update your own profile'),
@@ -319,6 +330,17 @@ describe('Users Controller', () => {
         url: '/api/v1/users/pre-approve',
         headers: { authorization: 'Bearer valid-token' },
         payload: { email: 'not-an-email', role: 'admin' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when role is invalid (not admin or user)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/pre-approve',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { email: 'test@example.com', role: 'superuser' },
       });
 
       expect(res.statusCode).toBe(400);

@@ -18,6 +18,13 @@ function initializePersistence(options) {
   }
   admin.initializeApp(appOptions);
 }
+async function terminatePersistence() {
+  if (admin.apps.length === 0) {
+    return;
+  }
+  const app = admin.app();
+  await app.delete();
+}
 
 // src/repositories/firestore-user-repository.ts
 import * as admin2 from "firebase-admin";
@@ -168,7 +175,7 @@ var FirestoreUserRepository = class {
 };
 
 // src/repositories/firestore-user-document-store.ts
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldPath } from "firebase-admin/firestore";
 function mapDoc(id, data) {
   return {
     uid: id,
@@ -236,7 +243,7 @@ var FirestoreUserDocumentStore = class {
     if (filters?.enable !== void 0) {
       query = query.where("enable", "==", filters.enable);
     }
-    query = query.orderBy(FirebaseFirestore.FieldPath.documentId()).limit(maxResults);
+    query = query.orderBy(FieldPath.documentId()).limit(maxResults);
     if (pageToken) {
       query = query.startAfter(pageToken);
     }
@@ -314,6 +321,7 @@ export {
   FirestorePreApprovedStore,
   FirestoreUserDocumentStore,
   FirestoreUserRepository,
-  initializePersistence
+  initializePersistence,
+  terminatePersistence
 };
 //# sourceMappingURL=index.js.map

@@ -62,3 +62,27 @@ export function initializePersistence(options: PersistenceOptions): void {
 
   admin.initializeApp(appOptions);
 }
+
+/**
+ * Terminates the Firebase Admin SDK — should be called during graceful shutdown
+ * to release Firestore connections and prevent zombie connections or memory leaks.
+ *
+ * This function is **idempotent**: if no app is initialized, it is a no-op.
+ *
+ * @example
+ * ```typescript
+ * import { terminatePersistence } from '@elastic-resume-base/synapse';
+ *
+ * process.on('SIGTERM', async () => {
+ *   await terminatePersistence();
+ *   process.exit(0);
+ * });
+ * ```
+ */
+export async function terminatePersistence(): Promise<void> {
+  if (admin.apps.length === 0) {
+    return;
+  }
+  const app = admin.app();
+  await app.delete();
+}

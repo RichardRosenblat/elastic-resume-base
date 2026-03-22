@@ -54,8 +54,12 @@ export class ForbiddenError extends AppError {
  * For connectivity/availability issues use {@link UnavailableError} instead.
  */
 export class DownstreamError extends AppError {
-  constructor(message = 'Invalid response from downstream service') {
-    super(message, 502, 'DOWNSTREAM_ERROR');
+  constructor(
+    message = 'Invalid response from downstream service',
+    statusCode = 502,
+    code = 'DOWNSTREAM_ERROR',
+  ) {
+    super(message, statusCode, code);
   }
 }
 

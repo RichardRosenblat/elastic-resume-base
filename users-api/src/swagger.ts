@@ -21,7 +21,8 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
       servers: [{ url: '/', description: 'Current server' }],
       tags: [
         { name: 'Health', description: 'Liveness and readiness probes for the Users API service.' },
-        { name: 'Users', description: 'CRUD operations for Firestore user documents and role resolution.' },
+        { name: 'Users', description: 'CRUD operations for Firestore user documents and BFF authorization logic.' },
+        { name: 'Pre-Approved Users', description: 'Management of the pre-approved users list used during the onboarding flow.' },
       ],
       components: {
         securitySchemes: {

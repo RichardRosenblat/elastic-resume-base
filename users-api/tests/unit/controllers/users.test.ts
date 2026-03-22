@@ -5,7 +5,6 @@
 
 jest.mock('../../../src/services/usersService', () => ({
   authorizeUser: jest.fn(),
-  createUser: jest.fn(),
   getUserByUid: jest.fn(),
   updateUser: jest.fn(),
   deleteUser: jest.fn(),
@@ -161,43 +160,6 @@ describe('users controller', () => {
     });
   });
 
-  // ── POST /api/v1/users ─────────────────────────────────────────────────────
-
-  describe('POST /api/v1/users', () => {
-    it('returns 201 with the created user', async () => {
-      (usersService.createUser as jest.Mock).mockResolvedValue(MOCK_USER);
-
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users',
-        payload: { uid: 'uid123', email: 'alice@example.com' },
-      });
-
-      expect(res.statusCode).toBe(201);
-      const body = res.json();
-      expect(body.success).toBe(true);
-      expect(body.data.uid).toBe('uid123');
-    });
-
-    it('returns 400 when uid is missing', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users',
-        payload: { email: 'alice@example.com' },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('returns 400 when email is invalid', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/users',
-        payload: { uid: 'uid123', email: 'not-an-email' },
-      });
-      expect(res.statusCode).toBe(400);
-    });
-  });
-
   // ── GET /api/v1/users/:uid ─────────────────────────────────────────────────
 
   describe('GET /api/v1/users/:uid', () => {
@@ -244,6 +206,15 @@ describe('users controller', () => {
         method: 'PATCH',
         url: '/api/v1/users/uid123',
         payload: { email: 'not-an-email' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when payload is empty', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        payload: {},
       });
       expect(res.statusCode).toBe(400);
     });
@@ -349,6 +320,15 @@ describe('users controller', () => {
       });
       expect(res.statusCode).toBe(400);
     });
+
+    it('returns 400 when role is invalid (not admin or user)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/users/pre-approve',
+        payload: { email: 'alice@example.com', role: 'superuser' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   // ── DELETE /api/v1/users/pre-approve?email= ───────────────────────────────
@@ -404,6 +384,15 @@ describe('users controller', () => {
         method: 'PATCH',
         url: '/api/v1/users/pre-approve',
         payload: { role: 'user' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when role is invalid (not admin or user)', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=alice%40example.com',
+        payload: { role: 'superuser' },
       });
       expect(res.statusCode).toBe(400);
     });

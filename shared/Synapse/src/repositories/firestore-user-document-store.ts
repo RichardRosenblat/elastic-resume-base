@@ -1,4 +1,5 @@
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldPath } from 'firebase-admin/firestore';
+import type { CollectionReference, Query, DocumentData, UpdateData } from 'firebase-admin/firestore';
 import { NotFoundError, ConflictError } from '../errors.js';
 import type {
   IUserDocumentStore,
@@ -12,7 +13,7 @@ import type {
 /**
  * Maps a Firestore document snapshot to a {@link UserDocument}.
  */
-function mapDoc(id: string, data: FirebaseFirestore.DocumentData): UserDocument {
+function mapDoc(id: string, data: DocumentData): UserDocument {
   return {
     uid: id,
     email: data['email'] as string,
@@ -31,7 +32,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     this._collectionName = collectionName;
   }
 
-  private get _collection(): FirebaseFirestore.CollectionReference {
+  private get _collection(): CollectionReference {
     return getFirestore().collection(this._collectionName);
   }
 
@@ -69,7 +70,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     if (!existing.exists) {
       throw new NotFoundError(`User '${uid}' not found`);
     }
-    await docRef.update(data as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>);
+    await docRef.update(data as UpdateData<DocumentData>);
     const updated = await docRef.get();
     return mapDoc(updated.id, updated.data()!);
   }
@@ -88,7 +89,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     pageToken?: string,
     filters?: UserDocumentFilters,
   ): Promise<ListUserDocumentsResult> {
-    let query: FirebaseFirestore.Query = this._collection;
+    let query: Query = this._collection;
 
     if (filters?.role !== undefined) {
       query = query.where('role', '==', filters.role);
@@ -97,7 +98,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
       query = query.where('enable', '==', filters.enable);
     }
 
-    query = query.orderBy(FirebaseFirestore.FieldPath.documentId()).limit(maxResults);
+    query = query.orderBy(FieldPath.documentId()).limit(maxResults);
 
     if (pageToken) {
       query = query.startAfter(pageToken);

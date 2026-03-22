@@ -1,4 +1,5 @@
 import { getFirestore } from 'firebase-admin/firestore';
+import type { CollectionReference, Query, DocumentData, UpdateData } from 'firebase-admin/firestore';
 import { NotFoundError, ConflictError } from '../errors.js';
 import type {
   IPreApprovedStore,
@@ -11,7 +12,7 @@ import type {
 /**
  * Maps a Firestore document snapshot to a {@link PreApprovedDocument}.
  */
-function mapDoc(id: string, data: FirebaseFirestore.DocumentData): PreApprovedDocument {
+function mapDoc(id: string, data: DocumentData): PreApprovedDocument {
   return {
     email: id,
     role: data['role'] as string,
@@ -29,7 +30,7 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     this._collectionName = collectionName;
   }
 
-  private get _collection(): FirebaseFirestore.CollectionReference {
+  private get _collection(): CollectionReference {
     return getFirestore().collection(this._collectionName);
   }
 
@@ -59,7 +60,7 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     if (!existing.exists) {
       throw new NotFoundError(`Pre-approved entry for '${id}' not found`);
     }
-    await docRef.update(data as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>);
+    await docRef.update(data as UpdateData<DocumentData>);
     const updated = await docRef.get();
     return mapDoc(updated.id, updated.data()!);
   }
@@ -75,7 +76,7 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
   }
 
   async list(filters?: PreApprovedFilters): Promise<PreApprovedDocument[]> {
-    let query: FirebaseFirestore.Query = this._collection;
+    let query: Query = this._collection;
 
     if (filters?.role !== undefined) {
       query = query.where('role', '==', filters.role);

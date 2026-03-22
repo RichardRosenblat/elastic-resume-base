@@ -23,7 +23,7 @@
 // Persistence initialisation (must be called before using any store)
 // ---------------------------------------------------------------------------
 export type { PersistenceOptions } from './persistence.js';
-export { initializePersistence } from './persistence.js';
+export { initializePersistence, terminatePersistence } from './persistence.js';
 
 // ---------------------------------------------------------------------------
 // User repository interface & models

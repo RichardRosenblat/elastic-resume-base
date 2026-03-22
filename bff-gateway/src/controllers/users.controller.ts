@@ -15,19 +15,27 @@ import {
   updatePreApproved,
 } from '../services/usersService.js';
 
-const updateUserSchema = z.object({
-  email: z.string().email().optional(),
-  role: z.string().optional(),
-  enable: z.boolean().optional(),
-});
+const updateUserSchema = z
+  .object({
+    email: z.string().email().optional(),
+    role: z.string().optional(),
+    enable: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
+    message: 'Request body must contain at least one valid field to update (email, role, or enable)',
+  });
 
 const updatePreApprovedSchema = z.object({
-  role: z.string().min(1).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
 });
 
 const addPreApprovedSchema = z.object({
   email: z.string().email(),
-  role: z.string().min(1),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }),
 });
 
 const listUsersQuerySchema = z.object({

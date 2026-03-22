@@ -4,11 +4,11 @@
   "description": "Shared Firestore database abstractions and error handling for Elastic Resume Base microservices",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/Synapse/src/index.d.ts",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/Synapse/src/index.d.ts"
+      "types": "./dist/index.d.ts"
     }
   },
   "scripts": {

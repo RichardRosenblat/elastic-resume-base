@@ -4,7 +4,6 @@ import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import {
   authorizeUser,
-  createUser,
   getUserByUid,
   updateUser,
   deleteUser,
@@ -28,18 +27,15 @@ const authorizeSchema = z.object({
   email: z.string().email(),
 });
 
-const createUserSchema = z.object({
-  uid: z.string().min(1),
-  email: z.string().email(),
-  role: z.string().optional(),
-  enable: z.boolean().optional(),
-});
-
-const updateUserSchema = z.object({
-  email: z.string().email().optional(),
-  role: z.string().optional(),
-  enable: z.boolean().optional(),
-});
+const updateUserSchema = z
+  .object({
+    email: z.string().email().optional(),
+    role: z.string().optional(),
+    enable: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
+    message: 'Request body must contain at least one valid field to update (email, role, or enable)',
+  });
 
 const listUsersQuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(1000).default(100),
@@ -53,11 +49,15 @@ const listUsersQuerySchema = z.object({
 
 const addPreApprovedSchema = z.object({
   email: z.string().email(),
-  role: z.string().min(1),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }),
 });
 
 const updatePreApprovedSchema = z.object({
-  role: z.string().min(1).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
 });
 
 const listPreApprovedQuerySchema = z.object({
@@ -120,36 +120,6 @@ export async function authorizeHandler(
 // ---------------------------------------------------------------------------
 // User CRUD Handlers
 // ---------------------------------------------------------------------------
-
-/**
- * Handles POST /api/v1/users — creates a new Firestore user document.
- */
-export async function createUserHandler(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<void> {
-  logger.debug({ correlationId: request.correlationId }, 'createUserHandler: validating request body');
-  const parsed = createUserSchema.safeParse(request.body);
-  if (!parsed.success) {
-    logger.warn(
-      { correlationId: request.correlationId, issues: parsed.error.issues },
-      'createUserHandler: validation failed',
-    );
-    void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
-    );
-    return;
-  }
-  logger.info({ correlationId: request.correlationId, email: parsed.data.email }, 'createUserHandler: creating user');
-  const user = await createUser({
-    uid: parsed.data.uid,
-    email: parsed.data.email,
-    role: parsed.data.role ?? 'user',
-    enable: parsed.data.enable ?? false,
-  });
-  logger.debug({ correlationId: request.correlationId, uid: user.uid }, 'createUserHandler: user created successfully');
-  void reply.code(201).send(formatSuccess(user, request.correlationId));
-}
 
 /**
  * Handles GET /api/v1/users/:uid — retrieves a Firestore user document by UID.

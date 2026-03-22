@@ -256,7 +256,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.get('/pre-approve', {
     preHandler: [requireAdminHook],
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'List or get pre-approved users (admin only)',
       description: 'Lists all pre-approved users, or gets a specific one by email.',
       security: [{ bearerAuth: [] }],
@@ -264,7 +264,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         type: 'object',
         properties: {
           email: { type: 'string', example: 'jane.doe@example.com' },
-          filterRole: { type: 'string', example: 'admin', description: 'Filter list by role.' },
+          filterRole: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: 'Filter list by role.' },
         },
       },
       response: {
@@ -288,7 +288,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.post('/pre-approve', {
     preHandler: [requireAdminHook],
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'Add a pre-approved user (admin only)',
       description: 'Adds an email and role to the pre-approved users list.',
       security: [{ bearerAuth: [] }],
@@ -297,7 +297,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         required: ['email', 'role'],
         properties: {
           email: { type: 'string', example: 'jane.doe@example.com' },
-          role: { type: 'string', example: 'admin' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Must be 'admin' or 'user'." },
         },
       },
       response: {
@@ -321,7 +321,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.delete('/pre-approve', {
     preHandler: [requireAdminHook],
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'Delete a pre-approved user (admin only)',
       description: 'Removes a user from the pre-approved list by email.',
       security: [{ bearerAuth: [] }],
@@ -346,7 +346,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.patch('/pre-approve', {
     preHandler: [requireAdminHook],
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'Update a pre-approved user (admin only)',
       description: 'Updates a pre-approved user\'s role.',
       security: [{ bearerAuth: [] }],
@@ -360,7 +360,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
-          role: { type: 'string', example: 'user' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'user', description: "Must be 'admin' or 'user'." },
         },
       },
       response: {

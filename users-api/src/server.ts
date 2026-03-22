@@ -1,4 +1,4 @@
-import { initializePersistence } from '@elastic-resume-base/synapse';
+import { initializePersistence, terminatePersistence } from '@elastic-resume-base/synapse';
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import { buildApp } from './app.js';
@@ -21,10 +21,16 @@ try {
 
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  void app.close().then(() => {
-    logger.info('Server closed');
-    process.exit(0);
-  });
+  void app.close()
+    .then(() => terminatePersistence())
+    .then(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Error during graceful shutdown');
+      process.exit(1);
+    });
 });
 
 export default app;

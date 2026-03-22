@@ -18,10 +18,15 @@ try {
 
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  void app.close().then(() => {
-    logger.info('Server closed');
-    process.exit(0);
-  });
+  void app.close()
+    .then(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Error during graceful shutdown');
+      process.exit(1);
+    });
 });
 
 export default app;

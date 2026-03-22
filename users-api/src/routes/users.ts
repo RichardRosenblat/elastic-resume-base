@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
   authorizeHandler,
-  createUserHandler,
   getUserHandler,
   updateUserHandler,
   deleteUserHandler,
@@ -230,7 +229,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
 
   app.get('/pre-approve', {
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'List or get pre-approved users (admin only)',
       description:
         'Returns all pre-approved users, or a specific one if email query param is provided.',
@@ -244,6 +243,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           },
           role: {
             type: 'string',
+            enum: ['admin', 'user'],
             description: 'Filter pre-approved users by role (ignored when email is provided).',
             example: 'admin',
           },
@@ -267,7 +267,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
 
   app.post('/pre-approve', {
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'Add a pre-approved user (admin only)',
       description: 'Adds an email and role to the pre_approved_users collection.',
       body: {
@@ -281,7 +281,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           },
           role: {
             type: 'string',
-            description: "Role to assign when the user first logs in.",
+            enum: ['admin', 'user'],
+            description: "Role to assign when the user first logs in. Must be 'admin' or 'user'.",
             example: 'admin',
           },
         },
@@ -304,7 +305,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
 
   app.delete('/pre-approve', {
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'Delete a pre-approved user (admin only)',
       description: 'Removes a user from the pre_approved_users collection by email.',
       querystring: {
@@ -332,7 +333,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
 
   app.patch('/pre-approve', {
     schema: {
-      tags: ['Users'],
+      tags: ['Pre-Approved Users'],
       summary: 'Update a pre-approved user (admin only)',
       description: 'Updates a pre-approved user in the pre_approved_users collection.',
       querystring: {
@@ -351,7 +352,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           role: {
             type: 'string',
-            description: 'Updated role to assign.',
+            enum: ['admin', 'user'],
+            description: "Updated role to assign. Must be 'admin' or 'user'.",
             example: 'user',
           },
         },
@@ -443,53 +445,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, listUsersHandler);
 
-
-  app.post('/', {
-    schema: {
-      tags: ['Users'],
-      summary: 'Create a new user (admin only)',
-      description: 'Creates a new user document directly in the users Firestore collection.',
-      body: {
-        type: 'object',
-        required: ['uid', 'email'],
-        properties: {
-          uid: {
-            type: 'string',
-            description: 'Firebase UID for the new user document.',
-            example: 'aB3dE5fG7hI9jK1l',
-          },
-          email: {
-            type: 'string',
-            description: "New user's email address.",
-            example: 'jane.doe@example.com',
-          },
-          role: {
-            type: 'string',
-            description: "Application-level role (defaults to 'user').",
-            example: 'user',
-          },
-          enable: {
-            type: 'boolean',
-            description: 'Whether the user is enabled (defaults to false).',
-            example: false,
-          },
-        },
-      },
-      response: {
-        201: {
-          description: 'User document created successfully.',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: userRecordSchema,
-            meta: responseMeta,
-          },
-        },
-        400: validationErrorResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, createUserHandler);
 
   app.get('/:uid', {
     schema: {

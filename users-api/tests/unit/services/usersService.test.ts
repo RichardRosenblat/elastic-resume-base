@@ -3,7 +3,7 @@
  *
  * Coverage:
  * - Authorization: authorizeUser
- * - CRUD operations: createUser, getUserByUid, updateUser, deleteUser, listUsers
+ * - CRUD operations: getUserByUid, updateUser, deleteUser, listUsers
  * - Bootstrapping: bootstrapAdminUser
  */
 
@@ -42,10 +42,8 @@ jest.mock('../../../src/utils/logger', () => ({
 
 import { FirestoreUserDocumentStore, FirestorePreApprovedStore } from '@elastic-resume-base/synapse';
 import { config } from '../../../src/config.js';
-import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../../src/errors.js';
-import {
-  authorizeUser,
-  createUser,
+import { NotFoundError, ForbiddenError, ValidationError } from '../../../src/errors.js';
+import { authorizeUser,
   getUserByUid,
   updateUser,
   deleteUser,
@@ -179,33 +177,6 @@ describe('usersService', () => {
 
       expect(result.role).toBe('admin');
       expect(result.enable).toBe(true);
-    });
-  });
-
-  // ── createUser ────────────────────────────────────────────────────────────
-
-  describe('createUser', () => {
-    it('creates a user and returns the record', async () => {
-      const { userStore } = setupMocks();
-      userStore.createUser.mockResolvedValue(MOCK_USER);
-
-      const result = await createUser({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: true });
-
-      expect(result.email).toBe('alice@example.com');
-      expect(result.role).toBe('user');
-      expect(result.enable).toBe(true);
-    });
-
-    it('throws ValidationError when email is invalid', async () => {
-      setupMocks();
-      await expect(createUser({ uid: 'uid123', email: 'not-an-email', role: 'user', enable: false })).rejects.toThrow(ValidationError);
-    });
-
-    it('throws ConflictError when uid already exists', async () => {
-      const { userStore } = setupMocks();
-      userStore.createUser.mockRejectedValue(new ConflictError('already exists'));
-
-      await expect(createUser({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false })).rejects.toThrow(ConflictError);
     });
   });
 

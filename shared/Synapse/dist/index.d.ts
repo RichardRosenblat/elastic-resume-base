@@ -19,7 +19,7 @@
  * ```
  */
 export type { PersistenceOptions } from './persistence.js';
-export { initializePersistence } from './persistence.js';
+export { initializePersistence, terminatePersistence } from './persistence.js';
 export type { UserRepository, CreateUserData, UpdateUserData, UserRecord, ListUsersResult, } from './interfaces/user-repository.js';
 export { FirestoreUserRepository } from './repositories/firestore-user-repository.js';
 export type { IUserDocumentStore, UserDocument, CreateUserDocumentData, UpdateUserDocumentData, UserDocumentFilters, ListUserDocumentsResult, } from './interfaces/user-document-store.js';

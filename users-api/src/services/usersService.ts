@@ -9,7 +9,6 @@ import { config } from '../config.js';
 import type {
   AuthorizeRequest,
   AuthorizeResponse,
-  CreateUserRequest,
   ListUsersResponse,
   UpdateUserRequest,
   UserFilters,
@@ -134,32 +133,6 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
 // ---------------------------------------------------------------------------
 // CRUD operations
 // ---------------------------------------------------------------------------
-
-/**
- * Creates a new user.
- *
- * @param data - User creation payload.
- * @returns The newly created {@link UserRecord}.
- * @throws {ValidationError} If the email is missing or invalid.
- * @throws {ConflictError} If a user with the same uid already exists.
- */
-export async function createUser(data: CreateUserRequest): Promise<UserRecord> {
-  logger.debug({ email: data.email }, 'createUser: validating email');
-  validateEmail(data.email);
-
-  const userStore = getUserStore();
-  const { uid, email, role, enable } = data;
-
-  logger.debug({ uid }, 'createUser: creating user');
-  const user = await userStore.createUser({
-    uid,
-    email,
-    role: role ?? DEFAULT_ROLE,
-    enable: enable ?? false,
-  });
-  logger.info({ uid, action: 'createUser' }, 'User created');
-  return user;
-}
 
 /**
  * Retrieves a user by UID.
