@@ -1,0 +1,78 @@
+name: PR Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run All Tests
+    runs-on: ubuntu-latest
+    # Always succeed so this check never blocks a PR from being merged
+    continue-on-error: true
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install shared/Bowltie dependencies
+        run: npm ci
+        working-directory: shared/Bowltie
+
+      - name: Install shared/Bugle dependencies
+        run: npm ci
+        working-directory: shared/Bugle
+
+      - name: Install shared/Synapse dependencies
+        run: npm ci
+        working-directory: shared/Synapse
+
+      - name: Install bff-gateway dependencies
+        run: npm ci
+        working-directory: bff-gateway
+
+      - name: Install users-api dependencies
+        run: npm ci
+        working-directory: users-api
+
+      - name: Test shared/Bowltie
+        id: test-bowltie
+        continue-on-error: true
+        working-directory: shared/Bowltie
+        run: NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --json --outputFile=${{ github.workspace }}/bowltie-results.json
+
+      - name: Test shared/Bugle
+        id: test-bugle
+        continue-on-error: true
+        working-directory: shared/Bugle
+        run: NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --json --outputFile=${{ github.workspace }}/bugle-results.json
+
+      - name: Test shared/Synapse
+        id: test-synapse
+        continue-on-error: true
+        working-directory: shared/Synapse
+        run: NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --json --outputFile=${{ github.workspace }}/synapse-results.json
+
+      - name: Test bff-gateway
+        id: test-bff-gateway
+        continue-on-error: true
+        working-directory: bff-gateway
+        run: NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --json --outputFile=${{ github.workspace }}/bff-gateway-results.json
+
+      - name: Test users-api
+        id: test-users-api
+        continue-on-error: true
+        working-directory: users-api
+        run: NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --json --outputFile=${{ github.workspace }}/users-api-results.json
+
+      - name: Generate Test Summary
+        if: always()
+        run: node .github/scripts/generate-test-summary.js
