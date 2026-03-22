@@ -5,7 +5,6 @@
 2. Check the shutdown logic for the APIs, ensure that the graceful shutdown does not cause any memory leaks or zombie connections. Implement cleanup calls on Synapse and ensure users api calls it.
 3. The **POST** `/api/v1/users/pre-approve` endpoint should validate that the role is either "admin" or "user". If the validation fails, it should return a 400 Bad Request response with an appropriate error message.
 4. The **PATCH** `/api/v1/users/pre-approve` endpoint should validate that the role is either "admin" or "user". If the validation fails, it should return a 400 Bad Request response with an appropriate error message.
-5. Synapse errors are different classes from the Toolbox erros, this causes problems when comparing instances of errors
 
 ## User API Endpoints
 
