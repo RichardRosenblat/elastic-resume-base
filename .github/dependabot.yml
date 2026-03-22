@@ -1,41 +1,89 @@
 version: 2
 updates:
+  # 🔧 Keep GitHub Actions updates separate (good practice)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 2
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
+  # 📦 Root package
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "*"
+      prod-dependencies:
+        dependency-type: "production"
+        patterns:
+          - "*"
 
+  # 🧩 All sub-packages (repeat pattern cleanly)
   - package-ecosystem: "npm"
     directory: "/bff-gateway"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/users-api"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/shared"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/shared/Synapse"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/shared/Bowltie"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/shared/Bugle"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-deps:
+        patterns:
+          - "*"
