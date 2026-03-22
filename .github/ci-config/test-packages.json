@@ -1,0 +1,7 @@
+[
+  { "id": "bowltie",     "name": "shared/Bowltie", "path": "shared/Bowltie"  },
+  { "id": "bugle",       "name": "shared/Bugle",   "path": "shared/Bugle"    },
+  { "id": "synapse",     "name": "shared/Synapse",  "path": "shared/Synapse"  },
+  { "id": "bff-gateway", "name": "bff-gateway",    "path": "bff-gateway"     },
+  { "id": "users-api",   "name": "users-api",      "path": "users-api"       }
+]
