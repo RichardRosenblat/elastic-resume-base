@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "firebase-admin": "12.1.0",
-    "zod": "3.23.8"
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/jest": "29.5.12",
