@@ -1,0 +1,111 @@
+# ---------------------------------------------------------------
+# GitHub Labels Configuration
+# ---------------------------------------------------------------
+# This file defines all labels for the repository.
+# Labels are synced automatically by the setup-labels workflow.
+# ---------------------------------------------------------------
+
+# 🧩 Type Labels — what the issue is
+- name: bug
+  color: "0075ca"
+  description: Something isn't working
+
+- name: enhancement
+  color: "1d76db"
+  description: New feature or request
+
+- name: task
+  color: "0052cc"
+  description: General engineering task
+
+- name: internal
+  color: "006b75"
+  description: Internal-only work (dev tasks, TODOs)
+
+- name: documentation
+  color: "0075ca"
+  description: Docs improvements
+
+- name: question
+  color: "4f86f7"
+  description: Further information is requested
+
+# 🚨 Priority Labels — urgency
+- name: "priority:high"
+  color: "e11d48"
+  description: "Urgent, should be addressed soon"
+
+- name: "priority:medium"
+  color: "f59e0b"
+  description: Normal priority
+
+- name: "priority:low"
+  color: "22c55e"
+  description: Low priority, can wait
+
+# 🧱 Area Labels — scope / ownership
+- name: "area:web"
+  color: "8b5cf6"
+  description: Frontend (React)
+
+- name: "area:api"
+  color: "7c3aed"
+  description: Backend API (NestJS / BFF)
+
+- name: "area:worker"
+  color: "6d28d9"
+  description: Python services
+
+- name: "area:shared"
+  color: "5b21b6"
+  description: Shared packages
+
+- name: "area:infra"
+  color: "4c1d95"
+  description: Infrastructure / CI / config
+
+# ⚙️ Work Type Labels — nature of work
+- name: tech-debt
+  color: "f97316"
+  description: Improvements to existing code
+
+- name: refactor
+  color: "fb923c"
+  description: Code restructuring without behavior change
+
+- name: performance
+  color: "ea580c"
+  description: Performance improvements
+
+- name: security
+  color: "c2410c"
+  description: Security-related work
+
+# 🤝 Process Labels — status / meta
+- name: "good first issue"
+  color: "6b7280"
+  description: Suitable for beginners
+
+- name: "help wanted"
+  color: "9ca3af"
+  description: Needs additional attention
+
+- name: blocked
+  color: "4b5563"
+  description: Cannot proceed due to dependency
+
+- name: needs-info
+  color: "6b7280"
+  description: Missing required information
+
+- name: duplicate
+  color: "9ca3af"
+  description: Already exists
+
+- name: invalid
+  color: "d1d5db"
+  description: Not a valid issue
+
+- name: wontfix
+  color: "6b7280"
+  description: Will not be worked on
