@@ -182,7 +182,7 @@ export async function listUsersFromApi(maxResults?: number, pageToken?: string, 
       context: { maxResults, pageToken },
       operationName: 'listUsersFromApi',
       forbiddenMsg: 'Could not list users',
-      notFoundMsg: 'Users not found',
+      notFoundMsg: 'Could not retrieve users list',
       unavailableActionMsg: 'list users',
     });
   }
@@ -250,7 +250,7 @@ export async function listPreApprovedFromApi(filters?: { role?: string }): Promi
       context: {},
       operationName: 'listPreApprovedFromApi',
       forbiddenMsg: 'Could not list pre-approved users',
-      notFoundMsg: 'Pre-approved users not found',
+      notFoundMsg: 'Could not retrieve pre-approved users list',
       unavailableActionMsg: 'list pre-approved users',
     });
   }
@@ -293,7 +293,7 @@ export async function addPreApprovedInApi(email: string, role: string): Promise<
       context: { email },
       operationName: 'addPreApprovedInApi',
       forbiddenMsg: 'Could not add pre-approved user',
-      notFoundMsg: 'Pre-approved user not found',
+      notFoundMsg: 'Could not add pre-approved user',
       unavailableActionMsg: 'add pre-approved user',
     });
   }
