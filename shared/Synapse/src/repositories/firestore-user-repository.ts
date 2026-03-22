@@ -126,7 +126,7 @@ export class FirestoreUserRepository implements UserRepository {
       return mapRecord(record);
     } catch (err: unknown) {
       if (err instanceof Error && isNotFoundMessage(err.message.toLowerCase())) {
-        throw new NotFoundError(`User '${uid}' not found`);
+        throw new NotFoundError(`User with UID '${uid}' not found`);
       }
       throw err;
     }
@@ -146,7 +146,7 @@ export class FirestoreUserRepository implements UserRepository {
       return mapRecord(record);
     } catch (err: unknown) {
       if (err instanceof Error && isNotFoundMessage(err.message.toLowerCase())) {
-        throw new NotFoundError(`User '${uid}' not found`);
+        throw new NotFoundError(`User with UID '${uid}' not found`);
       }
       throw err;
     }
@@ -163,7 +163,7 @@ export class FirestoreUserRepository implements UserRepository {
       await this._auth.deleteUser(uid);
     } catch (err: unknown) {
       if (err instanceof Error && isNotFoundMessage(err.message.toLowerCase())) {
-        throw new NotFoundError(`User '${uid}' not found`);
+        throw new NotFoundError(`User with UID '${uid}' not found`);
       }
       throw err;
     }

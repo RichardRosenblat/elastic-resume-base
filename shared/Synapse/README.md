@@ -189,7 +189,7 @@ import { NotFoundError } from '@elastic-resume-base/synapse';
 export class PostgresUserDocumentStore implements IUserDocumentStore {
   async getUserByUid(uid: string): Promise<UserDocument> {
     const row = await db.query('SELECT * FROM users WHERE uid = $1', [uid]);
-    if (!row) throw new NotFoundError(`User '${uid}' not found`);
+    if (!row) throw new NotFoundError(`User with UID '${uid}' not found`);
     return mapRow(row);
   }
   // ... implement remaining methods

@@ -1,65 +1,53 @@
-# Code Review - Users API
-## Changes to be made
+# Code Review 
 
-1. On the users_api swagger please group endpoints per resource, e.g health, user and pre_approved
-2. Check the shutdown logic for both the APIs, ensure that the graceful shutdown does not cause any memory leaks or zombie connections. Implement cleanup calls on Synapse and ensure users api calls it.
-3. The **POST** `/api/v1/users/pre-approve` endpoint should validate that the role is either "admin" or "user". If the validation fails, it should return a 400 Bad Request response with an appropriate error message.
-4. The **PATCH** `/api/v1/users/pre-approve` endpoint should validate that the role is either "admin" or "user". If the validation fails, it should return a 400 Bad Request response with an appropriate error message.
-5. The **POST** `/api/v1/users/` endpoint shouldn't exist, as users should only be created through the pre-approval process. This endpoint should be removed to prevent unauthorized user creation. Remove this endpoint from both User API and the BFF api
-6. The **PATCH** `/api/v1/users/{uid}` endpoint should return a 400 Bad Request response if the request body is empty or only contains invalid fields. This will help ensure that updates are meaningful and prevent unintended consequences from invalid requests.
-7. The **GET** `/api/v1/users/` endpoint is currently returning a 500 error with logs indicating "FirebaseFirestore is not defined". This issue needs to be investigated and resolved to ensure that the endpoint functions correctly and returns the expected list of users.
-8. Fix any test errors and typescript errors in all the codebase.
+Make the following improvements to the BFF API endpoints and User API endpoints to enhance error handling, validation, and consistency
 
+Ensure the code changes are properly tested and do not change any other endpoints or functionality beyond what is specified in the to-do list.
 
-## User API Endpoints
+Make sure the endpoints of BFF properly reflect any changes made to the User API endpoints, including path, querystring parameters, and request body changes. and that the BFF service properly handles any new error responses or validation logic added to the User API endpoints.
 
-### **Health**
-Liveness and readiness probes for the Users API service.
+## BFF API Endpoint
 
-* **GET** `/health/live`
-    * Liveness probe
-    * OK
-* **GET** `/health/ready`
-    * Readiness probe
-    * OK
+### 👥 BFF Users endpoints
+
+* **PATCH** `/api/v1/users/{uid}`
+    * role validation is not being enforced, allowing admin users to define roles that do not exist
+    * body validation error messages could be improved to specify the invalid field and expected values
+* **DELETE** `/api/v1/users/{uid}`
+    * calls from admins return a 502 downstream error, likely from BFF sending a no body request with content-type application/json, which the Users API does not accept. This returns an error that the BFF service recasts to a 502
+
+* **GET** `/api/v1/users/pre-approve`
+    * role querystring parameter is not being enforced, allowing admin users to query with roles that do not exist and searches with roles that do exist do not filter results as expected
+* **POST** `/api/v1/users/pre-approve`
+    * Adding a user with an email that is already pre-approved returns a 502 downstream error, likely from BFF not expecting a 409 conflict response from the Users API, which would be more appropriate for this scenario
+* **PATCH** `/api/v1/users/pre-approve`
+    * Updating a pre-approved with a body without valid fields returns a 502 downstream error, likely from BFF not expecting a 400 bad request response from the Users API, which would be more appropriate for this scenario
+* **DELETE** `/api/v1/users/pre-approve`
+    * calls from admins return a 502 downstream error, likely from BFF sending a no body request with content-type application/json, which the Users API does not accept. This returns an error that the BFF service recasts to a 502
 
 ---
 
-### **Users**
-CRUD operations for Firestore user documents and role resolution.
 
-#### **Authentication & Authorization**
+
+## User API Endpoint changes
+
+Changes to the path, querystring parameters, or request body of the User API endpoints should be reflected in the BFF API endpoints as well, to ensure consistency and proper functionality.
+
+### **Authentication & Authorization**
 * **POST** `/api/v1/users/authorize`
-    * Authorize a user (BFF login flow)
-    * Ok
+    * Add logic to auto-update the user's email in the Firestore collection if it differs from the email provided by the BFF API during authorization, to handle cases where the user's email may have changed in the authentication provider (e.g., Firebase Auth).
 
-#### **Pre-Approval (Admin Only)**
+### **Pre-Approval (Admin Only)**
 * **GET** `/api/v1/users/pre-approve`
-    * List or get pre-approved users
-    * Ok
+    * Improve **querystring validation** error messages to specify the invalid field and expected values.
 * **POST** `/api/v1/users/pre-approve`
-    * Add a pre-approved user
-    * changes needed
+    * Improve **body validation** error messages to specify the invalid field and expected values.
 * **PATCH** `/api/v1/users/pre-approve`
-    * Update a pre-approved user
-    * changes needed
-* **DELETE** `/api/v1/users/pre-approve`
-    * Delete a pre-approved user
-    * Ok
+    * Improve **body validation** error messages to specify the invalid field and expected values.
 
-#### **User Management**
+### **User Management**
 * **GET** `/api/v1/users/`
-    * List users
-    * Returns 500 logs say "FirebaseFirestore is not defined"
-* **POST** `/api/v1/users/`
-    * Create a new user (**Admin only**)
-    * Shouldn't exist, only create users through pre-approval
-* **GET** `/api/v1/users/{uid}`
-    * Get user by UID
-    * Ok
+    * Add an `email` filter to the **querystring parameters**.
+    * Improve **querystring validation** error messages to indicate specific invalid fields and expected values.
 * **PATCH** `/api/v1/users/{uid}`
-    * Update user by UID (**Admin only**)
-    * returns 500 if sent with empty body or only invalid fields
-* **DELETE** `/api/v1/users/{uid}`
-    * Delete user by UID (**Admin only**)
-    * Ok
+    * Improve **body validation** error messages to specify the invalid field and expected values.

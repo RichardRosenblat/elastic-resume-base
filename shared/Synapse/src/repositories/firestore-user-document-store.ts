@@ -50,7 +50,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
   async getUserByUid(uid: string): Promise<UserDocument> {
     const snap = await this._collection.doc(uid).get();
     if (!snap.exists) {
-      throw new NotFoundError(`User '${uid}' not found`);
+      throw new NotFoundError(`User with UID '${uid}' not found`);
     }
     return mapDoc(snap.id, snap.data()!);
   }
@@ -68,7 +68,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     const docRef = this._collection.doc(uid);
     const existing = await docRef.get();
     if (!existing.exists) {
-      throw new NotFoundError(`User '${uid}' not found`);
+      throw new NotFoundError(`User with UID '${uid}' not found`);
     }
     await docRef.update(data as UpdateData<DocumentData>);
     const updated = await docRef.get();
@@ -79,7 +79,7 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     const docRef = this._collection.doc(uid);
     const existing = await docRef.get();
     if (!existing.exists) {
-      throw new NotFoundError(`User '${uid}' not found`);
+      throw new NotFoundError(`User with UID '${uid}' not found`);
     }
     await docRef.delete();
   }
