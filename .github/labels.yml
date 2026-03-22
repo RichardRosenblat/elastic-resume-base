@@ -64,6 +64,10 @@
   color: "4c1d95"
   description: Infrastructure / CI / config
 
+- name: "area:docs"
+  color: "3b0764"
+  description: Documentation
+
 # ⚙️ Work Type Labels — nature of work
 - name: tech-debt
   color: "f97316"
