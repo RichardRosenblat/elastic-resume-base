@@ -265,7 +265,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         type: 'object',
         properties: {
           email: { type: 'string', example: 'jane.doe@example.com' },
-          filterRole: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: 'Filter list by role.' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: 'Filter list by role.' },
         },
       },
       response: {

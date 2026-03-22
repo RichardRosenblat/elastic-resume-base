@@ -28,7 +28,16 @@ export async function buildApp(): Promise<FastifyInstance> {
         useDefaults: true,
       },
     },
-    schemaErrorFormatter: (_errors, dataVar) => new ValidationError(`${dataVar} validation failed`),
+    schemaErrorFormatter: (errors, dataVar) => {
+      const messages = errors
+        .map(err => {
+          const path = err.instancePath.replace(/^\//, '').replace(/\//g, '.');
+          const msg = err.message ?? 'invalid value';
+          return path ? `${path}: ${msg}` : msg;
+        })
+        .filter(Boolean);
+      return new ValidationError(messages.join('; ') || `${dataVar} validation failed`);
+    },
   });
 
   // Swagger must be registered before routes so schemas are collected
