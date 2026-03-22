@@ -90,7 +90,9 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
     logger.debug({ uid, role: user.role, enable: user.enable }, 'authorizeUser: user found in users store');
     return { role: user.role, enable: user.enable };
   } catch (err) {
-    if (!(err instanceof NotFoundError)) throw err;
+    // Use code-based check instead of `instanceof` to avoid module identity
+    // mismatch between Synapse's NotFoundError and Toolbox's NotFoundError.
+    if ((err as { code?: string }).code !== 'NOT_FOUND') throw err;
   }
 
   // Step 2: Check pre-approved store by email

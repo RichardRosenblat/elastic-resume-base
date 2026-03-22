@@ -164,6 +164,22 @@ describe('usersService', () => {
         authorizeUser({ uid: 'uid123', email: 'alice@example.com' }),
       ).rejects.toThrow(ForbiddenError);
     });
+
+    it('continues to step 2 when getUserByUid throws a cross-module NOT_FOUND error (code-based check)', async () => {
+      // Simulate Synapse throwing its own NotFoundError (different class identity at runtime).
+      // The error has code='NOT_FOUND' but is NOT an instance of Toolbox's NotFoundError.
+      const synapseLikeNotFoundError = Object.assign(new Error('User not found'), { code: 'NOT_FOUND' });
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(synapseLikeNotFoundError);
+      preApprovedStore.getByEmail.mockResolvedValue({ email: 'alice@example.com', role: 'admin' });
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+      preApprovedStore.delete.mockResolvedValue(undefined);
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('admin');
+      expect(result.enable).toBe(true);
+    });
   });
 
   // ── createUser ────────────────────────────────────────────────────────────

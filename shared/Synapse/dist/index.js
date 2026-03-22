@@ -22,7 +22,7 @@ function initializePersistence(options) {
 // src/repositories/firestore-user-repository.ts
 import * as admin2 from "firebase-admin";
 
-// ../Toolbox/src/errors.ts
+// src/errors.ts
 var AppError = class extends Error {
   statusCode;
   code;
