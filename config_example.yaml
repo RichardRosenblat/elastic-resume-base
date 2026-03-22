@@ -85,6 +85,37 @@ systems:
     ONBOARDABLE_EMAIL_DOMAINS: ""
 
   # ---------------------------------------------------------------------------
+  # Frontend (React — port 5173 dev / 80 Docker)
+  # Build-time VITE_ variables injected as Docker ARGs during `docker compose build`.
+  # For local development, copy .env.example → frontend/.env and fill in values.
+  # ---------------------------------------------------------------------------
+  frontend:
+    # Application display name shown in the browser tab and top app bar
+    VITE_APP_NAME: "Elastic Resume Base"
+
+    # Base URL for the BFF Gateway API
+    VITE_BFF_URL: "http://localhost:3000"
+
+    # Branding — primary and secondary MUI theme colours (hex)
+    VITE_PRIMARY_COLOR: "#1976d2"
+    VITE_SECONDARY_COLOR: "#9c27b0"
+
+    # Optional URL to a company logo image (leave empty to use text)
+    VITE_LOGO_URL: ""
+
+    # Firebase Web SDK configuration (must match the Firebase project)
+    VITE_FIREBASE_API_KEY: ""           # fill in locally
+    VITE_FIREBASE_AUTH_DOMAIN: ""       # e.g. demo-elastic-resume-base.firebaseapp.com
+    VITE_FIREBASE_PROJECT_ID: "demo-elastic-resume-base"
+
+    # Feature flags — set to "true" to enable, "false" to hide/disable
+    VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)
+    VITE_FEATURE_RESUME_SEARCH: "false"    # Semantic search (search-base not ready)
+    VITE_FEATURE_DOCUMENT_READ: "false"    # Document reader (OCR service not ready)
+    VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
+    VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
+
+  # ---------------------------------------------------------------------------
   # Ingestor Service (Python — port 8001)
   # Downloads resumes from Google Sheets/Drive and publishes to Pub/Sub.
   # ---------------------------------------------------------------------------
