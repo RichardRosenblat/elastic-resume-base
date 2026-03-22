@@ -46,7 +46,7 @@ Describe **how urgent** the issue is. Every issue must have exactly one Priority
 
 ### 🧱 Area Labels
 
-Describe **which part of the codebase** is affected. Every issue must have exactly one Area label.
+Describe **which part of the codebase** is affected. Every issue must have one or more Area label.
 
 | Label | Description |
 |-------|-------------|
