@@ -18,11 +18,11 @@ The Users API:
 When `bff-gateway` needs to authorize a user, it calls `POST /api/v1/users/authorize` with `{ uid, email }`. The service resolves authorization as follows:
 
 1. **Look up by UID in the `users` collection** — if found, return `{ role, enable }`.
-2. **Look up by email in the `pre_approved_users` collection** — if found, create a new user record (with `enable: false`), remove from pre-approved, and return `{ role, enable: false }`.
+2. **Look up by email in the `pre_approved_users` collection** — if found, create a new user record (with `enable: true`), remove from pre-approved, and return `{ role, enable: true }`.
 3. **Check `ONBOARDABLE_EMAIL_DOMAINS`** — if the email domain matches, create a new user record (with `enable: false`, role `user`), and return `{ role: 'user', enable: false }`.
 4. **Otherwise** — return `403 Forbidden`.
 
-> **Note:** Users with `enable: false` are redirected by the BFF with a "pending approval" message. An admin must set `enable: true` (via `PATCH /api/v1/users/:uid`) to grant full access.
+> **Note:** Users created via domain onboarding (`enable: false`) require an admin to set `enable: true` (via `PATCH /api/v1/users/:uid`) before they can access protected routes. Users promoted from the pre-approved list are immediately active (`enable: true`).
 
 ---
 
@@ -164,7 +164,7 @@ The test suite covers the authorization scenarios in `usersService.authorizeUser
 
 1. **Existing active user** — UID found in `users` collection with `enable: true` → returns `{ role, enable: true }`.
 2. **Existing pending user** — UID found in `users` collection with `enable: false` → returns `{ role, enable: false }`.
-3. **Pre-approved user** — UID not found but email is in `pre_approved_users` → creates user, returns `{ role, enable: false }`.
+3. **Pre-approved user** — UID not found but email is in `pre_approved_users` → creates user with `enable: true`, removes from pre-approved list, returns `{ role, enable: true }`.
 4. **Onboardable domain** — UID and email not found but domain matches `ONBOARDABLE_EMAIL_DOMAINS` → creates user, returns `{ role: 'user', enable: false }`.
 5. **No access** — UID, email, and domain all unrecognized → throws `ForbiddenError` → HTTP 403.
 

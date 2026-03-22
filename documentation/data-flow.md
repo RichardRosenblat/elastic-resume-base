@@ -26,7 +26,7 @@ Users API (Node.js)
   │  3. Check users collection (Firestore) by uid
   │     └─ Found → return { role, enable }
   │  4. If not found → check pre_approved_users by email
-  │     └─ Found → create user record, return { role, enable=false }
+  │     └─ Found → create user record (enable=true), remove from pre-approved, return { role, enable=true }
   │  5. If not found → check onboardable email domains
   │     └─ Matched → create user record, return { role='user', enable=false }
   │  6. If none match → 403 Forbidden
