@@ -90,8 +90,10 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
     logger.debug({ uid, role: user.role, enable: user.enable }, 'authorizeUser: user found in users store');
     return { role: user.role, enable: user.enable };
   } catch (err) {
-    // Use code-based check instead of `instanceof` to avoid module identity
-    // mismatch between Synapse's NotFoundError and Toolbox's NotFoundError.
+    // Use code-based check instead of `instanceof` to guard against module identity
+    // mismatches: error classes bundled inside external modules (e.g. Synapse) are
+    // separate class objects at runtime, so `instanceof` can return false for a logically
+    // equivalent error.  Comparing the `.code` string is always safe across module boundaries.
     if ((err as { code?: string }).code !== 'NOT_FOUND') throw err;
   }
 

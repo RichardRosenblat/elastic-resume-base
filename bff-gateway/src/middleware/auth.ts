@@ -2,7 +2,6 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import admin from 'firebase-admin';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
-import { ForbiddenError, UnavailableError } from '../errors.js';
 import { authorizeUser } from '../services/userApiClient.js';
 
 let firebaseApp: admin.app.App | null = null;
@@ -102,12 +101,16 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
     request.user.enable = enable;
     logger.debug({ correlationId: request.correlationId, uid, role, enable }, 'authHook: authorization granted');
   } catch (err) {
-    if (err instanceof ForbiddenError) {
+    // Use code-based checks instead of `instanceof` to guard against module identity
+    // mismatches: error classes bundled inside external modules are separate class objects
+    // at runtime, so `instanceof` can return false for a logically equivalent error.
+    // Comparing the `.code` string is always safe across module boundaries.
+    if ((err as { code?: string }).code === 'FORBIDDEN') {
       logger.info({ correlationId: request.correlationId, uid }, 'authHook: user denied application access');
-      void reply.code(403).send(formatError('FORBIDDEN', err.message));
+      void reply.code(403).send(formatError('FORBIDDEN', (err as Error).message));
       return;
     }
-    if (err instanceof UnavailableError) {
+    if ((err as { code?: string }).code === 'SERVICE_UNAVAILABLE') {
       logger.error({ correlationId: request.correlationId, uid, err }, 'authHook: UserAPI unavailable');
       void reply.code(503).send(formatError('SERVICE_UNAVAILABLE', 'Authorization service is temporarily unavailable'));
       return;

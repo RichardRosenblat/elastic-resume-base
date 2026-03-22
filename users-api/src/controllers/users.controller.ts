@@ -17,7 +17,7 @@ import {
   deleteFromPreApproved,
   updatePreApproved,
 } from '../services/preApprovedUsersService.js';
-import { ForbiddenError } from '../errors.js';
+
 
 // ---------------------------------------------------------------------------
 // Validation schemas
@@ -102,10 +102,14 @@ export async function authorizeHandler(
     logger.debug({ correlationId: request.correlationId, uid, ...result }, 'authorizeHandler: authorization result');
     void reply.send(formatSuccess(result, request.correlationId));
   } catch (err) {
-    if (err instanceof ForbiddenError) {
+    // Use code-based check instead of `instanceof ForbiddenError` to guard against module
+    // identity mismatches: error classes bundled inside external modules (e.g. Synapse) are
+    // separate class objects at runtime, so `instanceof` can return false for a logically
+    // equivalent error.  Comparing the `.code` string is always safe across module boundaries.
+    if ((err as { code?: string }).code === 'FORBIDDEN') {
       logger.info({ correlationId: request.correlationId, uid, email }, 'authorizeHandler: user denied access');
       void reply.code(403).send(
-        formatError('FORBIDDEN', err.message, request.correlationId),
+        formatError('FORBIDDEN', (err as Error).message, request.correlationId),
       );
       return;
     }
