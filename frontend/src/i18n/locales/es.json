@@ -1,0 +1,107 @@
+{
+  "nav": {
+    "dashboard": "Panel",
+    "users": "Usuarios",
+    "resumes": "Currículums",
+    "search": "Búsqueda",
+    "documents": "Documentos",
+    "account": "Cuenta",
+    "logout": "Cerrar sesión"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "signIn": "Iniciar sesión",
+    "signInWithGoogle": "Iniciar sesión con Google",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "welcomeBack": "Bienvenido de nuevo",
+    "invalidCredentials": "Correo electrónico o contraseña incorrectos",
+    "loginError": "Ocurrió un error durante el inicio de sesión"
+  },
+  "dashboard": {
+    "welcome": "Bienvenido",
+    "yourProfile": "Tu Perfil",
+    "profile": "Perfil",
+    "role": "Rol",
+    "status": "Estado",
+    "active": "Activo",
+    "pending": "Pendiente",
+    "statistics": "Estadísticas",
+    "recentActivity": "Actividad Reciente",
+    "comingSoon": "Próximamente",
+    "featureNotAvailable": "Esta función aún no está disponible"
+  },
+  "users": {
+    "title": "Usuarios",
+    "addUser": "Agregar Usuario",
+    "editUser": "Editar Usuario",
+    "deleteUser": "Eliminar Usuario",
+    "preApprove": "Pre-aprobar",
+    "role": "Rol",
+    "enabled": "Habilitado",
+    "actions": "Acciones",
+    "confirmDelete": "¿Estás seguro de que deseas eliminar este usuario?",
+    "noUsersFound": "No se encontraron usuarios",
+    "preApprovedUsers": "Usuarios Pre-aprobados",
+    "addPreApproved": "Agregar Usuario Pre-aprobado",
+    "uid": "UID",
+    "email": "Correo electrónico",
+    "deleteSuccess": "Usuario eliminado correctamente",
+    "updateSuccess": "Usuario actualizado correctamente"
+  },
+  "resumes": {
+    "title": "Currículums",
+    "ingestResumes": "Importar Currículums",
+    "generateResume": "Generar Currículum",
+    "sheetId": "ID de Hoja",
+    "batchId": "ID de Lote",
+    "submit": "Enviar",
+    "language": "Idioma",
+    "format": "Formato",
+    "loading": "Cargando currículums...",
+    "noResumesFound": "No se encontraron currículums"
+  },
+  "search": {
+    "title": "Búsqueda",
+    "searchResumes": "Buscar Currículums",
+    "searchQuery": "Consulta de búsqueda",
+    "results": "Resultados",
+    "noResults": "No se encontraron resultados",
+    "loading": "Buscando..."
+  },
+  "account": {
+    "title": "Configuración de Cuenta",
+    "updateEmail": "Actualizar Correo Electrónico",
+    "newEmail": "Nuevo Correo Electrónico",
+    "languagePreference": "Preferencia de Idioma",
+    "saveChanges": "Guardar Cambios"
+  },
+  "pending": {
+    "title": "Cuenta Pendiente de Aprobación",
+    "message": "Tu cuenta está pendiente de aprobación por un administrador. Por favor, vuelve más tarde.",
+    "logout": "Cerrar sesión"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "notFound": "No Encontrado",
+    "unauthorized": "No Autorizado",
+    "forbidden": "Prohibido",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "of": "de",
+    "rowsPerPage": "Filas por página",
+    "featureNotAvailable": "Esta función aún no está disponible",
+    "contactAdministrator": "Comunícate con tu administrador para obtener acceso",
+    "or": "o"
+  }
+}

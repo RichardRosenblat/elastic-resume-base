@@ -93,6 +93,7 @@ export default function AccountPage() {
             >
               <MenuItem value="en">English</MenuItem>
               <MenuItem value="pt-BR">Português (BR)</MenuItem>
+              <MenuItem value="es">Español</MenuItem>
             </Select>
           </FormControl>
         </CardContent>

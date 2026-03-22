@@ -50,9 +50,13 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
     void navigate('/account');
   };
 
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'en' ? 'pt-BR' : 'en';
-    void i18n.changeLanguage(newLang);
+  const LANGUAGES = ['en', 'pt-BR', 'es'] as const;
+  const LANGUAGE_LABELS: Record<string, string> = { en: 'EN', 'pt-BR': 'PT', es: 'ES' };
+
+  const cycleLanguage = () => {
+    const currentIndex = LANGUAGES.indexOf(i18n.language as typeof LANGUAGES[number]);
+    const nextIndex = (currentIndex + 1) % LANGUAGES.length;
+    void i18n.changeLanguage(LANGUAGES[nextIndex]);
   };
 
   const displayName = userProfile?.name ?? currentUser?.email ?? '';
@@ -83,8 +87,8 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
           </Typography>
         )}
         <Box sx={{ flexGrow: 1 }} />
-        <Button color="inherit" onClick={toggleLanguage} size="small" sx={{ mr: 1 }}>
-          {i18n.language === 'en' ? 'PT' : 'EN'}
+        <Button color="inherit" onClick={cycleLanguage} size="small" sx={{ mr: 1 }}>
+          {LANGUAGE_LABELS[i18n.language] ?? 'EN'}
         </Button>
         <IconButton color="inherit" onClick={handleMenuOpen}>
           {photoURL ? (
