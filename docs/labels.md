@@ -11,6 +11,8 @@ Labels are used to categorize and organize issues and pull requests in this repo
 
 Labels are defined in [`.github/labels.yml`](../.github/labels.yml) and synced automatically via the [Setup Labels workflow](../.github/workflows/setup-labels.yml) whenever that file changes.
 
+New to the project? Start with the [Getting Started guide](./getting-started.md). When opening issues, see the [Issue Templates Guide](./issue-templates.md) for help choosing the right template.
+
 ---
 
 ## Label Categories

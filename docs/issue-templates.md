@@ -4,7 +4,7 @@ This document describes each issue template available in this repository, when t
 
 Issue templates are located in [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/). When opening a new issue on GitHub, you will be prompted to choose one of these templates.
 
-For guidance on which labels to apply after choosing a template, see the [Labels Reference](./labels.md).
+For guidance on which labels to apply after choosing a template, see the [Labels Reference](./labels.md). New to the project? See the [Getting Started guide](./getting-started.md) first.
 
 ---
 
