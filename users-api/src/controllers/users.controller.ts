@@ -23,32 +23,36 @@ import {
 // ---------------------------------------------------------------------------
 
 const authorizeSchema = z.object({
-  uid: z.string().min(1),
-  email: z.string().email(),
+  uid: z.string({ required_error: 'uid is required', invalid_type_error: 'uid must be a string' }).min(1, { message: 'uid must not be empty' }),
+  email: z.string({ required_error: 'email is required', invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
 });
 
 const updateUserSchema = z
   .object({
-    email: z.string().email().optional(),
-    role: z.string().optional(),
-    enable: z.boolean().optional(),
+    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
   })
   .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
     message: 'Request body must contain at least one valid field to update (email, role, or enable)',
   });
 
 const listUsersQuerySchema = z.object({
-  maxResults: z.coerce.number().int().min(1).max(1000).default(100),
+  maxResults: z.coerce.number().int({ message: 'maxResults must be an integer' }).min(1, { message: 'maxResults must be at least 1' }).max(1000, { message: 'maxResults must be at most 1000' }).default(100),
   pageToken: z.string().optional(),
-  role: z.string().optional(),
-  enable: z
-    .string()
-    .optional()
-    .transform((v) => (v === undefined ? undefined : v === 'true')),
+  email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
+  enable: z.enum(['true', 'false'], {
+    errorMap: () => ({ message: "enable must be 'true' or 'false'" }),
+  }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
 const addPreApprovedSchema = z.object({
-  email: z.string().email(),
+  email: z.string({ required_error: 'email is required', invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
   role: z.enum(['admin', 'user'], {
     errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
   }),
@@ -61,12 +65,14 @@ const updatePreApprovedSchema = z.object({
 });
 
 const listPreApprovedQuerySchema = z.object({
-  email: z.string().optional(),
-  role: z.string().optional(),
+  email: z.string({ invalid_type_error: 'email must be a string' }).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
 });
 
 type UidParams = { uid: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string; role?: string; enable?: string };
+type ListUsersQuery = { maxResults?: number; pageToken?: string; email?: string; role?: string; enable?: string };
 type ListPreApprovedQuery = { email?: string; role?: string };
 
 // ---------------------------------------------------------------------------
@@ -195,8 +201,9 @@ export async function listUsersHandler(
     return;
   }
 
-  const { maxResults, pageToken, role, enable } = parsed.data;
-  const filters: { role?: string; enable?: boolean } = {};
+  const { maxResults, pageToken, email: emailFilter, role, enable } = parsed.data;
+  const filters: { email?: string; role?: string; enable?: boolean } = {};
+  if (emailFilter !== undefined) filters.email = emailFilter;
   if (role !== undefined) filters.role = role;
   if (enable !== undefined) filters.enable = enable;
   const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;

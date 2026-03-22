@@ -133,6 +133,7 @@ export interface PreApprovedUser {
 
 /** Filters for listing users. */
 export interface UserFilters {
+  email?: string;
   role?: string;
   enable?: boolean;
 }

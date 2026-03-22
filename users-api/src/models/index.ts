@@ -49,6 +49,7 @@ export interface UpdateUserRequest {
 
 /** Filters for querying users. */
 export interface UserFilters {
+  email?: string;
   role?: string;
   enable?: boolean;
 }

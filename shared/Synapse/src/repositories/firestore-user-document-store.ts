@@ -91,6 +91,9 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
   ): Promise<ListUserDocumentsResult> {
     let query: Query = this._collection;
 
+    if (filters?.email !== undefined) {
+      query = query.where('email', '==', filters.email);
+    }
     if (filters?.role !== undefined) {
       query = query.where('role', '==', filters.role);
     }

@@ -87,6 +87,16 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
   try {
     const user = await userStore.getUserByUid(uid);
     logger.debug({ uid, role: user.role, enable: user.enable }, 'authorizeUser: user found in users store');
+    // Auto-update email if it has changed in the auth provider
+    if (user.email !== email) {
+      logger.info({ uid, oldEmail: user.email, newEmail: email }, 'authorizeUser: email has changed, updating user record');
+      try {
+        await userStore.updateUser(uid, { email });
+      } catch (updateErr) {
+        // Non-fatal: log and continue with existing record
+        logger.warn({ uid, err: updateErr }, 'authorizeUser: failed to update email, continuing with existing record');
+      }
+    }
     return { role: user.role, enable: user.enable };
   } catch (err) {
     // Use code-based check instead of `instanceof` to guard against module identity

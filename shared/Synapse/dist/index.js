@@ -237,6 +237,9 @@ var FirestoreUserDocumentStore = class {
   }
   async listUsers(maxResults = 100, pageToken, filters) {
     let query = this._collection;
+    if (filters?.email !== void 0) {
+      query = query.where("email", "==", filters.email);
+    }
     if (filters?.role !== void 0) {
       query = query.where("role", "==", filters.role);
     }

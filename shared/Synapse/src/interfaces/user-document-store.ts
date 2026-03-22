@@ -23,6 +23,7 @@ export interface UpdateUserDocumentData {
 
 /** Filters to apply when listing user documents. */
 export interface UserDocumentFilters {
+  email?: string;
   role?: string;
   enable?: boolean;
 }

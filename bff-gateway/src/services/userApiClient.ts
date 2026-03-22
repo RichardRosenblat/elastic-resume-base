@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { config } from '../config.js';
-import { DownstreamError, ForbiddenError, UnavailableError } from '../errors.js';
+import { ConflictError, DownstreamError, ForbiddenError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
 import { logger } from '../utils/logger.js';
 import type { PreApprovedUser, UserRecord, ListUsersResponse, UpdateUserRequest, UpdatePreApprovedRequest } from '../models/index.js';
@@ -26,8 +26,20 @@ const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams) => n
 };
 
 /**
+ * Extracts the error message from a Users API error response body, falling back
+ * to the provided default message if the response body cannot be parsed.
+ */
+function extractApiMessage(err: unknown, fallback: string): string {
+  if (!axios.isAxiosError(err)) return fallback;
+  const data = err.response?.data as { error?: { message?: string } } | undefined;
+  return typeof data?.error?.message === 'string' ? data.error.message : fallback;
+}
+
+/**
  * Centralized error handler for UserAPI requests in this file.
+ * @throws {ValidationError} If the UserAPI returns HTTP 400.
  * @throws {ForbiddenError} If the UserAPI returns HTTP 403 or 404.
+ * @throws {ConflictError} If the UserAPI returns HTTP 409.
  * @throws {UnavailableError} If the UserAPI returns 5xx, times out, or is unreachable.
  * @throws {DownstreamError} For any other unexpected errors.
  */
@@ -43,6 +55,17 @@ function handleUserApiError(
     );
 
     const status = err.response?.status;
+
+    if (status === 400) {
+      logger.debug(context, `${operationName}: UserAPI returned 400 Bad Request`);
+      throw new ValidationError(extractApiMessage(err, 'Invalid request data'));
+    }
+
+    if (status === 409) {
+      logger.info(context, `${operationName}: UserAPI returned 409 Conflict`);
+      throw new ConflictError(extractApiMessage(err, 'Resource already exists'));
+    }
+
     const handler = status !== undefined ? STATUS_ERROR_MAP[status] : undefined;
     if (handler) {
       handler(params);
@@ -136,12 +159,13 @@ export async function getUserById(uid: string): Promise<UserRecord> {
 /**
  * Retrieves a paginated list of users from the users-api.
  */
-export async function listUsersFromApi(maxResults?: number, pageToken?: string, filters?: { role?: string; enable?: boolean }): Promise<ListUsersResponse> {
+export async function listUsersFromApi(maxResults?: number, pageToken?: string, filters?: { email?: string; role?: string; enable?: boolean }): Promise<ListUsersResponse> {
   logger.debug({ maxResults, pageToken, filters }, 'listUsersFromApi: requesting user list from UserAPI');
   try {
     const params = new URLSearchParams();
     if (maxResults !== undefined) params.set('maxResults', String(maxResults));
     if (pageToken) params.set('pageToken', pageToken);
+    if (filters?.email !== undefined) params.set('email', filters.email);
     if (filters?.role !== undefined) params.set('role', filters.role);
     if (filters?.enable !== undefined) params.set('enable', String(filters.enable));
     const query = params.toString() ? `?${params.toString()}` : '';

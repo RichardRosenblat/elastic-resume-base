@@ -402,9 +402,16 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             description: 'Pagination cursor returned by the previous list call.',
             example: 'eyJsYXN0VWlkIjoiYUIzZEU1ZkcifQ==',
           },
+          email: {
+            type: 'string',
+            format: 'email',
+            description: 'Filter users by exact email address.',
+            example: 'jane.doe@example.com',
+          },
           role: {
             type: 'string',
-            description: 'Filter users by role.',
+            enum: ['admin', 'user'],
+            description: "Filter users by role ('admin' or 'user').",
             example: 'admin',
           },
           enable: {
@@ -499,12 +506,14 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           email: {
             type: 'string',
+            format: 'email',
             description: 'Updated email address.',
             example: 'new.email@example.com',
           },
           role: {
             type: 'string',
-            description: "Updated role.",
+            enum: ['admin', 'user'],
+            description: "Updated role. Must be 'admin' or 'user'.",
             example: 'admin',
           },
           enable: {

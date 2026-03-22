@@ -224,7 +224,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           maxResults: { type: 'integer', minimum: 1, maximum: 1000, default: 100, example: 50 },
           pageToken: { type: 'string', example: 'eyJhbGciOiJSUzI1NiJ9...' },
-          role: { type: 'string', example: 'admin', description: 'Filter by role.' },
+          email: { type: 'string', format: 'email', description: 'Filter by exact email address.', example: 'jane.doe@example.com' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Filter by role ('admin' or 'user')." },
           enable: { type: 'string', enum: ['true', 'false'], description: 'Filter by enabled status.' },
         },
       },
@@ -433,8 +434,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
-          email: { type: 'string', example: 'new.email@example.com' },
-          role: { type: 'string', example: 'admin', description: 'Admin only.' },
+          email: { type: 'string', format: 'email', example: 'new.email@example.com' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Admin only. Must be 'admin' or 'user'." },
           enable: { type: 'boolean', example: true, description: 'Admin only.' },
         },
       },

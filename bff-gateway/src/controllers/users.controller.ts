@@ -17,9 +17,11 @@ import {
 
 const updateUserSchema = z
   .object({
-    email: z.string().email().optional(),
-    role: z.string().optional(),
-    enable: z.boolean().optional(),
+    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
   })
   .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
     message: 'Request body must contain at least one valid field to update (email, role, or enable)',
@@ -32,22 +34,32 @@ const updatePreApprovedSchema = z.object({
 });
 
 const addPreApprovedSchema = z.object({
-  email: z.string().email(),
+  email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
   role: z.enum(['admin', 'user'], {
     errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
   }),
 });
 
 const listUsersQuerySchema = z.object({
-  maxResults: z.coerce.number().int().min(1).max(1000).default(100),
+  maxResults: z.coerce.number().int({ message: 'maxResults must be an integer' }).min(1, { message: 'maxResults must be at least 1' }).max(1000, { message: 'maxResults must be at most 1000' }).default(100),
   pageToken: z.string().optional(),
-  role: z.string().optional(),
+  email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }).optional(),
   enable: z.string().optional(),
+});
+
+const getPreApprovedQuerySchema = z.object({
+  email: z.string().optional(),
+  filterRole: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "filterRole must be either 'admin' or 'user'" }),
+  }).optional(),
 });
 
 type UidParams = { uid: string };
 type EmailQuery = { email?: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string; role?: string; enable?: string };
+type ListUsersQuery = { maxResults?: number; pageToken?: string; email?: string; role?: string; enable?: string };
 
 /**
  * Handles GET /api/v1/users/me — returns the authenticated user's profile from users store.
@@ -91,8 +103,9 @@ export async function listUsersHandler(
     void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
     return;
   }
-  const { maxResults, pageToken, role, enable } = parsed.data;
-  const filters: { role?: string; enable?: boolean } = {};
+  const { maxResults, pageToken, email: emailFilter, role, enable } = parsed.data;
+  const filters: { email?: string; role?: string; enable?: boolean } = {};
+  if (emailFilter !== undefined) filters.email = emailFilter;
   if (role !== undefined) filters.role = role;
   if (enable !== undefined) filters.enable = enable === 'true';
   const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
@@ -152,11 +165,16 @@ export async function deleteUserHandler(
  * Handles GET /api/v1/users/pre-approve — lists or gets pre-approved users (admin only).
  */
 export async function getPreApprovedHandler(
-  request: FastifyRequest<{ Querystring: EmailQuery & { filterRole?: string } }>,
+  request: FastifyRequest<{ Querystring: { email?: string; filterRole?: string } }>,
   reply: FastifyReply,
 ): Promise<void> {
+  const parsed = getPreApprovedQuerySchema.safeParse(request.query);
+  if (!parsed.success) {
+    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    return;
+  }
   const { role } = request.user;
-  const { email, filterRole } = request.query;
+  const { email, filterRole } = parsed.data;
   if (email) {
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching specific user');
     const user = await getPreApproved(email, role ?? 'user');
