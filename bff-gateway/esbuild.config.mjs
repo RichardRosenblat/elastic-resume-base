@@ -8,7 +8,7 @@ await build({
   entryPoints: ['src/server.ts'],
   bundle: true,
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   format: 'esm',
   // Keep all npm packages as external so node_modules/ is used at runtime.
   // This avoids bundling packages that rely on native add-ons or dynamic

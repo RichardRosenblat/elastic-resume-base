@@ -53,7 +53,7 @@ The Elastic Resume Base platform is designed with security as a first-class conc
 
 ### Container Security
 
-- All Docker images are based on official, minimal base images (`node:20-alpine`, `python:3.11-slim`).
+- All Docker images are based on official, minimal base images (`node:22-alpine`, `python:3.11-slim`).
 - Containers run as non-root users in production deployments.
 - No secrets are baked into Docker images at build time.
 

@@ -127,7 +127,7 @@ Google does not provide a standalone Docker image for the Firebase Emulator Suit
 **`firebase-emulator/Dockerfile`**
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Java JRE is required for Firestore and Pub/Sub emulators
 RUN apk add --no-cache openjdk17-jre
@@ -154,7 +154,7 @@ Both Node.js services use a two-stage Docker build. The builder stage runs `npm 
 2. **Bundles** all application source files into a single `dist/server.js` using esbuild (see [Build Pipeline](#5-build-pipeline)).
 
 ```dockerfile
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -162,7 +162,7 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./
@@ -206,7 +206,7 @@ await build({
   entryPoints: ['src/server.ts'],
   bundle: true,
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   format: 'esm',
   packages: 'bundled',   // keep npm packages in node_modules at runtime
   outfile: 'dist/server.js',
