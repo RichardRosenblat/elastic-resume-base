@@ -1,0 +1,152 @@
+name: PR Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'informational = never fail the check | strict = fail if tests fail'
+        required: false
+        default: 'informational'
+        type: choice
+        options:
+          - informational
+          - strict
+      all_packages:
+        description: 'Run all packages (skip change detection)'
+        required: false
+        default: false
+        type: boolean
+
+# Minimal default permissions; individual jobs override as needed.
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: Detect Changed Packages
+    runs-on: ubuntu-latest
+    outputs:
+      matrix:       ${{ steps.set-matrix.outputs.matrix }}
+      has-packages: ${{ steps.set-matrix.outputs.has-packages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history is needed so git diff can compare against the base branch.
+          fetch-depth: 0
+
+      - name: Determine packages to test
+        id: set-matrix
+        run: node .github/scripts/detect-changed-packages.js
+        env:
+          # BASE_SHA is the exact base-commit SHA for pull_request events (preferred).
+          # BASE_REF is used as fallback for workflow_dispatch (branch-tip comparison).
+          BASE_SHA:    ${{ github.event.pull_request.base.sha }}
+          BASE_REF:    ${{ github.base_ref || 'main' }}
+          ALL_PACKAGES: ${{ inputs.all_packages || 'false' }}
+
+  test:
+    name: Test ${{ matrix.package.name }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-packages == 'true'
+    runs-on: ubuntu-latest
+    # Never let a test failure block the workflow; actual results are read from artifacts.
+    continue-on-error: true
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          # Each package has its own lock file; cache key is derived from it.
+          cache-dependency-path: ${{ matrix.package.path }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ matrix.package.path }}
+
+      - name: Run tests
+        id: run-tests
+        # Step-level timeout prevents a hung test from consuming the full job budget.
+        # --testRetries=1 retries each failed test once so transient / flaky failures
+        # don't count as real failures.  A test must fail on both attempts to be reported.
+        # NOTE: --forceExit is used as a safety net; remove it once all hanging handles
+        #       in test suites are resolved (see: jest --detectOpenHandles for guidance).
+        timeout-minutes: 10
+        working-directory: ${{ matrix.package.path }}
+        run: |
+          set -o pipefail
+          NODE_OPTIONS='--experimental-vm-modules' npx jest \
+            --runInBand \
+            --forceExit \
+            --testRetries=1 \
+            --coverage \
+            --coverageReporters=json-summary \
+            --json \
+            --outputFile="${GITHUB_WORKSPACE}/${{ matrix.package.id }}-results.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/${{ matrix.package.id }}.log"
+          # Move coverage summary to workspace root for consistent upload path.
+          cp coverage/coverage-summary.json \
+             "${GITHUB_WORKSPACE}/${{ matrix.package.id }}-coverage-summary.json" || true
+
+      - name: Upload test results
+        # Always upload so the summarize job can process results even when tests failed.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.package.id }}
+          path: |
+            ${{ github.workspace }}/${{ matrix.package.id }}-results.json
+            ${{ github.workspace }}/${{ matrix.package.id }}.log
+            ${{ github.workspace }}/${{ matrix.package.id }}-coverage-summary.json
+          if-no-files-found: warn
+
+  summarize:
+    name: Test Summary
+    needs: [detect-changes, test]
+    # Always run so results are posted even when all test jobs failed or were skipped.
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download test result artifacts
+        # continue-on-error so the step doesn't fail when no artifacts exist
+        # (e.g., when [skip tests] was used and the test job was skipped entirely).
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: test-results-*
+          path: ${{ github.workspace }}/test-results
+          merge-multiple: true
+
+      - name: Generate summary and post PR comment
+        run: node .github/scripts/generate-test-summary.js
+        env:
+          RESULTS_DIR:     ${{ github.workspace }}/test-results
+          PACKAGES_CONFIG: ${{ github.workspace }}/.github/ci-config/test-packages.json
+          COMMIT_SHA:      ${{ github.sha }}
+          PR_NUMBER:       ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
+          REPO:            ${{ github.repository }}
+          MODE:            ${{ inputs.mode || 'informational' }}
+          # Tells the summary script that tests were intentionally skipped.
+          TESTS_SKIPPED:   ${{ needs.detect-changes.outputs.has-packages == 'false' && 'true' || 'false' }}
+
