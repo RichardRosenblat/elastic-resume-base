@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import type { ZodIssue } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import {
@@ -16,6 +17,16 @@ import {
   deleteFromPreApproved,
   updatePreApproved,
 } from '../services/preApprovedUsersService.js';
+
+/**
+ * Formats Zod validation issues into a single descriptive error message.
+ * Includes the field path for each issue where available.
+ */
+function formatZodErrors(issues: ZodIssue[]): string {
+  return issues
+    .map((issue) => issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
+    .join('; ');
+}
 
 
 // ---------------------------------------------------------------------------
@@ -58,11 +69,15 @@ const addPreApprovedSchema = z.object({
   }),
 });
 
-const updatePreApprovedSchema = z.object({
-  role: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-  }).optional(),
-});
+const updatePreApprovedSchema = z
+  .object({
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+  })
+  .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
+    message: 'Request body must contain at least one valid field to update (role)',
+  });
 
 const listPreApprovedQuerySchema = z.object({
   email: z.string({ invalid_type_error: 'email must be a string' }).optional(),
@@ -95,7 +110,7 @@ export async function authorizeHandler(
       'authorizeHandler: validation failed',
     );
     void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
     );
     return;
   }
@@ -157,7 +172,7 @@ export async function updateUserHandler(
       'updateUserHandler: validation failed',
     );
     void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
     );
     return;
   }
@@ -196,7 +211,7 @@ export async function listUsersHandler(
       'listUsersHandler: validation failed',
     );
     void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
     );
     return;
   }
@@ -236,7 +251,7 @@ export async function getPreApprovedHandler(
   const parsed = listPreApprovedQuerySchema.safeParse(request.query);
   if (!parsed.success) {
     void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
     );
     return;
   }
@@ -272,7 +287,7 @@ export async function addPreApprovedHandler(
       'addPreApprovedHandler: validation failed',
     );
     void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
     );
     return;
   }
@@ -324,7 +339,7 @@ export async function updatePreApprovedHandler(
       'updatePreApprovedHandler: validation failed',
     );
     void reply.code(400).send(
-      formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error', request.correlationId),
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
     );
     return;
   }

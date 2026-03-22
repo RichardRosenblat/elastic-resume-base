@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import type { ZodIssue } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import type { UpdateUserRequest } from '../models/index.js';
@@ -15,6 +16,16 @@ import {
   updatePreApproved,
 } from '../services/usersService.js';
 
+/**
+ * Formats Zod validation issues into a single descriptive error message.
+ * Includes the field path for each issue where available.
+ */
+function formatZodErrors(issues: ZodIssue[]): string {
+  return issues
+    .map((issue) => issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
+    .join('; ');
+}
+
 const updateUserSchema = z
   .object({
     email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
@@ -27,11 +38,15 @@ const updateUserSchema = z
     message: 'Request body must contain at least one valid field to update (email, role, or enable)',
   });
 
-const updatePreApprovedSchema = z.object({
-  role: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-  }).optional(),
-});
+const updatePreApprovedSchema = z
+  .object({
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+  })
+  .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
+    message: 'Request body must contain at least one valid field to update (role)',
+  });
 
 const addPreApprovedSchema = z.object({
   email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
@@ -52,8 +67,8 @@ const listUsersQuerySchema = z.object({
 
 const getPreApprovedQuerySchema = z.object({
   email: z.string().optional(),
-  filterRole: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "filterRole must be either 'admin' or 'user'" }),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
   }).optional(),
 });
 
@@ -82,7 +97,7 @@ export async function updateMeHandler(
   logger.debug({ uid }, 'updateMeHandler: validating request body');
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
   logger.debug({ uid }, 'updateMeHandler: updating authenticated user profile');
@@ -100,7 +115,7 @@ export async function listUsersHandler(
   logger.debug({ correlationId: request.correlationId }, 'listUsersHandler: validating query params');
   const parsed = listUsersQuerySchema.safeParse(request.query);
   if (!parsed.success) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
   const { maxResults, pageToken, email: emailFilter, role, enable } = parsed.data;
@@ -140,7 +155,7 @@ export async function updateUserHandler(
   logger.debug({ correlationId: request.correlationId, uid }, 'updateUserHandler: validating request body');
   const parsed = updateUserSchema.safeParse(request.body);
   if (!parsed.success) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
   logger.info({ correlationId: request.correlationId, uid, requesterUid: request.user.uid }, 'updateUserHandler: updating user');
@@ -165,24 +180,24 @@ export async function deleteUserHandler(
  * Handles GET /api/v1/users/pre-approve — lists or gets pre-approved users (admin only).
  */
 export async function getPreApprovedHandler(
-  request: FastifyRequest<{ Querystring: { email?: string; filterRole?: string } }>,
+  request: FastifyRequest<{ Querystring: { email?: string; role?: string } }>,
   reply: FastifyReply,
 ): Promise<void> {
   const parsed = getPreApprovedQuerySchema.safeParse(request.query);
   if (!parsed.success) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
-  const { role } = request.user;
-  const { email, filterRole } = parsed.data;
+  const { role: requesterRole } = request.user;
+  const { email, role: filterRole } = parsed.data;
   if (email) {
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching specific user');
-    const user = await getPreApproved(email, role ?? 'user');
+    const user = await getPreApproved(email, requesterRole ?? 'user');
     void reply.send(formatSuccess(user, request.correlationId));
   } else {
     logger.debug({ correlationId: request.correlationId }, 'getPreApprovedHandler: listing all');
     const filters = filterRole ? { role: filterRole } : undefined;
-    const users = await listPreApproved(role ?? 'user', filters);
+    const users = await listPreApproved(requesterRole ?? 'user', filters);
     void reply.send(formatSuccess(users, request.correlationId));
   }
 }
@@ -197,7 +212,7 @@ export async function addPreApprovedHandler(
   logger.debug({ correlationId: request.correlationId }, 'addPreApprovedHandler: validating request body');
   const parsed = addPreApprovedSchema.safeParse(request.body);
   if (!parsed.success) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
   logger.info({ correlationId: request.correlationId, email: parsed.data.email }, 'addPreApprovedHandler: adding pre-approved user');
@@ -236,7 +251,7 @@ export async function updatePreApprovedHandler(
   }
   const parsed = updatePreApprovedSchema.safeParse(request.body);
   if (!parsed.success) {
-    void reply.code(400).send(formatError('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation error'));
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
   logger.info({ correlationId: request.correlationId, email }, 'updatePreApprovedHandler: updating pre-approved user');
