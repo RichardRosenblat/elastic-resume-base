@@ -118,7 +118,7 @@ var FirestoreUserRepository = class {
       return mapRecord(record);
     } catch (err) {
       if (err instanceof Error && isNotFoundMessage(err.message.toLowerCase())) {
-        throw new NotFoundError(`User '${uid}' not found`);
+        throw new NotFoundError(`User with UID '${uid}' not found`);
       }
       throw err;
     }
@@ -137,7 +137,7 @@ var FirestoreUserRepository = class {
       return mapRecord(record);
     } catch (err) {
       if (err instanceof Error && isNotFoundMessage(err.message.toLowerCase())) {
-        throw new NotFoundError(`User '${uid}' not found`);
+        throw new NotFoundError(`User with UID '${uid}' not found`);
       }
       throw err;
     }
@@ -153,7 +153,7 @@ var FirestoreUserRepository = class {
       await this._auth.deleteUser(uid);
     } catch (err) {
       if (err instanceof Error && isNotFoundMessage(err.message.toLowerCase())) {
-        throw new NotFoundError(`User '${uid}' not found`);
+        throw new NotFoundError(`User with UID '${uid}' not found`);
       }
       throw err;
     }
@@ -205,7 +205,7 @@ var FirestoreUserDocumentStore = class {
   async getUserByUid(uid) {
     const snap = await this._collection.doc(uid).get();
     if (!snap.exists) {
-      throw new NotFoundError(`User '${uid}' not found`);
+      throw new NotFoundError(`User with UID '${uid}' not found`);
     }
     return mapDoc(snap.id, snap.data());
   }
@@ -221,7 +221,7 @@ var FirestoreUserDocumentStore = class {
     const docRef = this._collection.doc(uid);
     const existing = await docRef.get();
     if (!existing.exists) {
-      throw new NotFoundError(`User '${uid}' not found`);
+      throw new NotFoundError(`User with UID '${uid}' not found`);
     }
     await docRef.update(data);
     const updated = await docRef.get();
@@ -231,7 +231,7 @@ var FirestoreUserDocumentStore = class {
     const docRef = this._collection.doc(uid);
     const existing = await docRef.get();
     if (!existing.exists) {
-      throw new NotFoundError(`User '${uid}' not found`);
+      throw new NotFoundError(`User with UID '${uid}' not found`);
     }
     await docRef.delete();
   }
