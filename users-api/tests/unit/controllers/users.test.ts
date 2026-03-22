@@ -396,5 +396,16 @@ describe('users controller', () => {
       });
       expect(res.statusCode).toBe(400);
     });
+
+    it('returns 400 when body is empty', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=alice%40example.com',
+        payload: {},
+      });
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+    });
   });
 });

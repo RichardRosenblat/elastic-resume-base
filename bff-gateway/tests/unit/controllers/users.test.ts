@@ -242,6 +242,18 @@ describe('Users Controller', () => {
       expect(res.statusCode).toBe(403);
     });
 
+    it('returns 404 when service throws NotFoundError', async () => {
+      (usersService.deleteUser as jest.Mock).mockRejectedValue(new NotFoundError('User not found'));
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/uid123',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(404);
+    });
+
     it('returns 401 when unauthenticated', async () => {
       const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/uid123' });
       expect(res.statusCode).toBe(401);
@@ -280,6 +292,36 @@ describe('Users Controller', () => {
         undefined,
         { role: 'admin' },
       );
+    });
+
+    it('passes enable filter to service', async () => {
+      (usersService.listUsers as jest.Mock).mockResolvedValue({ users: [mockUser], pageToken: undefined });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users?enable=false',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(usersService.listUsers).toHaveBeenCalledWith(
+        expect.any(Number),
+        undefined,
+        { enable: false },
+      );
+    });
+
+    it('returns 400 when enable is invalid (not true or false)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users?enable=invalid',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+      expect(body.error.message).toContain('enable');
     });
 
     it('returns 401 when unauthenticated', async () => {
@@ -368,6 +410,84 @@ describe('Users Controller', () => {
       });
 
       expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 404 when service throws NotFoundError', async () => {
+      (usersService.deletePreApproved as jest.Mock).mockRejectedValue(new NotFoundError('Pre-approved user not found'));
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/pre-approve?email=missing%40example.com',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
+  describe('PATCH /api/v1/users/pre-approve', () => {
+    it('returns 200 on success', async () => {
+      (usersService.updatePreApproved as jest.Mock).mockResolvedValue({ email: 'test@example.com', role: 'user' });
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=test%40example.com',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { role: 'user' },
+      });
+
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('returns 400 when body is empty', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=test%40example.com',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when role is invalid', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve?email=test%40example.com',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { role: 'superuser' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 when email query param is missing', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/pre-approve',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { role: 'user' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
+  describe('GET /api/v1/users/pre-approve with role filter', () => {
+    it('passes role filter to service', async () => {
+      (usersService.listPreApproved as jest.Mock).mockResolvedValue([mockPreApproved]);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/pre-approve?role=admin',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(usersService.listPreApproved).toHaveBeenCalledWith(
+        expect.any(String),
+        { role: 'admin' },
+      );
     });
   });
 });

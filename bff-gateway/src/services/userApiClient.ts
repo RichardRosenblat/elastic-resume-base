@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { config } from '../config.js';
-import { ConflictError, DownstreamError, ForbiddenError, UnavailableError, ValidationError } from '../errors.js';
+import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
 import { logger } from '../utils/logger.js';
 import type { PreApprovedUser, UserRecord, ListUsersResponse, UpdateUserRequest, UpdatePreApprovedRequest } from '../models/index.js';
@@ -11,6 +11,7 @@ type ErrorHandlerParams = {
   context: Record<string, unknown>;
   operationName: string;
   forbiddenMsg: string;
+  notFoundMsg: string;
 };
 
 /** Dispatch table: HTTP status code → error factory. */
@@ -19,9 +20,9 @@ const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams) => n
     logger.info(context, `${operationName}: UserAPI returned 403 Forbidden`);
     throw new ForbiddenError(forbiddenMsg);
   },
-  404: ({ context, operationName, forbiddenMsg }) => {
+  404: ({ context, operationName, notFoundMsg }) => {
     logger.info(context, `${operationName}: resource not found (404)`);
-    throw new ForbiddenError(forbiddenMsg);
+    throw new NotFoundError(notFoundMsg);
   },
 };
 
@@ -38,7 +39,8 @@ function extractApiMessage(err: unknown, fallback: string): string {
 /**
  * Centralized error handler for UserAPI requests in this file.
  * @throws {ValidationError} If the UserAPI returns HTTP 400.
- * @throws {ForbiddenError} If the UserAPI returns HTTP 403 or 404.
+ * @throws {ForbiddenError} If the UserAPI returns HTTP 403.
+ * @throws {NotFoundError} If the UserAPI returns HTTP 404.
  * @throws {ConflictError} If the UserAPI returns HTTP 409.
  * @throws {UnavailableError} If the UserAPI returns 5xx, times out, or is unreachable.
  * @throws {DownstreamError} For any other unexpected errors.
@@ -127,6 +129,7 @@ export async function authorizeUser(uid: string, email: string): Promise<{ role:
       context: { uid, email },
       operationName: 'authorizeUser',
       forbiddenMsg: 'User does not have access to this application',
+      notFoundMsg: 'User not found',
       unavailableActionMsg: 'authorize user',
     });
   }
@@ -151,6 +154,7 @@ export async function getUserById(uid: string): Promise<UserRecord> {
       context: { uid },
       operationName: 'getUserById',
       forbiddenMsg: 'User not found',
+      notFoundMsg: 'User not found',
       unavailableActionMsg: 'retrieve user',
     });
   }
@@ -178,6 +182,7 @@ export async function listUsersFromApi(maxResults?: number, pageToken?: string, 
       context: { maxResults, pageToken },
       operationName: 'listUsersFromApi',
       forbiddenMsg: 'Could not list users',
+      notFoundMsg: 'Could not retrieve users list',
       unavailableActionMsg: 'list users',
     });
   }
@@ -199,6 +204,7 @@ export async function updateUserInApi(uid: string, data: UpdateUserRequest): Pro
       context: { uid },
       operationName: 'updateUserInApi',
       forbiddenMsg: 'User not found',
+      notFoundMsg: 'User not found',
       unavailableActionMsg: 'update user',
     });
   }
@@ -216,6 +222,7 @@ export async function deleteUserFromApi(uid: string): Promise<void> {
       context: { uid },
       operationName: 'deleteUserFromApi',
       forbiddenMsg: 'User not found',
+      notFoundMsg: 'User not found',
       unavailableActionMsg: 'delete user',
     });
   }
@@ -243,6 +250,7 @@ export async function listPreApprovedFromApi(filters?: { role?: string }): Promi
       context: {},
       operationName: 'listPreApprovedFromApi',
       forbiddenMsg: 'Could not list pre-approved users',
+      notFoundMsg: 'Could not retrieve pre-approved users list',
       unavailableActionMsg: 'list pre-approved users',
     });
   }
@@ -263,6 +271,7 @@ export async function getPreApprovedFromApi(email: string): Promise<PreApprovedU
       context: { email },
       operationName: 'getPreApprovedFromApi',
       forbiddenMsg: 'Pre-approved user not found',
+      notFoundMsg: 'Pre-approved user not found',
       unavailableActionMsg: 'get pre-approved user',
     });
   }
@@ -284,6 +293,7 @@ export async function addPreApprovedInApi(email: string, role: string): Promise<
       context: { email },
       operationName: 'addPreApprovedInApi',
       forbiddenMsg: 'Could not add pre-approved user',
+      notFoundMsg: 'Could not add pre-approved user',
       unavailableActionMsg: 'add pre-approved user',
     });
   }
@@ -301,6 +311,7 @@ export async function deletePreApprovedFromApi(email: string): Promise<void> {
       context: { email },
       operationName: 'deletePreApprovedFromApi',
       forbiddenMsg: 'Pre-approved user not found',
+      notFoundMsg: 'Pre-approved user not found',
       unavailableActionMsg: 'delete pre-approved user',
     });
   }
@@ -322,6 +333,7 @@ export async function updatePreApprovedInApi(email: string, data: UpdatePreAppro
       context: { email },
       operationName: 'updatePreApprovedInApi',
       forbiddenMsg: 'Pre-approved user not found',
+      notFoundMsg: 'Pre-approved user not found',
       unavailableActionMsg: 'update pre-approved user',
     });
   }
