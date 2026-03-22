@@ -160,7 +160,7 @@ npm run test:coverage
 
 ### Test Coverage
 
-The test suite covers the authorization scenarios in `usersService.authorize`:
+The test suite covers the authorization scenarios in `usersService.authorizeUser`:
 
 1. **Existing active user** — UID found in `users` collection with `enable: true` → returns `{ role, enable: true }`.
 2. **Existing pending user** — UID found in `users` collection with `enable: false` → returns `{ role, enable: false }`.
