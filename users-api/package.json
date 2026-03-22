@@ -20,7 +20,7 @@
     "@elastic-resume-base/bowltie": "file:../shared/Bowltie",
     "@elastic-resume-base/bugle": "file:../shared/Bugle",
     "@elastic-resume-base/synapse": "file:../shared/Synapse",
-    "@fastify/cors": "^10.0.1",
+    "@fastify/cors": "^11.2.0",
     "@fastify/helmet": "^12.0.1",
     "@fastify/rate-limit": "^10.2.1",
     "@fastify/swagger": "^9.4.0",
