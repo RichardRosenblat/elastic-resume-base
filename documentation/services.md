@@ -1,25 +1,68 @@
-**Frontend SPA**: A Single Page Application that serves as the user interface for interacting with the system. Hosted on firebase hosting
-**BFF**: Backend For Frontend, responsible for handling requests from the frontend and communicating with the backend services. Hosted on Cloud Run (while low use, we can mantain the instance minimum to 0, moving to higher performance options as needed)
-**google sheets downloader + text extractor**: A service responsible for downloading resumes from Google Sheets and google drive, extracting text from the resumes, and storing the extracted data in the persistence layer. Hosted on Cloud Run, minimum instance set to 0, activated through api calls from the BFF, pubs on queue for the a.i extractor to process the data.
-**A.I. Worker**: Originally two separate services, the a.i extractor and field embedding creation, have been combined into a single service responsible for processing the resume data. This service will handle both the extraction of relevant information from the raw resume text using AI and the creation of embeddings for the extracted data. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub after the google sheets downloader + text extractor finishes processing the data. After processing the data, it will store the extracted json in the persistence layer and publish a message to the Pub/Sub topic for the search base service to index the new embeddings. This service will utilize Vertex AI for the extraction and embedding creation processes, allowing for efficient and accurate processing of resume data while maintaining cost-effectiveness by combining these related tasks into a single service. 
-    **a.i Extractor**: A service responsible for converting resume raw text into Jsons using AI. Hosted on Cloud Run and acessing vertex ai for the extraction process. Minimum instance set to 0, activated through Pub/Sub. After processing the data, it will store the extracted json in the persistence layer and publish a message to the Pub/Sub topic for the field embedding creation service to process the data.
-    **field embedding creation**: A service responsible for creating embeddings for the extracted resume data. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub after the a.i extractor finishes processing the data. embeddings are stored in the persistence layer and indexed in FAISS for efficient search. 
-**DLQ notifier**: A service responsible for monitoring the Dead Letter Queue (DLQ) for any failed messages and sending notifications to the appropriate channels (e.g., email, Slack) for further investigation. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub when messages are sent to the DLQ.
-**db no-sql**: A NoSQL database (e.g., Firestore, MongoDB) for storing user data, resume data, and embedding data. This database will be used for efficient querying and retrieval of data based on user interactions. A persistence abstraction layer (Synapse) will be implemented to allow for flexibility in choosing the underlying database technology and to facilitate future migrations if needed. PII will be encrypted with secrets being saved on a KMS before being stored in the database to ensure data security and compliance with privacy regulations. This will be used by all services that require data storage.
-**Search Base**: Originally two separate services, the search engine and FAISS, have been combined into a single service responsible for handling search queries from the frontend, retrieving relevant resume data based on the embeddings and indexed data in FAISS, and returning the results to the frontend. This service will also handle starting and managing the FAISS index for efficient similarity search of resume embeddings. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF when search queries are made and through Pub/Sub when new embeddings are created and need to be indexed. This structure deal with cold start cascades by having the search base service handle both the search engine and FAISS functionalities, allowing for more efficient resource utilization and faster response times when handling search queries and indexing new embeddings.
-    **Search engine**: A search engine abstraction service responsible for handling search queries from the frontend, retrieving relevant resume data based on the embeddings and indexed data in FAISS, and returning the results to the frontend. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
-    **FAISS**: A service responsible for starting and managing the FAISS index for efficient similarity search of resume embeddings. This service will handle indexing of the embeddings created by the field embedding creation service and provide search capabilities for the search engine service. It will be hosted on Cloud Run, with a minimum instance set to 0, and will be activated through API calls from the search engine service when search queries are made and through Pub/Sub when new embeddings are created and need to be indexed.
-**Auth+users**: A service responsible for managing user authentication, authorization, and user data management. This service will handle user registration, login, profile management, and access control for the system. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
-    **users**: A layer responsible for managing user data, including user profiles creation, authorization list management. part of the Auth+users service
-    **auth**: For authentication, we will utilize Google Single Sign-On (SSO) through Firebase Authentication, eliminating the need for a custom authentication service and reducing complexity while ensuring secure and reliable user authentication.
+# Services Overview
 
-**File Generator**: Originally two separate services, the filemaker and translator, have been combined into a single service responsible for handling file creation and translation. This service will download and process data from various sources to generate the final resume documents. It will also handle translation of resume data when required, utilizing Google Cloud Translation API for the translation process. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF when a resume document needs to be generated. This way we can avoid cold-start cascades by having the file generator handle both the file creation and translation processes, allowing for more efficient resource utilization and faster response times when generating resume documents. This service is syncronous with the frontend, as the resume document generation process is typically initiated by a user action and requires an immediate response. 
-    **filemaker**: A service responsible for handling file creation, by downloading and processing data from various sources. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
-    **translator**: A service responsible for translating resume json data into a specified language. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the filemaker service when a translation is required to generate the final resume document. Translated data is stored in the persistence layer and used for future requests for the same resume in the same language. A cache that uses the persistence layer can be implemented to store translations for frequent phrases and reduce translation costs. This service will utilize Google Cloud Translation API for the translation process.
-**TLS**: Transport Layer Security will be used to secure all communication between the frontend, backend services, and external APIs. This will ensure that all data transmitted over the network is encrypted and protected from unauthorized access, maintaining the confidentiality and integrity of user data and system communications.
-**Cloud Pub/Sub**: Cloud Pub/Sub will be used for asynchronous communication between services, allowing for decoupling and scalability. Services will publish messages to specific topics when certain events occur (e.g., when a new resume is processed, when a search query is made) and other services will subscribe to those topics to perform the necessary actions. The only data passed through Pub/Sub will be identifiers (e.g., resume ID, user ID) that can be used to retrieve the necessary data from the persistence layer, ensuring that sensitive data is not transmitted through Pub/Sub and maintaining data security.
-**Cloud Logging**: Cloud Logging will be used for centralized logging and monitoring of all services. Each service will log relevant information, such as errors, warnings, and informational messages, to Cloud Logging. This will allow for easy monitoring and troubleshooting of the system, as well as providing insights into the performance and usage of the services.
-**document-reader**: A service responsible intaking personal documents and using OCR to extract text from them and creating a excel sheet with the extracted data. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF. This service will utilize Google Cloud Vision API for OCR processing but no extracted data or documents will be saved after the text extraction process, ensuring data privacy and security. 
+This document describes each service and component in the Elastic Resume Base platform. For the current implementation status of each service, see the [README](../README.md#implementation-status).
+
+---
+
+## Implemented Services
+
+### BFF Gateway (✅ Implemented)
+
+Backend For Frontend service responsible for handling requests from the frontend and communicating with backend services. Hosted on Cloud Run (while at low usage, minimum instances can be set to 0; higher-performance options can be enabled as needed).
+
+- Verifies Firebase ID tokens on every authenticated request
+- Calls Users API to resolve the user's role and `enable` status
+- Enforces role-based access control (RBAC) on protected routes
+- Routes requests to downstream microservices
+
+See [bff-gateway/README.md](../bff-gateway/README.md) for API documentation.
+
+### Users API (✅ Implemented)
+
+A Node.js/TypeScript microservice that manages user records and implements the BFF Authorization Logic for the platform. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
+
+- Stores user records (uid, email, role, enable) in Firestore via Synapse
+- Exposes a `POST /api/v1/users/authorize` endpoint called by the BFF during every login
+- Manages a `pre_approved_users` collection for admin-controlled user onboarding
+- Supports auto-onboarding of users from configurable email domains
+
+See [users-api/README.md](../users-api/README.md) for full API documentation.
+
+---
+
+## Planned Services
+
+> The following services are part of the target architecture but have not yet been implemented.
+
+### Frontend SPA (🔄 Planned)
+
+A Single Page Application that serves as the user interface for interacting with the system. Will be hosted on Firebase Hosting.
+
+### Ingestor Service (🔄 Planned)
+
+A Python service responsible for downloading resumes from Google Sheets and Google Drive, extracting text from the resumes, and storing the extracted data in Firestore. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF. Publishes to a Pub/Sub queue for the AI Worker to process.
+
+### AI Worker (🔄 Planned)
+
+A Python service responsible for processing resume data. Handles both the extraction of relevant information from raw resume text using Vertex AI (Gemini 1.5 Flash) and the creation of embeddings using `text-multilingual-embedding-002`. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub. After processing, stores the structured JSON and embeddings in Firestore and publishes to Pub/Sub for the Search Base to index.
+
+### Search Base (🔄 Planned)
+
+A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF (for search queries) and through Pub/Sub (when new embeddings are indexed).
+
+### File Generator (🔄 Planned)
+
+A Python service responsible for generating resume documents and handling translations. Downloads and processes data from Firestore to render the final resume documents. Handles translation via Google Cloud Translation API, caching results in Firestore to reduce API calls. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
+
+### Document Reader (🔄 Planned)
+
+A Python service responsible for accepting personal documents and using OCR (Google Cloud Vision API) to extract text from them. No extracted data or documents are persisted after text extraction, ensuring data privacy. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
+
+### DLQ Notifier (🔄 Planned)
+
+A Python service responsible for monitoring the Dead Letter Queue (DLQ) for failed messages and sending notifications (e.g., Slack) for further investigation. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub when messages are sent to the DLQ.
+
+---
 
 ## Shared Libraries (Node.js)
 
@@ -27,16 +70,21 @@ The following internal packages live under `shared/` and are consumed by the Nod
 
 | Package | Import | Purpose |
 |---------|--------|---------|
-| **Toolbox** | `shared/Toolbox/src/` (relative path) | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify middleware hooks (`correlationIdHook`, `createRequestLoggerHook`). Plain TypeScript source files — no build step required. |
-| **Bowltie** | `@elastic-resume-base/bowltie` | Uniform JSON response formatting via `formatSuccess` / `formatError`. Both BFF and Users API use this to produce the standard `{ success, data/error, meta }` envelope. |
-| **Synapse** | `@elastic-resume-base/synapse` | Shared error class hierarchy (`AppError`, `NotFoundError`, `ConflictError`, `ValidationError`, …) and the `UserRepository` / `FirestoreUserRepository` persistence abstraction. |
-| **Bugle** | `@elastic-resume-base/bugle` | Google API integration: `getGoogleAuthClient` and `DrivePermissionsService` for reading Google Drive file permissions. Used by Users API to determine admin access from a Google Sheet. |
+| **Toolbox** | `shared/Toolbox/src/` (relative path) | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify middleware hooks (`correlationIdHook`, `createRequestLoggerHook`). Plain TypeScript source — no build step required. |
+| **Bowltie** | `@elastic-resume-base/bowltie` | Uniform JSON response formatting via `formatSuccess` / `formatError`. Produces the standard `{ success, data/error, meta }` envelope used by all API responses. |
+| **Synapse** | `@elastic-resume-base/synapse` | Persistence abstraction layer for Firebase/Firestore. Owns the `firebase-admin` dependency and exposes `IUserDocumentStore` / `IPreApprovedStore` interfaces with Firestore implementations. Must be initialized via `initializePersistence()` at service startup. |
+| **Bugle** | `@elastic-resume-base/bugle` | Google API integration: `getGoogleAuthClient` and `DrivePermissionsService` for reading Google Drive file permissions. |
 
-Each package ships with a `README.md`, full JSDoc on all exports, and its own test suite. See `documentation/coding-standards/nodejs-coding-standards.md` for usage patterns and Jest configuration.
+Each package ships with a `README.md`, full JSDoc on all exports, and its own test suite. See [`documentation/coding-standards/shared-libraries-standards.md`](coding-standards/shared-libraries-standards.md) for usage patterns and conventions.
 
 ---
 
-alright lets just use tls and google sso for authentication rather than having a separate auth service,
+## Infrastructure Components
 
-and we can join these:
--  search engine + FAISS: we can join these into "search base" service
+| Component | Technology | Notes |
+|-----------|------------|-------|
+| **NoSQL Database** | Firestore | User data, resume data, embeddings. Accessed via Synapse abstraction. PII encrypted with Cloud KMS before storage. |
+| **Async Messaging** | Cloud Pub/Sub | Decouples ingestion, AI processing, and indexing pipelines. Only identifiers (e.g., `resumeId`) are passed in messages. |
+| **Authentication** | Firebase Auth (Google SSO) | Token verification by BFF Gateway. No custom auth service needed. |
+| **Transport Security** | TLS 1.2+ | All client-to-service and inter-service communication. |
+| **Observability** | Google Cloud Logging | Centralized structured logging from all services via Pino. |

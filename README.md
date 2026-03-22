@@ -7,6 +7,7 @@ A cloud-native, microservices-based resume processing platform built on Google C
 ## Table of Contents
 
 - [Overview](#overview)
+- [Implementation Status](#implementation-status)
 - [Architecture](#architecture)
 - [Services](#services)
 - [Tech Stack](#tech-stack)
@@ -24,7 +25,7 @@ A cloud-native, microservices-based resume processing platform built on Google C
 
 ## Overview
 
-Elastic Resume Base is an AI-powered resume management and search platform designed to help recruiters and HR teams efficiently process and search large volumes of resumes. The system processes resumes through an intelligent pipeline:
+Elastic Resume Base is an AI-powered resume management and search platform designed to help recruiters and HR teams efficiently process and search large volumes of resumes. The system is designed to process resumes through an intelligent pipeline:
 
 1. **Ingest** resumes from Google Sheets/Drive
 2. **Extract** structured data using Vertex AI (Gemini 1.5 Flash)
@@ -35,7 +36,51 @@ The architecture is optimized for cost-efficiency, operating almost entirely wit
 
 ---
 
+## Implementation Status
+
+This repository is under active development. The following table summarizes what is currently implemented versus what is planned:
+
+| Service | Status | Notes |
+|---|---|---|
+| **BFF Gateway** | ✅ Implemented | Full auth, RBAC, user management routes |
+| **Users API** | ✅ Implemented | Authorization logic, user CRUD, pre-approval management |
+| **Shared Libraries** (Synapse, Bowltie, Bugle, Toolbox) | ✅ Implemented | Consumed by BFF Gateway and Users API |
+| **Frontend SPA** | 🔄 Planned | Not yet implemented |
+| **Ingestor Service** | 🔄 Planned | Not yet implemented |
+| **AI Worker** | 🔄 Planned | Not yet implemented |
+| **Search Base** | 🔄 Planned | Not yet implemented |
+| **File Generator** | 🔄 Planned | Not yet implemented |
+| **Document Reader** | 🔄 Planned | Not yet implemented |
+| **DLQ Notifier** | 🔄 Planned | Not yet implemented |
+
+---
+
 ## Architecture
+
+### Current Implementation
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Client / Frontend                       │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTPS / Firebase ID Token
+┌────────────────────────▼────────────────────────────────────┐
+│              BFF Gateway (Node.js – Cloud Run)              │
+│          Verifies token · Calls Users API · RBAC            │
+└────────────────────────┬────────────────────────────────────┘
+                         │ Internal HTTP
+┌────────────────────────▼────────────────────────────────────┐
+│               Users API (Node.js – Cloud Run)               │
+│  Authorization logic · User CRUD · Pre-approval management  │
+└────────────────────────┬────────────────────────────────────┘
+                         │ Synapse (persistence abstraction)
+              ┌──────────▼──────────┐
+              │  Firestore (NoSQL)  │
+              │  + Cloud KMS (PII)  │
+              └─────────────────────┘
+```
+
+### Full Target Architecture (Planned)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -45,17 +90,20 @@ The architecture is optimized for cost-efficiency, operating almost entirely wit
                          │ HTTPS / TLS
 ┌────────────────────────▼────────────────────────────────────┐
 │              BFF Gateway (Node.js – Cloud Run)              │
-└──┬─────────────┬──────────────┬──────────────┬─────────────┘
-   │             │              │              │
-   ▼             ▼              ▼              ▼
-Ingestor     Search Base    File Generator  Document Reader
-(Python)     (Python+FAISS) (Python)        (Python – OCR)
-   │
-   ▼ Pub/Sub
-AI Worker (Python – Vertex AI)
-   │
-   ▼
-Firestore (Synapse Abstraction Layer)
+└──┬─────────┬──────────┬──────────┬──────────┬──────────────┘
+   │         │          │          │          │
+   ▼         ▼          ▼          ▼          ▼
+Users API Ingestor  Search Base  File Gen  Doc Reader
+(Node.js) (Python)  (Python)     (Python)  (Python)
+              │         ▲
+       Pub/Sub│         │Pub/Sub
+              ▼         │
+          AI Worker ────┘
+          (Python – Vertex AI)
+              │
+              ▼
+    Firestore (via Synapse)
+    Cloud KMS (PII encryption)
 ```
 
 All inter-service communication is asynchronous via **Cloud Pub/Sub** where applicable. All data at rest is encrypted, with PII fields secured through **Cloud KMS**.
@@ -64,16 +112,17 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 
 ## Services
 
-| Service | Language | Description |
-|---|---|---|
-| **Frontend SPA** | React / Vue / Angular | User interface hosted on Firebase Hosting |
-| **BFF Gateway** | Node.js | Backend-for-Frontend: routes client requests to microservices |
-| **Ingestor Service** | Python | Downloads resumes from Google Sheets/Drive, publishes to Pub/Sub |
-| **AI Worker** | Python | Extracts structured JSON and generates embeddings using Vertex AI |
-| **Search Base** | Python | Manages FAISS index and handles semantic vector search queries |
-| **File Generator** | Python | Generates resume documents and handles translation via Cloud Translation |
-| **Document Reader** | Python | OCR processing of scanned documents using Cloud Vision API |
-| **DLQ Notifier** | Python | Monitors Dead Letter Queue and sends failure alerts |
+| Service | Language | Status | Description |
+|---|---|---|---|
+| **BFF Gateway** | Node.js | ✅ Implemented | Backend-for-Frontend: handles authentication, RBAC, and routes client requests to microservices |
+| **Users API** | Node.js | ✅ Implemented | Manages user records, authorization logic, and pre-approval workflows |
+| **Frontend SPA** | React / Vue / Angular | 🔄 Planned | User interface hosted on Firebase Hosting |
+| **Ingestor Service** | Python | 🔄 Planned | Downloads resumes from Google Sheets/Drive, publishes to Pub/Sub |
+| **AI Worker** | Python | 🔄 Planned | Extracts structured JSON and generates embeddings using Vertex AI |
+| **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
+| **File Generator** | Python | 🔄 Planned | Generates resume documents and handles translation via Cloud Translation |
+| **Document Reader** | Python | 🔄 Planned | OCR processing of scanned documents using Cloud Vision API |
+| **DLQ Notifier** | Python | 🔄 Planned | Monitors Dead Letter Queue and sends failure alerts |
 
 ---
 
@@ -105,8 +154,8 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 Ensure you have the following tools installed locally:
 
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
-- [Node.js](https://nodejs.org/) v22+ (for the BFF Gateway)
-- [Python](https://www.python.org/downloads/) v3.11+ (for Python microservices)
+- [Node.js](https://nodejs.org/) v22+ (for the BFF Gateway and Users API)
+- [Python](https://www.python.org/downloads/) v3.11+ (for future Python microservices)
 - [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
 
@@ -134,16 +183,25 @@ Ensure you have the following tools installed locally:
    # It is git-ignored; config_example.yaml is the committed template.
    cp config_example.yaml config.yaml
    # Edit config.yaml and fill in any sensitive values
-   # (GOOGLE_SERVICE_ACCOUNT_KEY, DLQ_SLACK_WEBHOOK_URL, etc.)
+   # (GOOGLE_SERVICE_ACCOUNT_KEY, BOOTSTRAP_ADMIN_USER_EMAIL, etc.)
    ```
 
-5. **Install service dependencies:**
+5. **Build shared libraries:**
+   ```bash
+   # Linux / macOS
+   ./build_shared.sh
+
+   # Windows
+   build_shared.bat
+   ```
+
+6. **Install service dependencies:**
    ```bash
    # BFF Gateway
    cd bff-gateway && npm install
 
-   # Python services (example for ingestor-service)
-   cd ingestor-service && pip install -r requirements.txt
+   # Users API
+   cd users-api && npm install
    ```
 
 ### Running with Docker Compose
@@ -174,8 +232,10 @@ The following local endpoints will be available:
 | Service | URL |
 |---|---|
 | BFF Gateway | http://localhost:3000 |
+| BFF Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
+| Users API | http://localhost:8005 |
+| Users API Docs (Swagger) | http://localhost:8005/api/v1/docs |
 | Firebase Emulator UI | http://localhost:4000 |
-| Ingestor Service | http://localhost:8000 |
 | Firebase Auth Emulator | http://localhost:9099 |
 | Firestore Emulator | http://localhost:8080 |
 | Pub/Sub Emulator | http://localhost:8085 |
@@ -186,55 +246,39 @@ The following local endpoints will be available:
 
 ```
 elastic-resume-base/
-├── bff-gateway/               # Node.js BFF Gateway
+├── bff-gateway/               # ✅ Node.js BFF Gateway (Fastify v5)
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
-├── users-api/                 # Node.js Users API Microservice
+├── users-api/                 # ✅ Node.js Users API Microservice
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
-├── shared/                    # Shared TypeScript libraries
-│   ├── Synapse/               # Error classes + Firestore user repository
+├── shared/                    # ✅ Shared TypeScript libraries
+│   ├── Synapse/               # Persistence abstraction (Firestore via firebase-admin)
 │   ├── Bowltie/               # Response formatting utilities
-│   └── Bugle/                 # Google Auth + Drive permissions
-├── ingestor-service/          # Python Ingestion Worker
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── ai-worker/                 # Python AI Processing Worker
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── search-base/               # Python FAISS Search Service
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── file-generator/            # Python File Generator Service
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── document-reader/           # Python OCR Service
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── dlq-notifier/              # Python DLQ Monitor
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── main.py
-├── firebase-emulator/         # Local Firebase Emulator Setup
+│   ├── Bugle/                 # Google API integration (Auth + Drive)
+│   └── Toolbox/               # Cross-cutting utilities (logger, config loader, middleware)
+├── firebase-emulator/         # Local Firebase Emulator setup
 │   ├── Dockerfile
 │   └── firebase.json
 ├── documentation/             # Project documentation
-│   ├── coding-standards/
-│   │   ├── python-coding-standards.md
-│   │   └── nodejs-coding-standards.md
-│   ├── initial-setup.md
+│   ├── adr/                   # Architecture Decision Records
+│   ├── coding-standards/      # Language-specific coding standards
+│   ├── data-flow.md
+│   ├── deployment.md
 │   ├── docker-orchestration.md
+│   ├── getting-started.md
+│   ├── initial-setup.md
+│   ├── monorepo-scripts.md
 │   ├── services.md
+│   ├── testing-strategy.md
+│   ├── troubleshooting.md
 │   └── costs and services.md
 ├── config_example.yaml        # Environment configuration template (committed)
 │                              # Copy to config.yaml (git-ignored) and edit
+├── build_shared.sh            # Builds all shared libraries (Linux/macOS)
+├── build_shared.bat           # Builds all shared libraries (Windows)
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md
@@ -248,19 +292,20 @@ elastic-resume-base/
 
 | Document | Description |
 |---|---|
+| [Getting Started](documentation/getting-started.md) | End-to-end guide for setting up the local development environment |
 | [Initial Setup](documentation/initial-setup.md) | GCP/Firebase project initialization and development roadmap |
 | [Docker Orchestration](documentation/docker-orchestration.md) | Containerization strategy and Docker Compose configuration |
-| [Services Overview](documentation/services.md) | Detailed description of each microservice |
-| [Costs and Scaling](documentation/costs%20and%20services.md) | Cost analysis and scaling projections |
-| [Architecture Decision Records](documentation/adr/README.md) | Records of key architectural decisions and their rationale |
+| [Services Overview](documentation/services.md) | Description of each microservice and shared library |
 | [Data Flow](documentation/data-flow.md) | End-to-end data flow through all services |
-| [Testing Strategy](documentation/testing-strategy.md) | Testing philosophy, layers, mocking strategies, and coverage requirements |
 | [Deployment Guide](documentation/deployment.md) | Cloud Run deployment, IAM setup, Pub/Sub provisioning |
 | [Troubleshooting](documentation/troubleshooting.md) | Common issues and their solutions |
-| [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
-| [Node.js Coding Standards](documentation/coding-standards/nodejs-coding-standards.md) | Node.js style guide and best practices |
-| [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
+| [Testing Strategy](documentation/testing-strategy.md) | Testing philosophy, layers, mocking strategies, and coverage requirements |
 | [Monorepo Scripts](documentation/monorepo-scripts.md) | Reference for root-level build and utility scripts |
+| [Costs and Scaling](documentation/costs%20and%20services.md) | Cost analysis and scaling projections |
+| [Architecture Decision Records](documentation/adr/README.md) | Records of key architectural decisions and their rationale |
+| [Node.js Coding Standards](documentation/coding-standards/nodejs-coding-standards.md) | Node.js style guide and best practices |
+| [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
+| [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
 | [Contributing](CONTRIBUTING.md) | How to contribute to this project |
 | [Security](SECURITY.md) | Security policy and vulnerability reporting |
 

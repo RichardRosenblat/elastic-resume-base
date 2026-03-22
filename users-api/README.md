@@ -1,27 +1,28 @@
 # Users API
 
-A Node.js/TypeScript microservice that manages user records and provides the BFF Authorization Logic for the Elastic Resume Base platform.
+A Node.js/TypeScript microservice that manages user records and implements the BFF Authorization Logic for the Elastic Resume Base platform.
 
 ## Overview
 
 The Users API:
-- Stores user records (including roles) in **Firestore** (via [Synapse](../shared/Synapse/README.md))
+- Stores user records (uid, email, role, enable) in **Firestore** (via [Synapse](../shared/Synapse/README.md))
 - Exposes RESTful CRUD endpoints for user management
-- Implements the **BFF Authorization Logic** for determining a user's access level
+- Implements the **BFF Authorization Logic** via `POST /api/v1/users/authorize`
+- Manages a `pre_approved_users` collection for admin-controlled user onboarding
+- Supports auto-onboarding of users from configurable email domains (`ONBOARDABLE_EMAIL_DOMAINS`)
 
 > **Architecture note:** All Firebase / Firestore interactions are handled exclusively by the [Synapse](../shared/Synapse/README.md) shared library. The Users API has no direct `firebase-admin` dependency; it delegates persistence initialisation and data access entirely to Synapse.
 
 ### BFF Authorization Logic
 
-When `bff-gateway` needs to know a user's role, it calls `GET /api/v1/users/role?email=<address>`. The service resolves the role as follows:
+When `bff-gateway` needs to authorize a user, it calls `POST /api/v1/users/authorize` with `{ uid, email }`. The service resolves authorization as follows:
 
-1. **If `ADMIN_SHEET_FILE_ID` is set** — Uses [Bugle](../shared/Bugle/README.md) to fetch the list of users with access to the specified Google Drive file.
-   - If the user's email appears in that list → role `"admin"` is returned.
-   - If the user's email is **not** in the list → `403 Forbidden` (no access).
+1. **Look up by UID in the `users` collection** — if found, return `{ role, enable }`.
+2. **Look up by email in the `pre_approved_users` collection** — if found, create a new user record (with `enable: false`), remove from pre-approved, and return `{ role, enable: false }`.
+3. **Check `ONBOARDABLE_EMAIL_DOMAINS`** — if the email domain matches, create a new user record (with `enable: false`, role `user`), and return `{ role: 'user', enable: false }`.
+4. **Otherwise** — return `403 Forbidden`.
 
-2. **If `ADMIN_SHEET_FILE_ID` is *not* set** — Queries Firestore directly to look up the user's stored role by email.
-   - If the user exists in Firestore → their stored role is returned.
-   - If the user is **not** found in Firestore → `403 Forbidden` (no access).
+> **Note:** Users with `enable: false` are redirected by the BFF with a "pending approval" message. An admin must set `enable: true` (via `PATCH /api/v1/users/:uid`) to grant full access.
 
 ---
 
@@ -30,57 +31,61 @@ When `bff-gateway` needs to know a user's role, it calls `GET /api/v1/users/role
 ```text
 users-api/
 ├── src/
-│   ├── app.ts                    # Express application factory
-│   ├── config.ts                 # Zod-validated environment config
-│   ├── server.ts                 # Entry point (persistence init via Synapse + HTTP listen)
-│   ├── swagger.ts                # Swagger/OpenAPI setup
+│   ├── app.ts                         # Fastify application factory
+│   ├── config.ts                      # Zod-validated environment config
+│   ├── server.ts                      # Entry point (Synapse init + HTTP listen)
+│   ├── swagger.ts                     # Swagger/OpenAPI setup
+│   ├── errors.ts                      # Re-exports from shared/Toolbox
 │   ├── controllers/
-│   │   ├── health.controller.ts  # Liveness/readiness probes
-│   │   └── users.controller.ts   # HTTP handler layer
+│   │   ├── health.controller.ts       # Liveness/readiness probes
+│   │   └── users.controller.ts        # HTTP handler layer
 │   ├── middleware/
-│   │   ├── correlationId.ts      # Attaches x-correlation-id to every request
-│   │   ├── errorHandler.ts       # Global Express error handler
-│   │   └── requestLogger.ts      # Per-request Pino logging
+│   │   ├── correlationId.ts           # Attaches x-correlation-id to every request
+│   │   ├── errorHandler.ts            # Global Fastify error handler
+│   │   └── requestLogger.ts           # Per-request Pino logging
 │   ├── models/
-│   │   └── index.ts              # Shared TypeScript interfaces
+│   │   └── index.ts                   # Shared TypeScript interfaces
 │   ├── routes/
-│   │   ├── index.ts              # Root router
-│   │   ├── health.ts             # /health routes
-│   │   └── users.ts              # /api/v1/users routes
+│   │   ├── index.ts                   # Root router
+│   │   ├── health.ts                  # /health routes
+│   │   └── users.ts                   # /api/v1/users routes
 │   ├── services/
-│   │   └── usersService.ts       # Business logic (Firestore + Bugle)
+│   │   ├── usersService.ts            # User CRUD + authorization logic
+│   │   └── preApprovedUsersService.ts # Pre-approval management
 │   └── utils/
-│       └── logger.ts             # Pino logger (dev/prod-aware)
+│       └── logger.ts                  # Pino logger (dev/prod-aware)
 └── tests/
     ├── setup.ts
     └── unit/
         ├── controllers/users.test.ts
-        └── services/usersService.test.ts
+        └── services/
+            ├── usersService.test.ts
+            └── preApprovedUsersService.test.ts
 ```
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in the values:
+All configuration is loaded from `config.yaml` (merged from `systems.shared` and `systems.users-api`).
 
-| Variable | Required | Description |
-|---|---|---|
-| `PORT` | No | HTTP port (default: `8005`) |
-| `NODE_ENV` | No | `development` / `production` / `test` |
-| `FIREBASE_PROJECT_ID` | No | Firestore project ID passed to Synapse's `initializePersistence` (default: `demo-elastic-resume-base`) |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | No | Base64-encoded or raw JSON service-account key passed to Synapse's `initializePersistence`. Omit to use Application Default Credentials (ADC). Required in production or when using Google Drive integration. |
-| `FIRESTORE_EMULATOR_HOST` | No | Set to point Firestore to a local emulator (read automatically by firebase-admin via Synapse) |
-| `FIREBASE_AUTH_EMULATOR_HOST` | No | Set to point Firebase Auth to a local emulator (read automatically by firebase-admin via Synapse) |
-| `FIRESTORE_USERS_COLLECTION` | No | Firestore collection name for users (default: `users`) |
-| `FIRESTORE_PRE_APPROVED_USERS_COLLECTION` | No | Firestore collection name for pre-approved users (default: `pre_approved_users`) |
-| `ONBOARDABLE_EMAIL_DOMAINS` | No | Comma-separated email domains that are auto-onboarded with `enable=false` |
-| `BOOTSTRAP_ADMIN_USER_EMAIL` | No | Email address pre-approved as admin on startup |
-| `LOG_LEVEL` | No | Pino log level (default: `info`) |
-| `GCP_PROJECT_ID` | No | GCP project for Cloud Logging (default: `demo-elastic-resume-base`) |
-| `ALLOWED_ORIGINS` | No | Comma-separated CORS origins (default: `http://localhost:3000`) |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PORT` | No | `8005` | HTTP port |
+| `NODE_ENV` | No | `development` | `development` / `production` / `test` |
+| `FIREBASE_PROJECT_ID` | No | `demo-elastic-resume-base` | Firestore project ID passed to Synapse's `initializePersistence` |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | No | — | Base64-encoded or raw JSON service-account key for Synapse. Omit to use Application Default Credentials (ADC). Required in production. |
+| `FIRESTORE_EMULATOR_HOST` | No | — | Set to point Firestore to a local emulator (read automatically by firebase-admin via Synapse) |
+| `FIREBASE_AUTH_EMULATOR_HOST` | No | — | Set to point Firebase Auth to a local emulator (read automatically by firebase-admin via Synapse) |
+| `FIRESTORE_USERS_COLLECTION` | No | `users` | Firestore collection name for user records |
+| `FIRESTORE_PRE_APPROVED_USERS_COLLECTION` | No | `pre_approved_users` | Firestore collection name for pre-approved users |
+| `ONBOARDABLE_EMAIL_DOMAINS` | No | — | Comma-separated email domains that are auto-onboarded with `enable=false` |
+| `BOOTSTRAP_ADMIN_USER_EMAIL` | No | — | Email address pre-approved as admin on startup (idempotent) |
+| `LOG_LEVEL` | No | `info` | Pino log level |
+| `GCP_PROJECT_ID` | No | `demo-elastic-resume-base` | GCP project for Cloud Logging |
+| `ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated CORS origins |
 
-> **Note:** `FIRESTORE_EMULATOR_HOST` and `FIREBASE_AUTH_EMULATOR_HOST` are **not** read by users-api config directly — they are picked up automatically by the firebase-admin SDK inside Synapse when set in the process environment.
+> **Note:** `FIRESTORE_EMULATOR_HOST` and `FIREBASE_AUTH_EMULATOR_HOST` are not read by users-api config directly — they are picked up automatically by the firebase-admin SDK inside Synapse when set in the process environment.
 
 ---
 
@@ -90,13 +95,15 @@ Copy `.env.example` to `.env` and fill in the values:
 |--------|------|-------------|
 | `GET` | `/health/live` | Liveness probe |
 | `GET` | `/health/ready` | Readiness probe |
-| `GET` | `/api/v1/users` | List users (paginated) |
-| `POST` | `/api/v1/users` | Create a new user |
+| `POST` | `/api/v1/users/authorize` | BFF authorization check — returns `{ role, enable }` or 403 |
+| `GET` | `/api/v1/users` | List users (paginated, supports `role`/`enable` filters) |
 | `GET` | `/api/v1/users/:uid` | Get user by UID |
-| `PATCH` | `/api/v1/users/:uid` | Update user by UID |
+| `PATCH` | `/api/v1/users/:uid` | Update user by UID (email, role, enable) |
 | `DELETE` | `/api/v1/users/:uid` | Delete user by UID |
-| `GET` | `/api/v1/users/role?email=<address>` | BFF access check (returns role or 403) |
-| `POST` | `/api/v1/users/roles/batch` | Batch role lookup from Firestore |
+| `GET` | `/api/v1/users/pre-approve` | List or get pre-approved users |
+| `POST` | `/api/v1/users/pre-approve` | Add a pre-approved user |
+| `PATCH` | `/api/v1/users/pre-approve` | Update a pre-approved user's role |
+| `DELETE` | `/api/v1/users/pre-approve` | Remove a pre-approved user |
 | `GET` | `/api/v1/docs` | Swagger UI |
 | `GET` | `/api/v1/docs.json` | Swagger JSON spec |
 
@@ -106,35 +113,32 @@ Copy `.env.example` to `.env` and fill in the values:
 
 ### Prerequisites
 
-- Node.js 20+
-- [Shared Synapse library](../shared/Synapse/README.md) built (`npm run build`) — Synapse owns all Firebase/Firestore connections
-- [Shared Bugle library](../shared/Bugle/README.md) built (`npm run build`)
-- Firebase project or local Firestore emulator (configured via environment variables, used by Synapse internally)
+- Node.js 22+
+- Shared libraries built — run `build_shared.sh` (Linux/macOS) or `build_shared.bat` (Windows) from the repository root
+- Firebase project or local Firestore emulator (configured via `config.yaml`, used by Synapse internally)
 
 ### Installation
 
 ```bash
-# Build shared libraries first
-cd ../shared/Synapse && npm install && npm run build
-cd ../shared/Bugle && npm install && npm run build
+# Build shared libraries first (from repository root)
+./build_shared.sh
 
 # Install users-api dependencies
-cd ../../users-api
+cd users-api
 npm install
 
-# Copy and configure environment variables
-cp .env.example .env
+# Copy and configure environment (uses config.yaml, not .env)
+cp ../config_example.yaml ../config.yaml
+# Edit config.yaml with your values
 ```
 
 ### Running Locally
 
 ```bash
 # With Firestore emulator (start emulator first):
-export FIRESTORE_EMULATOR_HOST=localhost:8080
-npm run dev
+cd users-api && npm run dev
 
-# Or with full Docker Compose environment:
-cd ..
+# Or with full Docker Compose environment (from repository root):
 docker-compose up
 ```
 
@@ -154,14 +158,15 @@ npm test
 npm run test:coverage
 ```
 
-### Test Scenarios for BFF Access Logic
+### Test Coverage
 
-The test suite (`tests/unit/services/usersService.test.ts`) covers all four BFF access scenarios:
+The test suite covers the authorization scenarios in `usersService.authorize`:
 
-1. **Admin via Google Drive** — `ADMIN_SHEET_FILE_ID` is set and the user's email **is** in the Drive permissions list → returns `"admin"`.
-2. **Firestore fallback (with access)** — `ADMIN_SHEET_FILE_ID` is **not** set and the user exists in Firestore → returns their stored role.
-3. **No access** — `ADMIN_SHEET_FILE_ID` is set but user email is **not** in Drive permissions → returns `null` (maps to HTTP 403).
-4. **Firestore fallback (no access)** — `ADMIN_SHEET_FILE_ID` is **not** set and the user is **not** in Firestore → returns `null` (maps to HTTP 403).
+1. **Existing active user** — UID found in `users` collection with `enable: true` → returns `{ role, enable: true }`.
+2. **Existing pending user** — UID found in `users` collection with `enable: false` → returns `{ role, enable: false }`.
+3. **Pre-approved user** — UID not found but email is in `pre_approved_users` → creates user, returns `{ role, enable: false }`.
+4. **Onboardable domain** — UID and email not found but domain matches `ONBOARDABLE_EMAIL_DOMAINS` → creates user, returns `{ role: 'user', enable: false }`.
+5. **No access** — UID, email, and domain all unrecognized → throws `ForbiddenError` → HTTP 403.
 
 ---
 
@@ -169,8 +174,7 @@ The test suite (`tests/unit/services/usersService.test.ts`) covers all four BFF 
 
 The `bff-gateway` calls this service via `userApiClient.ts`:
 
-- `GET /api/v1/users/role?email=<address>` → `getUserRoleByEmail(email)`
-- `POST /api/v1/users/roles/batch` → `getUserRolesBatch(uids)`
+- `POST /api/v1/users/authorize` — called on every authenticated request to verify access and obtain `{ role, enable }`
 
 Set the `USER_API_SERVICE_URL` environment variable in `bff-gateway` to point to this service (default: `http://localhost:8005`).
 

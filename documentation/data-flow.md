@@ -4,7 +4,65 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ---
 
-## Architecture Overview
+## Current Implementation
+
+The following flows are fully implemented in the current codebase.
+
+### Authentication & Authorization Flow
+
+This is the core flow active in the current implementation. Every protected BFF request goes through these steps:
+
+```
+Client
+  │  POST Firebase token (Google SSO via Firebase Auth)
+  │
+  ▼
+BFF Gateway (Node.js)
+  │  1. Verify Firebase ID token (uid, email)
+  │  2. POST /api/v1/users/authorize → Users API
+  │
+  ▼
+Users API (Node.js)
+  │  3. Check users collection (Firestore) by uid
+  │     └─ Found → return { role, enable }
+  │  4. If not found → check pre_approved_users by email
+  │     └─ Found → create user record, return { role, enable=false }
+  │  5. If not found → check onboardable email domains
+  │     └─ Matched → create user record, return { role='user', enable=false }
+  │  6. If none match → 403 Forbidden
+  │
+  ▼
+BFF Gateway (cont.)
+  │  7. If enable=false → 403 "pending approval"
+  │  8. If ForbiddenError → 403 "not authorized"
+  │  9. Set request.user = { uid, email, role, enable }
+  │ 10. Route request to downstream handler
+```
+
+> **Admin bootstrapping:** On startup, if `BOOTSTRAP_ADMIN_USER_EMAIL` is set, Users API pre-approves that email as `admin`. This is idempotent and safe to re-run.
+
+### User Management Flow
+
+Admin users can manage user records and the pre-approval list through the BFF:
+
+```
+Admin Client
+  │  PATCH /api/v1/users/:uid   (enable/disable, change role)
+  │  DELETE /api/v1/users/:uid
+  │  POST /api/v1/users/pre-approve
+  │  DELETE /api/v1/users/pre-approve
+  │
+  ▼
+BFF Gateway → Users API → Firestore (via Synapse)
+```
+
+---
+
+## Planned Flows
+
+> The following flows describe the target architecture. These services have **not yet been implemented**.
+
+## Architecture Overview (Full Target)
 
 ```
                           ┌──────────────────────┐
@@ -36,7 +94,7 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ---
 
-## Resume Ingestion Flow
+## Resume Ingestion Flow (Planned)
 
 1. A recruiter triggers the Ingestor Service via the BFF Gateway (`POST /api/v1/ingest`).
 2. The Ingestor downloads resumes from Google Sheets/Drive using Bugle's `DrivePermissionsService`.
@@ -53,7 +111,7 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ---
 
-## Search Query Flow
+## Search Query Flow (Planned)
 
 1. The frontend sends a search query to the BFF Gateway (`GET /api/v1/search?q=...`).
 2. The BFF Gateway forwards the authenticated request to the Search Base service.
@@ -65,7 +123,7 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ---
 
-## OCR Document Flow
+## OCR Document Flow (Planned)
 
 1. The frontend uploads a scanned document via `POST /api/v1/documents/ocr`.
 2. The BFF Gateway forwards the request to the Document Reader service.
@@ -76,7 +134,7 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ---
 
-## DLQ Failure Flow
+## DLQ Failure Flow (Planned)
 
 1. Pub/Sub delivers a failed message to the `dead-letter-queue` topic after the maximum retry attempts are exhausted.
 2. The DLQ Notifier receives the dead-letter message via its push subscription.
@@ -87,7 +145,7 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ---
 
-## File Generation Flow
+## File Generation Flow (Planned)
 
 1. The frontend requests a resume document (`POST /api/v1/files/generate`).
 2. The BFF Gateway forwards the request to the File Generator service.
@@ -100,14 +158,15 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 
 ## Data Persistence Summary
 
-| Data | Collection / Store | Written By | Read By |
-|---|---|---|---|
-| Raw resume text | Firestore `resumes` | Ingestor | AI Worker |
-| Structured resume JSON | Firestore `resumes` | AI Worker | Search Base, File Generator |
-| Embedding vectors | Firestore `resumes` | AI Worker | Search Base |
-| User profiles and roles | Firestore `users` | Users API | BFF Gateway, Users API |
-| Translation cache | Firestore `translation-cache` | File Generator | File Generator |
-| FAISS index | In-memory (optional volume) | Search Base | Search Base |
+| Data | Collection / Store | Written By | Read By | Status |
+|---|---|---|---|---|
+| User profiles and roles | Firestore `users` | Users API | BFF Gateway, Users API | ✅ Implemented |
+| Pre-approved users | Firestore `pre_approved_users` | Users API | Users API | ✅ Implemented |
+| Raw resume text | Firestore `resumes` | Ingestor | AI Worker | 🔄 Planned |
+| Structured resume JSON | Firestore `resumes` | AI Worker | Search Base, File Generator | 🔄 Planned |
+| Embedding vectors | Firestore `resumes` | AI Worker | Search Base | 🔄 Planned |
+| Translation cache | Firestore `translation-cache` | File Generator | File Generator | 🔄 Planned |
+| FAISS index | In-memory (optional volume) | Search Base | Search Base | 🔄 Planned |
 
 ---
 
@@ -118,3 +177,4 @@ This document describes the full lifecycle of data through the Elastic Resume Ba
 - [ADR-003: Cloud Pub/Sub](adr/ADR-003-pubsub-async-messaging.md) — rationale for async messaging
 - [ADR-004: Firestore](adr/ADR-004-firestore-database.md) — rationale for the database choice
 - [ADR-005: FAISS](adr/ADR-005-faiss-vector-search.md) — rationale for in-process vector search
+- [ADR-008: Auth and Authorization Flow Overhaul](adr/ADR-008-auth-and-authorization-flow-overhaul.md) — rationale for the current auth design
