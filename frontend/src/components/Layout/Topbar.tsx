@@ -1,12 +1,12 @@
 /**
  * @file Topbar.tsx — Fixed application bar.
  *
- * Displays the app name / logo, a language cycle button, a dark/light mode
- * toggle, and a user avatar that opens a profile menu with links to the
- * account page and a sign-out action. On small screens it also renders a
+ * Displays the app name / logo, a language cycle button, and a user avatar
+ * that opens a profile menu with links to the account page and a sign-out
+ * action. On small screens it also renders a
  * hamburger icon that calls `onMenuClick` to toggle the sidebar drawer.
  *
- * Branding (company name and logo URL) is read from `theme.json` via
+ * Branding (app logo + partner logo) is read from the theme system via
  * {@link useAppTheme} instead of environment variables.
  */
 import { useState } from 'react';
@@ -26,8 +26,6 @@ import {
 import {
   Menu as MenuIcon,
   AccountCircle as AccountCircleIcon,
-  LightMode as LightModeIcon,
-  DarkMode as DarkModeIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -42,12 +40,12 @@ interface TopbarProps {
 
 /**
  * Fixed MUI `AppBar` containing the brand logo/name, language switcher,
- * dark/light mode toggle, and authenticated user menu.
+ * and authenticated user menu.
  */
 export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
   const { t, i18n } = useTranslation();
   const { currentUser, userProfile, logout } = useAuth();
-  const { theme, mode, toggleTheme } = useAppTheme();
+  const { theme } = useAppTheme();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -81,7 +79,7 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
 
   const displayName = userProfile?.name ?? currentUser?.email ?? '';
   const photoURL = userProfile?.picture ?? '';
-  const { companyName, logoUrl } = theme.branding;
+  const { appName, companyName, logoUrl, companyLogo } = theme.branding;
 
   return (
     <AppBar
@@ -100,29 +98,51 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
         >
           <MenuIcon />
         </IconButton>
-        {logoUrl ? (
-          <Box component="img" src={logoUrl} alt={companyName} sx={{ height: 32, mr: 1 }} />
-        ) : (
-          <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            {companyName}
-          </Typography>
-        )}
-        <Box sx={{ flexGrow: 1 }} />
-        <Button color="inherit" onClick={cycleLanguage} size="small" sx={{ mr: 1 }}>
-          {LANGUAGE_LABELS[i18n.language] ?? 'EN'}
-        </Button>
-        <Tooltip title={mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}>
-          <IconButton color="inherit" onClick={toggleTheme} size="small" sx={{ mr: 1 }}>
-            {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
-        <IconButton color="inherit" onClick={handleMenuOpen}>
-          {photoURL ? (
-            <Avatar src={photoURL} sx={{ width: 32, height: 32 }} />
-          ) : (
-            <AccountCircleIcon />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+          {logoUrl && (
+            <Box component="img" src={logoUrl} alt={appName} sx={{ height: 32, width: 32, borderRadius: 1 }} />
           )}
-        </IconButton>
+          <Typography variant="h6" noWrap sx={{ maxWidth: { xs: 120, sm: 180 } }}>
+            {appName}
+          </Typography>
+          <Box
+            sx={{
+              mx: 0.5,
+              width: 1,
+              height: 24,
+              borderLeft: (muiTheme) => `1px solid ${muiTheme.palette.divider}`,
+              display: { xs: 'none', sm: 'block' },
+            }}
+          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+            {companyLogo && (
+              <Box
+                component="img"
+                src={companyLogo}
+                alt={companyName || 'Partner logo'}
+                sx={{ height: 26, maxWidth: 92, objectFit: 'contain', display: { xs: 'none', md: 'block' } }}
+              />
+            )}
+            <Typography variant="caption" noWrap color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {companyName}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ flexGrow: 1 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Button color="inherit" onClick={cycleLanguage} size="small">
+            {LANGUAGE_LABELS[i18n.language] ?? 'EN'}
+          </Button>
+          <Tooltip title={displayName || t('nav.account')}>
+            <IconButton color="inherit" onClick={handleMenuOpen}>
+              {photoURL ? (
+                <Avatar src={photoURL} sx={{ width: 32, height: 32 }} />
+              ) : (
+                <AccountCircleIcon />
+              )}
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
           <MenuItem disabled>
             <Typography variant="body2">{displayName}</Typography>

@@ -3,7 +3,8 @@
  *
  * Provides three things to the component tree:
  *
- * 1. **`theme`** — the validated {@link AppTheme} read from `theme.json`.
+ * 1. **`theme`** — the validated {@link AppTheme} loaded from
+ *    `theme.local.json` when available, otherwise `theme.json`.
  * 2. **`mode`** — the active colour-mode (`'light'` or `'dark'`).  Defaults
  *    to `theme.mode` but the user can override it via `toggleTheme()`.  The
  *    choice is persisted in `localStorage` under the key `appThemeMode`.
@@ -30,6 +31,7 @@ import type { ReactNode } from 'react';
 import {
   ThemeProvider as MuiThemeProvider,
   createTheme,
+  alpha,
 } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import type { AppTheme } from './types';
@@ -39,8 +41,8 @@ import { loadTheme } from './loadTheme';
 import { injectCssVariables } from './toCssVariables';
 
 // ---------------------------------------------------------------------------
-// Load the static theme once at module initialisation time.
-// This will throw loudly if theme.json is structurally invalid.
+// Load the selected theme once at module initialisation time.
+// This will throw loudly if the chosen theme file is structurally invalid.
 // ---------------------------------------------------------------------------
 const appTheme: AppTheme = loadTheme();
 
@@ -63,6 +65,36 @@ const STORAGE_KEY = 'appThemeMode';
  */
 function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
   const { palette, typography } = theme;
+  const surfaceBorder = palette.ui?.border ?? (mode === 'dark'
+    ? alpha(palette.text.primary, 0.1)
+    : alpha(palette.text.primary, 0.08));
+  const dividerColor = palette.ui?.divider ?? alpha(palette.text.primary, 0.12);
+  const inputBackground = palette.background.input ?? (mode === 'dark'
+    ? alpha(palette.background.paper, 0.88)
+    : alpha(palette.background.paper, 0.65));
+  const disabledBackground = palette.ui?.disabledBackground ?? (mode === 'dark'
+    ? alpha(palette.text.primary, 0.08)
+    : alpha(palette.text.primary, 0.06));
+  const disabledText = palette.ui?.disabledText ?? alpha(palette.text.primary, 0.55);
+  const focusRing = palette.ui?.focusRing ?? alpha(palette.primary.main, 0.8);
+  const chipBackground = {
+    success: palette.badge?.success?.bg ?? alpha(palette.success.main, 0.18),
+    warning: palette.badge?.warning?.bg ?? alpha(palette.warning.main, 0.2),
+    primary: palette.badge?.primary?.bg ?? alpha(palette.primary.main, 0.18),
+    default: palette.badge?.default?.bg ?? alpha(palette.text.secondary, 0.2),
+  };
+  const chipText = {
+    success: palette.badge?.success?.text ?? (mode === 'dark' ? '#9AE6B4' : '#1F6F4A'),
+    warning: palette.badge?.warning?.text ?? (mode === 'dark' ? '#F8D287' : '#7A5310'),
+    primary: palette.badge?.primary?.text ?? (mode === 'dark' ? '#A9D3FF' : '#144D9A'),
+    default: palette.badge?.default?.text ?? palette.text.secondary,
+  };
+  const chipBorder = {
+    success: palette.badge?.success?.border ?? alpha(palette.success.main, 0.36),
+    warning: palette.badge?.warning?.border ?? alpha(palette.warning.main, 0.36),
+    primary: palette.badge?.primary?.border ?? alpha(palette.primary.main, 0.36),
+    default: palette.badge?.default?.border ?? alpha(palette.text.secondary, 0.34),
+  };
 
   return createTheme({
     palette: {
@@ -94,6 +126,193 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
     },
     typography: {
       fontFamily: typography.fontFamily,
+      h4: {
+        fontSize: '1.9rem',
+        fontWeight: 700,
+        letterSpacing: '-0.02em',
+      },
+      h5: {
+        fontSize: '1.4rem',
+        fontWeight: 650,
+        letterSpacing: '-0.01em',
+      },
+      h6: {
+        fontSize: '1.05rem',
+        fontWeight: 600,
+      },
+      subtitle1: {
+        color: palette.text.secondary,
+      },
+      body2: {
+        color: palette.text.muted ?? palette.text.secondary,
+      },
+    },
+    shape: {
+      borderRadius: 14,
+    },
+    components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            backgroundColor: palette.background.default,
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            backgroundColor: palette.background.paper,
+            border: `1px solid ${surfaceBorder}`,
+            boxShadow: `0 14px 30px ${alpha('#000000', mode === 'dark' ? 0.26 : 0.12)}`,
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            borderColor: surfaceBorder,
+          },
+        },
+      },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundColor: palette.background.topbar ?? palette.background.paper,
+            borderBottom: `1px solid ${dividerColor}`,
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: palette.background.sidebar ?? palette.background.paper,
+            borderRight: `1px solid ${dividerColor}`,
+          },
+        },
+      },
+      MuiDivider: {
+        styleOverrides: {
+          root: {
+            borderColor: dividerColor,
+          },
+        },
+      },
+      MuiCardContent: {
+        styleOverrides: {
+          root: {
+            padding: 24,
+            '&:last-child': {
+              paddingBottom: 24,
+            },
+          },
+        },
+      },
+      MuiTableContainer: {
+        styleOverrides: {
+          root: {
+            border: `1px solid ${surfaceBorder}`,
+            borderRadius: 14,
+            overflow: 'hidden',
+          },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          head: {
+            color: palette.text.secondary,
+            fontSize: '0.78rem',
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            backgroundColor: inputBackground,
+            borderRadius: 10,
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: alpha(palette.text.primary, 0.2),
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: focusRing,
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderWidth: 1.5,
+              borderColor: focusRing,
+            },
+          },
+          input: {
+            color: palette.text.primary,
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: palette.text.secondary,
+          },
+        },
+      },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: 10,
+            textTransform: 'none',
+            fontWeight: 600,
+            minHeight: 40,
+            '&.Mui-disabled': {
+              color: disabledText,
+              border: `1px solid ${alpha(palette.text.primary, 0.25)}`,
+              backgroundColor: disabledBackground,
+            },
+          },
+          contained: {
+            boxShadow: 'none',
+          },
+          outlined: {
+            borderColor: alpha(palette.text.primary, 0.35),
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            fontWeight: 600,
+            borderRadius: 8,
+            border: `1px solid ${chipBorder.default}`,
+          },
+          colorSuccess: {
+            backgroundColor: chipBackground.success,
+            color: chipText.success,
+            borderColor: chipBorder.success,
+          },
+          colorWarning: {
+            backgroundColor: chipBackground.warning,
+            color: chipText.warning,
+            borderColor: chipBorder.warning,
+          },
+          colorPrimary: {
+            backgroundColor: chipBackground.primary,
+            color: chipText.primary,
+            borderColor: chipBorder.primary,
+          },
+          colorDefault: {
+            backgroundColor: chipBackground.default,
+            color: chipText.default,
+            borderColor: chipBorder.default,
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: 10,
+          },
+        },
+      },
     },
   });
 }

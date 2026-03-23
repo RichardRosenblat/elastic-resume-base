@@ -101,7 +101,6 @@ Pass an `x-correlation-id` request header to trace requests across services. If 
 | `GET` | `/health/live` | No | No | Liveness probe |
 | `GET` | `/health/ready` | No | No | Readiness probe |
 | `GET` | `/health/downstream` | No | No | Downstream services health status |
-| `GET` | `/api/v1/me` | Yes | No | Get authenticated user profile (uid, email, name, picture, role, enable) |
 | `GET` | `/api/v1/users/me` | Yes | No | Get authenticated user record from users-api |
 | `PATCH` | `/api/v1/users/me` | Yes | No | Update authenticated user's own email |
 | `GET` | `/api/v1/users` | Yes | No | List all users (paginated) |

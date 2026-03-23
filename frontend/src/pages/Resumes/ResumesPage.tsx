@@ -85,7 +85,7 @@ export default function ResumesPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>{t('resumes.title')}</Typography>
+      <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('resumes.title')}</Typography>
 
       {!features.resumeIngest && !features.resumeGenerate && (
         <Alert severity="info" sx={{ mb: 3 }}>
@@ -100,15 +100,16 @@ export default function ResumesPage() {
             {t('resumes.ingestResumes')}
           </Typography>
           {!features.resumeIngest && (
-            <Typography variant="body2" color="text.secondary">{t('dashboard.comingSoon')}</Typography>
+            <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>{t('dashboard.comingSoon')}</Alert>
           )}
-          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="flex-start">
+          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="center">
             <TextField
               label={t('resumes.sheetId')}
               value={sheetId}
               onChange={(e) => setSheetId(e.target.value)}
               size="small"
               disabled={!features.resumeIngest}
+              sx={{ minWidth: 240 }}
             />
             <Button
               variant="contained"
@@ -133,15 +134,16 @@ export default function ResumesPage() {
             {t('resumes.generateResume')}
           </Typography>
           {!features.resumeGenerate && (
-            <Typography variant="body2" color="text.secondary">{t('dashboard.comingSoon')}</Typography>
+            <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>{t('dashboard.comingSoon')}</Alert>
           )}
-          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="flex-start">
+          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="center">
             <TextField
               label={t('resumes.batchId')}
               value={resumeId}
               onChange={(e) => setResumeId(e.target.value)}
               size="small"
               disabled={!features.resumeGenerate}
+              sx={{ minWidth: 240 }}
             />
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>{t('resumes.language')}</InputLabel>

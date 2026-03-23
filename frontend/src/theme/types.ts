@@ -27,6 +27,14 @@ export interface BackgroundPalette {
   default: string;
   /** Surface background colour (cards, dialogs, drawers). */
   paper: string;
+  /** Higher-emphasis surface tone for nested/elevated containers. */
+  elevated?: string;
+  /** Sidebar/drawer background tone. */
+  sidebar?: string;
+  /** Top navigation bar background tone. */
+  topbar?: string;
+  /** Input field background tone. */
+  input?: string;
 }
 
 /** Foreground text colours. */
@@ -35,6 +43,34 @@ export interface TextPalette {
   primary: string;
   /** Medium-emphasis secondary / helper text. */
   secondary: string;
+  /** Low-emphasis text for labels and subtle metadata. */
+  muted?: string;
+  /** Text used on strong accent surfaces. */
+  inverse?: string;
+}
+
+/** UI-specific neutral tokens for borders, dividers and disabled states. */
+export interface UiPalette {
+  border?: string;
+  divider?: string;
+  disabledBackground?: string;
+  disabledText?: string;
+  focusRing?: string;
+}
+
+/** Style values for semantic badge/chip tones. */
+export interface BadgeTone {
+  bg: string;
+  text: string;
+  border?: string;
+}
+
+/** Optional custom tones used for chips/badges. */
+export interface BadgePalette {
+  success?: BadgeTone;
+  warning?: BadgeTone;
+  primary?: BadgeTone;
+  default?: BadgeTone;
 }
 
 /**
@@ -55,6 +91,8 @@ export interface Palette {
   info: Pick<ColorRole, 'main'> & Partial<ColorRole>;
   background: BackgroundPalette;
   text: TextPalette;
+  ui?: UiPalette;
+  badge?: BadgePalette;
 }
 
 /** Typography settings applied to the MUI theme and CSS variables. */
@@ -68,13 +106,20 @@ export interface Typography {
 
 /** Static branding assets exposed through the theme context. */
 export interface Branding {
-  /** The human-readable company / application name shown in the UI. */
+  /** Product/app name shown as the platform identity. */
+  appName: string;
+  /** Company/customer name using the app. */
   companyName: string;
   /**
-   * Absolute or root-relative URL of the brand logo image.
-   * An empty string means no logo is configured; fall back to `companyName`.
+   * Absolute or root-relative URL of the core app logo and favicon.
+   * This represents the platform identity.
    */
   logoUrl: string;
+  /**
+   * Optional partner/customer logo shown alongside app identity in the topbar.
+   * Leave empty to render companyName as text only.
+   */
+  companyLogo: string;
 }
 
 /**

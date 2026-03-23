@@ -36,6 +36,9 @@ systems:
     # Google Cloud / Firebase project identifiers
     GCP_PROJECT_ID: demo-elastic-resume-base
     FIREBASE_PROJECT_ID: demo-elastic-resume-base
+    # Auth domain for the Firebase project (e.g. <project-id>.firebaseapp.com).
+    # Vite derives VITE_FIREBASE_AUTH_DOMAIN from this automatically.
+    FIREBASE_AUTH_DOMAIN: ""        # e.g. demo-elastic-resume-base.firebaseapp.com
 
     # Firebase Local Emulator Suite — point at the docker-compose service name.
     # For local dev without Docker, change these to localhost:<port>.
@@ -104,9 +107,9 @@ systems:
     VITE_SUPPORT_EMAIL: ""
 
     # Firebase Web SDK configuration (must match the Firebase project)
+    # VITE_FIREBASE_PROJECT_ID  → derived automatically from systems.shared.FIREBASE_PROJECT_ID
+    # VITE_FIREBASE_AUTH_DOMAIN → derived automatically from systems.shared.FIREBASE_AUTH_DOMAIN
     VITE_FIREBASE_API_KEY: ""           # fill in locally
-    VITE_FIREBASE_AUTH_DOMAIN: ""       # e.g. demo-elastic-resume-base.firebaseapp.com
-    VITE_FIREBASE_PROJECT_ID: "demo-elastic-resume-base"
 
     # Feature flags — set to "true" to enable, "false" to hide/disable
     VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)

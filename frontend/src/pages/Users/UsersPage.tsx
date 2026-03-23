@@ -151,7 +151,7 @@ export default function UsersPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>{t('users.title')}</Typography>
+      <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('users.title')}</Typography>
       {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
       {successMsg && (
         <Alert severity="success" onClose={() => setSuccessMsg(null)} sx={{ mb: 2 }}>
@@ -183,13 +183,14 @@ export default function UsersPage() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.uid}</TableCell>
                     <TableCell>
-                      <Chip label={user.role} size="small" color={user.role === 'admin' ? 'primary' : 'default'} />
+                      <Chip label={user.role} size="small" color={user.role === 'admin' ? 'primary' : 'default'} variant="outlined" />
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={user.enable ? t('dashboard.active') : t('dashboard.pending')}
                         size="small"
                         color={user.enable ? 'success' : 'warning'}
+                        variant="outlined"
                       />
                     </TableCell>
                     <TableCell>
@@ -219,15 +220,16 @@ export default function UsersPage() {
 
       <Divider sx={{ my: 4 }} />
 
-      <Typography variant="h5" gutterBottom>{t('users.preApprovedUsers')}</Typography>
-      <Box display="flex" gap={2} mb={2} flexWrap="wrap">
+      <Typography variant="h6" gutterBottom>{t('users.preApprovedUsers')}</Typography>
+      <Box display="flex" gap={2} mb={2} flexWrap="wrap" alignItems="center">
         <TextField
           label={t('users.email')}
           value={newPreApprovedEmail}
           onChange={(e) => setNewPreApprovedEmail(e.target.value)}
           size="small"
+          sx={{ minWidth: 280 }}
         />
-        <FormControl size="small" sx={{ minWidth: 120 }}>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>{t('users.role')}</InputLabel>
           <Select
             value={newPreApprovedRole}
@@ -243,6 +245,7 @@ export default function UsersPage() {
           startIcon={<AddIcon />}
           onClick={() => { void handleAddPreApproved(); }}
           disabled={!newPreApprovedEmail}
+          sx={{ px: 2.25 }}
         >
           {t('users.addPreApproved')}
         </Button>

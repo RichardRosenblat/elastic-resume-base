@@ -1,10 +1,9 @@
 /**
  * @file theme/loadTheme.ts — Theme JSON loader with runtime validation.
  *
- * Reads `theme.json`, verifies the minimum required fields are present, and
- * returns a fully-typed {@link AppTheme} object.  Because this module imports
- * the JSON statically (Vite resolves `?url` or direct JSON imports at
- * build time), it works without any network request at runtime.
+ * Reads `theme.json` (template) and, when present, `theme.local.json`
+ * (developer/local active override). It validates the selected theme and
+ * returns a fully-typed {@link AppTheme} object.
  *
  * @example
  * import { loadTheme } from './loadTheme';
@@ -12,7 +11,9 @@
  * console.log(theme.palette.primary.main); // '#2563EB'
  */
 import type { AppTheme } from './types';
-import rawTheme from './theme.json';
+import templateTheme from './theme.json';
+
+const localThemeModules = import.meta.glob('./theme.local.json', { eager: true });
 
 /**
  * Asserts that `value` is a non-null object.
@@ -53,6 +54,16 @@ function validateTheme(raw: unknown): asserts raw is AppTheme {
     throw new Error('[Theme] theme.json "branding" must be an object.');
   }
 
+  const branding = raw['branding'] as Record<string, unknown>;
+  const appName = branding['appName'];
+  const companyName = branding['companyName'];
+  if (appName !== undefined && typeof appName !== 'string') {
+    throw new Error('[Theme] theme.json "branding.appName" must be a string when provided.');
+  }
+  if (companyName !== undefined && typeof companyName !== 'string') {
+    throw new Error('[Theme] theme.json "branding.companyName" must be a string when provided.');
+  }
+
   if (!isObject(raw['palette'])) {
     throw new Error('[Theme] theme.json "palette" must be an object.');
   }
@@ -66,6 +77,22 @@ function validateTheme(raw: unknown): asserts raw is AppTheme {
 }
 
 /**
+ * Supports legacy branding shape while enforcing explicit app/company naming.
+ */
+function normalizeTheme(raw: AppTheme): AppTheme {
+  const fallbackName = raw.branding.companyName || 'Elastic Resume Base';
+  return {
+    ...raw,
+    branding: {
+      ...raw.branding,
+      appName: raw.branding.appName || fallbackName,
+      companyName: raw.branding.companyName || fallbackName,
+      companyLogo: raw.branding.companyLogo || '',
+    },
+  };
+}
+
+/**
  * Loads and validates `theme.json`, returning a typed {@link AppTheme}.
  *
  * The function is intentionally synchronous and throws on invalid config so
@@ -76,6 +103,8 @@ function validateTheme(raw: unknown): asserts raw is AppTheme {
  * @throws {Error} When `theme.json` is structurally invalid.
  */
 export function loadTheme(): AppTheme {
+  const localTheme = (localThemeModules['./theme.local.json'] as { default?: unknown } | undefined)?.default;
+  const rawTheme = localTheme ?? templateTheme;
   validateTheme(rawTheme);
-  return rawTheme;
+  return normalizeTheme(rawTheme);
 }

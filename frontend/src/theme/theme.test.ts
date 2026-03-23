@@ -21,10 +21,13 @@ describe('loadTheme', () => {
     expect(typeof theme.palette.secondary.main).toBe('string');
   });
 
-  it('exposes branding companyName', () => {
+  it('exposes branding app and company names', () => {
     const theme = loadTheme();
+    expect(typeof theme.branding.appName).toBe('string');
+    expect(theme.branding.appName.length).toBeGreaterThan(0);
     expect(typeof theme.branding.companyName).toBe('string');
     expect(theme.branding.companyName.length).toBeGreaterThan(0);
+    expect(typeof theme.branding.companyLogo).toBe('string');
   });
 });
 
@@ -57,6 +60,18 @@ describe('toCssVariables', () => {
     if (theme.palette.tertiary) {
       const vars = toCssVariables(theme);
       expect(vars['--color-tertiary-main']).toBe(theme.palette.tertiary.main);
+    }
+  });
+
+  it('includes extended UI variables when configured', () => {
+    const theme = loadTheme();
+    const vars = toCssVariables(theme);
+
+    if (theme.palette.background.sidebar) {
+      expect(vars['--color-background-sidebar']).toBe(theme.palette.background.sidebar);
+    }
+    if (theme.palette.ui?.border) {
+      expect(vars['--color-ui-border']).toBe(theme.palette.ui.border);
     }
   });
 });

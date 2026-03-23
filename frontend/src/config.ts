@@ -2,8 +2,9 @@
  * Runtime configuration for the frontend application.
  *
  * Only infrastructure / connectivity settings live here.  Visual branding
- * (colours, fonts, company name, logo) is configured in
- * `src/theme/theme.json` instead, keeping concerns cleanly separated.
+ * (colours, fonts, company name, logos) is configured in
+ * `src/theme/theme.json` / `src/theme/theme.local.json` instead,
+ * keeping concerns cleanly separated.
  *
  * Values are read from Vite `VITE_` environment variables at build time.
  * For local development, values are loaded automatically from the monorepo
@@ -16,7 +17,7 @@
  * SEPARATION OF CONCERNS
  * ──────────────────────
  *   • Operational / infrastructure config → here (via VITE_* env vars)
- *   • Appearance (colours, fonts, branding) → src/theme/theme.json
+ *   • Appearance (colours, fonts, branding) → src/theme/theme.json or src/theme/theme.local.json
  *
  * @example
  * import { config } from './config';
@@ -33,7 +34,10 @@ export const config = {
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'demo-elastic-resume-base',
+    projectId:
+      import.meta.env.VITE_FIREBASE_PROJECT_ID
+      ?? import.meta.env.FIREBASE_PROJECT_ID
+      ?? 'demo-elastic-resume-base',
     authEmulatorHost: import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST ?? '',
   },
   features: {

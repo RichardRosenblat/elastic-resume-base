@@ -20,8 +20,8 @@ export type {
 } from '@elastic-resume-base/bowltie';
 
 /**
- * The authenticated user's profile as returned by `GET /api/v1/me`.
- * Combines Firebase Auth fields with the platform-specific role and enable flag.
+ * The authenticated user's profile as returned by `GET /api/v1/users/me`.
+ * Combines persisted platform fields with optional identity details.
  */
 export interface UserProfile {
   uid: string;

@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { authHook } from '../middleware/auth.js';
 import healthPlugin from './health.js';
-import mePlugin from './me.js';
 import resumesPlugin from './resumes.js';
 import searchPlugin from './search.js';
 import documentsPlugin from './documents.js';
@@ -17,7 +16,6 @@ const routes: FastifyPluginAsync = async (app) => {
     async (api) => {
       await api.register(rateLimit, { max: 100, timeWindow: '15 minutes' });
       api.addHook('onRequest', authHook);
-      await api.register(mePlugin, { prefix: '/me' });
       await api.register(resumesPlugin, { prefix: '/resumes' });
       await api.register(searchPlugin, { prefix: '/search' });
       await api.register(documentsPlugin, { prefix: '/documents' });

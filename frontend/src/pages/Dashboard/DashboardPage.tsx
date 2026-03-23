@@ -14,6 +14,7 @@ import {
   Typography,
   Chip,
   Divider,
+  Stack,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -41,7 +42,7 @@ interface FeatureCardProps {
 function FeatureCard({ title, icon, available, description }: FeatureCardProps) {
   const { t } = useTranslation();
   return (
-    <Card sx={{ height: '100%', opacity: available ? 1 : 0.7 }}>
+    <Card sx={{ height: '100%', opacity: available ? 1 : 0.82 }}>
       <CardContent>
         <Box display="flex" alignItems="center" gap={1} mb={1}>
           {icon}
@@ -49,10 +50,28 @@ function FeatureCard({ title, icon, available, description }: FeatureCardProps) 
         </Box>
         <Typography variant="body2" color="text.secondary">{description}</Typography>
         {!available && (
-          <Chip label={t('dashboard.comingSoon')} size="small" color="default" sx={{ mt: 1 }} />
+          <Chip label={t('dashboard.comingSoon')} size="small" color="default" variant="outlined" sx={{ mt: 1.5 }} />
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface ProfileFieldProps {
+  label: string;
+  value: string;
+}
+
+function ProfileField({ label, value }: ProfileFieldProps) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="baseline">
+      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 60 }}>
+        {label}:
+      </Typography>
+      <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
+        {value}
+      </Typography>
+    </Stack>
   );
 }
 
@@ -63,7 +82,7 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>
         {t('dashboard.welcome')}, {userProfile?.name ?? userProfile?.email ?? ''}!
       </Typography>
       <Grid container spacing={3}>
@@ -74,17 +93,23 @@ export default function DashboardPage() {
                 <PersonIcon color="primary" />
                 <Typography variant="h6">{t('dashboard.yourProfile')}</Typography>
               </Box>
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="body2"><strong>Email:</strong> {userProfile?.email}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}><strong>{t('dashboard.role')}:</strong> {userProfile?.role}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                <strong>{t('dashboard.status')}:</strong>{' '}
-                <Chip
-                  label={userProfile?.enable ? t('dashboard.active') : t('dashboard.pending')}
-                  color={userProfile?.enable ? 'success' : 'warning'}
-                  size="small"
-                />
-              </Typography>
+              <Divider sx={{ mb: 2.5 }} />
+              <Stack spacing={1.25}>
+                <ProfileField label={t('users.email')} value={userProfile?.email ?? '-'} />
+                <ProfileField label={t('dashboard.role')} value={userProfile?.role ?? '-'} />
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 60 }}>
+                    {t('dashboard.status')}:
+                  </Typography>
+                  <Box>
+                    <Chip
+                      label={userProfile?.enable ? t('dashboard.active') : t('dashboard.pending')}
+                      color={userProfile?.enable ? 'success' : 'warning'}
+                      size="small"
+                    />
+                  </Box>
+                </Stack>
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
@@ -95,9 +120,15 @@ export default function DashboardPage() {
                 <AdminIcon color="primary" />
                 <Typography variant="h6">{t('dashboard.statistics')}</Typography>
               </Box>
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 2.5 }} />
               <Typography variant="body2" color="text.secondary">{t('dashboard.recentActivity')}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{t('dashboard.comingSoon')}</Typography>
+              <Chip
+                label={t('dashboard.comingSoon')}
+                size="small"
+                color="default"
+                variant="outlined"
+                sx={{ mt: 1.5 }}
+              />
             </CardContent>
           </Card>
         </Grid>

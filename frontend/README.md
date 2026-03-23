@@ -59,10 +59,11 @@ frontend/
 │   ├── theme/
 │   │   ├── ThemeProvider.tsx      # React context + MUI bridge (AppThemeProvider, useAppTheme)
 │   │   ├── index.ts               # Public re-exports for the theme system
-│   │   ├── loadTheme.ts           # Loads and validates theme.json
+│   │   ├── loadTheme.ts           # Loads template theme.json and optional local override
 │   │   ├── toCssVariables.ts      # Converts AppTheme → CSS custom properties
 │   │   ├── types.ts               # TypeScript interfaces (AppTheme, Palette, Branding…)
-│   │   └── theme.json             # ← edit this to customise colours, fonts, branding
+│   │   ├── theme.json             # Template + preset examples (committed)
+│   │   └── theme.local.json       # Local active theme override (git-ignored)
 │   ├── types/
 │   │   └── index.ts               # Shared TypeScript interfaces
 │   ├── App.tsx                    # Root component with routing tree
@@ -79,14 +80,14 @@ frontend/
 ├── package.json
 ├── tsconfig.app.json
 ├── tsconfig.node.json
-└── vite.config.ts                 # Vite + Vitest configuration (reads config.yaml at startup)
+└── vite.config.ts                 # Vite + Vitest configuration (loads config.yaml via Toolbox)
 ```
 
 ---
 
 ## Environment Variables
 
-All `VITE_*` variables are listed here — the Vite dev server reads them directly from the monorepo-wide `config.yaml` at the repository root (see [Local Development Setup](#local-development-setup)).
+All runtime variables are loaded from the monorepo-wide `config.yaml` through the shared Toolbox `loadConfigYaml` utility. The frontend consumes the resulting `VITE_*` values (see [Local Development Setup](#local-development-setup)).
 
 For Docker / CI builds, pass these as `--build-arg` flags or inject them via your deployment platform — they are declared as `ARG`/`ENV` in the `Dockerfile`.
 
@@ -102,7 +103,7 @@ For Docker / CI builds, pass these as `--build-arg` flags or inject them via you
 | `VITE_SUPPORT_EMAIL` | No | *(empty)* | Support contact email shown in the page footer — leave empty to hide the footer |
 | `VITE_FIREBASE_API_KEY` | Yes | — | Firebase project API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Yes | — | Firebase Auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Yes | `demo-elastic-resume-base` | Firebase project ID |
+| `FIREBASE_PROJECT_ID` | Yes | `demo-elastic-resume-base` | Shared Firebase project ID; mapped to frontend `VITE_FIREBASE_PROJECT_ID` by Vite config |
 | `VITE_FEATURE_RESUME_INGEST` | No | `false` | Enable resume ingest UI |
 | `VITE_FEATURE_RESUME_SEARCH` | No | `false` | Enable semantic search UI |
 | `VITE_FEATURE_DOCUMENT_READ` | No | `false` | Enable document reader UI |
@@ -126,8 +127,8 @@ For Docker / CI builds, pass these as `--build-arg` flags or inject them via you
 ```bash
 # 1. Copy the monorepo config template (only needed once per clone)
 cp config_example.yaml config.yaml          # from the repo root
-# Edit config.yaml — fill in VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, etc.
-# under systems.frontend
+# Edit config.yaml — fill in VITE_FIREBASE_API_KEY and VITE_FIREBASE_AUTH_DOMAIN
+# under systems.frontend. Keep FIREBASE_PROJECT_ID in systems.shared.
 
 # 2. Install frontend dependencies
 cd frontend
@@ -137,7 +138,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server reads `../config.yaml` automatically (via the plugin in `vite.config.ts`).  If you prefer to override individual values, you can still create `frontend/.env.local` — it will be applied on top of `config.yaml`.
+The Vite dev server loads `../config.yaml` automatically via the Toolbox loader in `vite.config.ts`. If you prefer to override individual values, you can still set shell variables before running `npm run dev`.
 
 The app will be available at **http://localhost:5173** with hot-module replacement.
 
@@ -204,30 +205,30 @@ This approach makes it straightforward to enable features for specific deploymen
 
 ## Theme System
 
-Colours, fonts, branding, and the default colour mode are configured in **`src/theme/theme.json`** — not through environment variables. Edit this file to customise the application's appearance.
+Theme configuration supports a two-file strategy:
+- `src/theme/theme.json` is a committed template that includes two ready presets (`Corporate Blue` and `Warm Neutral`).
+- `src/theme/theme.local.json` is the active local override (git-ignored) loaded automatically when present.
+
+Branding now supports dual identity in the topbar:
+- `branding.logoUrl`: core app logo/favicon.
+- `branding.companyLogo`: partner/customer logo rendered next to the app identity.
 
 ```jsonc
-// src/theme/theme.json (excerpt)
+// src/theme/theme.local.json (excerpt)
 {
-  "mode": "dark",          // default: "light" | "dark"
+  "mode": "dark",
   "branding": {
+    "appName": "Elastic Resume Base",
     "companyName": "My Company",
-    "logoUrl": "/assets/logo.png"  // "" = show companyName text instead
-  },
-  "typography": { "fontFamily": "Inter, sans-serif" },
-  "palette": {
-    "primary":    { "main": "#2563EB", "light": "#DBEAFE", "dark": "#1E40AF", "contrastText": "#FFFFFF" },
-    "secondary":  { "main": "#F97316" },
-    "background": { "default": "#0F172A", "paper": "#1E293B" },
-    "text":       { "primary": "#F8FAFC", "secondary": "#94A3B8" }
-    // … success, warning, error, info, tertiary
+    "logoUrl": "/assets/app-logo.svg",
+    "companyLogo": "/assets/company-logo.svg"
   }
 }
 ```
 
 ### Dark / Light Mode
 
-The top bar includes a mode toggle button. The user's choice is persisted in `localStorage` under the key `appThemeMode` and takes precedence over `theme.json`'s `mode` field on subsequent visits.
+The top bar includes a mode toggle button. The user's choice is persisted in `localStorage` under the key `appThemeMode` and takes precedence over the loaded theme file's `mode` field on subsequent visits.
 
 ### Using the Theme in Components
 
@@ -284,7 +285,7 @@ To add a new locale:
 ## Authentication Flow
 
 1. The user signs in via email/password or Google OAuth (Firebase Auth).
-2. On `onAuthStateChanged`, the app fetches `GET /api/v1/me` from the BFF Gateway, passing the Firebase ID token as a Bearer token.
+2. On `onAuthStateChanged`, the app fetches `GET /api/v1/users/me` from the BFF Gateway, passing the Firebase ID token as a Bearer token.
 3. The BFF verifies the token, resolves the user's `role` and `enable` status from the Users API, and returns the user profile.
 4. If `enable = false`, the user is shown the Pending Approval screen and cannot access any protected pages.
 5. Admin-only pages (e.g., `/users`) are guarded by `<ProtectedRoute adminOnly />` which checks `userProfile.role === 'admin'`.

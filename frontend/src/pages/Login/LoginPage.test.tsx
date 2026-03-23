@@ -52,7 +52,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../theme', () => ({
   useAppTheme: () => ({
     theme: {
-      branding: { companyName: 'Test App', logoUrl: '' },
+      branding: { appName: 'Elastic Resume Base', companyName: 'Test Company', logoUrl: '' },
       palette: {
         primary: { main: '#2563EB' },
         secondary: { main: '#F97316' },
@@ -84,7 +84,8 @@ describe('LoginPage', () => {
         <LoginPage />
       </BrowserRouter>
     );
-    expect(screen.getByText('Test App')).toBeInTheDocument();
+    expect(screen.getByText('Elastic Resume Base')).toBeInTheDocument();
+    expect(screen.getByText('Test Company')).toBeInTheDocument();
   });
 
   it('renders email and password fields', () => {

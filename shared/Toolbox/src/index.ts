@@ -2,7 +2,8 @@
  * @elastic-resume-base/toolbox
  *
  * Shared cross-cutting utilities for Elastic Resume Base microservices.
- * All exports rely only on Node.js built-ins — no npm packages required.
+ * Some modules (for example `loadConfigYaml`) rely on runtime dependencies
+ * provided by the consuming service.
  *
  * ## Exports
  *
@@ -20,6 +21,7 @@
  * @module @elastic-resume-base/toolbox
  */
 
+export { loadConfigYaml } from './loadConfigYaml.js';
 export { correlationIdHook } from './middleware/correlationId.js';
 export { createRequestLoggerHook } from './middleware/requestLogger.js';
 export {

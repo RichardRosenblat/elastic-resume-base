@@ -49,8 +49,7 @@ function colorRoleToVars(
  */
 export function toCssVariables(theme: AppTheme): Record<string, string> {
   const { palette, typography } = theme;
-
-  return {
+  const vars: Record<string, string> = {
     ...colorRoleToVars('--color-primary', palette.primary),
     ...colorRoleToVars('--color-secondary', palette.secondary),
     ...(palette.tertiary
@@ -66,6 +65,20 @@ export function toCssVariables(theme: AppTheme): Record<string, string> {
     '--color-text-secondary': palette.text.secondary,
     '--font-family': typography.fontFamily,
   };
+
+  if (palette.background.elevated) vars['--color-background-elevated'] = palette.background.elevated;
+  if (palette.background.sidebar) vars['--color-background-sidebar'] = palette.background.sidebar;
+  if (palette.background.topbar) vars['--color-background-topbar'] = palette.background.topbar;
+  if (palette.background.input) vars['--color-background-input'] = palette.background.input;
+  if (palette.text.muted) vars['--color-text-muted'] = palette.text.muted;
+  if (palette.text.inverse) vars['--color-text-inverse'] = palette.text.inverse;
+  if (palette.ui?.border) vars['--color-ui-border'] = palette.ui.border;
+  if (palette.ui?.divider) vars['--color-ui-divider'] = palette.ui.divider;
+  if (palette.ui?.disabledBackground) vars['--color-ui-disabled-bg'] = palette.ui.disabledBackground;
+  if (palette.ui?.disabledText) vars['--color-ui-disabled-text'] = palette.ui.disabledText;
+  if (palette.ui?.focusRing) vars['--color-ui-focus-ring'] = palette.ui.focusRing;
+
+  return vars;
 }
 
 /**

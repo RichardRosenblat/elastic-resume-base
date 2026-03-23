@@ -94,6 +94,9 @@ export default function LoginPage() {
         <Card sx={{ width: '100%', maxWidth: 440 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h5" textAlign="center" gutterBottom>
+              {theme.branding.appName}
+            </Typography>
+            <Typography variant="body2" textAlign="center" color="text.secondary" sx={{ mb: 1 }}>
               {theme.branding.companyName}
             </Typography>
             <Typography variant="h6" textAlign="center" color="text.secondary" gutterBottom>

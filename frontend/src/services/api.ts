@@ -14,7 +14,6 @@ import type { AxiosInstance } from 'axios';
 import { auth } from '../firebase';
 import { config } from '../config';
 import type {
-  UserProfile,
   UserRecord,
   PreApprovedUser,
   ResumeIngestJob,
@@ -61,12 +60,6 @@ function unwrapSuccessResponse<T>(payload: SuccessResponse<T> | T): T {
 
   return payload as T;
 }
-
-/** Fetches the authenticated user's profile from the BFF (`GET /api/v1/me`). */
-export const getMyProfile = async (): Promise<UserProfile> => {
-  const res = await apiClient.get<SuccessResponse<UserProfile>>('/api/v1/me');
-  return unwrapSuccessResponse(res.data);
-};
 
 /** Fetches the authenticated user's full record from the Users API via BFF (`GET /api/v1/users/me`). */
 export const getMyUserRecord = async (): Promise<UserRecord> => {

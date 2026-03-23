@@ -20,6 +20,7 @@ import {
   FormControl,
   InputLabel,
   Alert,
+  Stack,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/auth-context';
@@ -55,13 +56,24 @@ export default function AccountPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>{t('account.title')}</Typography>
+      <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('account.title')}</Typography>
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>{t('dashboard.profile')}</Typography>
-          <Typography variant="body2"><strong>Email:</strong> {userProfile?.email}</Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}><strong>{t('dashboard.role')}:</strong> {userProfile?.role}</Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}><strong>UID:</strong> {userProfile?.uid}</Typography>
+          <Stack spacing={1.25} sx={{ mt: 1.5 }}>
+            <Stack direction="row" spacing={1} alignItems="baseline">
+              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 56 }}>Email:</Typography>
+              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>{userProfile?.email ?? '-'}</Typography>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="baseline">
+              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 56 }}>{t('dashboard.role')}:</Typography>
+              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>{userProfile?.role ?? '-'}</Typography>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="baseline">
+              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 56 }}>UID:</Typography>
+              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>{userProfile?.uid ?? '-'}</Typography>
+            </Stack>
+          </Stack>
         </CardContent>
       </Card>
       <Card sx={{ mb: 3 }}>
@@ -69,7 +81,7 @@ export default function AccountPage() {
           <Typography variant="h6" gutterBottom>{t('account.updateEmail')}</Typography>
           {emailError && <ErrorMessage message={emailError} onClose={() => setEmailError(null)} />}
           {emailSuccess && <Alert severity="success" onClose={() => setEmailSuccess(null)} sx={{ mb: 2 }}>{emailSuccess}</Alert>}
-          <Box display="flex" gap={2} flexWrap="wrap" alignItems="flex-start">
+          <Box display="flex" gap={2} flexWrap="wrap" alignItems="center">
             <TextField
               label={t('account.newEmail')}
               value={newEmail}
@@ -82,6 +94,7 @@ export default function AccountPage() {
               variant="contained"
               onClick={() => { void handleUpdateEmail(); }}
               disabled={emailLoading || !newEmail}
+              sx={{ px: 2.5 }}
             >
               {t('account.saveChanges')}
             </Button>

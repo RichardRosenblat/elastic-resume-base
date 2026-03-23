@@ -78,7 +78,7 @@ export default function SearchPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>{t('search.title')}</Typography>
+      <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('search.title')}</Typography>
       {!features.resumeSearch && (
         <Alert severity="info" sx={{ mb: 3 }}>
           {t('common.featureNotAvailable')}
@@ -87,7 +87,7 @@ export default function SearchPage() {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>{t('search.searchResumes')}</Typography>
-          <Box display="flex" gap={2} mb={3}>
+          <Box display="flex" gap={2} mb={3} alignItems="center" flexWrap="wrap">
             <TextField
               label={t('search.searchQuery')}
               value={query}
@@ -96,6 +96,7 @@ export default function SearchPage() {
               fullWidth
               disabled={!features.resumeSearch}
               size="small"
+              sx={{ minWidth: 280, flex: 1 }}
             />
             <Button
               variant="contained"

@@ -29,6 +29,7 @@ import ResumesPage from './pages/Resumes/ResumesPage';
 import SearchPage from './pages/Search/SearchPage';
 import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
+import BrandingMetaManager from './components/BrandingMetaManager';
 
 /**
  * Root React component. Renders the full route tree inside the
@@ -38,6 +39,7 @@ export default function App() {
   return (
     <AppThemeProvider>
       <BrowserRouter>
+        <BrandingMetaManager />
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
