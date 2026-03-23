@@ -1,3 +1,5 @@
+import io
+import zipfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -6,10 +8,33 @@ from httpx import AsyncClient
 from app.main import app
 from app.models.document import DocumentType, ExtractedDocument
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_zip(entries: dict[str, bytes]) -> bytes:
+    """Build an in-memory ZIP archive from a {name: content} mapping."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_STORED) as zf:
+        for name, data in entries.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def client() -> AsyncClient:
     return AsyncClient(app=app, base_url="http://test")
+
+
+# ---------------------------------------------------------------------------
+# Existing tests (unchanged)
+# ---------------------------------------------------------------------------
 
 
 async def test_health_check(client: AsyncClient) -> None:
@@ -80,3 +105,160 @@ async def test_ocr_file_too_large(client: AsyncClient) -> None:
 
     assert response.status_code == 422
     assert "exceeds maximum size" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# ZIP tests
+# ---------------------------------------------------------------------------
+
+
+async def test_ocr_zip_success(client: AsyncClient, sample_image_bytes: bytes) -> None:
+    """ZIP archive containing a supported image is expanded and processed."""
+    zip_bytes = _make_zip({"rg.png": sample_image_bytes})
+
+    mock_doc = ExtractedDocument(
+        filename="rg.png",
+        document_type=DocumentType.RG,
+        raw_text="REGISTRO GERAL\nNome: Test User",
+        extracted_fields={"name": "Test User", "rg_number": "12.345.678-9"},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(
+            return_value="REGISTRO GERAL\nNome: Test User"
+        )
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+
+        async with client as c:
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[("files", ("documents.zip", zip_bytes, "application/zip"))],
+            )
+
+    assert response.status_code == 200
+    assert (
+        response.headers["content-type"]
+        == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+async def test_ocr_zip_multiple_entries(client: AsyncClient, sample_image_bytes: bytes) -> None:
+    """ZIP with multiple supported files produces one Excel row per document."""
+    zip_bytes = _make_zip(
+        {
+            "rg.png": sample_image_bytes,
+            "ctps.png": sample_image_bytes,
+        }
+    )
+
+    mock_doc = ExtractedDocument(
+        filename="rg.png",
+        document_type=DocumentType.RG,
+        raw_text="REGISTRO GERAL",
+        extracted_fields={},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+        patch("app.routers.documents.ExcelService") as mock_excel_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="REGISTRO GERAL")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+        mock_excel_cls.return_value.generate = MagicMock(return_value=b"fake-excel")
+
+        async with client as c:
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[("files", ("docs.zip", zip_bytes, "application/zip"))],
+            )
+
+    assert response.status_code == 200
+    # generate() should have been called with 2 documents
+    mock_excel_cls.return_value.generate.assert_called_once()
+    call_args = mock_excel_cls.return_value.generate.call_args[0][0]
+    assert len(call_args) == 2
+
+
+async def test_ocr_zip_no_supported_contents(client: AsyncClient) -> None:
+    """ZIP containing only unsupported file types returns 400."""
+    zip_bytes = _make_zip({"notes.txt": b"just text", "data.csv": b"a,b,c"})
+
+    async with client as c:
+        response = await c.post(
+            "/api/v1/documents/ocr",
+            files=[("files", ("docs.zip", zip_bytes, "application/zip"))],
+        )
+
+    assert response.status_code == 400
+    assert "no supported document files" in response.json()["detail"]
+
+
+async def test_ocr_zip_invalid_archive(client: AsyncClient) -> None:
+    """Bytes that are not a valid ZIP file return 400."""
+    async with client as c:
+        response = await c.post(
+            "/api/v1/documents/ocr",
+            files=[("files", ("bad.zip", b"this is not a zip", "application/zip"))],
+        )
+
+    assert response.status_code == 400
+    assert "Invalid ZIP archive" in response.json()["detail"]
+
+
+async def test_ocr_zip_entry_too_large(client: AsyncClient, sample_image_bytes: bytes) -> None:
+    """ZipExtractionError for an oversized entry surfaces as 400."""
+    from app.utils.exceptions import ZipExtractionError
+
+    zip_bytes = _make_zip({"doc.jpg": sample_image_bytes})
+
+    with patch("app.routers.documents.ZipService") as mock_zip_cls:
+        mock_zip_cls.return_value.extract.side_effect = ZipExtractionError(
+            "Entry 'doc.jpg' in ZIP exceeds the maximum allowed size of 10 MB"
+        )
+        async with client as c:
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[("files", ("docs.zip", zip_bytes, "application/zip"))],
+            )
+
+    assert response.status_code == 400
+    assert "exceeds the maximum allowed size" in response.json()["detail"]
+
+
+async def test_ocr_mixed_direct_and_zip(client: AsyncClient, sample_image_bytes: bytes) -> None:
+    """Direct uploads and ZIP archives can be combined in a single request."""
+    zip_bytes = _make_zip({"cert.png": sample_image_bytes})
+
+    mock_doc = ExtractedDocument(
+        filename="doc.png",
+        document_type=DocumentType.UNKNOWN,
+        raw_text="",
+        extracted_fields={},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+        patch("app.routers.documents.ExcelService") as mock_excel_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+        mock_excel_cls.return_value.generate = MagicMock(return_value=b"fake-excel")
+
+        async with client as c:
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[
+                    ("files", ("direct.png", sample_image_bytes, "image/png")),
+                    ("files", ("archive.zip", zip_bytes, "application/zip")),
+                ],
+            )
+
+    assert response.status_code == 200
+    # Two documents: one direct + one from ZIP
+    call_args = mock_excel_cls.return_value.generate.call_args[0][0]
+    assert len(call_args) == 2

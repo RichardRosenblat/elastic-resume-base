@@ -10,13 +10,19 @@ from app.config import settings
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
 from app.services.ocr_service import OcrService
-from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError
+from app.services.zip_service import ZipService
+from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError, ZipExtractionError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Documents"])
 
+# Extensions that can be processed directly by OCR.
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp", ".docx"}
+
+# Extensions accepted at the upload boundary (adds ZIP on top of direct OCR types).
+ACCEPTED_UPLOAD_EXTENSIONS = ALLOWED_EXTENSIONS | {".zip"}
+
 MAX_FILE_SIZE_BYTES = settings.max_file_size_mb * 1024 * 1024
 
 
@@ -26,38 +32,68 @@ async def ocr_documents(
 ) -> StreamingResponse:
     """Process uploaded documents with OCR and return extracted data as Excel file.
 
+    Accepts individual document files **or** ZIP archives (or a mixture of both).
+    When a ``.zip`` file is uploaded every supported document it contains is
+    extracted and processed — the archive itself is never persisted.
+
     Args:
-        files: List of uploaded document files to process.
+        files: One or more uploaded files.  Supported direct formats:
+            ``.pdf``, ``.jpg``, ``.jpeg``, ``.png``, ``.tiff``, ``.tif``,
+            ``.bmp``, ``.webp``, ``.docx``.  ZIP archives (``.zip``) may
+            contain any mix of the above formats.
 
     Returns:
         StreamingResponse containing an Excel file with extracted document data.
 
     Raises:
-        HTTPException 400: If no files provided or an unsupported file type is uploaded.
-        HTTPException 422: If a file exceeds the maximum allowed size.
+        HTTPException 400: If an unsupported file type is uploaded or a ZIP
+            archive is invalid / contains no supported documents.
+        HTTPException 422: If a file (or a ZIP entry) exceeds the maximum
+            allowed size.
         HTTPException 502: If the OCR service fails to process a file.
     """
-    if not files:
-        raise HTTPException(status_code=400, detail="No files provided")
+    zip_service = ZipService()
 
-    # First pass: validate all files and read content before touching external services
+    # First pass: validate uploads and expand any ZIP archives.
+    # Result: a flat list of (filename, extension, content) ready for OCR.
     validated: list[tuple[str, str, bytes]] = []
+
     for upload_file in files:
         filename = upload_file.filename or "unknown"
         ext = _get_extension(filename)
-        if ext not in ALLOWED_EXTENSIONS:
-            allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
+
+        if ext not in ACCEPTED_UPLOAD_EXTENSIONS:
+            allowed = ", ".join(sorted(ACCEPTED_UPLOAD_EXTENSIONS))
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported file type '{ext}'. Allowed: {allowed}",
             )
+
         content = await upload_file.read()
+
         if len(content) > MAX_FILE_SIZE_BYTES:
             raise HTTPException(
                 status_code=422,
                 detail=f"File '{filename}' exceeds maximum size of {settings.max_file_size_mb} MB",
             )
-        validated.append((filename, ext, content))
+
+        if ext == ".zip":
+            logger.info("Expanding ZIP archive", extra={"zip_filename": filename})
+            try:
+                entries = zip_service.extract(
+                    content,
+                    frozenset(ALLOWED_EXTENSIONS),
+                    MAX_FILE_SIZE_BYTES,
+                )
+            except ZipExtractionError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            validated.extend(entries)
+            logger.info(
+                "ZIP archive expanded",
+                extra={"zip_filename": filename, "entry_count": len(entries)},
+            )
+        else:
+            validated.append((filename, ext, content))
 
     ocr_service = OcrService()
     extractor_service = ExtractorService()

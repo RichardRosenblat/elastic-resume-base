@@ -12,3 +12,7 @@ class UnsupportedFileTypeError(DocumentReaderError):
 
 class ExcelGenerationError(DocumentReaderError):
     """Raised when Excel file generation fails."""
+
+
+class ZipExtractionError(DocumentReaderError):
+    """Raised when ZIP archive extraction fails."""
