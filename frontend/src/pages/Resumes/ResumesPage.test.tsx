@@ -45,7 +45,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('../../contexts/toast-context', () => ({
+vi.mock('../../contexts/use-toast', () => ({
   useToast: () => ({
     showToast: vi.fn(),
   }),

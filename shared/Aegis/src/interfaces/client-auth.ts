@@ -10,6 +10,10 @@ export interface IAuthUser {
   readonly uid: string;
   /** Email address associated with the account, or `null` if not available. */
   readonly email: string | null;
+  /** Display name associated with the account, or `null` if not available. */
+  readonly displayName: string | null;
+  /** URL of the user's profile photo, or `null` if not available. */
+  readonly photoURL: string | null;
   /**
    * Retrieves a fresh Firebase ID token for the current user, refreshing it
    * if it has expired.

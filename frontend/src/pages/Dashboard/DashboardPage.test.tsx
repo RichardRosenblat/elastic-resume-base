@@ -1,21 +1,31 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DashboardPage from './DashboardPage';
 
-// Mock AuthContext
+// Default auth mock value — tests that need a different value can call
+// mockAuthState() to override for a single render.
+const defaultAuthState = {
+  currentUser: { uid: 'test-uid', email: 'test@example.com' } as never,
+  userProfile: {
+    uid: 'test-uid',
+    email: 'test@example.com',
+    name: 'Test User',
+    role: 'user',
+    enable: true,
+  },
+  loading: false,
+  isAdmin: false,
+  login: vi.fn(),
+  loginWithGoogle: vi.fn(),
+  logout: vi.fn(),
+  getToken: vi.fn(),
+};
+
+// Use vi.hoisted so the mock factory can reference the mutable spy correctly.
+const { mockUseAuth } = vi.hoisted(() => ({ mockUseAuth: vi.fn() }));
+
 vi.mock('../../contexts/auth-context', () => ({
-  useAuth: () => ({
-    currentUser: { uid: 'test-uid', email: 'test@example.com' },
-    userProfile: {
-      uid: 'test-uid',
-      email: 'test@example.com',
-      name: 'Test User',
-      role: 'user',
-      enable: true,
-    },
-    loading: false,
-    isAdmin: false,
-  }),
+  useAuth: mockUseAuth,
 }));
 
 // Mock feature flags
@@ -38,6 +48,10 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('DashboardPage', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue(defaultAuthState);
+  });
+
   it('renders welcome message with user name', () => {
     render(<DashboardPage />);
     expect(screen.getByText(/dashboard.welcome/)).toBeInTheDocument();
@@ -52,5 +66,26 @@ describe('DashboardPage', () => {
   it('shows user email', () => {
     render(<DashboardPage />);
     expect(screen.getByText(/test@example.com/)).toBeInTheDocument();
+  });
+
+  it('shows only the username part of the email (before @) in the welcome greeting when no name is set', () => {
+    mockUseAuth.mockReturnValueOnce({
+      ...defaultAuthState,
+      userProfile: {
+        uid: 'test-uid',
+        email: 'noname@example.com',
+        name: undefined,
+        role: 'user',
+        enable: true,
+      },
+    });
+
+    render(<DashboardPage />);
+    // The welcome h5 heading should contain 'noname' but not the '@domain' part
+    const heading = screen.getByRole('heading', { level: 5 });
+    expect(heading.textContent).toContain('noname');
+    expect(heading.textContent).not.toContain('@');
+    // The profile "Email:" field should still show the full address
+    expect(screen.getByText('noname@example.com')).toBeInTheDocument();
   });
 });

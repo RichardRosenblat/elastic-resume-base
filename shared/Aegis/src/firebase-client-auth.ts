@@ -53,6 +53,14 @@ class FirebaseAuthUser implements IAuthUser {
     return this.user.email;
   }
 
+  get displayName(): string | null {
+    return this.user.displayName;
+  }
+
+  get photoURL(): string | null {
+    return this.user.photoURL;
+  }
+
   getIdToken(): Promise<string> {
     return this.user.getIdToken();
   }

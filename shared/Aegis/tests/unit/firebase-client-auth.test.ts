@@ -153,7 +153,13 @@ describe('FirebaseClientAuth', () => {
 
     it('wraps the firebase User in an IAuthUser when user is not null', () => {
       const clientAuth = new FirebaseClientAuth(defaultOptions);
-      const fakeUser = { uid: 'u1', email: 'a@b.com', getIdToken: jest.fn().mockResolvedValue('tok') };
+      const fakeUser = {
+        uid: 'u1',
+        email: 'a@b.com',
+        displayName: 'Alpha Beta',
+        photoURL: null,
+        getIdToken: jest.fn().mockResolvedValue('tok'),
+      };
       let capturedCallback: ((user: unknown) => void) | null = null;
       mockOnAuthStateChanged.mockImplementation((_auth: unknown, cb: (user: unknown) => void) => {
         capturedCallback = cb;
@@ -166,9 +172,16 @@ describe('FirebaseClientAuth', () => {
 
       return Promise.resolve().then(() => {
         expect(listener).toHaveBeenCalledTimes(1);
-        const receivedUser = (listener.mock.calls[0] as unknown[])[0] as { uid: string; email: string };
+        const receivedUser = (listener.mock.calls[0] as unknown[])[0] as {
+          uid: string;
+          email: string;
+          displayName: string | null;
+          photoURL: string | null;
+        };
         expect(receivedUser.uid).toBe('u1');
         expect(receivedUser.email).toBe('a@b.com');
+        expect(receivedUser.displayName).toBe('Alpha Beta');
+        expect(receivedUser.photoURL).toBeNull();
       });
     });
 
@@ -246,6 +259,8 @@ describe('FirebaseClientAuth', () => {
       const fakeUser = {
         uid: 'u42',
         email: 'test@example.com',
+        displayName: 'Test User',
+        photoURL: 'https://example.com/photo.jpg',
         getIdToken: jest.fn().mockResolvedValue('token-string'),
       };
       mockGetAuth.mockReturnValue({ currentUser: fakeUser });
@@ -256,11 +271,36 @@ describe('FirebaseClientAuth', () => {
       expect(user).not.toBeNull();
       expect(user!.uid).toBe('u42');
       expect(user!.email).toBe('test@example.com');
+      expect(user!.displayName).toBe('Test User');
+      expect(user!.photoURL).toBe('https://example.com/photo.jpg');
+    });
+
+    it('returns null displayName and photoURL when not set on the firebase User', () => {
+      const fakeUser = {
+        uid: 'u99',
+        email: 'no-profile@example.com',
+        displayName: null,
+        photoURL: null,
+        getIdToken: jest.fn().mockResolvedValue('token'),
+      };
+      mockGetAuth.mockReturnValue({ currentUser: fakeUser });
+
+      const clientAuth = new FirebaseClientAuth(defaultOptions);
+      const user = clientAuth.getCurrentUser();
+
+      expect(user!.displayName).toBeNull();
+      expect(user!.photoURL).toBeNull();
     });
 
     it('IAuthUser.getIdToken delegates to the underlying firebase User', async () => {
       const mockGetIdToken = jest.fn().mockResolvedValue('my-token');
-      const fakeUser = { uid: 'u1', email: 'x@y.com', getIdToken: mockGetIdToken };
+      const fakeUser = {
+        uid: 'u1',
+        email: 'x@y.com',
+        displayName: null,
+        photoURL: null,
+        getIdToken: mockGetIdToken,
+      };
       mockGetAuth.mockReturnValue({ currentUser: fakeUser });
 
       const clientAuth = new FirebaseClientAuth(defaultOptions);

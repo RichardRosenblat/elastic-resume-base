@@ -83,7 +83,7 @@ export default function DashboardPage() {
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>
-        {t('dashboard.welcome')}, {userProfile?.name ?? userProfile?.email ?? ''}!
+        {t('dashboard.welcome')}, {userProfile?.name ?? userProfile?.email?.split('@')[0] ?? ''}!
       </Typography>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
