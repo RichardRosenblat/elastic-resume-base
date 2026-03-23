@@ -6,25 +6,19 @@
  * **Users table** — paginated list of all platform users with inline
  * edit (role, enabled status) and delete actions. Changes are persisted
  * through the BFF Gateway and the table is refreshed automatically.
+ * Rendered via {@link TableTemplate}.
  *
  * **Pre-approved users table** — manages the list of email addresses that
  * are automatically onboarded on first sign-in. Admins can add and remove
- * entries.
+ * entries.  Rendered via {@link TableTemplate}; the "add" form uses
+ * {@link FormTemplate}.
  */
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   IconButton,
   Chip,
-  TablePagination,
   TableSortLabel,
   Dialog,
   DialogTitle,
@@ -36,7 +30,6 @@ import {
   FormControl,
   InputLabel,
   Divider,
-  TextField,
   Alert,
 } from '@mui/material';
 import {
@@ -51,6 +44,8 @@ import { toUserFacingErrorMessage } from '../../services/api-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
+import { TableTemplate, FormTemplate } from '../../components/templates';
+import type { ColumnConfig } from '../../components/templates';
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -239,6 +234,169 @@ export default function UsersPage() {
     }
   };
 
+  // ─── Column definitions ────────────────────────────────────────────────────
+
+  /**
+   * Column definitions for the users table.
+   * The order of this array determines the order of rendered columns.
+   */
+  const usersColumns: ColumnConfig<UserRecord>[] = [
+    {
+      id: 'email',
+      header: (sort) => (
+        <TableSortLabel
+          active={sort.sortBy === 'email'}
+          direction={sort.sortBy === 'email' ? sort.sortDirection : 'asc'}
+          onClick={() => sort.onSort('email')}
+        >
+          {t('users.email')}
+        </TableSortLabel>
+      ),
+      cell: (row) => row.email,
+    },
+    {
+      id: 'uid',
+      header: (sort) => (
+        <TableSortLabel
+          active={sort.sortBy === 'uid'}
+          direction={sort.sortBy === 'uid' ? sort.sortDirection : 'asc'}
+          onClick={() => sort.onSort('uid')}
+        >
+          {t('users.uid')}
+        </TableSortLabel>
+      ),
+      cell: (row) => row.uid,
+    },
+    {
+      id: 'role',
+      header: (sort) => (
+        <Box display="flex" alignItems="center" gap={1}>
+          <TableSortLabel
+            active={sort.sortBy === 'role'}
+            direction={sort.sortBy === 'role' ? sort.sortDirection : 'asc'}
+            onClick={() => sort.onSort('role')}
+          >
+            {t('users.role')}
+          </TableSortLabel>
+          <Chip
+            size="small"
+            variant={usersRoleFilter === 'all' ? 'outlined' : 'filled'}
+            label={usersRoleFilter === 'all' ? 'all' : usersRoleFilter}
+            onClick={cycleUsersRoleFilter}
+          />
+        </Box>
+      ),
+      cell: (row) => (
+        <Chip
+          label={row.role}
+          size="small"
+          color={row.role === 'admin' ? 'primary' : 'default'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      id: 'enable',
+      header: (sort) => (
+        <Box display="flex" alignItems="center" gap={1}>
+          <TableSortLabel
+            active={sort.sortBy === 'enable'}
+            direction={sort.sortBy === 'enable' ? sort.sortDirection : 'asc'}
+            onClick={() => sort.onSort('enable')}
+          >
+            {t('users.enabled')}
+          </TableSortLabel>
+          <Chip
+            size="small"
+            variant={usersEnabledFilter === 'all' ? 'outlined' : 'filled'}
+            label={
+              usersEnabledFilter === 'all'
+                ? 'all'
+                : usersEnabledFilter === 'true'
+                  ? t('dashboard.active')
+                  : t('dashboard.pending')
+            }
+            onClick={cycleUsersEnabledFilter}
+          />
+        </Box>
+      ),
+      cell: (row) => (
+        <Chip
+          label={row.enable ? t('dashboard.active') : t('dashboard.pending')}
+          size="small"
+          color={row.enable ? 'success' : 'warning'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      id: 'actions',
+      header: t('users.actions'),
+      cell: (row) => (
+        <>
+          <IconButton size="small" onClick={() => handleEditOpen(row)}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" color="error" onClick={() => setDeleteConfirmUser(row)}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </>
+      ),
+    },
+  ];
+
+  /**
+   * Column definitions for the pre-approved users table.
+   * The order of this array determines the order of rendered columns.
+   */
+  const preApprovedColumns: ColumnConfig<PreApprovedUser>[] = [
+    {
+      id: 'email',
+      header: (sort) => (
+        <TableSortLabel
+          active={sort.sortBy === 'email'}
+          direction={sort.sortBy === 'email' ? sort.sortDirection : 'asc'}
+          onClick={() => sort.onSort('email')}
+        >
+          {t('users.email')}
+        </TableSortLabel>
+      ),
+      cell: (row) => row.email,
+    },
+    {
+      id: 'role',
+      header: (sort) => (
+        <Box display="flex" alignItems="center" gap={1}>
+          <TableSortLabel
+            active={sort.sortBy === 'role'}
+            direction={sort.sortBy === 'role' ? sort.sortDirection : 'asc'}
+            onClick={() => sort.onSort('role')}
+          >
+            {t('users.role')}
+          </TableSortLabel>
+          <Chip
+            size="small"
+            variant={preApprovedRoleFilter === 'all' ? 'outlined' : 'filled'}
+            label={preApprovedRoleFilter === 'all' ? 'all' : preApprovedRoleFilter}
+            onClick={cyclePreApprovedRoleFilter}
+          />
+        </Box>
+      ),
+      cell: (row) => row.role,
+    },
+    {
+      id: 'actions',
+      header: t('users.actions'),
+      cell: (row) => (
+        <IconButton size="small" color="error" onClick={() => { void handleDeletePreApproved(row.email); }}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      ),
+    },
+  ];
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('users.title')}</Typography>
@@ -248,206 +406,92 @@ export default function UsersPage() {
           {successMsg}
         </Alert>
       )}
+
+      {/* ── Users table ───────────────────────────────────────────────────── */}
       {loading ? (
         <LoadingSpinner message={t('common.loading')} />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <TableSortLabel
-                    active={usersSortBy === 'email'}
-                    direction={usersSortBy === 'email' ? usersSortDirection : 'asc'}
-                    onClick={() => handleUsersSort('email')}
-                  >
-                    {t('users.email')}
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={usersSortBy === 'uid'}
-                    direction={usersSortBy === 'uid' ? usersSortDirection : 'asc'}
-                    onClick={() => handleUsersSort('uid')}
-                  >
-                    {t('users.uid')}
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <TableSortLabel
-                      active={usersSortBy === 'role'}
-                      direction={usersSortBy === 'role' ? usersSortDirection : 'asc'}
-                      onClick={() => handleUsersSort('role')}
-                    >
-                      {t('users.role')}
-                    </TableSortLabel>
-                    <Chip
-                      size="small"
-                      variant={usersRoleFilter === 'all' ? 'outlined' : 'filled'}
-                      label={usersRoleFilter === 'all' ? 'all' : usersRoleFilter}
-                      onClick={cycleUsersRoleFilter}
-                    />
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <TableSortLabel
-                      active={usersSortBy === 'enable'}
-                      direction={usersSortBy === 'enable' ? usersSortDirection : 'asc'}
-                      onClick={() => handleUsersSort('enable')}
-                    >
-                      {t('users.enabled')}
-                    </TableSortLabel>
-                    <Chip
-                      size="small"
-                      variant={usersEnabledFilter === 'all' ? 'outlined' : 'filled'}
-                      label={usersEnabledFilter === 'all'
-                        ? 'all'
-                        : usersEnabledFilter === 'true'
-                          ? t('dashboard.active')
-                          : t('dashboard.pending')}
-                      onClick={cycleUsersEnabledFilter}
-                    />
-                  </Box>
-                </TableCell>
-                <TableCell>{t('users.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {users.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">{t('users.noUsersFound')}</TableCell>
-                </TableRow>
-              ) : (
-                users.map((user) => (
-                  <TableRow key={user.uid}>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.uid}</TableCell>
-                    <TableCell>
-                      <Chip label={user.role} size="small" color={user.role === 'admin' ? 'primary' : 'default'} variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.enable ? t('dashboard.active') : t('dashboard.pending')}
-                        size="small"
-                        color={user.enable ? 'success' : 'warning'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEditOpen(user)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => setDeleteConfirmUser(user)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <TablePagination
-            component="div"
-            count={total}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            labelRowsPerPage={t('common.rowsPerPage')}
-          />
-        </TableContainer>
+        <TableTemplate
+          config={{
+            columns: usersColumns,
+            rows: users,
+            getRowKey: (u) => u.uid,
+            sort: {
+              sortBy: usersSortBy,
+              sortDirection: usersSortDirection,
+              onSort: (field) => handleUsersSort(field as UserSortField),
+            },
+            pagination: {
+              total,
+              page,
+              rowsPerPage,
+              onPageChange: setPage,
+              onRowsPerPageChange: (rpp) => { setRowsPerPage(rpp); setPage(0); },
+              rowsPerPageLabel: t('common.rowsPerPage'),
+            },
+            emptyMessage: t('users.noUsersFound'),
+          }}
+        />
       )}
 
       <Divider sx={{ my: 4 }} />
 
+      {/* ── Pre-approved users ────────────────────────────────────────────── */}
       <Typography variant="h6" gutterBottom>{t('users.preApprovedUsers')}</Typography>
-      <Box display="flex" gap={2} mb={2} flexWrap="wrap" alignItems="center">
-        <TextField
-          label={t('users.email')}
-          value={newPreApprovedEmail}
-          onChange={(e) => setNewPreApprovedEmail(e.target.value)}
-          size="small"
-          sx={{ minWidth: 280 }}
-        />
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>{t('users.role')}</InputLabel>
-          <Select
-            value={newPreApprovedRole}
-            label={t('users.role')}
-            onChange={(e) => setNewPreApprovedRole(e.target.value as 'admin' | 'user')}
-          >
-            <MenuItem value="user">user</MenuItem>
-            <MenuItem value="admin">admin</MenuItem>
-          </Select>
-        </FormControl>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => { void handleAddPreApproved(); }}
-          disabled={!newPreApprovedEmail}
-          sx={{ px: 2.25 }}
-        >
-          {t('users.addPreApproved')}
-        </Button>
-      </Box>
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <TableSortLabel
-                  active={preApprovedSortBy === 'email'}
-                  direction={preApprovedSortBy === 'email' ? preApprovedSortDirection : 'asc'}
-                  onClick={() => handlePreApprovedSort('email')}
-                >
-                  {t('users.email')}
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <TableSortLabel
-                    active={preApprovedSortBy === 'role'}
-                    direction={preApprovedSortBy === 'role' ? preApprovedSortDirection : 'asc'}
-                    onClick={() => handlePreApprovedSort('role')}
-                  >
-                    {t('users.role')}
-                  </TableSortLabel>
-                  <Chip
-                    size="small"
-                    variant={preApprovedRoleFilter === 'all' ? 'outlined' : 'filled'}
-                    label={preApprovedRoleFilter === 'all' ? 'all' : preApprovedRoleFilter}
-                    onClick={cyclePreApprovedRoleFilter}
-                  />
-                </Box>
-              </TableCell>
-              <TableCell>{t('users.actions')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {preApproved.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center">{t('users.noUsersFound')}</TableCell>
-              </TableRow>
-            ) : (
-              preApproved.map((u) => (
-                <TableRow key={u.email}>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.role}</TableCell>
-                  <TableCell>
-                    <IconButton size="small" color="error" onClick={() => { void handleDeletePreApproved(u.email); }}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
 
-      {/* Edit Dialog */}
+      {/* Add pre-approved form — fields and button rendered via FormTemplate */}
+      <FormTemplate
+        config={{
+          fields: [
+            { key: 'email', label: t('users.email'), type: 'email', size: 'small', minWidth: 280 },
+            {
+              key: 'role',
+              label: t('users.role'),
+              type: 'select',
+              size: 'small',
+              minWidth: 150,
+              options: [
+                { value: 'user', label: 'user' },
+                { value: 'admin', label: 'admin' },
+              ],
+            },
+          ],
+          buttons: [
+            {
+              label: t('users.addPreApproved'),
+              onClick: () => { void handleAddPreApproved(); },
+              variant: 'contained',
+              startIcon: <AddIcon />,
+              disabled: !newPreApprovedEmail,
+              sx: { px: 2.25 },
+            },
+          ],
+          values: { email: newPreApprovedEmail, role: newPreApprovedRole },
+          onChange: (key, value) => {
+            if (key === 'email') setNewPreApprovedEmail(value);
+            if (key === 'role') setNewPreApprovedRole(value as 'admin' | 'user');
+          },
+          sx: { mb: 2 },
+        }}
+      />
+
+      {/* Pre-approved table */}
+      <TableTemplate
+        config={{
+          columns: preApprovedColumns,
+          rows: preApproved,
+          getRowKey: (u) => u.email,
+          sort: {
+            sortBy: preApprovedSortBy,
+            sortDirection: preApprovedSortDirection,
+            onSort: (field) => handlePreApprovedSort(field as PreApprovedSortField),
+          },
+          emptyMessage: t('users.noUsersFound'),
+          size: 'small',
+        }}
+      />
+
+      {/* ── Edit Dialog ───────────────────────────────────────────────────── */}
       <Dialog open={!!editUser} onClose={handleEditClose}>
         <DialogTitle>{t('users.editUser')}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
@@ -481,7 +525,7 @@ export default function UsersPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirm Dialog */}
+      {/* ── Delete Confirm Dialog ─────────────────────────────────────────── */}
       <Dialog open={!!deleteConfirmUser} onClose={() => setDeleteConfirmUser(null)}>
         <DialogTitle>{t('users.deleteUser')}</DialogTitle>
         <DialogContent>

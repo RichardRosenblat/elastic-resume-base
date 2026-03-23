@@ -2,8 +2,9 @@
  * @file AccountPage.tsx — User account settings page.
  *
  * Allows the authenticated user to:
- * - View their current profile (email, role, UID).
- * - Update their own email address via `PATCH /api/v1/users/me`.
+ * - View their current profile (email, role, UID) via {@link DataDisplayTemplate}.
+ * - Update their own email address via `PATCH /api/v1/users/me` using
+ *   {@link FormTemplate}.
  * - Switch the UI language (persisted in i18next's `localStorage` key).
  */
 import { useState } from 'react';
@@ -12,15 +13,12 @@ import {
   Typography,
   Card,
   CardContent,
-  TextField,
-  Button,
   Divider,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   Alert,
-  Stack,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/auth-context';
@@ -28,6 +26,7 @@ import { updateMyEmail } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
+import { DataDisplayTemplate, FormTemplate } from '../../components/templates';
 
 export default function AccountPage() {
   const { t, i18n } = useTranslation();
@@ -64,51 +63,68 @@ export default function AccountPage() {
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('account.title')}</Typography>
+
+      {/* ── Profile display ────────────────────────────────────────────────── */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>{t('dashboard.profile')}</Typography>
-          <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-            <Stack direction="row" spacing={1} alignItems="baseline">
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 56 }}>Email:</Typography>
-              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>{userProfile?.email ?? '-'}</Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="baseline">
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 56 }}>{t('dashboard.role')}:</Typography>
-              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>{userProfile?.role ?? '-'}</Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="baseline">
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 56 }}>UID:</Typography>
-              <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>{userProfile?.uid ?? '-'}</Typography>
-            </Stack>
-          </Stack>
+          <DataDisplayTemplate
+            config={{
+              title: t('dashboard.profile'),
+              fields: [
+                { key: 'email', label: 'Email' },
+                { key: 'role', label: t('dashboard.role') },
+                { key: 'uid', label: 'UID' },
+              ],
+              data: {
+                email: userProfile?.email ?? '-',
+                role: userProfile?.role ?? '-',
+                uid: userProfile?.uid ?? '-',
+              },
+            }}
+          />
         </CardContent>
       </Card>
+
+      {/* ── Update email form ─────────────────────────────────────────────── */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>{t('account.updateEmail')}</Typography>
           {emailError && <ErrorMessage message={emailError} onClose={() => setEmailError(null)} />}
-          {emailSuccess && <Alert severity="success" onClose={() => setEmailSuccess(null)} sx={{ mb: 2 }}>{emailSuccess}</Alert>}
-          <Box display="flex" gap={2} flexWrap="wrap" alignItems="center">
-            <TextField
-              label={t('account.newEmail')}
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              type="email"
-              size="small"
-              sx={{ minWidth: 280 }}
-            />
-            <Button
-              variant="contained"
-              onClick={() => { void handleUpdateEmail(); }}
-              disabled={emailLoading || !newEmail}
-              sx={{ px: 2.5 }}
-            >
-              {t('account.saveChanges')}
-            </Button>
-          </Box>
+          {emailSuccess && (
+            <Alert severity="success" onClose={() => setEmailSuccess(null)} sx={{ mb: 2 }}>
+              {emailSuccess}
+            </Alert>
+          )}
+          <FormTemplate
+            config={{
+              fields: [
+                {
+                  key: 'email',
+                  label: t('account.newEmail'),
+                  type: 'email',
+                  size: 'small',
+                  minWidth: 280,
+                },
+              ],
+              buttons: [
+                {
+                  label: t('account.saveChanges'),
+                  onClick: () => { void handleUpdateEmail(); },
+                  variant: 'contained',
+                  disabled: emailLoading || !newEmail,
+                  sx: { px: 2.5 },
+                },
+              ],
+              values: { email: newEmail },
+              onChange: (_, value) => setNewEmail(value),
+            }}
+          />
         </CardContent>
       </Card>
+
       <Divider sx={{ my: 3 }} />
+
+      {/* ── Language preference ───────────────────────────────────────────── */}
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>{t('account.languagePreference')}</Typography>
