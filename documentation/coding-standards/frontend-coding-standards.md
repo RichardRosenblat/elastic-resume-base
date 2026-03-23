@@ -6,23 +6,25 @@ This document defines the coding standards and best practices for the React + Ty
 
 ## Table of Contents
 
-- [Language and Runtime](#language-and-runtime)
-- [Style Guide](#style-guide)
-- [Project Structure](#project-structure)
-- [Naming Conventions](#naming-conventions)
-- [TypeScript Usage](#typescript-usage)
-- [JSDoc and Comments](#jsdoc-and-comments)
-- [Component Design](#component-design)
-- [State Management](#state-management)
-- [API Calls](#api-calls)
-- [Feature Flags](#feature-flags)
-- [Internationalisation (i18n)](#internationalisation-i18n)
-- [Accessibility](#accessibility)
-- [Error Handling and Loading States](#error-handling-and-loading-states)
-- [Testing](#testing)
-- [Linting and Formatting](#linting-and-formatting)
-- [Environment Variables](#environment-variables)
-- [Build Pipeline](#build-pipeline)
+- [Frontend Coding Standards](#frontend-coding-standards)
+  - [Table of Contents](#table-of-contents)
+  - [Language and Runtime](#language-and-runtime)
+  - [Style Guide](#style-guide)
+  - [Project Structure](#project-structure)
+  - [Naming Conventions](#naming-conventions)
+  - [TypeScript Usage](#typescript-usage)
+  - [JSDoc and Comments](#jsdoc-and-comments)
+  - [Component Design](#component-design)
+  - [State Management](#state-management)
+  - [API Calls](#api-calls)
+  - [Feature Flags](#feature-flags)
+  - [Internationalisation (i18n)](#internationalisation-i18n)
+  - [Accessibility](#accessibility)
+  - [Error Handling and Loading States](#error-handling-and-loading-states)
+  - [Testing](#testing)
+  - [Linting and Formatting](#linting-and-formatting)
+  - [Environment Variables](#environment-variables)
+  - [Build Pipeline](#build-pipeline)
 
 ---
 
@@ -295,12 +297,12 @@ The project uses ESLint with `@typescript-eslint/recommended` and React hooks ru
 
 ## Environment Variables
 
-All runtime configuration is injected via `VITE_` prefixed environment variables. See [`frontend/.env.example`](../../frontend/.env.example) for the full list.
+All runtime configuration is injected via `VITE_` prefixed environment variables. See [config.yaml](../../config_example.yaml) for the full list.
 
 Rules:
 - Never commit real credentials (API keys, secrets) to source control.
 - Never access `import.meta.env` directly in component code — use `config` from `src/config.ts` instead, which provides type-safe defaults.
-- Add any new variable to `.env.example` with a placeholder value and a comment describing its purpose.
+- Add any new variable to `config_example.yaml` with a placeholder value and a comment describing its purpose.
 
 ---
 

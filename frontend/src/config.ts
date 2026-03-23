@@ -7,7 +7,7 @@
  *
  * Values are read from Vite `VITE_` environment variables at build time.
  * For local development, values are loaded automatically from the monorepo
- * `config.yaml` at the repository root — no `.env.local` file is required.
+ * `config.yaml` at the repository root.
  * See `vite.config.ts` for how `config.yaml` is ingested.
  *
  * In production (Docker / CI), pass variables as build-time `ARG`/`ENV` or

@@ -16,39 +16,39 @@
 
   "palette": {
     "primary": {
-      "main": "#2563EB",
-      "light": "#DBEAFE",
-      "dark": "#1E40AF",
+      "main": "#3B82F6",
+      "light": "#60A5FA",
+      "dark": "#2563EB",
       "contrastText": "#FFFFFF"
     },
     "secondary": {
       "main": "#F97316",
-      "light": "#FFEDD5",
+      "light": "#FB923C",
       "dark": "#EA580C",
       "contrastText": "#FFFFFF"
     },
     "tertiary": {
-      "main": "#0EA5E9"
+      "main": "#EF4444"
     },
     "success": {
-      "main": "#22C55E"
+      "main": "#10B981"
     },
     "warning": {
-      "main": "#F97316"
+      "main": "#F59E0B"
     },
     "error": {
       "main": "#EF4444"
     },
     "info": {
-      "main": "#38BDF8"
+      "main": "#3B82F6"
     },
     "background": {
-      "default": "#0F172A",
-      "paper": "#1E293B"
+      "default": "#111827",
+      "paper": "#1F2937"
     },
     "text": {
-      "primary": "#F8FAFC",
-      "secondary": "#94A3B8"
+      "primary": "#F9FAFB",
+      "secondary": "#9CA3AF"
     }
   }
 }

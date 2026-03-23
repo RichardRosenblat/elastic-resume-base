@@ -89,7 +89,7 @@ systems:
   # Build-time VITE_ variables injected as Docker ARGs during `docker compose build`.
   #
   # For LOCAL DEVELOPMENT: these values are read directly from this file by
-  # the Vite dev server — no .env.local file is required.
+  # the Vite dev server
   #
   # SEPARATION OF CONCERNS:
   #   - Operational / infrastructure config → this file (systems.frontend)

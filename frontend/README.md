@@ -71,7 +71,6 @@ frontend/
 │   ├── index.css                  # Global CSS resets
 │   └── main.tsx                   # React entry point (createRoot)
 ├── .dockerignore
-├── .env.example                   # Env var template (copy to .env.local)
 ├── .gitignore
 ├── Dockerfile
 ├── eslint.config.js
@@ -87,7 +86,7 @@ frontend/
 
 ## Environment Variables
 
-All `VITE_*` variables are listed here for reference, but **for local development you do not need a `.env.local` file** — the Vite dev server reads them directly from the monorepo-wide `config.yaml` at the repository root (see [Local Development Setup](#local-development-setup)).
+All `VITE_*` variables are listed here — the Vite dev server reads them directly from the monorepo-wide `config.yaml` at the repository root (see [Local Development Setup](#local-development-setup)).
 
 For Docker / CI builds, pass these as `--build-arg` flags or inject them via your deployment platform — they are declared as `ARG`/`ENV` in the `Dockerfile`.
 
@@ -138,7 +137,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server reads `../config.yaml` automatically (via the plugin in `vite.config.ts`) — **no `.env.local` file is needed**.  If you prefer to override individual values, you can still create `frontend/.env.local` — it will be applied on top of `config.yaml`.
+The Vite dev server reads `../config.yaml` automatically (via the plugin in `vite.config.ts`).  If you prefer to override individual values, you can still create `frontend/.env.local` — it will be applied on top of `config.yaml`.
 
 The app will be available at **http://localhost:5173** with hot-module replacement.
 

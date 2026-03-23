@@ -16,7 +16,13 @@ This document defines the coding standards and best practices for the Node.js se
   - [JSDoc and Comments](#jsdoc-and-comments)
   - [Error Handling](#error-handling)
   - [Logging](#logging)
+    - [Log Level Guidelines](#log-level-guidelines)
   - [Shared Libraries](#shared-libraries)
+    - [Using Toolbox](#using-toolbox)
+    - [Installing other shared libraries](#installing-other-shared-libraries)
+    - [Toolbox — canonical usage pattern](#toolbox--canonical-usage-pattern)
+    - [Bowltie — response formatting](#bowltie--response-formatting)
+    - [Jest — mapping shared packages to TypeScript source](#jest--mapping-shared-packages-to-typescript-source)
   - [Security](#security)
   - [Dependencies](#dependencies)
   - [Testing](#testing)
@@ -113,7 +119,6 @@ bff-gateway/               # or users-api/
 ├── tsconfig.json
 ├── .eslintrc.cjs
 ├── .prettierrc
-└── .env.example
 ```
 
 ---
