@@ -5,11 +5,22 @@ import LoadingSpinner from './LoadingSpinner';
 import { Box, Typography, Button } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
+/** Props for the {@link ProtectedRoute} component. */
 interface ProtectedRouteProps {
+  /** When `true`, only users with `role === 'admin'` can access the route. */
   adminOnly?: boolean;
   children?: ReactNode;
 }
 
+/**
+ * Route guard that enforces authentication, account enablement, and optional
+ * admin-only access.
+ *
+ * - **Unauthenticated** → redirects to `/login`.
+ * - **`enable = false`** → shows the Pending Approval screen.
+ * - **`adminOnly = true` + non-admin** → shows a "Forbidden" message.
+ * - **Authorised** → renders `children` or the nested `<Outlet />`.
+ */
 export default function ProtectedRoute({ adminOnly = false, children }: ProtectedRouteProps) {
   const { currentUser, userProfile, loading, isAdmin, logout } = useAuth();
   const { t } = useTranslation();

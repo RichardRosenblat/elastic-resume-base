@@ -1,3 +1,15 @@
+/**
+ * Runtime configuration for the frontend application.
+ *
+ * All values are read from Vite `VITE_` environment variables at build time.
+ * Copy `.env.example` to `.env.local` and fill in the required values for
+ * local development. In production, supply the variables through the build
+ * pipeline / deployment platform (e.g. Docker, Firebase Hosting).
+ *
+ * @example
+ * import { config } from './config';
+ * const baseUrl = config.bffUrl; // 'http://localhost:3000'
+ */
 export const config = {
   appName: import.meta.env.VITE_APP_NAME ?? 'Elastic Resume Base',
   bffUrl: import.meta.env.VITE_BFF_URL ?? 'http://localhost:3000',

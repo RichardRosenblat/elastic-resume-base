@@ -1,3 +1,17 @@
+/**
+ * @file AuthContext — Firebase Auth state and BFF user-profile context.
+ *
+ * Wraps the entire application so that any component can call
+ * {@link useAuth} to read the current user and trigger auth actions.
+ *
+ * Auth flow:
+ * 1. Firebase `onAuthStateChanged` fires whenever the session changes.
+ * 2. On sign-in, the ID token is exchanged for a full user profile via
+ *    `GET /api/v1/me` on the BFF Gateway.
+ * 3. `userProfile.enable === false` means the account is pending approval —
+ *    the `ProtectedRoute` component gates access in that case.
+ * 4. `isAdmin` is `true` when `userProfile.role === 'admin'`.
+ */
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import {
@@ -12,6 +26,10 @@ import { auth } from '../firebase';
 import type { UserProfile } from '../types';
 import { config } from '../config';
 
+/**
+ * Shape of the value provided by {@link AuthContext} / consumed by
+ * {@link useAuth}.
+ */
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
@@ -25,6 +43,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+/**
+ * Returns the auth context value. Must be called inside an
+ * {@link AuthProvider} tree; throws otherwise.
+ */
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
@@ -47,6 +69,11 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Provides Firebase Auth state and BFF user-profile data to the component
+ * tree. Place this near the root of the application (inside `ThemeProvider`
+ * and `BrowserRouter` so that hooks and routing work correctly).
+ */
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);

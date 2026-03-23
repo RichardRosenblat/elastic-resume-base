@@ -45,7 +45,7 @@ This repository is under active development. The following table summarizes what
 | **BFF Gateway** | ✅ Implemented | Full auth, RBAC, user management routes |
 | **Users API** | ✅ Implemented | Authorization logic, user CRUD, pre-approval management |
 | **Shared Libraries** (Synapse, Bowltie, Bugle, Toolbox) | ✅ Implemented | Consumed by BFF Gateway and Users API |
-| **Frontend SPA** | 🔄 Planned | Not yet implemented |
+| **Frontend SPA** | ✅ Implemented | React + TypeScript SPA with Firebase Auth, i18n, MUI, and feature flags |
 | **Ingestor Service** | 🔄 Planned | Not yet implemented |
 | **AI Worker** | 🔄 Planned | Not yet implemented |
 | **Search Base** | 🔄 Planned | Not yet implemented |
@@ -116,7 +116,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 |---|---|---|---|
 | **BFF Gateway** | Node.js | ✅ Implemented | Backend-for-Frontend: handles authentication, RBAC, and routes client requests to microservices |
 | **Users API** | Node.js | ✅ Implemented | Manages user records, authorization logic, and pre-approval workflows |
-| **Frontend SPA** | React / Vue / Angular | 🔄 Planned | User interface hosted on Firebase Hosting |
+| **Frontend SPA** | React + TypeScript | ✅ Implemented | User interface hosted on Firebase Hosting; integrates with BFF Gateway |
 | **Ingestor Service** | Python | 🔄 Planned | Downloads resumes from Google Sheets/Drive, publishes to Pub/Sub |
 | **AI Worker** | Python | 🔄 Planned | Extracts structured JSON and generates embeddings using Vertex AI |
 | **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
@@ -202,6 +202,9 @@ Ensure you have the following tools installed locally:
 
    # Users API
    cd users-api && npm install
+
+   # Frontend
+   cd frontend && npm install
    ```
 
 ### Running with Docker Compose
@@ -231,6 +234,7 @@ The following local endpoints will be available:
 
 | Service | URL |
 |---|---|
+| Frontend | http://localhost:5174 |
 | BFF Gateway | http://localhost:3000 |
 | BFF Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
@@ -251,6 +255,10 @@ elastic-resume-base/
 │   ├── Dockerfile
 │   └── package.json
 ├── users-api/                 # ✅ Node.js Users API Microservice
+│   ├── src/
+│   ├── Dockerfile
+│   └── package.json
+├── frontend/                  # ✅ React + TypeScript SPA (Vite)
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
@@ -304,8 +312,10 @@ elastic-resume-base/
 | [Costs and Scaling](documentation/costs%20and%20services.md) | Cost analysis and scaling projections |
 | [Architecture Decision Records](documentation/adr/README.md) | Records of key architectural decisions and their rationale |
 | [Node.js Coding Standards](documentation/coding-standards/nodejs-coding-standards.md) | Node.js style guide and best practices |
+| [Frontend Coding Standards](documentation/coding-standards/frontend-coding-standards.md) | React/TypeScript style guide and best practices for the frontend SPA |
 | [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
 | [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
+| [Frontend README](frontend/README.md) | Frontend SPA setup, environment variables, and development guide |
 | [Contributing](CONTRIBUTING.md) | How to contribute to this project |
 | [Security](SECURITY.md) | Security policy and vulnerability reporting |
 
