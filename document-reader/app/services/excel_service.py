@@ -26,9 +26,11 @@ _HEADERS = [
     "Texto Extraído",
 ]
 
-_FIELD_MAP: dict[str, str] = {
+_FIELD_MAP: dict[str, str | list[str]] = {
     "Nome": "name",
-    "Data": "date_of_birth",
+    # "Data" covers both birth certificate (date_of_birth) and marriage certificate
+    # (date_of_marriage); the first matching key that is present wins.
+    "Data": ["date_of_birth", "date_of_marriage"],
     "Cônjuge": "spouse_name",
     "Número RG": "rg_number",
     "Número CTPS": "work_card_number",
@@ -78,7 +80,17 @@ class ExcelService:
 
                 for header in _HEADERS[2:-1]:  # skip Arquivo, Tipo, and Texto Extraído
                     field_key = _FIELD_MAP.get(header)
-                    row_data.append(fields.get(field_key, None) if field_key else None)
+                    if field_key is None:
+                        row_data.append(None)
+                    elif isinstance(field_key, list):
+                        # Try each candidate key in order; use the first non-None value.
+                        value = next(
+                            (fields[k] for k in field_key if k in fields and fields[k] is not None),
+                            None,
+                        )
+                        row_data.append(value)
+                    else:
+                        row_data.append(fields.get(field_key))
 
                 row_data.append(doc.raw_text)
 

@@ -19,7 +19,7 @@ async def test_health_check(client: AsyncClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
-async def test_ocr_no_files_returns_400(client: AsyncClient) -> None:
+async def test_ocr_no_files_returns_422(client: AsyncClient) -> None:
     async with client as c:
         response = await c.post("/api/v1/documents/ocr")
     assert response.status_code == 422  # FastAPI validation: required field missing

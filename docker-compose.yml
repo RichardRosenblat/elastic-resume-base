@@ -45,3 +45,13 @@ services:
       - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
     depends_on:
       - firebase-emulator
+
+  # 4. Document Reader / OCR (Python — port 8004)
+  document-reader:
+    build:
+      context: ./document-reader
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+      - LOG_LEVEL=INFO
