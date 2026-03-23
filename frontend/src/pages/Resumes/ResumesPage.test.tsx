@@ -2,9 +2,22 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ResumesPage from './ResumesPage';
 
-// Mock Firebase
+// Mock Aegis firebase initialisation (prevents real Firebase SDK from being called in tests)
 vi.mock('../../firebase', () => ({
-  auth: { currentUser: null },
+  auth: {
+    getCurrentUser: () => null,
+    signOut: vi.fn(),
+    onAuthStateChanged: vi.fn(() => () => {}),
+    signInWithEmailAndPassword: vi.fn(),
+    signInWithGoogle: vi.fn(),
+  },
+  default: {
+    getCurrentUser: () => null,
+    signOut: vi.fn(),
+    onAuthStateChanged: vi.fn(() => () => {}),
+    signInWithEmailAndPassword: vi.fn(),
+    signInWithGoogle: vi.fn(),
+  },
 }));
 
 // Mock API

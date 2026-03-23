@@ -20,7 +20,7 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 apiClient.interceptors.request.use(async (reqConfig) => {
-  const user = auth.currentUser;
+  const user = auth.getCurrentUser();
   if (user) {
     const token = await user.getIdToken();
     reqConfig.headers.Authorization = `Bearer ${token}`;

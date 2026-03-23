@@ -1,11 +1,11 @@
 /**
- * @file AuthContext — Firebase Auth state and BFF user-profile context.
+ * @file AuthContext — Aegis client auth state and BFF user-profile context.
  *
  * Wraps the entire application so that any component can call
  * {@link useAuth} to read the current user and trigger auth actions.
  *
  * Auth flow:
- * 1. Firebase `onAuthStateChanged` fires whenever the session changes.
+ * 1. Aegis `onAuthStateChanged` fires whenever the session changes.
  * 2. On sign-in, the ID token is exchanged for a full user profile via
  *    `GET /api/v1/me` on the BFF Gateway.
  * 3. `userProfile.enable === false` means the account is pending approval —
@@ -14,14 +14,7 @@
  */
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-} from 'firebase/auth';
-import type { User } from 'firebase/auth';
+import type { IAuthUser } from '@elastic-resume-base/aegis/client';
 import { auth } from '../firebase';
 import type { UserProfile } from '../types';
 import { config } from '../config';
@@ -31,7 +24,7 @@ import { config } from '../config';
  * {@link useAuth}.
  */
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: IAuthUser | null;
   userProfile: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
@@ -70,12 +63,12 @@ interface AuthProviderProps {
 }
 
 /**
- * Provides Firebase Auth state and BFF user-profile data to the component
+ * Provides Aegis client auth state and BFF user-profile data to the component
  * tree. Place this near the root of the application (inside `ThemeProvider`
  * and `BrowserRouter` so that hooks and routing work correctly).
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<IAuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -85,7 +78,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [currentUser]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
       if (user) {
         try {
@@ -104,16 +97,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    await signInWithEmailAndPassword(auth, email, password);
+    await auth.signInWithEmailAndPassword(email, password);
   };
 
   const loginWithGoogle = async (): Promise<void> => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    await auth.signInWithGoogle();
   };
 
   const logout = async (): Promise<void> => {
-    await signOut(auth);
+    await auth.signOut();
     setUserProfile(null);
   };
 

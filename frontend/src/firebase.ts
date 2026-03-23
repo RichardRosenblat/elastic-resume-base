@@ -1,15 +1,20 @@
 /**
- * Firebase application and Auth initialisation.
+ * @file firebase.ts — Aegis client-side authentication initialisation.
  *
- * The Firebase app is created once from the VITE_ environment variables
- * collected in {@link config}. The Auth instance is exported so that other
- * modules (AuthContext, api.ts) can call `auth.currentUser` or `getIdToken()`
- * without instantiating a second app.
+ * Initialises the Aegis client auth layer once with the Firebase project
+ * credentials from {@link config}.  All other modules should import `auth`
+ * from this file rather than calling `firebase/auth` directly, keeping every
+ * Firebase dependency isolated behind the Aegis abstraction.
  */
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeClientAuth, getClientAuth } from '@elastic-resume-base/aegis/client';
 import { config } from './config';
 
-const app = initializeApp(config.firebase);
-export const auth = getAuth(app);
-export default app;
+initializeClientAuth({
+  apiKey: config.firebase.apiKey,
+  authDomain: config.firebase.authDomain,
+  projectId: config.firebase.projectId,
+});
+
+/** The singleton {@link IClientAuth} instance for the entire application. */
+export const auth = getClientAuth();
+export default auth;

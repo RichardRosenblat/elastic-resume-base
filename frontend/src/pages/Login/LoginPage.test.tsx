@@ -4,9 +4,22 @@ import type { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import LoginPage from './LoginPage';
 
-// Mock Firebase
+// Mock Aegis firebase initialisation (prevents real Firebase SDK from being called in tests)
 vi.mock('../../firebase', () => ({
-  auth: { currentUser: null },
+  auth: {
+    getCurrentUser: () => null,
+    signOut: vi.fn(),
+    onAuthStateChanged: vi.fn(() => () => {}),
+    signInWithEmailAndPassword: vi.fn(),
+    signInWithGoogle: vi.fn(),
+  },
+  default: {
+    getCurrentUser: () => null,
+    signOut: vi.fn(),
+    onAuthStateChanged: vi.fn(() => () => {}),
+    signInWithEmailAndPassword: vi.fn(),
+    signInWithGoogle: vi.fn(),
+  },
 }));
 
 // Mock AuthContext
