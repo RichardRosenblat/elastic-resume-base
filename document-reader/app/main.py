@@ -1,4 +1,6 @@
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -9,23 +11,21 @@ from app.utils.logger import configure_logging
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage application lifespan events."""
+    logger.info("Document Reader service starting up")
+    yield
+    logger.info("Document Reader service shutting down")
+
+
 app = FastAPI(
     title="Document Reader",
     version="1.0.0",
     description="OCR service for extracting text and structured data from Brazilian documents.",
+    lifespan=lifespan,
 )
 
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(health.router)
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    """Log service startup."""
-    logger.info("Document Reader service starting up")
-
-
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    """Log service shutdown."""
-    logger.info("Document Reader service shutting down")
