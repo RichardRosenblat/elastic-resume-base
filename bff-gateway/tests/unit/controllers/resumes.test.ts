@@ -1,14 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
-import { _resetFirebaseApp } from '../../../src/middleware/auth.js';
-
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn().mockReturnValue({}),
-  auth: jest.fn().mockReturnValue({
-    verifyIdToken: jest.fn(),
-  }),
-}));
+import { _setTokenVerifier, _resetTokenVerifier } from '../../../src/middleware/auth.js';
 
 jest.mock('../../../src/services/fileGeneratorClient', () => ({
   generateResume: jest.fn(),
@@ -27,7 +19,6 @@ jest.mock('../../../src/services/userApiClient', () => ({
   updatePreApprovedInApi: jest.fn(),
 }));
 
-import * as admin from 'firebase-admin';
 import * as fileGeneratorClient from '../../../src/services/fileGeneratorClient.js';
 
 const mockGenerateResponse = {
@@ -36,30 +27,28 @@ const mockGenerateResponse = {
   downloadUrl: 'https://example.com/resume.pdf',
 };
 
+const mockVerifier = { verifyToken: jest.fn() };
+
 function setupAuth() {
-  (admin.auth as jest.Mock).mockReturnValue({
-    verifyIdToken: jest.fn().mockResolvedValue({ uid: 'user-uid', email: 'user@example.com' }),
-  });
+  mockVerifier.verifyToken.mockResolvedValue({ uid: 'user-uid', email: 'user@example.com' });
 }
 
 describe('Resumes Controller - generate endpoint', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
+    _setTokenVerifier(mockVerifier);
     setupAuth();
     app = await buildApp();
   });
 
   afterAll(async () => {
     await app.close();
+    _resetTokenVerifier();
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
     setupAuth();
   });
 

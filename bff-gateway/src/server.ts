@@ -1,10 +1,10 @@
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import { buildApp } from './app.js';
-import { getFirebaseApp } from './middleware/auth.js';
+import { initializeAuth } from '@elastic-resume-base/aegis';
 
-// Initialize Firebase on startup
-getFirebaseApp();
+// Initialize authentication on startup
+initializeAuth({ projectId: process.env['FIREBASE_PROJECT_ID'] || 'demo-elastic-resume-base' });
 
 const app = await buildApp();
 

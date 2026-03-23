@@ -1,14 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
-import { _resetFirebaseApp } from '../../../src/middleware/auth.js';
-
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn().mockReturnValue({}),
-  auth: jest.fn().mockReturnValue({
-    verifyIdToken: jest.fn(),
-  }),
-}));
+import { _setTokenVerifier, _resetTokenVerifier } from '../../../src/middleware/auth.js';
 
 jest.mock('axios', () => {
   const actual = jest.requireActual<typeof import('axios')>('axios');
@@ -26,20 +18,19 @@ jest.mock('axios', () => {
   };
 });
 
-import * as admin from 'firebase-admin';
 import axios from 'axios';
 
 describe('Health Routes', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
+    _setTokenVerifier({ verifyToken: jest.fn() });
     app = await buildApp();
   });
 
   afterAll(async () => {
     await app.close();
+    _resetTokenVerifier();
   });
 
   it('GET /health/live returns 200 with status ok', async () => {
