@@ -45,6 +45,12 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+vi.mock('../../contexts/toast-context', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
+}));
+
 describe('ResumesPage', () => {
   it('renders the resumes title', () => {
     render(<ResumesPage />);

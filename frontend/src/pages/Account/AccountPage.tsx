@@ -25,11 +25,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/auth-context';
 import { updateMyEmail } from '../../services/api';
+import { toUserFacingErrorMessage } from '../../services/api-error';
 import ErrorMessage from '../../components/ErrorMessage';
+import { useToast } from '../../contexts/use-toast';
 
 export default function AccountPage() {
   const { t, i18n } = useTranslation();
   const { userProfile } = useAuth();
+  const { showToast } = useToast();
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -41,10 +44,14 @@ export default function AccountPage() {
     setEmailSuccess(null);
     try {
       await updateMyEmail(newEmail);
-      setEmailSuccess(t('common.success'));
+      const successMessage = t('common.success');
+      setEmailSuccess(successMessage);
+      showToast(successMessage, { severity: 'success' });
       setNewEmail('');
-    } catch {
-      setEmailError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setEmailError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     } finally {
       setEmailLoading(false);
     }

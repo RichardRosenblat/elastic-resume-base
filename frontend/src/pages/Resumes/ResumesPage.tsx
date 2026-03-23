@@ -30,10 +30,13 @@ import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/i
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { triggerResumeIngest, generateResume } from '../../services/api';
+import { toUserFacingErrorMessage } from '../../services/api-error';
 import ErrorMessage from '../../components/ErrorMessage';
+import { useToast } from '../../contexts/use-toast';
 
 export default function ResumesPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const features = useFeatureFlags();
   const [sheetId, setSheetId] = useState('');
   const [ingestLoading, setIngestLoading] = useState(false);
@@ -52,9 +55,13 @@ export default function ResumesPage() {
     setIngestSuccess(null);
     try {
       const job = await triggerResumeIngest({ sheetId });
-      setIngestSuccess(`Job ${job.jobId} submitted`);
-    } catch {
-      setIngestError(t('common.error'));
+      const successMessage = `Job ${job.jobId} submitted`;
+      setIngestSuccess(successMessage);
+      showToast(successMessage, { severity: 'success' });
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setIngestError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     } finally {
       setIngestLoading(false);
     }
@@ -69,15 +76,23 @@ export default function ResumesPage() {
 
       if ('downloadUrl' in job && typeof job.downloadUrl === 'string' && job.downloadUrl.length > 0) {
         window.open(job.downloadUrl, '_blank', 'noopener,noreferrer');
-        setGenerateSuccess(`Generation job ${job.jobId} submitted. Download opened.`);
+        const successMessage = `Generation job ${job.jobId} submitted. Download opened.`;
+        setGenerateSuccess(successMessage);
+        showToast(successMessage, { severity: 'success' });
       } else if ('driveLink' in job && typeof job.driveLink === 'string' && job.driveLink.length > 0) {
         window.open(job.driveLink, '_blank', 'noopener,noreferrer');
-        setGenerateSuccess(`Generation job ${job.jobId} submitted. Drive link opened.`);
+        const successMessage = `Generation job ${job.jobId} submitted. Drive link opened.`;
+        setGenerateSuccess(successMessage);
+        showToast(successMessage, { severity: 'success' });
       } else {
-        setGenerateSuccess(`Generation job ${job.jobId} submitted.`);
+        const successMessage = `Generation job ${job.jobId} submitted.`;
+        setGenerateSuccess(successMessage);
+        showToast(successMessage, { severity: 'success' });
       }
-    } catch {
-      setGenerateError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setGenerateError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     } finally {
       setGenerateLoading(false);
     }

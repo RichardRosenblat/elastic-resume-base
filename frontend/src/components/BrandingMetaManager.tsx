@@ -5,6 +5,13 @@ import { useAppTheme } from '../theme';
 
 const DEFAULT_FAVICON = '/favicon.svg';
 
+function resolveFaviconHref(logoValue: string): string {
+  if (!logoValue || logoValue.startsWith('mdi:')) {
+    return DEFAULT_FAVICON;
+  }
+  return logoValue;
+}
+
 function resolvePageTitle(pathname: string, t: (key: string) => string): string {
   if (pathname === '/') return t('nav.dashboard');
   if (pathname.startsWith('/login')) return t('auth.login');
@@ -39,14 +46,14 @@ export default function BrandingMetaManager() {
     document.title = `${pageTitle} | ${appName}${tenantSuffix}`;
 
     const favicon = ensureFaviconElement();
-    favicon.href = theme.branding.logoUrl || DEFAULT_FAVICON;
+    favicon.href = resolveFaviconHref(theme.branding.appLogoUrl);
   }, [
     location.pathname,
     t,
     i18n.language,
     theme.branding.appName,
     theme.branding.companyName,
-    theme.branding.logoUrl,
+    theme.branding.appLogoUrl,
   ]);
 
   return null;

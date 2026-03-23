@@ -24,11 +24,14 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { searchResumes } from '../../services/api';
+import { toUserFacingErrorMessage } from '../../services/api-error';
 import type { SearchResult } from '../../types';
 import ErrorMessage from '../../components/ErrorMessage';
+import { useToast } from '../../contexts/use-toast';
 
 export default function SearchPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const features = useFeatureFlags();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -44,8 +47,10 @@ export default function SearchPage() {
       const res = await searchResumes(query);
       setResults(res.data.results);
       setSearched(true);
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     } finally {
       setLoading(false);
     }

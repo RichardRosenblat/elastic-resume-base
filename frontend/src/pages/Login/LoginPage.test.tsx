@@ -52,7 +52,12 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../theme', () => ({
   useAppTheme: () => ({
     theme: {
-      branding: { appName: 'Elastic Resume Base', companyName: 'Test Company', logoUrl: '' },
+      branding: {
+        appName: 'Elastic Resume Base',
+        companyName: 'Test Company',
+        appLogoUrl: '',
+        companyLogoUrl: '',
+      },
       palette: {
         primary: { main: '#2563EB' },
         secondary: { main: '#F97316' },

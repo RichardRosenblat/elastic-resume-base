@@ -46,11 +46,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser } from '../../types';
 import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser } from '../../services/api';
+import { toUserFacingErrorMessage } from '../../services/api-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import { useToast } from '../../contexts/use-toast';
 
 export default function UsersPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -73,21 +76,24 @@ export default function UsersPage() {
       const res = await listUsers(page + 1, rowsPerPage);
       setUsers(res.data.users);
       setTotal(res.data.users.length);
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, t]);
+  }, [page, rowsPerPage, showToast, t]);
 
   const fetchPreApproved = useCallback(async () => {
     try {
       const data = await listPreApprovedUsers();
       setPreApproved(data);
-    } catch {
-      // ignore
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      showToast(errorMessage, { severity: 'error' });
     }
-  }, []);
+  }, [showToast, t]);
 
   useEffect(() => {
     void fetchUsers();
@@ -109,11 +115,15 @@ export default function UsersPage() {
     if (!editUser) return;
     try {
       await updateUser(editUser.uid, { role: editRole, enable: editEnabled });
-      setSuccessMsg(t('users.updateSuccess'));
+      const successMessage = t('users.updateSuccess');
+      setSuccessMsg(successMessage);
+      showToast(successMessage, { severity: 'success' });
       handleEditClose();
       void fetchUsers();
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     }
   };
 
@@ -121,11 +131,15 @@ export default function UsersPage() {
     if (!deleteConfirmUser) return;
     try {
       await deleteUser(deleteConfirmUser.uid);
-      setSuccessMsg(t('users.deleteSuccess'));
+      const successMessage = t('users.deleteSuccess');
+      setSuccessMsg(successMessage);
+      showToast(successMessage, { severity: 'success' });
       setDeleteConfirmUser(null);
       void fetchUsers();
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     }
   };
 
@@ -134,18 +148,24 @@ export default function UsersPage() {
     try {
       await addPreApprovedUser({ email: newPreApprovedEmail, role: newPreApprovedRole });
       setNewPreApprovedEmail('');
+      showToast(t('common.success'), { severity: 'success' });
       void fetchPreApproved();
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     }
   };
 
   const handleDeletePreApproved = async (email: string) => {
     try {
       await deletePreApprovedUser(email);
+      showToast(t('common.success'), { severity: 'success' });
       void fetchPreApproved();
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      setError(errorMessage);
+      showToast(errorMessage, { severity: 'error' });
     }
   };
 

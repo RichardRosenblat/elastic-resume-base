@@ -3,8 +3,8 @@
   "branding": {
     "appName": "Elastic Resume Base",
     "companyName": "Acme Talent",
-    "logoUrl": "",
-    "companyLogo": ""
+    "appLogoUrl": "",
+    "companyLogoUrl": ""
   },
   "typography": {
     "fontFamily": "\"Source Sans 3\", \"Segoe UI\", \"Helvetica Neue\", sans-serif"
@@ -60,8 +60,8 @@
       "branding": {
         "appName": "Elastic Resume Base",
         "companyName": "Acme Talent",
-        "logoUrl": "",
-        "companyLogo": ""
+        "appLogoUrl": "",
+        "companyLogoUrl": ""
       },
       "typography": {
         "fontFamily": "\"Source Sans 3\", \"Segoe UI\", \"Helvetica Neue\", sans-serif"
@@ -78,8 +78,8 @@
       "branding": {
         "appName": "Elastic Resume Base",
         "companyName": "Acme Talent",
-        "logoUrl": "",
-        "companyLogo": ""
+        "appLogoUrl": "",
+        "companyLogoUrl": ""
       },
       "typography": {
         "fontFamily": "\"Nunito Sans\", \"Segoe UI\", sans-serif"

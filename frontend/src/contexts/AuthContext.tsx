@@ -20,14 +20,14 @@ import type { UserProfile } from '../types';
 import { config } from '../config';
 import { AuthContext } from './auth-context';
 import type { AuthContextType } from './auth-context';
+import { useToast } from './use-toast';
+import { throwOnFailedResponse, toUserFacingErrorMessage } from '../services/api-error';
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await fetch(`${config.bffUrl}/api/v1/users/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch profile: ${response.status}`);
-  }
+  await throwOnFailedResponse(response, 'Failed to fetch profile');
   const profileResponse = await response.json();
   return profileResponse.data as UserProfile;
 }
@@ -42,6 +42,7 @@ interface AuthProviderProps {
  * and `BrowserRouter` so that hooks and routing work correctly).
  */
 export function AuthProvider({ children }: AuthProviderProps) {
+  const { showToast } = useToast();
   const [currentUser, setCurrentUser] = useState<IAuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,8 +60,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const token = await user.getIdToken();
           const profile = await fetchUserProfile(token);
           setUserProfile(profile);
-        } catch {
+        } catch (error) {
           setUserProfile(null);
+          showToast(toUserFacingErrorMessage(error, 'Failed to fetch profile'), { severity: 'error' });
         }
       } else {
         setUserProfile(null);

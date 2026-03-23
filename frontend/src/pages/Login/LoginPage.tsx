@@ -91,7 +91,7 @@ export default function LoginPage() {
         justifyContent="center"
         minHeight="100vh"
       >
-        <Card sx={{ width: '100%', maxWidth: 440 }}>
+        <Card sx={{ width: '100%', maxWidth: 440, marginTop: 5 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h5" textAlign="center" gutterBottom>
               {theme.branding.appName}

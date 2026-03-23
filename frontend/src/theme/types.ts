@@ -111,15 +111,19 @@ export interface Branding {
   /** Company/customer name using the app. */
   companyName: string;
   /**
-   * Absolute or root-relative URL of the core app logo and favicon.
-   * This represents the platform identity.
+   * Absolute/root-relative URL or Iconify identifier (e.g. `mdi:briefcase`)
+   * used as the app/platform logo.
    */
-  logoUrl: string;
+  appLogoUrl: string;
   /**
-   * Optional partner/customer logo shown alongside app identity in the topbar.
-   * Leave empty to render companyName as text only.
+   * Absolute/root-relative URL or Iconify identifier (e.g. `mdi:domain`)
+   * shown as the partner/customer logo in the topbar.
    */
-  companyLogo: string;
+  companyLogoUrl: string;
+  /** @deprecated Use `appLogoUrl` instead. */
+  logoUrl?: string;
+  /** @deprecated Use `companyLogoUrl` instead. */
+  companyLogo?: string;
 }
 
 /**

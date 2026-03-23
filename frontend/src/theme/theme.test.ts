@@ -27,7 +27,8 @@ describe('loadTheme', () => {
     expect(theme.branding.appName.length).toBeGreaterThan(0);
     expect(typeof theme.branding.companyName).toBe('string');
     expect(theme.branding.companyName.length).toBeGreaterThan(0);
-    expect(typeof theme.branding.companyLogo).toBe('string');
+    expect(typeof theme.branding.appLogoUrl).toBe('string');
+    expect(typeof theme.branding.companyLogoUrl).toBe('string');
   });
 });
 

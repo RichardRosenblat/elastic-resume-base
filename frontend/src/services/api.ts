@@ -13,6 +13,7 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { auth } from '../firebase';
 import { config } from '../config';
+import { ensureApiRequestError } from './api-error';
 import type {
   UserRecord,
   PreApprovedUser,
@@ -44,7 +45,7 @@ apiClient.interceptors.response.use(
         void auth.signOut();
       }
     }
-    return Promise.reject(error);
+    return Promise.reject(ensureApiRequestError(error, 'Request failed'));
   }
 );
 

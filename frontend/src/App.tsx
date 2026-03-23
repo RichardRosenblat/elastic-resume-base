@@ -30,6 +30,7 @@ import SearchPage from './pages/Search/SearchPage';
 import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
 import BrandingMetaManager from './components/BrandingMetaManager';
+import { ToastProvider } from './contexts/toast-context';
 
 /**
  * Root React component. Renders the full route tree inside the
@@ -38,28 +39,30 @@ import BrandingMetaManager from './components/BrandingMetaManager';
 export default function App() {
   return (
     <AppThemeProvider>
-      <BrowserRouter>
-        <BrandingMetaManager />
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/resumes" element={<ResumesPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/account" element={<AccountPage />} />
+      <ToastProvider>
+        <BrowserRouter>
+          <BrandingMetaManager />
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/resumes" element={<ResumesPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/account" element={<AccountPage />} />
+                </Route>
               </Route>
-            </Route>
-            <Route element={<ProtectedRoute adminOnly />}>
-              <Route element={<AppLayout />}>
-                <Route path="/users" element={<UsersPage />} />
+              <Route element={<ProtectedRoute adminOnly />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/users" element={<UsersPage />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </ToastProvider>
     </AppThemeProvider>
   );
 }

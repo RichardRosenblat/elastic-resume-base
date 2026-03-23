@@ -14,6 +14,18 @@ import type { AppTheme } from './types';
 import templateTheme from './theme.json';
 
 const localThemeModules = import.meta.glob('./theme.local.json', { eager: true });
+type RawBranding = {
+  appName?: string;
+  companyName?: string;
+  appLogoUrl?: string;
+  companyLogoUrl?: string;
+  logoUrl?: string;
+  companyLogo?: string;
+};
+
+type RawTheme = Omit<AppTheme, 'branding'> & {
+  branding: RawBranding;
+};
 
 /**
  * Asserts that `value` is a non-null object.
@@ -34,7 +46,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
  * @param raw - The untyped object read from `theme.json`.
  * @throws {Error} If any required top-level field is absent or malformed.
  */
-function validateTheme(raw: unknown): asserts raw is AppTheme {
+function validateTheme(raw: unknown): asserts raw is RawTheme {
   if (!isObject(raw)) {
     throw new Error('[Theme] theme.json must be a JSON object.');
   }
@@ -57,11 +69,19 @@ function validateTheme(raw: unknown): asserts raw is AppTheme {
   const branding = raw['branding'] as Record<string, unknown>;
   const appName = branding['appName'];
   const companyName = branding['companyName'];
+  const appLogoUrl = branding['appLogoUrl'] ?? branding['logoUrl'];
+  const companyLogoUrl = branding['companyLogoUrl'] ?? branding['companyLogo'];
   if (appName !== undefined && typeof appName !== 'string') {
     throw new Error('[Theme] theme.json "branding.appName" must be a string when provided.');
   }
   if (companyName !== undefined && typeof companyName !== 'string') {
     throw new Error('[Theme] theme.json "branding.companyName" must be a string when provided.');
+  }
+  if (appLogoUrl !== undefined && typeof appLogoUrl !== 'string') {
+    throw new Error('[Theme] theme.json "branding.appLogoUrl" must be a string when provided.');
+  }
+  if (companyLogoUrl !== undefined && typeof companyLogoUrl !== 'string') {
+    throw new Error('[Theme] theme.json "branding.companyLogoUrl" must be a string when provided.');
   }
 
   if (!isObject(raw['palette'])) {
@@ -79,15 +99,20 @@ function validateTheme(raw: unknown): asserts raw is AppTheme {
 /**
  * Supports legacy branding shape while enforcing explicit app/company naming.
  */
-function normalizeTheme(raw: AppTheme): AppTheme {
+function normalizeTheme(raw: RawTheme): AppTheme {
   const fallbackName = raw.branding.companyName || 'Elastic Resume Base';
+  const appLogoUrl = raw.branding.appLogoUrl || raw.branding.logoUrl || '';
+  const companyLogoUrl = raw.branding.companyLogoUrl || raw.branding.companyLogo || '';
   return {
     ...raw,
     branding: {
       ...raw.branding,
       appName: raw.branding.appName || fallbackName,
       companyName: raw.branding.companyName || fallbackName,
-      companyLogo: raw.branding.companyLogo || '',
+      appLogoUrl,
+      companyLogoUrl,
+      logoUrl: appLogoUrl,
+      companyLogo: companyLogoUrl,
     },
   };
 }
