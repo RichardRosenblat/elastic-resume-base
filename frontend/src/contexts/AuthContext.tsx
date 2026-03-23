@@ -14,22 +14,22 @@
  */
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import axios from 'axios';
 import type { IAuthUser } from '@elastic-resume-base/aegis/client';
 import { auth } from '../firebase';
-import type { UserProfile } from '../types';
+import type { UserProfile, SuccessResponse } from '../types';
 import { config } from '../config';
 import { AuthContext } from './auth-context';
 import type { AuthContextType } from './auth-context';
 import { useToast } from './use-toast';
-import { ensureApiRequestError, throwOnFailedResponse, toUserFacingErrorMessage } from '../services/api-error';
+import { ensureApiRequestError, toUserFacingErrorMessage } from '../services/api-error';
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
-  const response = await fetch(`${config.bffUrl}/api/v1/users/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  await throwOnFailedResponse(response, 'Failed to fetch profile');
-  const profileResponse = await response.json();
-  return profileResponse.data as UserProfile;
+  const response = await axios.get<SuccessResponse<UserProfile>>(
+    `${config.bffUrl}/api/v1/users/me`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data.data;
 }
 
 interface AuthProviderProps {

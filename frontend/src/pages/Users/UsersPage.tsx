@@ -46,6 +46,7 @@ import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
 import { TableTemplate, FormTemplate } from '../../components/templates';
 import type { ColumnConfig } from '../../components/templates';
+import { useButtonLock } from '../../hooks/useButtonLock';
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -71,6 +72,8 @@ export default function UsersPage() {
   const [preApprovedSortBy, setPreApprovedSortBy] = useState<PreApprovedSortField>('email');
   const [preApprovedSortDirection, setPreApprovedSortDirection] = useState<SortDirection>('asc');
   const [preApprovedRoleFilter, setPreApprovedRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
+  const { locked: editSaveLocked, wrap: wrapEditSave } = useButtonLock();
+  const { locked: deleteConfirmLocked, wrap: wrapDeleteConfirm } = useButtonLock();
 
   const toggleSortDirection = (current: SortDirection): SortDirection => (current === 'asc' ? 'desc' : 'asc');
 
@@ -521,7 +524,7 @@ export default function UsersPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleEditClose}>{t('common.cancel')}</Button>
-          <Button variant="contained" onClick={() => { void handleEditSave(); }}>{t('common.save')}</Button>
+          <Button variant="contained" onClick={wrapEditSave(handleEditSave)} disabled={editSaveLocked}>{t('common.save')}</Button>
         </DialogActions>
       </Dialog>
 
@@ -534,7 +537,7 @@ export default function UsersPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteConfirmUser(null)}>{t('common.cancel')}</Button>
-          <Button variant="contained" color="error" onClick={() => { void handleDeleteConfirm(); }}>{t('common.delete')}</Button>
+          <Button variant="contained" color="error" onClick={wrapDeleteConfirm(handleDeleteConfirm)} disabled={deleteConfirmLocked}>{t('common.delete')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

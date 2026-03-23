@@ -33,6 +33,7 @@ import { triggerResumeIngest, generateResume } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
+import { useButtonLock } from '../../hooks/useButtonLock';
 
 export default function ResumesPage() {
   const { t } = useTranslation();
@@ -48,6 +49,8 @@ export default function ResumesPage() {
   const [generateLoading, setGenerateLoading] = useState(false);
   const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const { locked: ingestLocked, wrap: wrapIngest } = useButtonLock();
+  const { locked: generateLocked, wrap: wrapGenerate } = useButtonLock();
 
   const handleIngest = async () => {
     setIngestLoading(true);
@@ -128,8 +131,8 @@ export default function ResumesPage() {
             />
             <Button
               variant="contained"
-              onClick={() => { void handleIngest(); }}
-              disabled={!features.resumeIngest || ingestLoading || !sheetId}
+              onClick={wrapIngest(handleIngest)}
+              disabled={!features.resumeIngest || ingestLoading || !sheetId || ingestLocked}
               startIcon={ingestLoading ? <CircularProgress size={16} /> : undefined}
             >
               {t('resumes.submit')}
@@ -187,8 +190,8 @@ export default function ResumesPage() {
             </FormControl>
             <Button
               variant="contained"
-              onClick={() => { void handleGenerate(); }}
-              disabled={!features.resumeGenerate || generateLoading || !resumeId}
+              onClick={wrapGenerate(handleGenerate)}
+              disabled={!features.resumeGenerate || generateLoading || !resumeId || generateLocked}
               startIcon={generateLoading ? <CircularProgress size={16} /> : undefined}
             >
               {t('resumes.submit')}

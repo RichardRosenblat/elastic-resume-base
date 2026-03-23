@@ -64,6 +64,14 @@ export interface ButtonConfig {
   sx?: object;
   /** HTML button `type` attribute (default: `'button'`). */
   type?: 'button' | 'submit' | 'reset';
+  /**
+   * Minimum time (ms) the button stays locked after a click to prevent
+   * duplicate requests.  The button re-enables after `Math.max(lockDelayMs,
+   * actualOperationDuration)` ms.
+   *
+   * Defaults to `500` ms.
+   */
+  lockDelayMs?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

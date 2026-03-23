@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/auth-context';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useAppTheme } from '../../theme';
 import SupportFooter from '../../components/SupportFooter';
+import { useButtonLock } from '../../hooks/useButtonLock';
 
 const loginSchema = z.object({
   email: z.email().min(1),
@@ -45,6 +46,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const { locked: googleLocked, wrap: wrapGoogle } = useButtonLock();
 
   const {
     register,
@@ -143,8 +145,8 @@ export default function LoginPage() {
               variant="outlined"
               size="large"
               startIcon={googleLoading ? <CircularProgress size={20} /> : <GoogleIcon />}
-              onClick={() => { void handleGoogleLogin(); }}
-              disabled={googleLoading}
+              onClick={wrapGoogle(handleGoogleLogin)}
+              disabled={googleLoading || googleLocked}
             >
               {t('auth.signInWithGoogle')}
             </Button>

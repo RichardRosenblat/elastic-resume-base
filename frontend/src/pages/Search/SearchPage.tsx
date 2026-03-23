@@ -28,6 +28,7 @@ import { toUserFacingErrorMessage } from '../../services/api-error';
 import type { SearchResult } from '../../types';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
+import { useButtonLock } from '../../hooks/useButtonLock';
 
 export default function SearchPage() {
   const { t } = useTranslation();
@@ -38,6 +39,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { locked: searchLocked, wrap: wrapSearch } = useButtonLock();
 
   const handleSearch = async () => {
     setLoading(true);
@@ -105,8 +107,8 @@ export default function SearchPage() {
             />
             <Button
               variant="contained"
-              onClick={() => { void handleSearch(); }}
-              disabled={!features.resumeSearch || loading || !query}
+              onClick={wrapSearch(handleSearch)}
+              disabled={!features.resumeSearch || loading || !query || searchLocked}
               startIcon={loading ? <CircularProgress size={16} /> : <SearchIcon />}
             >
               {t('search.title')}
