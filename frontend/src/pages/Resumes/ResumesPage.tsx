@@ -1,3 +1,15 @@
+/**
+ * @file ResumesPage.tsx — Resume ingest and generation page.
+ *
+ * Provides two feature-flagged workflows:
+ * 1. **Ingest** (`resumeIngest` flag) — triggers a background ingest job by
+ *    submitting a Google Sheets ID to `POST /api/v1/resumes/ingest`.
+ * 2. **Generate** (`resumeGenerate` flag) — generates a resume document
+ *    (PDF / DOCX) in the selected language and immediately downloads it.
+ *
+ * When both flags are disabled an informational banner is shown instead of
+ * the controls.
+ */
 import { useState } from 'react';
 import {
   Box,

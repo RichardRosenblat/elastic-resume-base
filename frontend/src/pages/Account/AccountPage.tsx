@@ -1,3 +1,11 @@
+/**
+ * @file AccountPage.tsx — User account settings page.
+ *
+ * Allows the authenticated user to:
+ * - View their current profile (email, role, UID).
+ * - Update their own email address via `PATCH /api/v1/users/me`.
+ * - Switch the UI language (persisted in i18next's `localStorage` key).
+ */
 import { useState } from 'react';
 import {
   Box,

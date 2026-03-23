@@ -1,3 +1,14 @@
+/**
+ * @file Sidebar.tsx — Navigation drawer component.
+ *
+ * Renders an MUI `Drawer` with a list of navigation links. Items are
+ * filtered based on:
+ * - `adminOnly` — hidden for non-admin users.
+ * - `featureFlag` — always shown (the flag controls UI state, not
+ *   visibility, so users can see what is coming).
+ *
+ * Navigating to a route on a `temporary` variant drawer auto-closes it.
+ */
 import type { ReactNode } from 'react';
 import {
   Drawer,
@@ -23,6 +34,7 @@ import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 
 const DRAWER_WIDTH = 240;
 
+/** A single navigation entry shown in the sidebar. */
 interface NavItem {
   label: string;
   icon: ReactNode;
@@ -31,12 +43,18 @@ interface NavItem {
   featureFlag?: boolean;
 }
 
+/** Props for the {@link Sidebar} component. */
 interface SidebarProps {
   open: boolean;
   variant: 'permanent' | 'temporary';
   onClose: () => void;
 }
 
+/**
+ * Navigation drawer that lists all application routes the current user can
+ * access. Supports both `permanent` (desktop) and `temporary` (mobile)
+ * MUI drawer variants.
+ */
 export default function Sidebar({ open, variant, onClose }: SidebarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();

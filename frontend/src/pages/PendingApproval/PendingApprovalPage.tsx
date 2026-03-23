@@ -1,3 +1,11 @@
+/**
+ * @file PendingApprovalPage.tsx — Account pending approval screen.
+ *
+ * Shown when a user has successfully authenticated with Firebase but their
+ * platform account has `enable = false` (i.e. an admin has not yet
+ * approved them). Provides a sign-out button so the user can try a
+ * different account.
+ */
 import { Box, Typography, Button, Card, CardContent } from '@mui/material';
 import { HourglassEmpty as HourglassIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';

@@ -1,3 +1,11 @@
+/**
+ * @file Topbar.tsx — Fixed application bar.
+ *
+ * Displays the app name / logo, a language cycle button, and a user avatar
+ * that opens a profile menu with links to the account page and a sign-out
+ * action. On small screens it also renders a hamburger icon that calls
+ * `onMenuClick` to toggle the sidebar drawer.
+ */
 import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import {
@@ -20,11 +28,16 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { config } from '../../config';
 
+/** Props for the {@link Topbar} component. */
 interface TopbarProps {
   onMenuClick: () => void;
   drawerWidth: number;
 }
 
+/**
+ * Fixed MUI `AppBar` containing the brand logo/name, language switcher,
+ * and authenticated user menu.
+ */
 export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
   const { t, i18n } = useTranslation();
   const { currentUser, userProfile, logout } = useAuth();

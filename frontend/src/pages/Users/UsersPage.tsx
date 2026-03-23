@@ -1,3 +1,16 @@
+/**
+ * @file UsersPage.tsx — Admin-only user management page.
+ *
+ * Provides two sections (admin access required for all operations):
+ *
+ * **Users table** — paginated list of all platform users with inline
+ * edit (role, enabled status) and delete actions. Changes are persisted
+ * through the BFF Gateway and the table is refreshed automatically.
+ *
+ * **Pre-approved users table** — manages the list of email addresses that
+ * are automatically onboarded on first sign-in. Admins can add and remove
+ * entries.
+ */
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box,

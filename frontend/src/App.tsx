@@ -1,3 +1,18 @@
+/**
+ * @file App.tsx — Root component that wires together the application shell.
+ *
+ * Responsibilities:
+ * - Applies the MUI {@link theme} and CSS baseline reset.
+ * - Initialises i18next (via the side-effect import of `./i18n`).
+ * - Wraps the whole tree in {@link AuthProvider} so every page can call
+ *   {@link useAuth}.
+ * - Declares the React Router v7 route tree, including:
+ *   - `/login` — public, redirects to `/` when already authenticated.
+ *   - `/*` (authenticated) — nested inside {@link ProtectedRoute} +
+ *     {@link AppLayout}.
+ *   - `/users` — additionally guarded by `adminOnly`.
+ *   - `*` catch-all → {@link NotFoundPage}.
+ */
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -16,6 +31,10 @@ import SearchPage from './pages/Search/SearchPage';
 import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
 
+/**
+ * Root React component. Renders the full route tree inside the MUI
+ * `ThemeProvider`, `BrowserRouter`, and `AuthProvider`.
+ */
 export default function App() {
   return (
     <ThemeProvider theme={theme}>

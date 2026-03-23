@@ -1,3 +1,11 @@
+/**
+ * @file SearchPage.tsx — Semantic resume search page.
+ *
+ * Sends a natural-language query to `POST /api/v1/search` via the BFF
+ * Gateway and renders the ranked results. When the `resumeSearch` feature
+ * flag is disabled, all controls are disabled and an informational banner
+ * is shown.
+ */
 import { useState } from 'react';
 import {
   Box,

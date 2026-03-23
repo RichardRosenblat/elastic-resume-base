@@ -1,3 +1,12 @@
+/**
+ * @file AppLayout.tsx — Responsive application shell.
+ *
+ * Composes {@link Topbar} and {@link Sidebar} around a main content area
+ * rendered by React Router's `<Outlet />`. Handles the responsive drawer:
+ * on small screens (`< sm`) the sidebar is a temporary drawer toggled by
+ * the hamburger button in the top bar; on larger screens it is a permanent
+ * drawer that always occupies `DRAWER_WIDTH` pixels on the left.
+ */
 import { useState } from 'react';
 import { Box, Toolbar, useTheme, useMediaQuery } from '@mui/material';
 import { Outlet } from 'react-router-dom';
@@ -6,6 +15,11 @@ import Sidebar from './Sidebar';
 
 const DRAWER_WIDTH = 240;
 
+/**
+ * Responsive app shell that renders the top bar, navigation sidebar, and
+ * a main content `<Outlet />`. On screens narrower than the `sm` breakpoint
+ * the sidebar becomes a togglable temporary drawer.
+ */
 export default function AppLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

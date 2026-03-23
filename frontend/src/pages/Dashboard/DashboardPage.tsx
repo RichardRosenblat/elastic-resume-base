@@ -1,3 +1,10 @@
+/**
+ * @file DashboardPage.tsx — Home page shown after a successful sign-in.
+ *
+ * Displays the authenticated user's profile summary (email, role, enabled
+ * status) and a feature overview grid that shows which platform features are
+ * live and which are coming soon (controlled by {@link useFeatureFlags}).
+ */
 import type { ReactNode } from 'react';
 import {
   Box,
@@ -18,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 
+/** Props for the {@link FeatureCard} component. */
 interface FeatureCardProps {
   title: string;
   icon: ReactNode;
@@ -25,6 +33,11 @@ interface FeatureCardProps {
   description: string;
 }
 
+/**
+ * Small summary card used to advertise a platform feature on the dashboard.
+ * Renders with reduced opacity and a "coming soon" chip when `available` is
+ * `false`.
+ */
 function FeatureCard({ title, icon, available, description }: FeatureCardProps) {
   const { t } = useTranslation();
   return (

@@ -1,3 +1,13 @@
+/**
+ * @file LoginPage.tsx — Public sign-in page.
+ *
+ * Supports two authentication methods:
+ * 1. Email + password via Firebase Auth (`signInWithEmailAndPassword`).
+ * 2. Google OAuth popup (`signInWithPopup`).
+ *
+ * Form validation is handled by `react-hook-form` with a `zod` schema.
+ * If the user is already authenticated, they are redirected to `/`.
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
