@@ -6,6 +6,10 @@ describe('config', () => {
     expect(config.bffUrl).toBeDefined();
   });
 
+  it('has supportEmail defaulting to empty string', () => {
+    expect(typeof config.supportEmail).toBe('string');
+  });
+
   it('has firebase config', () => {
     expect(config.firebase).toBeDefined();
     expect(config.firebase.projectId).toBeDefined();

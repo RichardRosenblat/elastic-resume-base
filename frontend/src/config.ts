@@ -5,10 +5,18 @@
  * (colours, fonts, company name, logo) is configured in
  * `src/theme/theme.json` instead, keeping concerns cleanly separated.
  *
- * All values are read from Vite `VITE_` environment variables at build time.
- * Copy `.env.example` to `.env.local` and fill in the required values for
- * local development. In production, supply the variables through the build
- * pipeline / deployment platform (e.g. Docker, Firebase Hosting).
+ * Values are read from Vite `VITE_` environment variables at build time.
+ * For local development, values are loaded automatically from the monorepo
+ * `config.yaml` at the repository root — no `.env.local` file is required.
+ * See `vite.config.ts` for how `config.yaml` is ingested.
+ *
+ * In production (Docker / CI), pass variables as build-time `ARG`/`ENV` or
+ * through your deployment platform.
+ *
+ * SEPARATION OF CONCERNS
+ * ──────────────────────
+ *   • Operational / infrastructure config → here (via VITE_* env vars)
+ *   • Appearance (colours, fonts, branding) → src/theme/theme.json
  *
  * @example
  * import { config } from './config';
@@ -23,18 +31,6 @@ export const config = {
    */
   supportEmail: import.meta.env.VITE_SUPPORT_EMAIL ?? '',
   firebase: {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'demo-elastic-resume-base',
-  },
-  features: {
-    resumeIngest: import.meta.env.VITE_FEATURE_RESUME_INGEST === 'true',
-    resumeSearch: import.meta.env.VITE_FEATURE_RESUME_SEARCH === 'true',
-    documentRead: import.meta.env.VITE_FEATURE_DOCUMENT_READ === 'true',
-    resumeGenerate: import.meta.env.VITE_FEATURE_RESUME_GENERATE === 'true',
-    userManagement: import.meta.env.VITE_FEATURE_USER_MANAGEMENT !== 'false',
-  },
-} as const;
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'demo-elastic-resume-base',

@@ -87,14 +87,21 @@ systems:
   # ---------------------------------------------------------------------------
   # Frontend (React — port 5173 dev / 80 Docker)
   # Build-time VITE_ variables injected as Docker ARGs during `docker compose build`.
-  # For local development, copy .env.example → frontend/.env and fill in values.
   #
-  # BRANDING (company name, logo, colours, fonts, dark/light mode) is configured in
-  # frontend/src/theme/theme.json — NOT through environment variables.
+  # For LOCAL DEVELOPMENT: these values are read directly from this file by
+  # the Vite dev server — no .env.local file is required.
+  #
+  # SEPARATION OF CONCERNS:
+  #   - Operational / infrastructure config → this file (systems.frontend)
+  #   - Appearance (colours, fonts, branding, dark-mode) → frontend/src/theme/theme.json
   # ---------------------------------------------------------------------------
   frontend:
     # Base URL for the BFF Gateway API
     VITE_BFF_URL: "http://localhost:3000"
+
+    # Support contact email shown in the footer of every page.
+    # Leave empty ("") to hide the support footer entirely.
+    VITE_SUPPORT_EMAIL: ""
 
     # Firebase Web SDK configuration (must match the Firebase project)
     VITE_FIREBASE_API_KEY: ""           # fill in locally

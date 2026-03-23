@@ -80,20 +80,27 @@ frontend/
 ├── package.json
 ├── tsconfig.app.json
 ├── tsconfig.node.json
-└── vite.config.ts                 # Vite + Vitest configuration
+└── vite.config.ts                 # Vite + Vitest configuration (reads config.yaml at startup)
 ```
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env.local` (local dev) or supply the variables through your deployment platform. All variables are prefixed `VITE_` so that Vite injects them into the client bundle at build time.
+All `VITE_*` variables are listed here for reference, but **for local development you do not need a `.env.local` file** — the Vite dev server reads them directly from the monorepo-wide `config.yaml` at the repository root (see [Local Development Setup](#local-development-setup)).
 
-> **Branding (company name, logo, colours, fonts, dark/light mode)** are configured in `src/theme/theme.json` — not through environment variables. See [Theme System](#theme-system) below.
+For Docker / CI builds, pass these as `--build-arg` flags or inject them via your deployment platform — they are declared as `ARG`/`ENV` in the `Dockerfile`.
+
+> **Separation of concerns**
+> - **Operational / infrastructure config** (URLs, API keys, feature flags, support email) → `config.yaml` / `VITE_*` env vars
+> - **Appearance** (colours, fonts, branding, dark-mode default) → `src/theme/theme.json`
+>
+> Never put appearance settings in `config.yaml`, and never put operational settings in `theme.json`.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `VITE_BFF_URL` | Yes | `http://localhost:3000` | Base URL of the BFF Gateway |
+| `VITE_SUPPORT_EMAIL` | No | *(empty)* | Support contact email shown in the page footer — leave empty to hide the footer |
 | `VITE_FIREBASE_API_KEY` | Yes | — | Firebase project API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Yes | — | Firebase Auth domain |
 | `VITE_FIREBASE_PROJECT_ID` | Yes | `demo-elastic-resume-base` | Firebase project ID |
@@ -118,17 +125,20 @@ Copy `.env.example` to `.env.local` (local dev) or supply the variables through 
 ### Steps
 
 ```bash
-# 1. Install dependencies
+# 1. Copy the monorepo config template (only needed once per clone)
+cp config_example.yaml config.yaml          # from the repo root
+# Edit config.yaml — fill in VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, etc.
+# under systems.frontend
+
+# 2. Install frontend dependencies
 cd frontend
 npm install
-
-# 2. Create your local env file
-cp .env.example .env.local
-# Edit .env.local and fill in VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, etc.
 
 # 3. Start the dev server
 npm run dev
 ```
+
+The Vite dev server reads `../config.yaml` automatically (via the plugin in `vite.config.ts`) — **no `.env.local` file is needed**.  If you prefer to override individual values, you can still create `frontend/.env.local` — it will be applied on top of `config.yaml`.
 
 The app will be available at **http://localhost:5173** with hot-module replacement.
 
