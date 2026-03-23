@@ -1,40 +1,17 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import admin from 'firebase-admin';
+import { getTokenVerifier, _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aegis';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import { authorizeUser } from '../services/userApiClient.js';
 
-let firebaseApp: admin.app.App | null = null;
+// Re-export testing helpers so that test files can import them from this module.
+export { _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aegis';
 
 /**
- * Returns the initialized Firebase Admin app, initializing it on first call.
- * @returns Firebase Admin App instance.
- */
-export function getFirebaseApp(): admin.app.App {
-  if (!firebaseApp) {
-    if (admin.apps && admin.apps.length > 0) {
-      firebaseApp = admin.apps[0]!;
-    } else {
-      logger.debug('getFirebaseApp: initializing Firebase Admin SDK');
-      firebaseApp = admin.initializeApp({
-        projectId: process.env['FIREBASE_PROJECT_ID'] || 'demo-elastic-resume-base',
-      });
-      logger.info('getFirebaseApp: Firebase Admin SDK initialized');
-    }
-  }
-  return firebaseApp;
-}
-
-/** Resets the Firebase app instance (for testing only). */
-export function _resetFirebaseApp(): void {
-  firebaseApp = null;
-}
-
-/**
- * Fastify onRequest hook that verifies a Firebase ID token from the Authorization header.
+ * Fastify onRequest hook that verifies an ID token from the Authorization header.
  *
  * Flow:
- * 1. Validates the Bearer token using Firebase Admin SDK.
+ * 1. Validates the Bearer token using the Aegis token verifier.
  * 2. Extracts uid and email from the decoded token.
  * 3. Calls users-api /authorize to get role and enable status.
  * 4. If enable=false, returns 403 with a pending approval message.
@@ -57,9 +34,9 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   let email: string | undefined;
 
   try {
-    const app = getFirebaseApp();
-    logger.trace({ correlationId: request.correlationId }, 'authHook: verifying Firebase ID token');
-    const decoded = await admin.auth(app).verifyIdToken(token);
+    const verifier = getTokenVerifier();
+    logger.trace({ correlationId: request.correlationId }, 'authHook: verifying ID token');
+    const decoded = await verifier.verifyToken(token);
 
     uid = decoded.uid;
     email = decoded.email;

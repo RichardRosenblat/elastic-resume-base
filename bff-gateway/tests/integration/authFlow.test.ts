@@ -1,14 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
-import { _resetFirebaseApp } from '../../src/middleware/auth.js';
-
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn().mockReturnValue({}),
-  auth: jest.fn().mockReturnValue({
-    verifyIdToken: jest.fn(),
-  }),
-}));
+import { _setTokenVerifier, _resetTokenVerifier } from '../../src/middleware/auth.js';
 
 jest.mock('../../src/services/userApiClient', () => ({
   authorizeUser: jest.fn().mockResolvedValue({ role: 'user', enable: true }),
@@ -23,28 +15,26 @@ jest.mock('../../src/services/userApiClient', () => ({
   updatePreApprovedInApi: jest.fn(),
 }));
 
-import * as admin from 'firebase-admin';
+const mockVerifier = { verifyToken: jest.fn() };
 
 describe('Auth Flow Integration', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
+    _setTokenVerifier(mockVerifier);
     app = await buildApp();
   });
 
   afterAll(async () => {
     await app.close();
+    _resetTokenVerifier();
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
   });
 
-  it('GET /api/v1/me with valid mocked Firebase token returns user profile', async () => {
+  it('GET /api/v1/me with valid mocked token returns user profile', async () => {
     const mockDecodedToken = {
       uid: 'integration-user-001',
       email: 'integration@example.com',
@@ -52,9 +42,7 @@ describe('Auth Flow Integration', () => {
       picture: 'https://example.com/photo.jpg',
     };
 
-    (admin.auth as jest.Mock).mockReturnValue({
-      verifyIdToken: jest.fn().mockResolvedValue(mockDecodedToken),
-    });
+    mockVerifier.verifyToken.mockResolvedValue(mockDecodedToken);
 
     const res = await app.inject({
       method: 'GET',
