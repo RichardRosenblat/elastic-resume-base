@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import DashboardPage from './DashboardPage';
 
 // Mock AuthContext
-vi.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/auth-context', () => ({
   useAuth: () => ({
     currentUser: { uid: 'test-uid', email: 'test@example.com' },
     userProfile: {

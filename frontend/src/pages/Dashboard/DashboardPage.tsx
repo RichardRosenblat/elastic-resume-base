@@ -22,7 +22,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth-context';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 
 /** Props for the {@link FeatureCard} component. */

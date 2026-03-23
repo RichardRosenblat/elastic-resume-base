@@ -9,7 +9,7 @@
 import { Box, Typography, Button, Card, CardContent } from '@mui/material';
 import { HourglassEmpty as HourglassIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth-context';
 import { useNavigate } from 'react-router-dom';
 
 export default function PendingApprovalPage() {

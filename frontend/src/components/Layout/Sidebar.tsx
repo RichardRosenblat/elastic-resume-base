@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth-context';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 
 const DRAWER_WIDTH = 240;

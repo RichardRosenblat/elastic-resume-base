@@ -25,7 +25,7 @@
  * // In a component
  * const { theme, mode, toggleTheme } = useAppTheme();
  */
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ThemeProvider as MuiThemeProvider,
@@ -33,6 +33,8 @@ import {
 } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import type { AppTheme } from './types';
+import { AppThemeContext } from './app-theme-context';
+import type { AppThemeContextValue } from './app-theme-context';
 import { loadTheme } from './loadTheme';
 import { injectCssVariables } from './toCssVariables';
 
@@ -47,34 +49,6 @@ const STORAGE_KEY = 'appThemeMode';
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
-
-/** Value exposed by {@link AppThemeContext} / consumed by {@link useAppTheme}. */
-export interface AppThemeContextValue {
-  /** The full validated application theme from `theme.json`. */
-  theme: AppTheme;
-  /** The currently active colour-mode. */
-  mode: 'light' | 'dark';
-  /** Toggles between `'light'` and `'dark'` and persists the choice. */
-  toggleTheme: () => void;
-}
-
-const AppThemeContext = createContext<AppThemeContextValue | null>(null);
-
-/**
- * Returns the application theme context value.  Must be called inside an
- * {@link AppThemeProvider}; throws otherwise.
- *
- * @example
- * const { theme, mode, toggleTheme } = useAppTheme();
- * console.log(theme.branding.companyName);
- */
-export function useAppTheme(): AppThemeContextValue {
-  const ctx = useContext(AppThemeContext);
-  if (!ctx) {
-    throw new Error('useAppTheme must be used within an AppThemeProvider');
-  }
-  return ctx;
-}
 
 // ---------------------------------------------------------------------------
 // MUI bridge
@@ -147,13 +121,13 @@ export function AppThemeProvider({ children }: AppThemeProviderProps) {
     return appTheme.mode;
   });
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setMode((prev) => {
       const next = prev === 'light' ? 'dark' : 'light';
       localStorage.setItem(STORAGE_KEY, next);
       return next;
     });
-  };
+  }, []);
 
   // Inject CSS variables and data-theme attribute whenever mode changes.
   useEffect(() => {
@@ -165,8 +139,7 @@ export function AppThemeProvider({ children }: AppThemeProviderProps) {
 
   const contextValue = useMemo<AppThemeContextValue>(
     () => ({ theme: appTheme, mode, toggleTheme }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode],
+    [mode, toggleTheme],
   );
 
   return (

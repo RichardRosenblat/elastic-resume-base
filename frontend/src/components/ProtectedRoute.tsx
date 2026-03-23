@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/auth-context';
 import LoadingSpinner from './LoadingSpinner';
 import { Box, Typography, Button } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,8 @@ export default function ProtectedRoute({ adminOnly = false, children }: Protecte
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
+
+  console.debug('ProtectedRoute auth state:', { currentUser, userProfile, isAdmin });
 
   if (userProfile && !userProfile.enable) {
     return (

@@ -75,6 +75,13 @@ function loadConfigYamlEnv(): Record<string, string> {
       ...(systemsMap['frontend'] ?? {}),
     };
 
+    if (
+      merged['VITE_FIREBASE_AUTH_EMULATOR_HOST'] === undefined
+      && typeof merged['FIREBASE_AUTH_EMULATOR_HOST'] === 'string'
+    ) {
+      merged['VITE_FIREBASE_AUTH_EMULATOR_HOST'] = merged['FIREBASE_AUTH_EMULATOR_HOST'];
+    }
+
     return Object.fromEntries(
       Object.entries(merged)
         .filter(([k]) => k.startsWith('VITE_'))
@@ -113,6 +120,14 @@ for (const [key, value] of Object.entries(yamlEnv)) {
 // ---------------------------------------------------------------------------
 export default defineConfig({
   plugins: [react()],
+  server: {
+    fs: {
+      allow: [
+        '../shared', // Allows Vite to read custom Aegis library
+        '.'          // Keeps allowing current frontend directory
+      ]
+    }
+  },
   test: {
     globals: true,
     environment: 'jsdom',

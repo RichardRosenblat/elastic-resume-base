@@ -13,6 +13,7 @@ initializeClientAuth({
   apiKey: config.firebase.apiKey,
   authDomain: config.firebase.authDomain,
   projectId: config.firebase.projectId,
+  authEmulatorHost: config.firebase.authEmulatorHost,
 });
 
 /** The singleton {@link IClientAuth} instance for the entire application. */

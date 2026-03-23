@@ -22,7 +22,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth-context';
 import { updateMyEmail } from '../../services/api';
 import ErrorMessage from '../../components/ErrorMessage';
 

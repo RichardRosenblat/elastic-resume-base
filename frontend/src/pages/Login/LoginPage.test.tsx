@@ -26,7 +26,7 @@ vi.mock('../../firebase', () => ({
 const mockLogin = vi.fn();
 const mockLoginWithGoogle = vi.fn();
 
-vi.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/auth-context', () => ({
   useAuth: () => ({
     currentUser: null,
     userProfile: null,

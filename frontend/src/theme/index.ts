@@ -11,8 +11,9 @@
  */
 
 // Provider + hook
-export { AppThemeProvider, useAppTheme } from './ThemeProvider';
-export type { AppThemeContextValue } from './ThemeProvider';
+export { AppThemeProvider } from './ThemeProvider';
+export { useAppTheme } from './app-theme-context';
+export type { AppThemeContextValue } from './app-theme-context';
 
 // Types
 export type { AppTheme, Palette, ColorRole, Branding, Typography, Icons } from './types';

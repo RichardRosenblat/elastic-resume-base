@@ -19,6 +19,7 @@ const mockSignInWithEmailAndPassword = jest.fn().mockResolvedValue({});
 const mockSignInWithPopup = jest.fn().mockResolvedValue({});
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
 const mockGetAuth = jest.fn().mockReturnValue({ currentUser: null });
+const mockConnectAuthEmulator = jest.fn();
 
 jest.mock('firebase/auth', () => ({
   getAuth: (...args: unknown[]) => mockGetAuth(...args),
@@ -27,6 +28,7 @@ jest.mock('firebase/auth', () => ({
   signInWithPopup: (...args: unknown[]) => mockSignInWithPopup(...args),
   GoogleAuthProvider: jest.fn().mockImplementation(() => ({ providerId: 'google.com' })),
   signOut: (...args: unknown[]) => mockSignOut(...args),
+  connectAuthEmulator: (...args: unknown[]) => mockConnectAuthEmulator(...args),
 }));
 
 // ── Imports (after mock declarations) ──
@@ -57,6 +59,7 @@ describe('FirebaseClientAuth', () => {
     jest.clearAllMocks();
     getAppsMock().mockReturnValue([]);
     mockGetAuth.mockReturnValue({ currentUser: null });
+    mockConnectAuthEmulator.mockReset();
   });
 
   describe('constructor', () => {
@@ -81,6 +84,40 @@ describe('FirebaseClientAuth', () => {
       new FirebaseClientAuth(defaultOptions);
 
       expect(mockGetAuth).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not connect to auth emulator when authEmulatorHost is not provided', () => {
+      new FirebaseClientAuth(defaultOptions);
+
+      expect(mockConnectAuthEmulator).not.toHaveBeenCalled();
+    });
+
+    it('connects to auth emulator when authEmulatorHost is provided as host:port', () => {
+      new FirebaseClientAuth({
+        ...defaultOptions,
+        authEmulatorHost: 'localhost:9099',
+      });
+
+      expect(mockConnectAuthEmulator).toHaveBeenCalledTimes(1);
+      expect(mockConnectAuthEmulator).toHaveBeenCalledWith(
+        expect.anything(),
+        'http://localhost:9099',
+        { disableWarnings: true },
+      );
+    });
+
+    it('connects to auth emulator when authEmulatorHost is provided as full URL', () => {
+      new FirebaseClientAuth({
+        ...defaultOptions,
+        authEmulatorHost: 'http://127.0.0.1:9099',
+      });
+
+      expect(mockConnectAuthEmulator).toHaveBeenCalledTimes(1);
+      expect(mockConnectAuthEmulator).toHaveBeenCalledWith(
+        expect.anything(),
+        'http://127.0.0.1:9099',
+        { disableWarnings: true },
+      );
     });
   });
 

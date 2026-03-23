@@ -4,6 +4,7 @@ import {
   initializeApp,
 } from 'firebase/app';
 import {
+  connectAuthEmulator,
   getAuth,
   onAuthStateChanged as fbOnAuthStateChanged,
   signInWithEmailAndPassword as fbSignInWithEmailAndPassword,
@@ -27,6 +28,14 @@ export interface FirebaseClientAuthOptions {
   readonly authDomain: string;
   /** Firebase / Google Cloud project identifier. */
   readonly projectId: string;
+  /**
+   * Optional Firebase Auth emulator host or URL.
+   *
+   * Examples:
+   * - `localhost:9099`
+   * - `http://localhost:9099`
+   */
+  readonly authEmulatorHost?: string;
 }
 
 /**
@@ -80,6 +89,15 @@ export class FirebaseClientAuth implements IClientAuth {
   constructor(options: FirebaseClientAuthOptions) {
     const app = getApps().length > 0 ? getApp() : initializeApp(options);
     this.auth = getAuth(app);
+
+    const authEmulatorHost = options.authEmulatorHost?.trim();
+    if (authEmulatorHost) {
+      const emulatorUrl =
+        authEmulatorHost.startsWith('http://') || authEmulatorHost.startsWith('https://')
+          ? authEmulatorHost
+          : `http://${authEmulatorHost}`;
+      connectAuthEmulator(this.auth, emulatorUrl, { disableWarnings: true });
+    }
   }
 
   onAuthStateChanged(listener: AuthStateListener): () => void {

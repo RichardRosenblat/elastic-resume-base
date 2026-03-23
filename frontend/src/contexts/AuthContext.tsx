@@ -7,55 +7,29 @@
  * Auth flow:
  * 1. Aegis `onAuthStateChanged` fires whenever the session changes.
  * 2. On sign-in, the ID token is exchanged for a full user profile via
- *    `GET /api/v1/me` on the BFF Gateway.
+ *    `GET /api/v1/users/me` on the BFF Gateway.
  * 3. `userProfile.enable === false` means the account is pending approval —
  *    the `ProtectedRoute` component gates access in that case.
  * 4. `isAdmin` is `true` when `userProfile.role === 'admin'`.
  */
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { IAuthUser } from '@elastic-resume-base/aegis/client';
 import { auth } from '../firebase';
 import type { UserProfile } from '../types';
 import { config } from '../config';
-
-/**
- * Shape of the value provided by {@link AuthContext} / consumed by
- * {@link useAuth}.
- */
-interface AuthContextType {
-  currentUser: IAuthUser | null;
-  userProfile: UserProfile | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-  isAdmin: boolean;
-  getToken: () => Promise<string>;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
-
-/**
- * Returns the auth context value. Must be called inside an
- * {@link AuthProvider} tree; throws otherwise.
- */
-export function useAuth(): AuthContextType {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+import { AuthContext } from './auth-context';
+import type { AuthContextType } from './auth-context';
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
-  const response = await fetch(`${config.bffUrl}/api/v1/me`, {
+  const response = await fetch(`${config.bffUrl}/api/v1/users/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch profile: ${response.status}`);
   }
-  return response.json() as Promise<UserProfile>;
+  const profileResponse = await response.json();
+  return profileResponse.data as UserProfile;
 }
 
 interface AuthProviderProps {

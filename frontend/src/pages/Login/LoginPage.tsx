@@ -26,13 +26,13 @@ import {
 } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/auth-context';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useAppTheme } from '../../theme';
 import SupportFooter from '../../components/SupportFooter';
 
 const loginSchema = z.object({
-  email: z.string().min(1).email(),
+  email: z.email().min(1),
   password: z.string().min(1),
 });
 
