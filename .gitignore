@@ -211,4 +211,5 @@ temp/
 # rules above.
 !shared/
 !shared/*/
+!shared/*/dist/
 !shared/*/dist/**
