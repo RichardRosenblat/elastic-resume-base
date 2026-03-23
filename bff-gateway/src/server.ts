@@ -4,7 +4,7 @@ import { buildApp } from './app.js';
 import { initializeAuth } from '@elastic-resume-base/aegis';
 
 // Initialize authentication on startup
-initializeAuth({ projectId: process.env['FIREBASE_PROJECT_ID'] || 'demo-elastic-resume-base' });
+initializeAuth({ projectId: config.projectId });
 
 const app = await buildApp();
 
