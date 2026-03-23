@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.config import settings
+from app.document_schema import ALLOWED_FILE_EXTENSIONS
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
 from app.services.ocr_service import OcrService
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Documents"])
 
-# Extensions that can be processed directly by OCR.
-ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp", ".docx"}
+# Extensions that can be processed directly by OCR — sourced from the document schema.
+ALLOWED_EXTENSIONS: frozenset[str] = ALLOWED_FILE_EXTENSIONS
 
 # Extensions accepted at the upload boundary (adds ZIP on top of direct OCR types).
-ACCEPTED_UPLOAD_EXTENSIONS = ALLOWED_EXTENSIONS | {".zip"}
+ACCEPTED_UPLOAD_EXTENSIONS: frozenset[str] = ALLOWED_EXTENSIONS | frozenset({".zip"})
 
 MAX_FILE_SIZE_BYTES = settings.max_file_size_mb * 1024 * 1024
 

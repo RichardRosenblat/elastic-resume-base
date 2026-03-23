@@ -1,49 +1,52 @@
 import io
 import logging
+from collections import OrderedDict
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from app.document_schema import DOCUMENT_SCHEMA
 from app.models.document import ExtractedDocument
 from app.utils.exceptions import ExcelGenerationError
 
 logger = logging.getLogger(__name__)
 
-_HEADERS = [
-    "Arquivo",
-    "Tipo de Documento",
-    "Nome",
-    "Data",
-    "Cônjuge",
-    "Número RG",
-    "Número CTPS",
-    "Data Emissão CTPS",
-    "Número PIS",
-    "Endereço",
-    "Instituição de Ensino",
-    "Ano de Conclusão",
-    "Texto Extraído",
-]
-
-_FIELD_MAP: dict[str, str | list[str]] = {
-    "Nome": "name",
-    # "Data" covers both birth certificate (date_of_birth) and marriage certificate
-    # (date_of_marriage); the first matching key that is present wins.
-    "Data": ["date_of_birth", "date_of_marriage"],
-    "Cônjuge": "spouse_name",
-    "Número RG": "rg_number",
-    "Número CTPS": "work_card_number",
-    "Data Emissão CTPS": "issue_date",
-    "Número PIS": "pis_number",
-    "Endereço": "address",
-    "Instituição de Ensino": "institution_name",
-    "Ano de Conclusão": "year_of_completion",
-}
-
 _HEADER_FILL = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
 _HEADER_FONT = Font(bold=True, color="FFFFFF")
 _HEADER_ALIGNMENT = Alignment(horizontal="center", vertical="center")
+
+
+def _build_excel_columns() -> list[tuple[str, list[str]]]:
+    """Derive ordered Excel column definitions from :data:`~app.document_schema.DOCUMENT_SCHEMA`.
+
+    Iterates the schema in definition order.  Fields with the same label across
+    different document types are merged into one column: when building a data
+    row the first non-``None`` value among the merged field keys wins.
+
+    Internal-only fields (``FieldSpec.label is None``) are excluded from the
+    output.
+
+    Returns:
+        Ordered list of ``(label, [field_keys])`` pairs.
+    """
+    column_keys: OrderedDict[str, list[str]] = OrderedDict()
+    for doc_spec in DOCUMENT_SCHEMA.values():
+        for field_spec in doc_spec.fields:
+            if field_spec.label is None:
+                continue
+            if field_spec.label not in column_keys:
+                column_keys[field_spec.label] = []
+            if field_spec.key not in column_keys[field_spec.label]:
+                column_keys[field_spec.label].append(field_spec.key)
+    return list(column_keys.items())
+
+
+# Derived at import time from DOCUMENT_SCHEMA — never hardcoded.
+_EXCEL_COLUMNS: list[tuple[str, list[str]]] = _build_excel_columns()
+_HEADERS: list[str] = (
+    ["Arquivo", "Tipo de Documento"] + [label for label, _ in _EXCEL_COLUMNS] + ["Texto Extraído"]
+)
 
 
 class ExcelService:
@@ -52,11 +55,15 @@ class ExcelService:
     def generate(self, documents: list[ExtractedDocument]) -> bytes:
         """Create an Excel workbook from a list of extracted documents.
 
+        The set of columns and their order are derived entirely from
+        :data:`~app.document_schema.DOCUMENT_SCHEMA`.
+
         Args:
-            documents: List of ExtractedDocument objects to include in the report.
+            documents: List of :class:`~app.models.document.ExtractedDocument`
+                objects to include in the report.
 
         Returns:
-            Raw bytes of the generated .xlsx file.
+            Raw bytes of the generated ``.xlsx`` file.
 
         Raises:
             ExcelGenerationError: If Excel generation fails.
@@ -76,21 +83,14 @@ class ExcelService:
             # Write data rows
             for row_idx, doc in enumerate(documents, start=2):
                 fields = doc.extracted_fields
-                row_data = [doc.filename, doc.document_type.value]
+                row_data: list[str | None] = [doc.filename, doc.document_type.value]
 
-                for header in _HEADERS[2:-1]:  # skip Arquivo, Tipo, and Texto Extraído
-                    field_key = _FIELD_MAP.get(header)
-                    if field_key is None:
-                        row_data.append(None)
-                    elif isinstance(field_key, list):
-                        # Try each candidate key in order; use the first non-None value.
-                        value = next(
-                            (fields[k] for k in field_key if k in fields and fields[k] is not None),
-                            None,
-                        )
-                        row_data.append(value)
-                    else:
-                        row_data.append(fields.get(field_key))
+                for _label, keys in _EXCEL_COLUMNS:
+                    value = next(
+                        (fields[k] for k in keys if k in fields and fields[k] is not None),
+                        None,
+                    )
+                    row_data.append(value)
 
                 row_data.append(doc.raw_text)
 

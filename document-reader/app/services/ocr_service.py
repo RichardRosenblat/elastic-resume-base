@@ -5,6 +5,7 @@ import logging
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud import vision
 
+from app.document_schema import IMAGE_EXTENSIONS
 from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class OcrService:
             return await asyncio.to_thread(self._extract_docx, content)
         elif ext == ".pdf":
             return await asyncio.to_thread(self._extract_pdf, content)
-        elif ext in {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp"}:
+        elif ext in IMAGE_EXTENSIONS:
             return await asyncio.to_thread(self._extract_image, content)
         else:
             raise UnsupportedFileTypeError(f"Unsupported file extension: {extension!r}")
