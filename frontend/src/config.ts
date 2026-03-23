@@ -1,6 +1,10 @@
 /**
  * Runtime configuration for the frontend application.
  *
+ * Only infrastructure / connectivity settings live here.  Visual branding
+ * (colours, fonts, company name, logo) is configured in
+ * `src/theme/theme.json` instead, keeping concerns cleanly separated.
+ *
  * All values are read from Vite `VITE_` environment variables at build time.
  * Copy `.env.example` to `.env.local` and fill in the required values for
  * local development. In production, supply the variables through the build
@@ -11,11 +15,7 @@
  * const baseUrl = config.bffUrl; // 'http://localhost:3000'
  */
 export const config = {
-  appName: import.meta.env.VITE_APP_NAME ?? 'Elastic Resume Base',
   bffUrl: import.meta.env.VITE_BFF_URL ?? 'http://localhost:3000',
-  primaryColor: import.meta.env.VITE_PRIMARY_COLOR ?? '#1976d2',
-  secondaryColor: import.meta.env.VITE_SECONDARY_COLOR ?? '#9c27b0',
-  logoUrl: import.meta.env.VITE_LOGO_URL ?? null,
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',

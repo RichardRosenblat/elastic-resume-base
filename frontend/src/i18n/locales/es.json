@@ -103,5 +103,9 @@
     "featureNotAvailable": "Esta función aún no está disponible",
     "contactAdministrator": "Comunícate con tu administrador para obtener acceso",
     "or": "o"
+  },
+  "theme": {
+    "switchToLight": "Cambiar a modo claro",
+    "switchToDark": "Cambiar a modo oscuro"
   }
 }

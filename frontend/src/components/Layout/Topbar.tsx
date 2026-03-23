@@ -1,10 +1,13 @@
 /**
  * @file Topbar.tsx — Fixed application bar.
  *
- * Displays the app name / logo, a language cycle button, and a user avatar
- * that opens a profile menu with links to the account page and a sign-out
- * action. On small screens it also renders a hamburger icon that calls
- * `onMenuClick` to toggle the sidebar drawer.
+ * Displays the app name / logo, a language cycle button, a dark/light mode
+ * toggle, and a user avatar that opens a profile menu with links to the
+ * account page and a sign-out action. On small screens it also renders a
+ * hamburger icon that calls `onMenuClick` to toggle the sidebar drawer.
+ *
+ * Branding (company name and logo URL) is read from `theme.json` via
+ * {@link useAppTheme} instead of environment variables.
  */
 import { useState } from 'react';
 import type { MouseEvent } from 'react';
@@ -18,15 +21,18 @@ import {
   MenuItem,
   Box,
   Button,
+  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   AccountCircle as AccountCircleIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { config } from '../../config';
+import { useAppTheme } from '../../theme';
 
 /** Props for the {@link Topbar} component. */
 interface TopbarProps {
@@ -36,11 +42,12 @@ interface TopbarProps {
 
 /**
  * Fixed MUI `AppBar` containing the brand logo/name, language switcher,
- * and authenticated user menu.
+ * dark/light mode toggle, and authenticated user menu.
  */
 export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
   const { t, i18n } = useTranslation();
   const { currentUser, userProfile, logout } = useAuth();
+  const { theme, mode, toggleTheme } = useAppTheme();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -74,6 +81,7 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
 
   const displayName = userProfile?.name ?? currentUser?.email ?? '';
   const photoURL = userProfile?.picture ?? '';
+  const { companyName, logoUrl } = theme.branding;
 
   return (
     <AppBar
@@ -92,17 +100,22 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
         >
           <MenuIcon />
         </IconButton>
-        {config.logoUrl ? (
-          <Box component="img" src={config.logoUrl} alt={config.appName} sx={{ height: 32, mr: 1 }} />
+        {logoUrl ? (
+          <Box component="img" src={logoUrl} alt={companyName} sx={{ height: 32, mr: 1 }} />
         ) : (
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            {config.appName}
+            {companyName}
           </Typography>
         )}
         <Box sx={{ flexGrow: 1 }} />
         <Button color="inherit" onClick={cycleLanguage} size="small" sx={{ mr: 1 }}>
           {LANGUAGE_LABELS[i18n.language] ?? 'EN'}
         </Button>
+        <Tooltip title={mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}>
+          <IconButton color="inherit" onClick={toggleTheme} size="small" sx={{ mr: 1 }}>
+            {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
         <IconButton color="inherit" onClick={handleMenuOpen}>
           {photoURL ? (
             <Avatar src={photoURL} sx={{ width: 32, height: 32 }} />

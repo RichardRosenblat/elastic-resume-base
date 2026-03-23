@@ -2,7 +2,8 @@
  * @file App.tsx — Root component that wires together the application shell.
  *
  * Responsibilities:
- * - Applies the MUI {@link theme} and CSS baseline reset.
+ * - Applies the configurable theme (read from `theme.json`) via
+ *   {@link AppThemeProvider}, which also bridges to MUI's ThemeProvider.
  * - Initialises i18next (via the side-effect import of `./i18n`).
  * - Wraps the whole tree in {@link AuthProvider} so every page can call
  *   {@link useAuth}.
@@ -14,10 +15,8 @@
  *   - `*` catch-all → {@link NotFoundPage}.
  */
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
-import { theme } from './theme';
+import { AppThemeProvider } from './theme';
 import './i18n';
 
 import AppLayout from './components/Layout/AppLayout';
@@ -32,13 +31,12 @@ import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
 
 /**
- * Root React component. Renders the full route tree inside the MUI
- * `ThemeProvider`, `BrowserRouter`, and `AuthProvider`.
+ * Root React component. Renders the full route tree inside the
+ * {@link AppThemeProvider}, `BrowserRouter`, and `AuthProvider`.
  */
 export default function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <AppThemeProvider>
       <BrowserRouter>
         <AuthProvider>
           <Routes>
@@ -60,6 +58,6 @@ export default function App() {
           </Routes>
         </AuthProvider>
       </BrowserRouter>
-    </ThemeProvider>
+    </AppThemeProvider>
   );
 }

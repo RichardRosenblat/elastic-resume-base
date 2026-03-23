@@ -103,5 +103,9 @@
     "featureNotAvailable": "This feature is not yet available",
     "contactAdministrator": "Please contact your administrator for access",
     "or": "or"
+  },
+  "theme": {
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
   }
 }

@@ -28,7 +28,7 @@ import { Google as GoogleIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import ErrorMessage from '../../components/ErrorMessage';
-import { config } from '../../config';
+import { useAppTheme } from '../../theme';
 
 const loginSchema = z.object({
   email: z.string().min(1).email(),
@@ -40,6 +40,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login, loginWithGoogle, currentUser } = useAuth();
+  const { theme } = useAppTheme();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -92,7 +93,7 @@ export default function LoginPage() {
         <Card sx={{ width: '100%', maxWidth: 440 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h5" textAlign="center" gutterBottom>
-              {config.appName}
+              {theme.branding.companyName}
             </Typography>
             <Typography variant="h6" textAlign="center" color="text.secondary" gutterBottom>
               {t('auth.welcomeBack')}

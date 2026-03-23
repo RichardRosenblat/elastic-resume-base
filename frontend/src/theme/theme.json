@@ -1,0 +1,54 @@
+{
+  "mode": "dark",
+
+  "branding": {
+    "companyName": "Elastic Resume Base",
+    "logoUrl": ""
+  },
+
+  "typography": {
+    "fontFamily": "\"Roboto\", \"Helvetica\", \"Arial\", sans-serif"
+  },
+
+  "icons": {
+    "default": "mdi:home"
+  },
+
+  "palette": {
+    "primary": {
+      "main": "#2563EB",
+      "light": "#DBEAFE",
+      "dark": "#1E40AF",
+      "contrastText": "#FFFFFF"
+    },
+    "secondary": {
+      "main": "#F97316",
+      "light": "#FFEDD5",
+      "dark": "#EA580C",
+      "contrastText": "#FFFFFF"
+    },
+    "tertiary": {
+      "main": "#0EA5E9"
+    },
+    "success": {
+      "main": "#22C55E"
+    },
+    "warning": {
+      "main": "#F97316"
+    },
+    "error": {
+      "main": "#EF4444"
+    },
+    "info": {
+      "main": "#38BDF8"
+    },
+    "background": {
+      "default": "#0F172A",
+      "paper": "#1E293B"
+    },
+    "text": {
+      "primary": "#F8FAFC",
+      "secondary": "#94A3B8"
+    }
+  }
+}

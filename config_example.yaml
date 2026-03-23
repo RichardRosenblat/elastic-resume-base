@@ -88,20 +88,13 @@ systems:
   # Frontend (React — port 5173 dev / 80 Docker)
   # Build-time VITE_ variables injected as Docker ARGs during `docker compose build`.
   # For local development, copy .env.example → frontend/.env and fill in values.
+  #
+  # BRANDING (company name, logo, colours, fonts, dark/light mode) is configured in
+  # frontend/src/theme/theme.json — NOT through environment variables.
   # ---------------------------------------------------------------------------
   frontend:
-    # Application display name shown in the browser tab and top app bar
-    VITE_APP_NAME: "Elastic Resume Base"
-
     # Base URL for the BFF Gateway API
     VITE_BFF_URL: "http://localhost:3000"
-
-    # Branding — primary and secondary MUI theme colours (hex)
-    VITE_PRIMARY_COLOR: "#1976d2"
-    VITE_SECONDARY_COLOR: "#9c27b0"
-
-    # Optional URL to a company logo image (leave empty to use text)
-    VITE_LOGO_URL: ""
 
     # Firebase Web SDK configuration (must match the Firebase project)
     VITE_FIREBASE_API_KEY: ""           # fill in locally

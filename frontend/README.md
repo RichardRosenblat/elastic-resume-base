@@ -57,7 +57,12 @@ frontend/
 │   ├── test/
 │   │   └── setup.ts               # Vitest / @testing-library/jest-dom setup
 │   ├── theme/
-│   │   └── index.ts               # MUI theme derived from VITE_ colour env vars
+│   │   ├── ThemeProvider.tsx      # React context + MUI bridge (AppThemeProvider, useAppTheme)
+│   │   ├── index.ts               # Public re-exports for the theme system
+│   │   ├── loadTheme.ts           # Loads and validates theme.json
+│   │   ├── toCssVariables.ts      # Converts AppTheme → CSS custom properties
+│   │   ├── types.ts               # TypeScript interfaces (AppTheme, Palette, Branding…)
+│   │   └── theme.json             # ← edit this to customise colours, fonts, branding
 │   ├── types/
 │   │   └── index.ts               # Shared TypeScript interfaces
 │   ├── App.tsx                    # Root component with routing tree
@@ -84,13 +89,11 @@ frontend/
 
 Copy `.env.example` to `.env.local` (local dev) or supply the variables through your deployment platform. All variables are prefixed `VITE_` so that Vite injects them into the client bundle at build time.
 
+> **Branding (company name, logo, colours, fonts, dark/light mode)** are configured in `src/theme/theme.json` — not through environment variables. See [Theme System](#theme-system) below.
+
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `VITE_APP_NAME` | No | `Elastic Resume Base` | Application title shown in the UI |
 | `VITE_BFF_URL` | Yes | `http://localhost:3000` | Base URL of the BFF Gateway |
-| `VITE_PRIMARY_COLOR` | No | `#1976d2` | MUI primary colour (hex) |
-| `VITE_SECONDARY_COLOR` | No | `#9c27b0` | MUI secondary colour (hex) |
-| `VITE_LOGO_URL` | No | *(none)* | URL for the brand logo rendered in the sidebar |
 | `VITE_FIREBASE_API_KEY` | Yes | — | Firebase project API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Yes | — | Firebase Auth domain |
 | `VITE_FIREBASE_PROJECT_ID` | Yes | `demo-elastic-resume-base` | Firebase project ID |
@@ -187,6 +190,65 @@ When a feature flag is `false`:
 - A "coming soon" label is shown instead of the actual content.
 
 This approach makes it straightforward to enable features for specific deployments without code changes.
+
+---
+
+## Theme System
+
+Colours, fonts, branding, and the default colour mode are configured in **`src/theme/theme.json`** — not through environment variables. Edit this file to customise the application's appearance.
+
+```jsonc
+// src/theme/theme.json (excerpt)
+{
+  "mode": "dark",          // default: "light" | "dark"
+  "branding": {
+    "companyName": "My Company",
+    "logoUrl": "/assets/logo.png"  // "" = show companyName text instead
+  },
+  "typography": { "fontFamily": "Inter, sans-serif" },
+  "palette": {
+    "primary":    { "main": "#2563EB", "light": "#DBEAFE", "dark": "#1E40AF", "contrastText": "#FFFFFF" },
+    "secondary":  { "main": "#F97316" },
+    "background": { "default": "#0F172A", "paper": "#1E293B" },
+    "text":       { "primary": "#F8FAFC", "secondary": "#94A3B8" }
+    // … success, warning, error, info, tertiary
+  }
+}
+```
+
+### Dark / Light Mode
+
+The top bar includes a mode toggle button. The user's choice is persisted in `localStorage` under the key `appThemeMode` and takes precedence over `theme.json`'s `mode` field on subsequent visits.
+
+### Using the Theme in Components
+
+```tsx
+import { useAppTheme } from './theme';
+
+function MyComponent() {
+  const { theme, mode, toggleTheme } = useAppTheme();
+
+  return (
+    <div>
+      <p>Company: {theme.branding.companyName}</p>
+      <p>Current mode: {mode}</p>
+      <button onClick={toggleTheme}>Toggle dark/light</button>
+    </div>
+  );
+}
+```
+
+### CSS Variables
+
+The theme is also injected as CSS custom properties into `<html>` so that plain CSS can reference them:
+
+```css
+.my-element {
+  color: var(--color-primary-main);
+  background: var(--color-background-default);
+  font-family: var(--font-family);
+}
+```
 
 ---
 

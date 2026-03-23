@@ -35,23 +35,29 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-// Mock config
-vi.mock('../../config', () => ({
-  config: {
-    appName: 'Test App',
-    bffUrl: 'http://localhost:3000',
-    primaryColor: '#1976d2',
-    secondaryColor: '#9c27b0',
-    logoUrl: null,
-    firebase: { apiKey: '', authDomain: '', projectId: 'test' },
-    features: {
-      resumeIngest: false,
-      resumeSearch: false,
-      documentRead: false,
-      resumeGenerate: false,
-      userManagement: true,
+// Mock theme
+vi.mock('../../theme', () => ({
+  useAppTheme: () => ({
+    theme: {
+      branding: { companyName: 'Test App', logoUrl: '' },
+      palette: {
+        primary: { main: '#2563EB' },
+        secondary: { main: '#F97316' },
+        success: { main: '#22C55E' },
+        warning: { main: '#F97316' },
+        error: { main: '#EF4444' },
+        info: { main: '#38BDF8' },
+        background: { default: '#0F172A', paper: '#1E293B' },
+        text: { primary: '#F8FAFC', secondary: '#94A3B8' },
+      },
+      typography: { fontFamily: 'Roboto, sans-serif' },
+      icons: { default: 'mdi:home' },
+      mode: 'dark',
     },
-  },
+    mode: 'dark',
+    toggleTheme: vi.fn(),
+  }),
+  AppThemeProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 describe('LoginPage', () => {
