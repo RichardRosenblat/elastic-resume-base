@@ -113,3 +113,12 @@
 - name: wontfix
   color: "6b7280"
   description: Will not be worked on
+
+# 🌐 language labels 
+
+- name: "language:python"
+  color: "ba2bc2"
+  description: Python code
+- name: "language:typescript"
+  color: "a120a8"
+  description: TypeScript code

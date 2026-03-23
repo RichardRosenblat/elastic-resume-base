@@ -21,7 +21,6 @@ const configSchema = z.object({
   allowedOrigins: z.string().default('http://localhost:3000'),
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
   userApiServiceUrl: z.string().url().default('http://localhost:8005'),
-  onboardableEmailDomains: z.string().default(''),
 });
 
 /** Application configuration type inferred from schema. */
@@ -47,7 +46,6 @@ function loadConfig(): Config {
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     userApiServiceUrl: process.env['USER_API_SERVICE_URL'],
-    onboardableEmailDomains: process.env['ONBOARDABLE_EMAIL_DOMAINS'],
   });
 }
 

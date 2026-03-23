@@ -17,7 +17,6 @@ jest.mock('../../../src/services/userApiClient', () => ({
 
 jest.mock('../../../src/config', () => ({
   config: {
-    onboardableEmailDomains: '',
     userApiServiceUrl: 'http://localhost:8005',
     requestTimeoutMs: 30000,
     nodeEnv: 'test',
