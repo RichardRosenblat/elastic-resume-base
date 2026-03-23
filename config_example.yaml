@@ -52,6 +52,14 @@ systems:
   bff-gateway:
     PORT: "3000"
 
+    # Global request rate-limiting for BFF.
+    RATE_LIMIT_MAX: "1000"
+    RATE_LIMIT_TIME_WINDOW: "15 minutes"
+
+    # Additional rate-limiting for protected /api/v1 routes.
+    API_V1_RATE_LIMIT_MAX: "1000"
+    API_V1_RATE_LIMIT_TIME_WINDOW: "15 minutes"
+
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
 
@@ -70,6 +78,11 @@ systems:
   # ---------------------------------------------------------------------------
   users-api:
     PORT: "8005"
+
+    # Global request rate-limiting for Users API.
+    # Increase RATE_LIMIT_MAX if admins perform many user-management actions.
+    RATE_LIMIT_MAX: "500"
+    RATE_LIMIT_TIME_WINDOW: "15 minutes"
 
     # Name of the Firestore collection where user documents are stored.
     FIRESTORE_USERS_COLLECTION: users

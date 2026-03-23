@@ -28,12 +28,90 @@ const apiClient: AxiosInstance = axios.create({
   baseURL: config.bffUrl,
 });
 
+const REQUEST_WINDOW_MS = 10_000;
+const MAX_REQUESTS_PER_WINDOW = 40;
+const DUPLICATE_GET_BLOCK_WINDOW_MS = 800;
+const ALLOWED_RAPID_DUPLICATE_GETS = 2;
+
+const recentRequestTimestamps: number[] = [];
+const recentGetRequestBySignature = new Map<string, { count: number; lastTimestamp: number }>();
+
+function pruneOldRequestTimestamps(now: number): void {
+  const cutoff = now - REQUEST_WINDOW_MS;
+  while (recentRequestTimestamps.length > 0 && recentRequestTimestamps[0] < cutoff) {
+    recentRequestTimestamps.shift();
+  }
+}
+
+function pruneOldGetSignatures(now: number): void {
+  const cutoff = now - REQUEST_WINDOW_MS;
+  recentGetRequestBySignature.forEach((entry, signature) => {
+    if (entry.lastTimestamp < cutoff) {
+      recentGetRequestBySignature.delete(signature);
+    }
+  });
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function getRequestSignature(reqConfig: { method?: string; url?: string; params?: unknown; data?: unknown }): string {
+  const method = (reqConfig.method ?? 'get').toUpperCase();
+  const url = reqConfig.url ?? '';
+  const params = safeStringify(reqConfig.params ?? {});
+  const data = safeStringify(reqConfig.data ?? {});
+  return `${method}:${url}:${params}:${data}`;
+}
+
+function getRequestBlockReason(reqConfig: { method?: string; url?: string; params?: unknown; data?: unknown }): string | null {
+  const now = Date.now();
+  pruneOldRequestTimestamps(now);
+  pruneOldGetSignatures(now);
+
+  if (recentRequestTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    return 'Too many requests in a short period. Please wait and try again.';
+  }
+
+  recentRequestTimestamps.push(now);
+
+  const method = (reqConfig.method ?? 'get').toUpperCase();
+  if (method === 'GET') {
+    const signature = getRequestSignature(reqConfig);
+    const previousEntry = recentGetRequestBySignature.get(signature);
+    const isRapidDuplicate = previousEntry !== undefined
+      && now - previousEntry.lastTimestamp < DUPLICATE_GET_BLOCK_WINDOW_MS;
+    const nextCount = isRapidDuplicate ? previousEntry.count + 1 : 1;
+
+    if (nextCount > ALLOWED_RAPID_DUPLICATE_GETS) {
+      return 'Duplicate request blocked to prevent rapid repeat calls.';
+    }
+
+    recentGetRequestBySignature.set(signature, {
+      count: nextCount,
+      lastTimestamp: now,
+    });
+  }
+
+  return null;
+}
+
 apiClient.interceptors.request.use(async (reqConfig) => {
   const user = auth.getCurrentUser();
   if (user) {
     const token = await user.getIdToken();
     reqConfig.headers.Authorization = `Bearer ${token}`;
   }
+
+  const blockReason = getRequestBlockReason(reqConfig);
+  if (blockReason) {
+    return Promise.reject(ensureApiRequestError(new Error(blockReason), blockReason));
+  }
+
   return reqConfig;
 });
 
@@ -80,6 +158,7 @@ export const updateMyEmail = async (email: string): Promise<UserRecord> => {
  * @param limit Items per page (default: 10).
  */
 export const listUsers = async (_page = 1, limit = 10): Promise<SuccessResponse<ListUsersData>> => {
+  void _page;
   const res = await apiClient.get<SuccessResponse<ListUsersData>>('/api/v1/users', {
     params: { maxResults: limit },
   });

@@ -18,6 +18,8 @@ const configSchema = z.object({
   logLevel: z.string().default('info'),
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
   allowedOrigins: z.string().default('http://localhost:3000'),
+  rateLimitMax: z.number().int().positive().default(500),
+  rateLimitTimeWindow: z.string().default('15 minutes'),
 });
 
 /** Application configuration type inferred from schema. */
@@ -40,6 +42,8 @@ function loadConfig(): Config {
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
     bootstrapAdminUserEmail: process.env['BOOTSTRAP_ADMIN_USER_EMAIL'],
+    rateLimitMax: process.env['RATE_LIMIT_MAX'] ? parseInt(process.env['RATE_LIMIT_MAX'], 10) : undefined,
+    rateLimitTimeWindow: process.env['RATE_LIMIT_TIME_WINDOW'],
   });
 }
 

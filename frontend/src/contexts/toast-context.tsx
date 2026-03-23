@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, SyntheticEvent } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 import { keyframes } from '@emotion/react';
@@ -49,7 +49,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
     };
   }, []);
 
-  const showToast: ToastContextType['showToast'] = (message, options) => {
+  const showToast: ToastContextType['showToast'] = useCallback((message, options) => {
     const id = nextToastId.current;
     nextToastId.current += 1;
     const durationMs = getToastDurationMs(options?.durationMs);
@@ -66,7 +66,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
       setQueue((prevQueue) => prevQueue.filter((toast) => toast.id !== id));
     }, durationMs);
     closeTimers.current.set(id, timeoutId);
-  };
+  }, []);
 
   const handleClose = (toastId: number) => (_event?: SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
@@ -80,7 +80,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
     setQueue((prevQueue) => prevQueue.filter((toast) => toast.id !== toastId));
   };
 
-  const contextValue: ToastContextType = { showToast };
+  const contextValue: ToastContextType = useMemo(() => ({ showToast }), [showToast]);
 
   return (
     <ToastContext.Provider value={contextValue}>

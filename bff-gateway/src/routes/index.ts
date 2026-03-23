@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { config } from '../config.js';
 import { authHook } from '../middleware/auth.js';
 import healthPlugin from './health.js';
 import resumesPlugin from './resumes.js';
@@ -14,7 +15,10 @@ const routes: FastifyPluginAsync = async (app) => {
   // Protected API v1 routes (require Firebase auth + rate limiting)
   await app.register(
     async (api) => {
-      await api.register(rateLimit, { max: 100, timeWindow: '15 minutes' });
+      await api.register(rateLimit, {
+        max: config.apiV1RateLimitMax,
+        timeWindow: config.apiV1RateLimitTimeWindow,
+      });
       api.addHook('onRequest', authHook);
       await api.register(resumesPlugin, { prefix: '/resumes' });
       await api.register(searchPlugin, { prefix: '/search' });

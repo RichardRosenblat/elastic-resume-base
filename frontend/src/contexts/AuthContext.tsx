@@ -70,7 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [showToast]);
 
   const login = async (email: string, password: string): Promise<void> => {
     await auth.signInWithEmailAndPassword(email, password);
