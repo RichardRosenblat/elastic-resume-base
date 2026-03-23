@@ -43,6 +43,7 @@ export default function ResumesPage() {
   const [language, setLanguage] = useState('en');
   const [format, setFormat] = useState('pdf');
   const [generateLoading, setGenerateLoading] = useState(false);
+  const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleIngest = async () => {
@@ -61,15 +62,20 @@ export default function ResumesPage() {
 
   const handleGenerate = async () => {
     setGenerateLoading(true);
+    setGenerateSuccess(null);
     setGenerateError(null);
     try {
-      const blob = await generateResume(resumeId, { language, format });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `resume-${resumeId}.${format}`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const job = await generateResume(resumeId, { language, format });
+
+      if ('downloadUrl' in job && typeof job.downloadUrl === 'string' && job.downloadUrl.length > 0) {
+        window.open(job.downloadUrl, '_blank', 'noopener,noreferrer');
+        setGenerateSuccess(`Generation job ${job.jobId} submitted. Download opened.`);
+      } else if ('driveLink' in job && typeof job.driveLink === 'string' && job.driveLink.length > 0) {
+        window.open(job.driveLink, '_blank', 'noopener,noreferrer');
+        setGenerateSuccess(`Generation job ${job.jobId} submitted. Drive link opened.`);
+      } else {
+        setGenerateSuccess(`Generation job ${job.jobId} submitted.`);
+      }
     } catch {
       setGenerateError(t('common.error'));
     } finally {
@@ -171,6 +177,7 @@ export default function ResumesPage() {
               {t('resumes.submit')}
             </Button>
           </Box>
+          {generateSuccess && <Alert severity="success" sx={{ mt: 2 }}>{generateSuccess}</Alert>}
           {generateError && <ErrorMessage message={generateError} onClose={() => setGenerateError(null)} />}
         </CardContent>
       </Card>

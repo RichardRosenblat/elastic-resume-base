@@ -71,8 +71,8 @@ export default function UsersPage() {
     setError(null);
     try {
       const res = await listUsers(page + 1, rowsPerPage);
-      setUsers(res.data);
-      setTotal(res.data.length);
+      setUsers(res.data.users);
+      setTotal(res.data.users.length);
     } catch {
       setError(t('common.error'));
     } finally {

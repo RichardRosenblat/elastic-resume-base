@@ -24,14 +24,14 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { searchResumes } from '../../services/api';
-import type { UserRecord } from '../../types';
+import type { SearchResult } from '../../types';
 import ErrorMessage from '../../components/ErrorMessage';
 
 export default function SearchPage() {
   const { t } = useTranslation();
   const features = useFeatureFlags();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<UserRecord[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,13 +42,38 @@ export default function SearchPage() {
     setSearched(false);
     try {
       const res = await searchResumes(query);
-      setResults(res.data);
+      setResults(res.data.results);
       setSearched(true);
     } catch {
       setError(t('common.error'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPrimaryText = (result: SearchResult): string => {
+    const email = result.data.email;
+    const name = result.data.name;
+
+    if (typeof email === 'string' && email.length > 0) {
+      return email;
+    }
+
+    if (typeof name === 'string' && name.length > 0) {
+      return name;
+    }
+
+    return result.id;
+  };
+
+  const getSecondaryText = (result: SearchResult): string => {
+    const uid = result.data.uid;
+
+    if (typeof uid === 'string' && uid.length > 0) {
+      return uid;
+    }
+
+    return `Score: ${result.score.toFixed(2)}`;
   };
 
   return (
@@ -90,8 +115,8 @@ export default function SearchPage() {
               ) : (
                 <List>
                   {results.map((r) => (
-                    <ListItem key={r.uid}>
-                      <ListItemText primary={r.email} secondary={r.uid} />
+                    <ListItem key={r.id}>
+                      <ListItemText primary={getPrimaryText(r)} secondary={getSecondaryText(r)} />
                     </ListItem>
                   ))}
                 </List>

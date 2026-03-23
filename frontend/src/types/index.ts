@@ -45,6 +45,12 @@ export interface UserRecord {
   enable: boolean;
 }
 
+/** Payload returned by the admin users list endpoint. */
+export interface ListUsersData {
+  users: UserRecord[];
+  pageToken?: string;
+}
+
 /**
  * A pre-approved email entry that allows automatic onboarding before first sign-in.
  */
@@ -60,6 +66,28 @@ export interface ResumeIngestJob {
   jobId: string;
   status: string;
   acceptedAt: string;
+}
+
+/** Async generation job returned by the BFF generate endpoint. */
+export interface ResumeGenerateJob {
+  jobId: string;
+  status: string;
+  downloadUrl?: string;
+  driveLink?: string;
+}
+
+/** Search result item returned by the BFF search endpoint. */
+export interface SearchResult {
+  id: string;
+  score: number;
+  data: Record<string, unknown>;
+}
+
+/** Payload returned by the BFF search endpoint. */
+export interface SearchResponseData {
+  results: SearchResult[];
+  total: number;
+  query: string;
 }
 
 /**

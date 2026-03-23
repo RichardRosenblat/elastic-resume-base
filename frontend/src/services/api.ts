@@ -13,7 +13,16 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { auth } from '../firebase';
 import { config } from '../config';
-import type { UserProfile, UserRecord, PreApprovedUser, ResumeIngestJob, SuccessResponse } from '../types';
+import type {
+  UserProfile,
+  UserRecord,
+  PreApprovedUser,
+  ResumeIngestJob,
+  ResumeGenerateJob,
+  SearchResponseData,
+  ListUsersData,
+  SuccessResponse,
+} from '../types';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: config.bffUrl,
@@ -40,22 +49,35 @@ apiClient.interceptors.response.use(
   }
 );
 
+function unwrapSuccessResponse<T>(payload: SuccessResponse<T> | T): T {
+  if (
+    payload !== null
+    && typeof payload === 'object'
+    && 'success' in payload
+    && 'data' in payload
+  ) {
+    return (payload as SuccessResponse<T>).data;
+  }
+
+  return payload as T;
+}
+
 /** Fetches the authenticated user's profile from the BFF (`GET /api/v1/me`). */
 export const getMyProfile = async (): Promise<UserProfile> => {
-  const res = await apiClient.get<UserProfile>('/api/v1/me');
-  return res.data;
+  const res = await apiClient.get<SuccessResponse<UserProfile>>('/api/v1/me');
+  return unwrapSuccessResponse(res.data);
 };
 
 /** Fetches the authenticated user's full record from the Users API via BFF (`GET /api/v1/users/me`). */
 export const getMyUserRecord = async (): Promise<UserRecord> => {
-  const res = await apiClient.get<UserRecord>('/api/v1/users/me');
-  return res.data;
+  const res = await apiClient.get<SuccessResponse<UserRecord>>('/api/v1/users/me');
+  return unwrapSuccessResponse(res.data);
 };
 
 /** Updates the authenticated user's own email address (`PATCH /api/v1/users/me`). */
 export const updateMyEmail = async (email: string): Promise<UserRecord> => {
-  const res = await apiClient.patch<UserRecord>('/api/v1/users/me', { email });
-  return res.data;
+  const res = await apiClient.patch<SuccessResponse<UserRecord>>('/api/v1/users/me', { email });
+  return unwrapSuccessResponse(res.data);
 };
 
 /**
@@ -63,17 +85,17 @@ export const updateMyEmail = async (email: string): Promise<UserRecord> => {
  * @param page  1-based page number (default: 1).
  * @param limit Items per page (default: 10).
  */
-export const listUsers = async (page = 1, limit = 10): Promise<SuccessResponse<UserRecord[]>> => {
-  const res = await apiClient.get<SuccessResponse<UserRecord[]>>('/api/v1/users', {
-    params: { page, limit },
+export const listUsers = async (_page = 1, limit = 10): Promise<SuccessResponse<ListUsersData>> => {
+  const res = await apiClient.get<SuccessResponse<ListUsersData>>('/api/v1/users', {
+    params: { maxResults: limit },
   });
   return res.data;
 };
 
 /** Fetches a single user record by UID. Admin only. */
 export const getUserById = async (uid: string): Promise<UserRecord> => {
-  const res = await apiClient.get<UserRecord>(`/api/v1/users/${uid}`);
-  return res.data;
+  const res = await apiClient.get<SuccessResponse<UserRecord>>(`/api/v1/users/${uid}`);
+  return unwrapSuccessResponse(res.data);
 };
 
 /**
@@ -81,8 +103,8 @@ export const getUserById = async (uid: string): Promise<UserRecord> => {
  * update their own email.
  */
 export const updateUser = async (uid: string, data: Partial<UserRecord>): Promise<UserRecord> => {
-  const res = await apiClient.patch<UserRecord>(`/api/v1/users/${uid}`, data);
-  return res.data;
+  const res = await apiClient.patch<SuccessResponse<UserRecord>>(`/api/v1/users/${uid}`, data);
+  return unwrapSuccessResponse(res.data);
 };
 
 /** Deletes a user by UID. Admin only. */
@@ -92,14 +114,14 @@ export const deleteUser = async (uid: string): Promise<void> => {
 
 /** Returns all pre-approved email entries. Admin only. */
 export const listPreApprovedUsers = async (): Promise<PreApprovedUser[]> => {
-  const res = await apiClient.get<PreApprovedUser[]>('/api/v1/users/pre-approve');
-  return res.data;
+  const res = await apiClient.get<SuccessResponse<PreApprovedUser[]>>('/api/v1/users/pre-approve');
+  return unwrapSuccessResponse(res.data);
 };
 
 /** Adds an email address to the pre-approved list. Admin only. */
 export const addPreApprovedUser = async (data: PreApprovedUser): Promise<PreApprovedUser> => {
-  const res = await apiClient.post<PreApprovedUser>('/api/v1/users/pre-approve', data);
-  return res.data;
+  const res = await apiClient.post<SuccessResponse<PreApprovedUser>>('/api/v1/users/pre-approve', data);
+  return unwrapSuccessResponse(res.data);
 };
 
 /** Removes an email address from the pre-approved list. Admin only. */
@@ -115,25 +137,26 @@ export const triggerResumeIngest = async (data: { sheetId?: string; batchId?: st
   if (!config.features.resumeIngest) {
     return { jobId: 'mock-job-id', status: 'mock', acceptedAt: new Date().toISOString() };
   }
-  const res = await apiClient.post<ResumeIngestJob>('/api/v1/resumes/ingest', data);
-  return res.data;
+  const res = await apiClient.post<SuccessResponse<ResumeIngestJob>>('/api/v1/resumes/ingest', data);
+  return unwrapSuccessResponse(res.data);
 };
 
 /**
- * Generates a resume document and returns it as a `Blob` for download.
- * Returns a mock PDF blob when `config.features.resumeGenerate` is `false`.
+ * Triggers resume generation and returns the accepted job metadata.
+ * Returns mock job data when `config.features.resumeGenerate` is `false`.
  *
  * @param resumeId The Firestore resume document ID.
  * @param data     Language and output format options.
  */
-export const generateResume = async (resumeId: string, data: { language: string; format: string }): Promise<Blob> => {
+export const generateResume = async (
+  resumeId: string,
+  data: { language: string; format: string },
+): Promise<ResumeGenerateJob> => {
   if (!config.features.resumeGenerate) {
-    return new Blob(['Mock PDF content'], { type: 'application/pdf' });
+    return { jobId: 'mock-generate-job-id', status: 'mock' };
   }
-  const res = await apiClient.post<Blob>(`/api/v1/resumes/${resumeId}/generate`, data, {
-    responseType: 'blob',
-  });
-  return res.data;
+  const res = await apiClient.post<SuccessResponse<ResumeGenerateJob>>(`/api/v1/resumes/${resumeId}/generate`, data);
+  return unwrapSuccessResponse(res.data);
 };
 
 /**
@@ -142,11 +165,15 @@ export const generateResume = async (resumeId: string, data: { language: string;
  *
  * @param query Natural-language search string.
  */
-export const searchResumes = async (query: string): Promise<SuccessResponse<UserRecord[]>> => {
+export const searchResumes = async (query: string): Promise<SuccessResponse<SearchResponseData>> => {
   if (!config.features.resumeSearch) {
-    return { success: true, data: [], meta: { timestamp: new Date().toISOString() } };
+    return {
+      success: true,
+      data: { results: [], total: 0, query },
+      meta: { timestamp: new Date().toISOString() },
+    };
   }
-  const res = await apiClient.post<SuccessResponse<UserRecord[]>>('/api/v1/search', { query });
+  const res = await apiClient.post<SuccessResponse<SearchResponseData>>('/api/v1/search', { query });
   return res.data;
 };
 

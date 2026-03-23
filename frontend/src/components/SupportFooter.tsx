@@ -36,7 +36,7 @@ export default function SupportFooter() {
       }}
     >
       <Typography variant="caption" color="text.secondary">
-        {t('support.notWorking')}{' '}
+        {t('support.notWorking')}{' '} <br />
         <Link
           href={`mailto:${config.supportEmail}`}
           color="primary"
