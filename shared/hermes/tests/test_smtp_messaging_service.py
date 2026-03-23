@@ -143,9 +143,7 @@ class TestSendPlainText:
             smtp_factory=lambda: mock_smtp,
         )
 
-        service.send(
-            Message(to="alice@example.com", subject="Test subject", body="Hello, world!")
-        )
+        service.send(Message(to="alice@example.com", subject="Test subject", body="Hello, world!"))
 
         args = mock_smtp.sendmail.call_args
         assert args[0][0] == "noreply@example.com"
