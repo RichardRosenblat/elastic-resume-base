@@ -72,7 +72,7 @@ export default function UsersPage() {
     try {
       const res = await listUsers(page + 1, rowsPerPage);
       setUsers(res.data);
-      setTotal(res.meta?.total ?? res.data.length);
+      setTotal(res.data.length);
     } catch {
       setError(t('common.error'));
     } finally {

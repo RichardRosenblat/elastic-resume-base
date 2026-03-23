@@ -13,7 +13,7 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { auth } from '../firebase';
 import { config } from '../config';
-import type { UserProfile, UserRecord, PreApprovedUser, ResumeIngestJob, ApiResponse } from '../types';
+import type { UserProfile, UserRecord, PreApprovedUser, ResumeIngestJob, SuccessResponse } from '../types';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: config.bffUrl,
@@ -63,8 +63,8 @@ export const updateMyEmail = async (email: string): Promise<UserRecord> => {
  * @param page  1-based page number (default: 1).
  * @param limit Items per page (default: 10).
  */
-export const listUsers = async (page = 1, limit = 10): Promise<ApiResponse<UserRecord[]>> => {
-  const res = await apiClient.get<ApiResponse<UserRecord[]>>('/api/v1/users', {
+export const listUsers = async (page = 1, limit = 10): Promise<SuccessResponse<UserRecord[]>> => {
+  const res = await apiClient.get<SuccessResponse<UserRecord[]>>('/api/v1/users', {
     params: { page, limit },
   });
   return res.data;
@@ -142,11 +142,11 @@ export const generateResume = async (resumeId: string, data: { language: string;
  *
  * @param query Natural-language search string.
  */
-export const searchResumes = async (query: string): Promise<ApiResponse<UserRecord[]>> => {
+export const searchResumes = async (query: string): Promise<SuccessResponse<UserRecord[]>> => {
   if (!config.features.resumeSearch) {
-    return { success: true, data: [] };
+    return { success: true, data: [], meta: { timestamp: new Date().toISOString() } };
   }
-  const res = await apiClient.post<ApiResponse<UserRecord[]>>('/api/v1/search', { query });
+  const res = await apiClient.post<SuccessResponse<UserRecord[]>>('/api/v1/search', { query });
   return res.data;
 };
 

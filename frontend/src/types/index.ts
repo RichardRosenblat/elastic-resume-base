@@ -3,7 +3,21 @@
  *
  * These types mirror the response shapes of the BFF Gateway API so that
  * API call functions and UI components share a single source of truth.
+ *
+ * BFF API envelope types are imported directly from the shared Bowltie
+ * library so the frontend always uses the canonical definitions produced
+ * by the same library that formats the responses on the server side.
  */
+
+// Re-export the canonical BFF API response envelope types from the shared
+// Bowltie library.  These replace the previously local ApiResponse / ApiMeta
+// definitions and ensure the frontend stays in sync with server-side formatting.
+export type {
+  ResponseMeta,
+  SuccessResponse,
+  ErrorResponse,
+  ApiResponse,
+} from '@elastic-resume-base/bowltie';
 
 /**
  * The authenticated user's profile as returned by `GET /api/v1/me`.
@@ -46,25 +60,6 @@ export interface ResumeIngestJob {
   jobId: string;
   status: string;
   acceptedAt: string;
-}
-
-/**
- * Pagination metadata included in paginated BFF API responses.
- */
-export interface ApiMeta {
-  page: number;
-  limit: number;
-  total: number;
-}
-
-/**
- * Standard envelope for paginated or collection BFF API responses.
- * Mirrors the `formatSuccess` envelope produced by the Bowltie shared library.
- */
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  meta?: ApiMeta;
 }
 
 /**
