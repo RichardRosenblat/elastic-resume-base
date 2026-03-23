@@ -86,15 +86,24 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
   logger.trace({ uid }, 'authorizeUser: checking users store');
   try {
     const user = await userStore.getUserByUid(uid);
-    logger.debug({ uid, role: user.role, enable: user.enable }, 'authorizeUser: user found in users store');
+    logger.debug(
+      { uid, role: user.role, enable: user.enable },
+      'authorizeUser: user found in users store',
+    );
     // Auto-update email if it has changed in the auth provider
     if (user.email !== email) {
-      logger.info({ uid, oldEmail: user.email, newEmail: email }, 'authorizeUser: email has changed, updating user record');
+      logger.info(
+        { uid, oldEmail: user.email, newEmail: email },
+        'authorizeUser: email has changed, updating user record',
+      );
       try {
         await userStore.updateUser(uid, { email });
       } catch (updateErr) {
         // Non-fatal: log and continue with existing record
-        logger.warn({ uid, err: updateErr }, 'authorizeUser: failed to update email, continuing with existing record');
+        logger.warn(
+          { uid, err: updateErr },
+          'authorizeUser: failed to update email, continuing with existing record',
+        );
       }
     }
     return { role: user.role, enable: user.enable };
@@ -111,7 +120,10 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
   const preApproved = await preApprovedStore.getByEmail(email);
   if (preApproved) {
     const role = preApproved.role;
-    logger.info({ uid, email, role }, 'authorizeUser: user found in pre-approved store, promoting to users store');
+    logger.info(
+      { uid, email, role },
+      'authorizeUser: user found in pre-approved store, promoting to users store',
+    );
 
     await userStore.createUser({ uid, email, role, enable: true });
     await preApprovedStore.delete(email);
@@ -128,8 +140,32 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
 
   if (onboardableDomains.length > 0) {
     const domain = email.split('@')[1]?.toLowerCase();
-    if (domain && onboardableDomains.includes(domain)) {
-      logger.info({ uid, email, domain }, 'authorizeUser: email domain is onboardable, creating user with enable=false');
+
+    const isOnboardable =
+      domain &&
+      onboardableDomains.some((pattern) => {
+        const normalizedPattern = pattern.toLowerCase();
+        const normalizedDomain = domain.toLowerCase();
+
+        // 1. Exact domain match (handles "@example.com" or "example.com")
+        if (normalizedPattern.startsWith('@')) {
+          return normalizedPattern.slice(1) === normalizedDomain;
+        }
+
+        // 2. Simple domain match "example.com"
+        if (!normalizedPattern.includes('@')) {
+          return normalizedPattern === normalizedDomain;
+        }
+
+        // 3. Fallback: Full email match "user@example.com"
+        return normalizedPattern === email.toLowerCase();
+      });
+
+    if (isOnboardable) {
+      logger.info(
+        { uid, email, domain },
+        'authorizeUser: email is onboardable, creating user with enable=false',
+      );
       await userStore.createUser({ uid, email, role: DEFAULT_ROLE, enable: false });
       return { role: DEFAULT_ROLE, enable: false };
     }
@@ -205,7 +241,10 @@ export async function listUsers(
 ): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken, filters }, 'listUsers: building query');
   const result = await getUserStore().listUsers(maxResults, pageToken, filters);
-  logger.debug({ count: result.users.length, hasNextPage: !!result.pageToken }, 'listUsers: query complete');
+  logger.debug(
+    { count: result.users.length, hasNextPage: !!result.pageToken },
+    'listUsers: query complete',
+  );
   return { users: result.users, pageToken: result.pageToken };
 }
 
@@ -253,4 +292,3 @@ export async function bootstrapAdminUser(): Promise<void> {
     logger.error({ email, error }, 'Error occurred while bootstrapping admin user');
   }
 }
-

@@ -87,6 +87,17 @@ Describe **status or meta information** about an issue. Apply these as needed to
 
 ---
 
+### 🌐 Language Labels
+
+Describe **the programming language** involved in the issue. These are optional and can be combined with other labels.
+
+| Label | Description |
+|-------|-------------|
+| `language:python` | Python code |
+| `language:typescript` | TypeScript code |
+
+---
+
 ## Usage Rules
 
 ### Required Labels
