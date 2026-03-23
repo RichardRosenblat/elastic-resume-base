@@ -114,7 +114,7 @@ export interface UpdatePreApprovedRequest {
 /** Firebase Auth user record enriched with role and enable status from users-api. */
 export interface UserRecord {
   uid: string;
-  email?: string;
+  email: string;
   role: string;
   enable: boolean;
 }

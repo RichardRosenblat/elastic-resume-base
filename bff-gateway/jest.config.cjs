@@ -14,6 +14,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^js-yaml$': '<rootDir>/node_modules/js-yaml',
     '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
     '^@elastic-resume-base/aegis$': '<rootDir>/../shared/Aegis/src/index.ts',
     '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',

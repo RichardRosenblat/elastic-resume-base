@@ -63,9 +63,10 @@ describe('DashboardPage', () => {
     expect(screen.getByText('dashboard.yourProfile')).toBeInTheDocument();
   });
 
-  it('shows user email', () => {
+  it('shows only the username part of the email (before @) in the profile card', () => {
     render(<DashboardPage />);
-    expect(screen.getByText(/test@example.com/)).toBeInTheDocument();
+    expect(screen.getByText(/^test$/)).toBeInTheDocument();
+    expect(screen.queryByText(/test@example\.com/)).not.toBeInTheDocument();
   });
 
   it('shows only the username part of the email (before @) in the welcome greeting when no name is set', () => {
@@ -85,7 +86,8 @@ describe('DashboardPage', () => {
     const heading = screen.getByRole('heading', { level: 5 });
     expect(heading.textContent).toContain('noname');
     expect(heading.textContent).not.toContain('@');
-    // The profile "Email:" field should still show the full address
-    expect(screen.getByText('noname@example.com')).toBeInTheDocument();
+    // The profile "Email:" field should also show only the local part (before @)
+    expect(screen.getByText('noname')).toBeInTheDocument();
+    expect(screen.queryByText(/noname@example\.com/)).not.toBeInTheDocument();
   });
 });

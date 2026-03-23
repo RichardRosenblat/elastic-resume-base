@@ -95,7 +95,7 @@ export default function DashboardPage() {
               </Box>
               <Divider sx={{ mb: 2.5 }} />
               <Stack spacing={1.25}>
-                <ProfileField label={t('users.email')} value={userProfile?.email ?? '-'} />
+                <ProfileField label={t('users.email')} value={userProfile?.email?.split('@')[0] ?? '-'} />
                 <ProfileField label={t('dashboard.role')} value={userProfile?.role ?? '-'} />
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography variant="body2" color="text.secondary" sx={{ minWidth: 60 }}>
