@@ -19,6 +19,26 @@ import { logger } from '../utils/logger.js';
 /** Default role assigned to newly created users. */
 const DEFAULT_ROLE = 'user';
 
+function compareValues(a: string | boolean, b: string | boolean): number {
+  if (typeof a === 'boolean' && typeof b === 'boolean') {
+    if (a === b) return 0;
+    return a ? 1 : -1;
+  }
+  return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+}
+
+function sortUsers(users: UserRecord[], filters?: UserFilters): UserRecord[] {
+  const orderBy = filters?.orderBy ?? 'uid';
+  const orderDirection = filters?.orderDirection ?? 'asc';
+
+  const sorted = [...users].sort((left, right) => {
+    const result = compareValues(left[orderBy], right[orderBy]);
+    return orderDirection === 'desc' ? -result : result;
+  });
+
+  return sorted;
+}
+
 // ---------------------------------------------------------------------------
 // Store singletons (lazy-initialized on first call)
 // ---------------------------------------------------------------------------
@@ -240,12 +260,19 @@ export async function listUsers(
   filters?: UserFilters,
 ): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken, filters }, 'listUsers: building query');
-  const result = await getUserStore().listUsers(maxResults, pageToken, filters);
+  const storeFilters: UserFilters = {};
+  if (filters?.email !== undefined) storeFilters.email = filters.email;
+  if (filters?.role !== undefined) storeFilters.role = filters.role;
+  if (filters?.enable !== undefined) storeFilters.enable = filters.enable;
+  const finalStoreFilters = Object.keys(storeFilters).length > 0 ? storeFilters : undefined;
+
+  const result = await getUserStore().listUsers(maxResults, pageToken, finalStoreFilters);
+  const users = sortUsers(result.users, filters);
   logger.debug(
-    { count: result.users.length, hasNextPage: !!result.pageToken },
+    { count: users.length, hasNextPage: !!result.pageToken },
     'listUsers: query complete',
   );
-  return { users: result.users, pageToken: result.pageToken };
+  return { users, pageToken: result.pageToken };
 }
 
 // ---------------------------------------------------------------------------

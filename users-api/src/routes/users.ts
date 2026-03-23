@@ -247,6 +247,18 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             description: 'Filter pre-approved users by role (ignored when email is provided).',
             example: 'admin',
           },
+          orderBy: {
+            type: 'string',
+            enum: ['email', 'role'],
+            description: "Sort pre-approved users by field (ignored when 'email' is provided).",
+            example: 'email',
+          },
+          orderDirection: {
+            type: 'string',
+            enum: ['asc', 'desc'],
+            description: 'Sort direction for pre-approved list ordering.',
+            example: 'asc',
+          },
         },
       },
       response: {
@@ -419,6 +431,18 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             enum: ['true', 'false'],
             description: 'Filter users by enabled status.',
             example: 'true',
+          },
+          orderBy: {
+            type: 'string',
+            enum: ['uid', 'email', 'role', 'enable'],
+            description: 'Sort users by field.',
+            example: 'email',
+          },
+          orderDirection: {
+            type: 'string',
+            enum: ['asc', 'desc'],
+            description: 'Sort direction for user list ordering.',
+            example: 'asc',
           },
         },
       },

@@ -3,7 +3,15 @@ import { config } from '../config.js';
 import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
 import { logger } from '../utils/logger.js';
-import type { PreApprovedUser, UserRecord, ListUsersResponse, UpdateUserRequest, UpdatePreApprovedRequest } from '../models/index.js';
+import type {
+  PreApprovedUser,
+  UserRecord,
+  ListUsersResponse,
+  UpdateUserRequest,
+  UpdatePreApprovedRequest,
+  UserFilters,
+  PreApprovedFilters,
+} from '../models/index.js';
 
 const client = createHttpClient(config.userApiServiceUrl);
 
@@ -163,7 +171,7 @@ export async function getUserById(uid: string): Promise<UserRecord> {
 /**
  * Retrieves a paginated list of users from the users-api.
  */
-export async function listUsersFromApi(maxResults?: number, pageToken?: string, filters?: { email?: string; role?: string; enable?: boolean }): Promise<ListUsersResponse> {
+export async function listUsersFromApi(maxResults?: number, pageToken?: string, filters?: UserFilters): Promise<ListUsersResponse> {
   logger.debug({ maxResults, pageToken, filters }, 'listUsersFromApi: requesting user list from UserAPI');
   try {
     const params = new URLSearchParams();
@@ -172,6 +180,8 @@ export async function listUsersFromApi(maxResults?: number, pageToken?: string, 
     if (filters?.email !== undefined) params.set('email', filters.email);
     if (filters?.role !== undefined) params.set('role', filters.role);
     if (filters?.enable !== undefined) params.set('enable', String(filters.enable));
+    if (filters?.orderBy !== undefined) params.set('orderBy', filters.orderBy);
+    if (filters?.orderDirection !== undefined) params.set('orderDirection', filters.orderDirection);
     const query = params.toString() ? `?${params.toString()}` : '';
     const response = await client.get<{ success: boolean; data: ListUsersResponse }>(
       `/api/v1/users${query}`,
@@ -235,11 +245,13 @@ export async function deleteUserFromApi(uid: string): Promise<void> {
 /**
  * Lists all pre-approved users from the users-api.
  */
-export async function listPreApprovedFromApi(filters?: { role?: string }): Promise<PreApprovedUser[]> {
+export async function listPreApprovedFromApi(filters?: PreApprovedFilters): Promise<PreApprovedUser[]> {
   logger.debug({ filters }, 'listPreApprovedFromApi: requesting pre-approved users from UserAPI');
   try {
     const params = new URLSearchParams();
     if (filters?.role !== undefined) params.set('role', filters.role);
+    if (filters?.orderBy !== undefined) params.set('orderBy', filters.orderBy);
+    if (filters?.orderDirection !== undefined) params.set('orderDirection', filters.orderDirection);
     const query = params.toString() ? `?${params.toString()}` : '';
     const response = await client.get<{ success: boolean; data: PreApprovedUser[] }>(
       `/api/v1/users/pre-approve${query}`,

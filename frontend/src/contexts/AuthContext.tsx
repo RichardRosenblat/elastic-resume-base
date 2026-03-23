@@ -21,7 +21,7 @@ import { config } from '../config';
 import { AuthContext } from './auth-context';
 import type { AuthContextType } from './auth-context';
 import { useToast } from './use-toast';
-import { throwOnFailedResponse, toUserFacingErrorMessage } from '../services/api-error';
+import { ensureApiRequestError, throwOnFailedResponse, toUserFacingErrorMessage } from '../services/api-error';
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await fetch(`${config.bffUrl}/api/v1/users/me`, {
@@ -61,8 +61,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const profile = await fetchUserProfile(token);
           setUserProfile(profile);
         } catch (error) {
-          setUserProfile(null);
-          showToast(toUserFacingErrorMessage(error, 'Failed to fetch profile'), { severity: 'error' });
+          const normalizedError = ensureApiRequestError(error, 'Failed to fetch profile');
+          const isPendingApproval = normalizedError.status === 403
+            && normalizedError.code === 'FORBIDDEN'
+            && normalizedError.message.toLowerCase().includes('pending approval');
+
+          if (isPendingApproval) {
+            setUserProfile({
+              uid: user.uid,
+              email: user.email ?? '',
+              name: user.displayName ?? undefined,
+              picture: user.photoURL ?? undefined,
+              role: 'user',
+              enable: false,
+            });
+          } else {
+            setUserProfile(null);
+            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
+          }
         }
       } else {
         setUserProfile(null);

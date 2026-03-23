@@ -25,6 +25,7 @@ import {
   IconButton,
   Chip,
   TablePagination,
+  TableSortLabel,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -44,7 +45,7 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
-import type { UserRecord, PreApprovedUser } from '../../types';
+import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
 import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -68,12 +69,68 @@ export default function UsersPage() {
   const [preApproved, setPreApproved] = useState<PreApprovedUser[]>([]);
   const [newPreApprovedEmail, setNewPreApprovedEmail] = useState('');
   const [newPreApprovedRole, setNewPreApprovedRole] = useState<'admin' | 'user'>('user');
+  const [usersSortBy, setUsersSortBy] = useState<UserSortField>('email');
+  const [usersSortDirection, setUsersSortDirection] = useState<SortDirection>('asc');
+  const [usersRoleFilter, setUsersRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
+  const [usersEnabledFilter, setUsersEnabledFilter] = useState<'all' | 'true' | 'false'>('all');
+  const [preApprovedSortBy, setPreApprovedSortBy] = useState<PreApprovedSortField>('email');
+  const [preApprovedSortDirection, setPreApprovedSortDirection] = useState<SortDirection>('asc');
+  const [preApprovedRoleFilter, setPreApprovedRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
+
+  const toggleSortDirection = (current: SortDirection): SortDirection => (current === 'asc' ? 'desc' : 'asc');
+
+  const handleUsersSort = (field: UserSortField) => {
+    if (usersSortBy === field) {
+      setUsersSortDirection((prev) => toggleSortDirection(prev));
+      return;
+    }
+    setUsersSortBy(field);
+    setUsersSortDirection('asc');
+  };
+
+  const handlePreApprovedSort = (field: PreApprovedSortField) => {
+    if (preApprovedSortBy === field) {
+      setPreApprovedSortDirection((prev) => toggleSortDirection(prev));
+      return;
+    }
+    setPreApprovedSortBy(field);
+    setPreApprovedSortDirection('asc');
+  };
+
+  const cycleUsersRoleFilter = () => {
+    setUsersRoleFilter((prev) => {
+      if (prev === 'all') return 'admin';
+      if (prev === 'admin') return 'user';
+      return 'all';
+    });
+  };
+
+  const cycleUsersEnabledFilter = () => {
+    setUsersEnabledFilter((prev) => {
+      if (prev === 'all') return 'true';
+      if (prev === 'true') return 'false';
+      return 'all';
+    });
+  };
+
+  const cyclePreApprovedRoleFilter = () => {
+    setPreApprovedRoleFilter((prev) => {
+      if (prev === 'all') return 'admin';
+      if (prev === 'admin') return 'user';
+      return 'all';
+    });
+  };
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listUsers(page + 1, rowsPerPage);
+      const res = await listUsers(page + 1, rowsPerPage, {
+        role: usersRoleFilter === 'all' ? undefined : usersRoleFilter,
+        enable: usersEnabledFilter === 'all' ? undefined : usersEnabledFilter === 'true',
+        orderBy: usersSortBy,
+        orderDirection: usersSortDirection,
+      });
       setUsers(res.data.users);
       setTotal(res.data.users.length);
     } catch (error) {
@@ -83,17 +140,30 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, showToast, t]);
+  }, [
+    page,
+    rowsPerPage,
+    showToast,
+    t,
+    usersSortBy,
+    usersSortDirection,
+    usersRoleFilter,
+    usersEnabledFilter,
+  ]);
 
   const fetchPreApproved = useCallback(async () => {
     try {
-      const data = await listPreApprovedUsers();
+      const data = await listPreApprovedUsers({
+        role: preApprovedRoleFilter === 'all' ? undefined : preApprovedRoleFilter,
+        orderBy: preApprovedSortBy,
+        orderDirection: preApprovedSortDirection,
+      });
       setPreApproved(data);
     } catch (error) {
       const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
       showToast(errorMessage, { severity: 'error' });
     }
-  }, [showToast, t]);
+  }, [showToast, t, preApprovedSortBy, preApprovedSortDirection, preApprovedRoleFilter]);
 
   useEffect(() => {
     void fetchUsers();
@@ -185,10 +255,62 @@ export default function UsersPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>{t('users.email')}</TableCell>
-                <TableCell>{t('users.uid')}</TableCell>
-                <TableCell>{t('users.role')}</TableCell>
-                <TableCell>{t('users.enabled')}</TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={usersSortBy === 'email'}
+                    direction={usersSortBy === 'email' ? usersSortDirection : 'asc'}
+                    onClick={() => handleUsersSort('email')}
+                  >
+                    {t('users.email')}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={usersSortBy === 'uid'}
+                    direction={usersSortBy === 'uid' ? usersSortDirection : 'asc'}
+                    onClick={() => handleUsersSort('uid')}
+                  >
+                    {t('users.uid')}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <TableSortLabel
+                      active={usersSortBy === 'role'}
+                      direction={usersSortBy === 'role' ? usersSortDirection : 'asc'}
+                      onClick={() => handleUsersSort('role')}
+                    >
+                      {t('users.role')}
+                    </TableSortLabel>
+                    <Chip
+                      size="small"
+                      variant={usersRoleFilter === 'all' ? 'outlined' : 'filled'}
+                      label={usersRoleFilter === 'all' ? 'all' : usersRoleFilter}
+                      onClick={cycleUsersRoleFilter}
+                    />
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <TableSortLabel
+                      active={usersSortBy === 'enable'}
+                      direction={usersSortBy === 'enable' ? usersSortDirection : 'asc'}
+                      onClick={() => handleUsersSort('enable')}
+                    >
+                      {t('users.enabled')}
+                    </TableSortLabel>
+                    <Chip
+                      size="small"
+                      variant={usersEnabledFilter === 'all' ? 'outlined' : 'filled'}
+                      label={usersEnabledFilter === 'all'
+                        ? 'all'
+                        : usersEnabledFilter === 'true'
+                          ? t('dashboard.active')
+                          : t('dashboard.pending')}
+                      onClick={cycleUsersEnabledFilter}
+                    />
+                  </Box>
+                </TableCell>
                 <TableCell>{t('users.actions')}</TableCell>
               </TableRow>
             </TableHead>
@@ -274,8 +396,32 @@ export default function UsersPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>{t('users.email')}</TableCell>
-              <TableCell>{t('users.role')}</TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={preApprovedSortBy === 'email'}
+                  direction={preApprovedSortBy === 'email' ? preApprovedSortDirection : 'asc'}
+                  onClick={() => handlePreApprovedSort('email')}
+                >
+                  {t('users.email')}
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <TableSortLabel
+                    active={preApprovedSortBy === 'role'}
+                    direction={preApprovedSortBy === 'role' ? preApprovedSortDirection : 'asc'}
+                    onClick={() => handlePreApprovedSort('role')}
+                  >
+                    {t('users.role')}
+                  </TableSortLabel>
+                  <Chip
+                    size="small"
+                    variant={preApprovedRoleFilter === 'all' ? 'outlined' : 'filled'}
+                    label={preApprovedRoleFilter === 'all' ? 'all' : preApprovedRoleFilter}
+                    onClick={cyclePreApprovedRoleFilter}
+                  />
+                </Box>
+              </TableCell>
               <TableCell>{t('users.actions')}</TableCell>
             </TableRow>
           </TableHead>

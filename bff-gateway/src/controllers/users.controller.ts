@@ -65,6 +65,12 @@ const listUsersQuerySchema = z.object({
   enable: z.enum(['true', 'false'], {
     errorMap: () => ({ message: "enable must be 'true' or 'false'" }),
   }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
+  orderBy: z.enum(['uid', 'email', 'role', 'enable'], {
+    errorMap: () => ({ message: "orderBy must be one of 'uid', 'email', 'role', or 'enable'" }),
+  }).optional(),
+  orderDirection: z.enum(['asc', 'desc'], {
+    errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
+  }).optional(),
 });
 
 const getPreApprovedQuerySchema = z.object({
@@ -72,11 +78,25 @@ const getPreApprovedQuerySchema = z.object({
   role: z.enum(['admin', 'user'], {
     errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
   }).optional(),
+  orderBy: z.enum(['email', 'role'], {
+    errorMap: () => ({ message: "orderBy must be either 'email' or 'role'" }),
+  }).optional(),
+  orderDirection: z.enum(['asc', 'desc'], {
+    errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
+  }).optional(),
 });
 
 type UidParams = { uid: string };
 type EmailQuery = { email?: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string; email?: string; role?: string; enable?: string };
+type ListUsersQuery = {
+  maxResults?: number;
+  pageToken?: string;
+  email?: string;
+  role?: string;
+  enable?: string;
+  orderBy?: string;
+  orderDirection?: string;
+};
 
 /**
  * Handles GET /api/v1/users/me — returns the authenticated user's profile from users store.
@@ -120,11 +140,19 @@ export async function listUsersHandler(
     void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
-  const { maxResults, pageToken, email: emailFilter, role, enable } = parsed.data;
-  const filters: { email?: string; role?: string; enable?: boolean } = {};
+  const { maxResults, pageToken, email: emailFilter, role, enable, orderBy, orderDirection } = parsed.data;
+  const filters: {
+    email?: string;
+    role?: string;
+    enable?: boolean;
+    orderBy?: 'uid' | 'email' | 'role' | 'enable';
+    orderDirection?: 'asc' | 'desc';
+  } = {};
   if (emailFilter !== undefined) filters.email = emailFilter;
   if (role !== undefined) filters.role = role;
   if (enable !== undefined) filters.enable = enable;
+  if (orderBy !== undefined) filters.orderBy = orderBy;
+  if (orderDirection !== undefined) filters.orderDirection = orderDirection;
   const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
   logger.debug({ correlationId: request.correlationId }, 'listUsersHandler: fetching users');
   const result = await listUsers(maxResults, pageToken, finalFilters);
@@ -182,7 +210,7 @@ export async function deleteUserHandler(
  * Handles GET /api/v1/users/pre-approve — lists or gets pre-approved users (admin only).
  */
 export async function getPreApprovedHandler(
-  request: FastifyRequest<{ Querystring: { email?: string; role?: string } }>,
+  request: FastifyRequest<{ Querystring: { email?: string; role?: string; orderBy?: string; orderDirection?: string } }>,
   reply: FastifyReply,
 ): Promise<void> {
   const parsed = getPreApprovedQuerySchema.safeParse(request.query);
@@ -191,15 +219,19 @@ export async function getPreApprovedHandler(
     return;
   }
   const { role: requesterRole } = request.user;
-  const { email, role: filterRole } = parsed.data;
+  const { email, role: filterRole, orderBy, orderDirection } = parsed.data;
   if (email) {
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching specific user');
     const user = await getPreApproved(email, requesterRole ?? 'user');
     void reply.send(formatSuccess(user, request.correlationId));
   } else {
     logger.debug({ correlationId: request.correlationId }, 'getPreApprovedHandler: listing all');
-    const filters = filterRole ? { role: filterRole } : undefined;
-    const users = await listPreApproved(requesterRole ?? 'user', filters);
+    const filters: { role?: 'admin' | 'user'; orderBy?: 'email' | 'role'; orderDirection?: 'asc' | 'desc' } = {};
+    if (filterRole !== undefined) filters.role = filterRole;
+    if (orderBy !== undefined) filters.orderBy = orderBy;
+    if (orderDirection !== undefined) filters.orderDirection = orderDirection;
+    const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
+    const users = await listPreApproved(requesterRole ?? 'user', finalFilters);
     void reply.send(formatSuccess(users, request.correlationId));
   }
 }

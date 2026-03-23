@@ -51,6 +51,10 @@ export interface ListUsersData {
   pageToken?: string;
 }
 
+export type SortDirection = 'asc' | 'desc';
+export type UserSortField = 'uid' | 'email' | 'role' | 'enable';
+export type PreApprovedSortField = 'email' | 'role';
+
 /**
  * A pre-approved email entry that allows automatic onboarding before first sign-in.
  */

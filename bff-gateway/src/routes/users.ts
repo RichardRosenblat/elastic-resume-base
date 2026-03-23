@@ -227,6 +227,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           email: { type: 'string', format: 'email', description: 'Filter by exact email address.', example: 'jane.doe@example.com' },
           role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Filter by role ('admin' or 'user')." },
           enable: { type: 'string', enum: ['true', 'false'], description: 'Filter by enabled status.' },
+          orderBy: { type: 'string', enum: ['uid', 'email', 'role', 'enable'], description: 'Sort users by field.', example: 'email' },
+          orderDirection: { type: 'string', enum: ['asc', 'desc'], description: 'Sort direction.', example: 'asc' },
         },
       },
       response: {
@@ -266,6 +268,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           email: { type: 'string', example: 'jane.doe@example.com' },
           role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: 'Filter list by role.' },
+          orderBy: { type: 'string', enum: ['email', 'role'], example: 'email', description: 'Sort pre-approved users by field.' },
+          orderDirection: { type: 'string', enum: ['asc', 'desc'], example: 'asc', description: 'Sort direction.' },
         },
       },
       response: {

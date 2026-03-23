@@ -47,11 +47,17 @@ export interface UpdateUserRequest {
   enable?: boolean;
 }
 
+export type SortDirection = 'asc' | 'desc';
+export type UserSortField = 'uid' | 'email' | 'role' | 'enable';
+export type PreApprovedSortField = 'email' | 'role';
+
 /** Filters for querying users. */
 export interface UserFilters {
   email?: string;
   role?: string;
   enable?: boolean;
+  orderBy?: UserSortField;
+  orderDirection?: SortDirection;
 }
 
 /** Request payload for adding a pre-approved user. */
@@ -68,6 +74,8 @@ export interface UpdatePreApprovedRequest {
 /** Filters for querying pre-approved users. */
 export interface PreApprovedFilters {
   role?: string;
+  orderBy?: PreApprovedSortField;
+  orderDirection?: SortDirection;
 }
 
 /** Paginated list users response. */

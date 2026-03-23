@@ -131,14 +131,22 @@ export interface PreApprovedUser {
   role: string;
 }
 
+export type SortDirection = 'asc' | 'desc';
+export type UserSortField = 'uid' | 'email' | 'role' | 'enable';
+export type PreApprovedSortField = 'email' | 'role';
+
 /** Filters for listing users. */
 export interface UserFilters {
   email?: string;
   role?: string;
   enable?: boolean;
+  orderBy?: UserSortField;
+  orderDirection?: SortDirection;
 }
 
 /** Filters for listing pre-approved users. */
 export interface PreApprovedFilters {
   role?: string;
+  orderBy?: PreApprovedSortField;
+  orderDirection?: SortDirection;
 }

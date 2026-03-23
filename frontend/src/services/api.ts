@@ -17,6 +17,9 @@ import { ensureApiRequestError } from './api-error';
 import type {
   UserRecord,
   PreApprovedUser,
+  UserSortField,
+  PreApprovedSortField,
+  SortDirection,
   ResumeIngestJob,
   ResumeGenerateJob,
   SearchResponseData,
@@ -157,10 +160,27 @@ export const updateMyEmail = async (email: string): Promise<UserRecord> => {
  * @param page  1-based page number (default: 1).
  * @param limit Items per page (default: 10).
  */
-export const listUsers = async (_page = 1, limit = 10): Promise<SuccessResponse<ListUsersData>> => {
+export const listUsers = async (
+  _page = 1,
+  limit = 10,
+  options?: {
+    email?: string;
+    role?: 'admin' | 'user';
+    enable?: boolean;
+    orderBy?: UserSortField;
+    orderDirection?: SortDirection;
+  },
+): Promise<SuccessResponse<ListUsersData>> => {
   void _page;
   const res = await apiClient.get<SuccessResponse<ListUsersData>>('/api/v1/users', {
-    params: { maxResults: limit },
+    params: {
+      maxResults: limit,
+      email: options?.email,
+      role: options?.role,
+      enable: options?.enable,
+      orderBy: options?.orderBy,
+      orderDirection: options?.orderDirection,
+    },
   });
   return res.data;
 };
@@ -186,8 +206,18 @@ export const deleteUser = async (uid: string): Promise<void> => {
 };
 
 /** Returns all pre-approved email entries. Admin only. */
-export const listPreApprovedUsers = async (): Promise<PreApprovedUser[]> => {
-  const res = await apiClient.get<SuccessResponse<PreApprovedUser[]>>('/api/v1/users/pre-approve');
+export const listPreApprovedUsers = async (options?: {
+  role?: 'admin' | 'user';
+  orderBy?: PreApprovedSortField;
+  orderDirection?: SortDirection;
+}): Promise<PreApprovedUser[]> => {
+  const res = await apiClient.get<SuccessResponse<PreApprovedUser[]>>('/api/v1/users/pre-approve', {
+    params: {
+      role: options?.role,
+      orderBy: options?.orderBy,
+      orderDirection: options?.orderDirection,
+    },
+  });
   return unwrapSuccessResponse(res.data);
 };
 

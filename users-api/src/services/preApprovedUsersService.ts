@@ -7,6 +7,18 @@ import { config } from '../config.js';
 import type { AddPreApprovedRequest, PreApprovedFilters, PreApprovedUser, UpdatePreApprovedRequest } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 
+function sortPreApprovedUsers(users: PreApprovedUser[], filters?: PreApprovedFilters): PreApprovedUser[] {
+  const orderBy = filters?.orderBy ?? 'email';
+  const orderDirection = filters?.orderDirection ?? 'asc';
+
+  const sorted = [...users].sort((left, right) => {
+    const result = left[orderBy].localeCompare(right[orderBy], undefined, { sensitivity: 'base' });
+    return orderDirection === 'desc' ? -result : result;
+  });
+
+  return sorted;
+}
+
 // ---------------------------------------------------------------------------
 // Store singleton (lazy-initialized on first call)
 // ---------------------------------------------------------------------------
@@ -61,9 +73,13 @@ export async function getPreApprovedUser(email: string): Promise<PreApprovedUser
  */
 export async function listPreApprovedUsers(filters?: PreApprovedFilters): Promise<PreApprovedUser[]> {
   logger.debug({ filters }, 'listPreApprovedUsers: fetching pre-approved users');
-  const users = await getPreApprovedStore().list(filters);
-  logger.debug({ count: users.length }, 'listPreApprovedUsers: query complete');
-  return users;
+  const storeFilters: PreApprovedFilters = {};
+  if (filters?.role !== undefined) storeFilters.role = filters.role;
+  const finalStoreFilters = Object.keys(storeFilters).length > 0 ? storeFilters : undefined;
+  const users = await getPreApprovedStore().list(finalStoreFilters);
+  const sortedUsers = sortPreApprovedUsers(users, filters);
+  logger.debug({ count: sortedUsers.length }, 'listPreApprovedUsers: query complete');
+  return sortedUsers;
 }
 
 /**
