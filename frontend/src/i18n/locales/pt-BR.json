@@ -107,5 +107,9 @@
   "theme": {
     "switchToLight": "Alternar para modo claro",
     "switchToDark": "Alternar para modo escuro"
+  },
+  "support": {
+    "notWorking": "Algo não está funcionando como esperado?",
+    "contactSupport": "Entre em contato com o suporte por e-mail"
   }
 }

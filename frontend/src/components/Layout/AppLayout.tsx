@@ -12,6 +12,7 @@ import { Box, Toolbar, useTheme, useMediaQuery } from '@mui/material';
 import { Outlet } from 'react-router-dom';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar';
+import SupportFooter from '../SupportFooter';
 
 const DRAWER_WIDTH = 240;
 
@@ -51,10 +52,14 @@ export default function AppLayout() {
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '100vh',
         }}
       >
         <Toolbar />
         <Outlet />
+        <SupportFooter />
       </Box>
     </Box>
   );

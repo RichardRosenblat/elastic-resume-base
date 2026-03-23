@@ -29,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import ErrorMessage from '../../components/ErrorMessage';
 import { useAppTheme } from '../../theme';
+import SupportFooter from '../../components/SupportFooter';
 
 const loginSchema = z.object({
   email: z.string().min(1).email(),
@@ -146,6 +147,7 @@ export default function LoginPage() {
             </Button>
           </CardContent>
         </Card>
+        <SupportFooter />
       </Box>
     </Container>
   );
