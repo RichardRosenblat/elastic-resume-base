@@ -149,12 +149,6 @@ export const getMyUserRecord = async (): Promise<UserRecord> => {
   return unwrapSuccessResponse(res.data);
 };
 
-/** Updates the authenticated user's own email address (`PATCH /api/v1/users/me`). */
-export const updateMyEmail = async (email: string): Promise<UserRecord> => {
-  const res = await apiClient.patch<SuccessResponse<UserRecord>>('/api/v1/users/me', { email });
-  return unwrapSuccessResponse(res.data);
-};
-
 /**
  * Returns a paginated list of all users. Admin only.
  * @param page  1-based page number (default: 1).

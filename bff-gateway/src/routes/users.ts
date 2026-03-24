@@ -425,8 +425,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Users'],
       summary: 'Update user by UID',
       description:
-        'Updates a user. Admins may update any user with any field. ' +
-        'Non-admins may only update their own email.',
+        'Updates a user (admin only). Admins may update role or enable status.',
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
@@ -438,9 +437,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
-          email: { type: 'string', format: 'email', example: 'new.email@example.com' },
-          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Admin only. Must be 'admin' or 'user'." },
-          enable: { type: 'boolean', example: true, description: 'Admin only.' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Must be 'admin' or 'user'." },
+          enable: { type: 'boolean', example: true },
         },
       },
       response: {

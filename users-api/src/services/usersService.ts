@@ -1,4 +1,4 @@
-import { ForbiddenError, ValidationError } from '../errors.js';
+import { ForbiddenError } from '../errors.js';
 import {
   FirestoreUserDocumentStore,
   FirestorePreApprovedStore,
@@ -67,15 +67,6 @@ function getPreApprovedStore(): IPreApprovedStore {
 export function _resetStores(): void {
   _userStore = null;
   _preApprovedStore = null;
-}
-
-/**
- * Validates that the email field is present and is a non-empty string.
- */
-function validateEmail(email: string): void {
-  if (!email || !email.includes('@')) {
-    throw new ValidationError('A valid email address is required');
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -228,17 +219,43 @@ export async function getUserByEmail(email: string): Promise<UserRecord | null> 
 }
 
 /**
+ * Counts the number of currently enabled admin users.
+ *
+ * @returns Total count of enabled admin users in the store.
+ */
+async function countEnabledAdmins(): Promise<number> {
+  const result = await getUserStore().listUsers(10000, undefined, { role: 'admin', enable: true });
+  return result.users.length;
+}
+
+/**
  * Updates mutable attributes of a user.
+ *
+ * Guards against removing the last enabled admin:
+ * - If the target user is an enabled admin and the update would disable them or
+ *   demote their role to `'user'`, this function checks whether they are the
+ *   last enabled admin and rejects the change if so.
  *
  * @param uid - Unique identifier of the user to update.
  * @param data - Fields to update. Only supplied fields are changed.
  * @returns The updated {@link UserRecord}.
  * @throws {NotFoundError} If no user with that UID exists.
+ * @throws {ForbiddenError} If the update would remove the last enabled admin.
  */
 export async function updateUser(uid: string, data: UpdateUserRequest): Promise<UserRecord> {
-  if (data.email !== undefined) {
-    logger.debug({ uid, email: data.email }, 'updateUser: validating new email');
-    validateEmail(data.email);
+  const wouldDisable = data.enable === false;
+  const wouldDemote = data.role !== undefined && data.role !== 'admin';
+
+  if (wouldDisable || wouldDemote) {
+    const current = await getUserStore().getUserByUid(uid);
+    const isCurrentAdmin = current.role === 'admin' && current.enable;
+
+    if (isCurrentAdmin) {
+      const adminCount = await countEnabledAdmins();
+      if (adminCount <= 1) {
+        throw new ForbiddenError('Cannot remove the last enabled admin from the system');
+      }
+    }
   }
 
   logger.debug({ uid }, 'updateUser: updating user');
@@ -250,10 +267,21 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
 /**
  * Permanently removes a user.
  *
+ * Guards against deleting the last enabled admin.
+ *
  * @param uid - Unique identifier of the user to delete.
  * @throws {NotFoundError} If no user with that UID exists.
+ * @throws {ForbiddenError} If deleting this user would leave no enabled admin.
  */
 export async function deleteUser(uid: string): Promise<void> {
+  const current = await getUserStore().getUserByUid(uid);
+  if (current.role === 'admin' && current.enable) {
+    const adminCount = await countEnabledAdmins();
+    if (adminCount <= 1) {
+      throw new ForbiddenError('Cannot delete the last enabled admin from the system');
+    }
+  }
+
   logger.debug({ uid }, 'deleteUser: removing user');
   await getUserStore().deleteUser(uid);
   logger.info({ uid, action: 'deleteUser' }, 'User deleted');

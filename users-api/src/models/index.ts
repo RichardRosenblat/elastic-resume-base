@@ -42,7 +42,6 @@ export interface CreateUserRequest {
 
 /** Request payload for updating an existing user. */
 export interface UpdateUserRequest {
-  email?: string;
   role?: string;
   enable?: boolean;
 }

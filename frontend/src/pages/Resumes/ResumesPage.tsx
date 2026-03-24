@@ -16,12 +16,6 @@ import {
   Typography,
   Card,
   CardContent,
-  TextField,
-  Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Alert,
   CircularProgress,
   Divider,
@@ -31,39 +25,34 @@ import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { triggerResumeIngest, generateResume } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
-import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
-import { useButtonLock } from '../../hooks/useButtonLock';
+import { FormTemplate } from '../../components/templates';
 
 export default function ResumesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const features = useFeatureFlags();
-  const [sheetId, setSheetId] = useState('');
+  const [ingestValues, setIngestValues] = useState<Record<string, string>>({ sheetId: '' });
   const [ingestLoading, setIngestLoading] = useState(false);
   const [ingestSuccess, setIngestSuccess] = useState<string | null>(null);
-  const [ingestError, setIngestError] = useState<string | null>(null);
-  const [resumeId, setResumeId] = useState('');
-  const [language, setLanguage] = useState('en');
-  const [format, setFormat] = useState('pdf');
+  const [generateValues, setGenerateValues] = useState<Record<string, string>>({
+    resumeId: '',
+    language: 'en',
+    format: 'pdf',
+  });
   const [generateLoading, setGenerateLoading] = useState(false);
   const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
-  const [generateError, setGenerateError] = useState<string | null>(null);
-  const { locked: ingestLocked, wrap: wrapIngest } = useButtonLock();
-  const { locked: generateLocked, wrap: wrapGenerate } = useButtonLock();
 
   const handleIngest = async () => {
     setIngestLoading(true);
-    setIngestError(null);
     setIngestSuccess(null);
     try {
-      const job = await triggerResumeIngest({ sheetId });
+      const job = await triggerResumeIngest({ sheetId: ingestValues.sheetId });
       const successMessage = `Job ${job.jobId} submitted`;
       setIngestSuccess(successMessage);
       showToast(successMessage, { severity: 'success' });
     } catch (error) {
       const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setIngestError(errorMessage);
       showToast(errorMessage, { severity: 'error' });
     } finally {
       setIngestLoading(false);
@@ -73,28 +62,26 @@ export default function ResumesPage() {
   const handleGenerate = async () => {
     setGenerateLoading(true);
     setGenerateSuccess(null);
-    setGenerateError(null);
     try {
-      const job = await generateResume(resumeId, { language, format });
+      const job = await generateResume(generateValues.resumeId, {
+        language: generateValues.language,
+        format: generateValues.format,
+      });
 
+      let successMessage: string;
       if ('downloadUrl' in job && typeof job.downloadUrl === 'string' && job.downloadUrl.length > 0) {
         window.open(job.downloadUrl, '_blank', 'noopener,noreferrer');
-        const successMessage = `Generation job ${job.jobId} submitted. Download opened.`;
-        setGenerateSuccess(successMessage);
-        showToast(successMessage, { severity: 'success' });
+        successMessage = `Generation job ${job.jobId} submitted. Download opened.`;
       } else if ('driveLink' in job && typeof job.driveLink === 'string' && job.driveLink.length > 0) {
         window.open(job.driveLink, '_blank', 'noopener,noreferrer');
-        const successMessage = `Generation job ${job.jobId} submitted. Drive link opened.`;
-        setGenerateSuccess(successMessage);
-        showToast(successMessage, { severity: 'success' });
+        successMessage = `Generation job ${job.jobId} submitted. Drive link opened.`;
       } else {
-        const successMessage = `Generation job ${job.jobId} submitted.`;
-        setGenerateSuccess(successMessage);
-        showToast(successMessage, { severity: 'success' });
+        successMessage = `Generation job ${job.jobId} submitted.`;
       }
+      setGenerateSuccess(successMessage);
+      showToast(successMessage, { severity: 'success' });
     } catch (error) {
       const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setGenerateError(errorMessage);
       showToast(errorMessage, { severity: 'error' });
     } finally {
       setGenerateLoading(false);
@@ -120,26 +107,32 @@ export default function ResumesPage() {
           {!features.resumeIngest && (
             <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>{t('dashboard.comingSoon')}</Alert>
           )}
-          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="center">
-            <TextField
-              label={t('resumes.sheetId')}
-              value={sheetId}
-              onChange={(e) => setSheetId(e.target.value)}
-              size="small"
-              disabled={!features.resumeIngest}
-              sx={{ minWidth: 240 }}
-            />
-            <Button
-              variant="contained"
-              onClick={wrapIngest(handleIngest)}
-              disabled={!features.resumeIngest || ingestLoading || !sheetId || ingestLocked}
-              startIcon={ingestLoading ? <CircularProgress size={16} /> : undefined}
-            >
-              {t('resumes.submit')}
-            </Button>
-          </Box>
+          <FormTemplate
+            config={{
+              fields: [
+                {
+                  key: 'sheetId',
+                  label: t('resumes.sheetId'),
+                  type: 'text',
+                  size: 'small',
+                  minWidth: 240,
+                  disabled: !features.resumeIngest,
+                },
+              ],
+              buttons: [
+                {
+                  label: t('resumes.submit'),
+                  onClick: () => { void handleIngest(); },
+                  variant: 'contained',
+                  disabled: !features.resumeIngest || ingestLoading || !ingestValues.sheetId,
+                  startIcon: ingestLoading ? <CircularProgress size={16} /> : undefined,
+                },
+              ],
+              values: ingestValues,
+              onChange: (key, value) => setIngestValues((prev) => ({ ...prev, [key]: value })),
+            }}
+          />
           {ingestSuccess && <Alert severity="success" sx={{ mt: 2 }}>{ingestSuccess}</Alert>}
-          {ingestError && <ErrorMessage message={ingestError} onClose={() => setIngestError(null)} />}
         </CardContent>
       </Card>
 
@@ -154,51 +147,57 @@ export default function ResumesPage() {
           {!features.resumeGenerate && (
             <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>{t('dashboard.comingSoon')}</Alert>
           )}
-          <Box display="flex" gap={2} mt={2} flexWrap="wrap" alignItems="center">
-            <TextField
-              label={t('resumes.batchId')}
-              value={resumeId}
-              onChange={(e) => setResumeId(e.target.value)}
-              size="small"
-              disabled={!features.resumeGenerate}
-              sx={{ minWidth: 240 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>{t('resumes.language')}</InputLabel>
-              <Select
-                value={language}
-                label={t('resumes.language')}
-                onChange={(e) => setLanguage(e.target.value)}
-                disabled={!features.resumeGenerate}
-              >
-                <MenuItem value="en">English</MenuItem>
-                <MenuItem value="pt-BR">Português</MenuItem>
-                <MenuItem value="es">Español</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel>{t('resumes.format')}</InputLabel>
-              <Select
-                value={format}
-                label={t('resumes.format')}
-                onChange={(e) => setFormat(e.target.value)}
-                disabled={!features.resumeGenerate}
-              >
-                <MenuItem value="pdf">PDF</MenuItem>
-                <MenuItem value="docx">DOCX</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              onClick={wrapGenerate(handleGenerate)}
-              disabled={!features.resumeGenerate || generateLoading || !resumeId || generateLocked}
-              startIcon={generateLoading ? <CircularProgress size={16} /> : undefined}
-            >
-              {t('resumes.submit')}
-            </Button>
-          </Box>
+          <FormTemplate
+            config={{
+              fields: [
+                {
+                  key: 'resumeId',
+                  label: t('resumes.batchId'),
+                  type: 'text',
+                  size: 'small',
+                  minWidth: 240,
+                  disabled: !features.resumeGenerate,
+                },
+                {
+                  key: 'language',
+                  label: t('resumes.language'),
+                  type: 'select',
+                  size: 'small',
+                  minWidth: 120,
+                  disabled: !features.resumeGenerate,
+                  options: [
+                    { value: 'en', label: 'English' },
+                    { value: 'pt-BR', label: 'Português' },
+                    { value: 'es', label: 'Español' },
+                  ],
+                },
+                {
+                  key: 'format',
+                  label: t('resumes.format'),
+                  type: 'select',
+                  size: 'small',
+                  minWidth: 100,
+                  disabled: !features.resumeGenerate,
+                  options: [
+                    { value: 'pdf', label: 'PDF' },
+                    { value: 'docx', label: 'DOCX' },
+                  ],
+                },
+              ],
+              buttons: [
+                {
+                  label: t('resumes.submit'),
+                  onClick: () => { void handleGenerate(); },
+                  variant: 'contained',
+                  disabled: !features.resumeGenerate || generateLoading || !generateValues.resumeId,
+                  startIcon: generateLoading ? <CircularProgress size={16} /> : undefined,
+                },
+              ],
+              values: generateValues,
+              onChange: (key, value) => setGenerateValues((prev) => ({ ...prev, [key]: value })),
+            }}
+          />
           {generateSuccess && <Alert severity="success" sx={{ mt: 2 }}>{generateSuccess}</Alert>}
-          {generateError && <ErrorMessage message={generateError} onClose={() => setGenerateError(null)} />}
         </CardContent>
       </Card>
     </Box>
