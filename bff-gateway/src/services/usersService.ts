@@ -21,9 +21,6 @@ import {
   updatePreApprovedInApi,
 } from './userApiClient.js';
 
-/** Fields that only an admin user can change. */
-const ADMIN_ONLY_FIELDS: (keyof UpdateUserRequest)[] = ['role', 'enable'];
-
 // ---------------------------------------------------------------------------
 // User management (proxied to users-api)
 // ---------------------------------------------------------------------------
@@ -49,8 +46,8 @@ export async function listUsers(maxResults?: number, pageToken?: string, filters
  * to update any fields.
  *
  * @param uid - UID of the user to update.
- * @param payload - Fields to update.
- * @param requesterUid - UID of the user making the request (unused but kept for call-site consistency).
+ * @param payload - Fields to update (`role` and/or `enable`).
+ * @param requesterUid - UID of the user making the request.
  * @param requesterRole - Role of the user making the request.
  * @returns The updated UserRecord.
  * @throws {ForbiddenError} If a non-admin attempts any update.
@@ -61,18 +58,9 @@ export async function updateUser(
   requesterUid: string,
   requesterRole: string,
 ): Promise<UserRecord> {
-  const isAdmin = requesterRole === 'admin';
-
-  if (!isAdmin) {
+  if (requesterRole !== 'admin') {
     logger.warn({ uid, requesterUid }, 'updateUser: non-admin attempted to update a user');
     throw new ForbiddenError('Admin access required to update user accounts');
-  }
-
-  // Admins cannot change any field that is not in the allowed set
-  for (const field of Object.keys(payload) as (keyof UpdateUserRequest)[]) {
-    if (!ADMIN_ONLY_FIELDS.includes(field)) {
-      delete (payload as Record<string, unknown>)[field];
-    }
   }
 
   logger.debug({ uid, requesterUid }, 'updateUser: admin update');

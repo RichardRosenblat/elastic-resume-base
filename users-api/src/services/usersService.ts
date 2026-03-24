@@ -218,13 +218,16 @@ export async function getUserByEmail(email: string): Promise<UserRecord | null> 
   return user ?? null;
 }
 
+/** Upper-bound page size used when listing all admins for the last-admin guard. */
+const MAX_ADMIN_FETCH = 10_000;
+
 /**
  * Counts the number of currently enabled admin users.
  *
  * @returns Total count of enabled admin users in the store.
  */
 async function countEnabledAdmins(): Promise<number> {
-  const result = await getUserStore().listUsers(10000, undefined, { role: 'admin', enable: true });
+  const result = await getUserStore().listUsers(MAX_ADMIN_FETCH, undefined, { role: 'admin', enable: true });
   return result.users.length;
 }
 
