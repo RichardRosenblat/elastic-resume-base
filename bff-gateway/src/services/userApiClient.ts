@@ -23,10 +23,10 @@ type ErrorHandlerParams = {
 };
 
 /** Dispatch table: HTTP status code → error factory. */
-const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams) => never>> = {
-  403: ({ context, operationName, forbiddenMsg }) => {
+const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams & { err: unknown }) => never>> = {
+  403: ({ context, operationName, forbiddenMsg, err }) => {
     logger.info(context, `${operationName}: UserAPI returned 403 Forbidden`);
-    throw new ForbiddenError(forbiddenMsg);
+    throw new ForbiddenError(extractApiMessage(err, forbiddenMsg));
   },
   404: ({ context, operationName, notFoundMsg }) => {
     logger.info(context, `${operationName}: resource not found (404)`);
@@ -83,7 +83,7 @@ function handleUserApiError(
 
     const handler = status !== undefined ? STATUS_ERROR_MAP[status] : undefined;
     if (handler) {
-      handler(params);
+      handler({ ...params, err });
     }
 
     if (err.code === 'ECONNABORTED') {
@@ -236,7 +236,7 @@ export async function deleteUserFromApi(uid: string): Promise<void> {
     handleUserApiError(err, {
       context: { uid },
       operationName: 'deleteUserFromApi',
-      forbiddenMsg: 'User not found',
+      forbiddenMsg: 'User cannot be deleted',
       notFoundMsg: 'User not found',
       unavailableActionMsg: 'delete user',
     });
