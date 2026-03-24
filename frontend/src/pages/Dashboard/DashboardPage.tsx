@@ -13,12 +13,9 @@ import {
   CardContent,
   Typography,
   Chip,
-  Divider,
-  Stack,
   Tooltip,
   IconButton,
-} from '@mui/material';
-import {
+} from '@mui/material';import {
   Person as PersonIcon,
   AdminPanelSettings as AdminIcon,
   Description as DescriptionIcon,
@@ -29,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth-context';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { DataDisplayTemplate } from '../../components/templates';
 
 /** Props for the {@link FeatureCard} component. */
 interface FeatureCardProps {
@@ -61,24 +59,6 @@ function FeatureCard({ title, icon, available, description }: FeatureCardProps) 
   );
 }
 
-interface ProfileFieldProps {
-  label: string;
-  value: string;
-}
-
-function ProfileField({ label, value }: ProfileFieldProps) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="baseline">
-      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 60 }}>
-        {label}:
-      </Typography>
-      <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
-        {value}
-      </Typography>
-    </Stack>
-  );
-}
-
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { userProfile } = useAuth();
@@ -107,23 +87,38 @@ export default function DashboardPage() {
                   </IconButton>
                 </Tooltip>
               </Box>
-              <Divider sx={{ mb: 2.5 }} />
-              <Stack spacing={1.25}>
-                <ProfileField label={t('users.email')} value={userProfile?.email?.split('@')[0] ?? '-'} />
-                <ProfileField label={t('dashboard.role')} value={userProfile?.role ?? '-'} />
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 60 }}>
-                    {t('dashboard.status')}:
-                  </Typography>
-                  <Box>
-                    <Chip
-                      label={userProfile?.enable ? t('dashboard.active') : t('dashboard.pending')}
-                      color={userProfile?.enable ? 'success' : 'warning'}
-                      size="small"
-                    />
-                  </Box>
-                </Stack>
-              </Stack>
+              <DataDisplayTemplate
+                config={{
+                  fields: [
+                    {
+                      key: 'email',
+                      label: t('users.email'),
+                      render: (val) => (
+                        <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
+                          {(val as string)?.split('@')[0] ?? '-'}
+                        </Typography>
+                      ),
+                    },
+                    { key: 'role', label: t('dashboard.role') },
+                    {
+                      key: 'status',
+                      label: t('dashboard.status'),
+                      render: (val) => (
+                        <Chip
+                          label={val === 'active' ? t('dashboard.active') : t('dashboard.pending')}
+                          color={val === 'active' ? 'success' : 'warning'}
+                          size="small"
+                        />
+                      ),
+                    },
+                  ],
+                  data: {
+                    email: userProfile?.email ?? '-',
+                    role: userProfile?.role ?? '-',
+                    status: userProfile?.enable ? 'active' : 'pending',
+                  },
+                }}
+              />
             </CardContent>
           </Card>
         </Grid>
@@ -134,7 +129,6 @@ export default function DashboardPage() {
                 <AdminIcon color="primary" />
                 <Typography variant="h6">{t('dashboard.statistics')}</Typography>
               </Box>
-              <Divider sx={{ mb: 2.5 }} />
               <Typography variant="body2" color="text.secondary">{t('dashboard.recentActivity')}</Typography>
               <Chip
                 label={t('dashboard.comingSoon')}

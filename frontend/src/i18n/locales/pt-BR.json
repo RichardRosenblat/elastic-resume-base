@@ -82,7 +82,11 @@
     "updateEmail": "Atualizar E-mail",
     "newEmail": "Novo E-mail",
     "languagePreference": "Preferência de Idioma",
-    "saveChanges": "Salvar Alterações"
+    "saveChanges": "Salvar Alterações",
+    "changePassword": "Alterar Senha",
+    "changePasswordDescription": "Um link de redefinição de senha será enviado para o seu endereço de e-mail.",
+    "sendPasswordReset": "Enviar E-mail de Redefinição de Senha",
+    "passwordResetSent": "E-mail de redefinição enviado. Verifique sua caixa de entrada."
   },
   "pending": {
     "title": "Conta Aguardando Aprovação",

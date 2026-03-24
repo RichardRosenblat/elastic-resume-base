@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp, } from 'firebase/app';
-import { connectAuthEmulator, getAuth, onAuthStateChanged as fbOnAuthStateChanged, signInWithEmailAndPassword as fbSignInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut, } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, onAuthStateChanged as fbOnAuthStateChanged, signInWithEmailAndPassword as fbSignInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut, sendPasswordResetEmail as fbSendPasswordResetEmail, } from 'firebase/auth';
 /**
  * Adapter that wraps a Firebase {@link User} as an {@link IAuthUser}, hiding
  * any Firebase-specific API surface from consumers.
@@ -81,6 +81,9 @@ export class FirebaseClientAuth {
     getCurrentUser() {
         const user = this.auth.currentUser;
         return user !== null ? new FirebaseAuthUser(user) : null;
+    }
+    async sendPasswordResetEmail(email) {
+        await fbSendPasswordResetEmail(this.auth, email);
     }
 }
 //# sourceMappingURL=firebase-client-auth.js.map

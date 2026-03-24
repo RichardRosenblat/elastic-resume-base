@@ -30,12 +30,13 @@ import { DataDisplayTemplate, FormTemplate } from '../../components/templates';
 
 export default function AccountPage() {
   const { t, i18n } = useTranslation();
-  const { userProfile } = useAuth();
+  const { userProfile, sendPasswordResetEmail } = useAuth();
   const { showToast } = useToast();
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleUpdateEmail = async () => {
     setEmailLoading(true);
@@ -53,6 +54,20 @@ export default function AccountPage() {
       showToast(errorMessage, { severity: 'error' });
     } finally {
       setEmailLoading(false);
+    }
+  };
+
+  const handleSendPasswordReset = async () => {
+    const email = userProfile?.email;
+    if (!email) return;
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(email);
+      showToast(t('account.passwordResetSent'), { severity: 'success' });
+    } catch (error) {
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -117,6 +132,34 @@ export default function AccountPage() {
               ],
               values: { email: newEmail },
               onChange: (_, value) => setNewEmail(value),
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* ── Password reset ────────────────────────────────────────────────── */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>{t('account.changePassword')}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('account.changePasswordDescription')}
+          </Typography>
+          <FormTemplate
+            config={{
+              fields: [],
+              buttons: [
+                {
+                  label: t('account.sendPasswordReset'),
+                  onClick: () => { void handleSendPasswordReset(); },
+                  variant: 'outlined',
+                  disabled: resetLoading || !userProfile?.email,
+                  sx: { px: 2.5 },
+                },
+              ],
+              values: {},
+              onChange: () => undefined,
             }}
           />
         </CardContent>

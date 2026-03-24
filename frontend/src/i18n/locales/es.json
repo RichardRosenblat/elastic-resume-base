@@ -83,7 +83,11 @@
     "updateEmail": "Actualizar Correo Electrónico",
     "newEmail": "Nuevo Correo Electrónico",
     "languagePreference": "Preferencia de Idioma",
-    "saveChanges": "Guardar Cambios"
+    "saveChanges": "Guardar Cambios",
+    "changePassword": "Cambiar Contraseña",
+    "changePasswordDescription": "Se enviará un enlace de restablecimiento de contraseña a su dirección de correo electrónico.",
+    "sendPasswordReset": "Enviar Correo de Restablecimiento de Contraseña",
+    "passwordResetSent": "Correo de restablecimiento enviado. Revise su bandeja de entrada."
   },
   "pending": {
     "title": "Cuenta Pendiente de Aprobación",

@@ -101,6 +101,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUserProfile(null);
   };
 
+  const sendPasswordResetEmail = async (email: string): Promise<void> => {
+    await auth.sendPasswordResetEmail(email);
+  };
+
   const isAdmin = userProfile?.role === 'admin';
 
   const value: AuthContextType = {
@@ -110,6 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     loginWithGoogle,
     logout,
+    sendPasswordResetEmail,
     isAdmin,
     getToken,
   };

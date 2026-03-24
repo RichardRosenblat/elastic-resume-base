@@ -28,15 +28,17 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   TextField,
   Divider,
   Tooltip,
+  Stack,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  Save as SaveIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
@@ -57,8 +59,8 @@ export default function UsersPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
 
-  // User edit dialog state
-  const [editUser, setEditUser] = useState<UserRecord | null>(null);
+  // Inline user edit state
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
   const [editEnabled, setEditEnabled] = useState(true);
@@ -71,8 +73,8 @@ export default function UsersPage() {
   const [newPreApprovedEmail, setNewPreApprovedEmail] = useState('');
   const [newPreApprovedRole, setNewPreApprovedRole] = useState<'admin' | 'user'>('user');
 
-  // Pre-approved edit dialog state
-  const [editPreApproved, setEditPreApproved] = useState<PreApprovedUser | null>(null);
+  // Inline pre-approved edit state
+  const [editingPreApprovedEmail, setEditingPreApprovedEmail] = useState<string | null>(null);
   const [editPreApprovedRole, setEditPreApprovedRole] = useState<'admin' | 'user'>('user');
 
   // Pre-approved delete confirm state
@@ -187,25 +189,26 @@ export default function UsersPage() {
 
   // ─── User CRUD handlers ────────────────────────────────────────────────────
 
-  const handleEditOpen = (user: UserRecord) => {
-    setEditUser(user);
+  const handleEditStart = (user: UserRecord) => {
+    setEditingUserId(user.uid);
     setEditEmail(user.email);
     setEditRole(user.role);
     setEditEnabled(user.enable);
   };
 
-  const handleEditClose = () => setEditUser(null);
+  const handleEditCancel = () => setEditingUserId(null);
 
   const handleEditSave = async () => {
-    if (!editUser) return;
+    if (!editingUserId) return;
     try {
+      const original = users.find((u) => u.uid === editingUserId);
       const payload: Partial<UserRecord> = { role: editRole, enable: editEnabled };
-      if (editEmail !== editUser.email) {
+      if (original && editEmail !== original.email) {
         payload.email = editEmail;
       }
-      await updateUser(editUser.uid, payload);
+      await updateUser(editingUserId, payload);
       showToast(t('users.updateSuccess'), { severity: 'success' });
-      handleEditClose();
+      setEditingUserId(null);
       void fetchUsers();
     } catch (error) {
       showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
@@ -238,19 +241,19 @@ export default function UsersPage() {
     }
   };
 
-  const handleEditPreApprovedOpen = (preApprovedUser: PreApprovedUser) => {
-    setEditPreApproved(preApprovedUser);
+  const handleEditPreApprovedStart = (preApprovedUser: PreApprovedUser) => {
+    setEditingPreApprovedEmail(preApprovedUser.email);
     setEditPreApprovedRole(preApprovedUser.role);
   };
 
-  const handleEditPreApprovedClose = () => setEditPreApproved(null);
+  const handleEditPreApprovedCancel = () => setEditingPreApprovedEmail(null);
 
   const handleEditPreApprovedSave = async () => {
-    if (!editPreApproved) return;
+    if (!editingPreApprovedEmail) return;
     try {
-      await updatePreApprovedUser(editPreApproved.email, editPreApprovedRole);
+      await updatePreApprovedUser(editingPreApprovedEmail, editPreApprovedRole);
       showToast(t('users.preApprovedUpdateSuccess'), { severity: 'success' });
-      handleEditPreApprovedClose();
+      setEditingPreApprovedEmail(null);
       void fetchPreApproved();
     } catch (error) {
       showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
@@ -287,7 +290,18 @@ export default function UsersPage() {
           {t('users.email')}
         </TableSortLabel>
       ),
-      cell: (row) => row.email,
+      cell: (row) =>
+        editingUserId === row.uid ? (
+          <TextField
+            size="small"
+            type="email"
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+            sx={{ minWidth: 220 }}
+          />
+        ) : (
+          row.email
+        ),
     },
     {
       id: 'uid',
@@ -321,14 +335,25 @@ export default function UsersPage() {
           />
         </Box>
       ),
-      cell: (row) => (
-        <Chip
-          label={row.role}
-          size="small"
-          color={row.role === 'admin' ? 'primary' : 'default'}
-          variant="outlined"
-        />
-      ),
+      cell: (row) =>
+        editingUserId === row.uid ? (
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value={editRole}
+              onChange={(e) => setEditRole(e.target.value as 'admin' | 'user')}
+            >
+              <MenuItem value="user">user</MenuItem>
+              <MenuItem value="admin">admin</MenuItem>
+            </Select>
+          </FormControl>
+        ) : (
+          <Chip
+            label={row.role}
+            size="small"
+            color={row.role === 'admin' ? 'primary' : 'default'}
+            variant="outlined"
+          />
+        ),
     },
     {
       id: 'enable',
@@ -355,32 +380,72 @@ export default function UsersPage() {
           />
         </Box>
       ),
-      cell: (row) => (
-        <Chip
-          label={row.enable ? t('dashboard.active') : t('dashboard.pending')}
-          size="small"
-          color={row.enable ? 'success' : 'warning'}
-          variant="outlined"
-        />
-      ),
+      cell: (row) =>
+        editingUserId === row.uid ? (
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value={editEnabled ? 'true' : 'false'}
+              onChange={(e) => setEditEnabled(e.target.value === 'true')}
+            >
+              <MenuItem value="true">{t('dashboard.active')}</MenuItem>
+              <MenuItem value="false">{t('dashboard.pending')}</MenuItem>
+            </Select>
+          </FormControl>
+        ) : (
+          <Chip
+            label={row.enable ? t('dashboard.active') : t('dashboard.pending')}
+            size="small"
+            color={row.enable ? 'success' : 'warning'}
+            variant="outlined"
+          />
+        ),
     },
     {
       id: 'actions',
       header: t('users.actions'),
-      cell: (row) => (
-        <>
-          <Tooltip title={t('users.editUserTooltip')}>
-            <IconButton size="small" onClick={() => handleEditOpen(row)} aria-label={t('users.editUserTooltip')}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t('users.deleteUserTooltip')}>
-            <IconButton size="small" color="error" onClick={() => setDeleteConfirmUser(row)} aria-label={t('users.deleteUserTooltip')}>
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </>
-      ),
+      cell: (row) =>
+        editingUserId === row.uid ? (
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip title={t('common.save')}>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={wrapEditSave(handleEditSave)}
+                disabled={editSaveLocked}
+                aria-label={t('common.save')}
+              >
+                <SaveIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('common.cancel')}>
+              <IconButton size="small" onClick={handleEditCancel} aria-label={t('common.cancel')}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        ) : (
+          <>
+            <Tooltip title={t('users.editUserTooltip')}>
+              <IconButton
+                size="small"
+                onClick={() => handleEditStart(row)}
+                aria-label={t('users.editUserTooltip')}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('users.deleteUserTooltip')}>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteConfirmUser(row)}
+                aria-label={t('users.deleteUserTooltip')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </>
+        ),
     },
   ];
 
@@ -421,25 +486,71 @@ export default function UsersPage() {
           />
         </Box>
       ),
-      cell: (row) => row.role,
+      cell: (row) =>
+        editingPreApprovedEmail === row.email ? (
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value={editPreApprovedRole}
+              onChange={(e) => setEditPreApprovedRole(e.target.value as 'admin' | 'user')}
+            >
+              <MenuItem value="user">user</MenuItem>
+              <MenuItem value="admin">admin</MenuItem>
+            </Select>
+          </FormControl>
+        ) : (
+          row.role
+        ),
     },
     {
       id: 'actions',
       header: t('users.actions'),
-      cell: (row) => (
-        <>
-          <Tooltip title={t('users.editPreApprovedTooltip')}>
-            <IconButton size="small" onClick={() => handleEditPreApprovedOpen(row)} aria-label={t('users.editPreApprovedTooltip')}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t('users.deletePreApprovedTooltip')}>
-            <IconButton size="small" color="error" onClick={() => setDeleteConfirmPreApproved(row)} aria-label={t('users.deletePreApprovedTooltip')}>
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </>
-      ),
+      cell: (row) =>
+        editingPreApprovedEmail === row.email ? (
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip title={t('common.save')}>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={wrapEditPreApprovedSave(handleEditPreApprovedSave)}
+                disabled={editPreApprovedSaveLocked}
+                aria-label={t('common.save')}
+              >
+                <SaveIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('common.cancel')}>
+              <IconButton
+                size="small"
+                onClick={handleEditPreApprovedCancel}
+                aria-label={t('common.cancel')}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        ) : (
+          <>
+            <Tooltip title={t('users.editPreApprovedTooltip')}>
+              <IconButton
+                size="small"
+                onClick={() => handleEditPreApprovedStart(row)}
+                aria-label={t('users.editPreApprovedTooltip')}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('users.deletePreApprovedTooltip')}>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteConfirmPreApproved(row)}
+                aria-label={t('users.deletePreApprovedTooltip')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </>
+        ),
     },
   ];
 
@@ -533,48 +644,6 @@ export default function UsersPage() {
         }}
       />
 
-      {/* ── Edit User Dialog ──────────────────────────────────────────────── */}
-      <Dialog open={!!editUser} onClose={handleEditClose}>
-        <DialogTitle>{t('users.editUser')}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            fullWidth
-            margin="normal"
-            label={t('users.email')}
-            type="email"
-            value={editEmail}
-            onChange={(e) => setEditEmail(e.target.value)}
-            size="small"
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{t('users.role')}</InputLabel>
-            <Select
-              value={editRole}
-              label={t('users.role')}
-              onChange={(e) => setEditRole(e.target.value as 'admin' | 'user')}
-            >
-              <MenuItem value="user">user</MenuItem>
-              <MenuItem value="admin">admin</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{t('users.enabled')}</InputLabel>
-            <Select
-              value={editEnabled ? 'true' : 'false'}
-              label={t('users.enabled')}
-              onChange={(e) => setEditEnabled(e.target.value === 'true')}
-            >
-              <MenuItem value="true">{t('dashboard.active')}</MenuItem>
-              <MenuItem value="false">{t('dashboard.pending')}</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditClose}>{t('common.cancel')}</Button>
-          <Button variant="contained" onClick={wrapEditSave(handleEditSave)} disabled={editSaveLocked}>{t('common.save')}</Button>
-        </DialogActions>
-      </Dialog>
-
       {/* ── Delete User Confirm Dialog ────────────────────────────────────── */}
       <Dialog open={!!deleteConfirmUser} onClose={() => setDeleteConfirmUser(null)}>
         <DialogTitle>{t('users.deleteUser')}</DialogTitle>
@@ -585,31 +654,6 @@ export default function UsersPage() {
         <DialogActions>
           <Button onClick={() => setDeleteConfirmUser(null)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="error" onClick={wrapDeleteConfirm(handleDeleteConfirm)} disabled={deleteConfirmLocked}>{t('common.delete')}</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Edit Pre-approved User Dialog ─────────────────────────────────── */}
-      <Dialog open={!!editPreApproved} onClose={handleEditPreApprovedClose}>
-        <DialogTitle>{t('users.editPreApproved')}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {editPreApproved?.email}
-          </Typography>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{t('users.role')}</InputLabel>
-            <Select
-              value={editPreApprovedRole}
-              label={t('users.role')}
-              onChange={(e) => setEditPreApprovedRole(e.target.value as 'admin' | 'user')}
-            >
-              <MenuItem value="user">user</MenuItem>
-              <MenuItem value="admin">admin</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditPreApprovedClose}>{t('common.cancel')}</Button>
-          <Button variant="contained" onClick={wrapEditPreApprovedSave(handleEditPreApprovedSave)} disabled={editPreApprovedSaveLocked}>{t('common.save')}</Button>
         </DialogActions>
       </Dialog>
 

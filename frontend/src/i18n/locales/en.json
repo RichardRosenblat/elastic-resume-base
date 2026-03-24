@@ -83,7 +83,11 @@
     "updateEmail": "Update Email",
     "newEmail": "New Email",
     "languagePreference": "Language Preference",
-    "saveChanges": "Save Changes"
+    "saveChanges": "Save Changes",
+    "changePassword": "Change Password",
+    "changePasswordDescription": "A password reset link will be sent to your email address.",
+    "sendPasswordReset": "Send Password Reset Email",
+    "passwordResetSent": "Password reset email sent. Check your inbox."
   },
   "pending": {
     "title": "Account Pending Approval",

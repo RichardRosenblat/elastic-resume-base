@@ -1,9 +1,10 @@
-import { NotFoundError, ValidationError } from '../errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import {
   FirestorePreApprovedStore,
   type IPreApprovedStore,
 } from '@elastic-resume-base/synapse';
 import { config } from '../config.js';
+import { getUserByEmail } from './usersService.js';
 import type { AddPreApprovedRequest, PreApprovedFilters, PreApprovedUser, UpdatePreApprovedRequest } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -88,12 +89,17 @@ export async function listPreApprovedUsers(filters?: PreApprovedFilters): Promis
  * @param data - The pre-approval data (email and role).
  * @returns The newly created {@link PreApprovedUser}.
  * @throws {ValidationError} If the email is invalid.
- * @throws {ConflictError} If the email is already pre-approved.
+ * @throws {ConflictError} If the email is already pre-approved or already an active user.
  */
 export async function addToPreApproved(data: AddPreApprovedRequest): Promise<PreApprovedUser> {
   const { email, role } = data;
   logger.debug({ email }, 'addToPreApproved: validating email');
   validateEmail(email);
+
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    throw new ConflictError(`User with email '${email}' already exists in the users list`);
+  }
 
   const preApproved = await getPreApprovedStore().add({ email, role });
   logger.info({ email, action: 'addToPreApproved' }, 'Pre-approved user added');

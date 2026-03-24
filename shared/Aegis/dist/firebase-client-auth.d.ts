@@ -54,5 +54,6 @@ export declare class FirebaseClientAuth implements IClientAuth {
     signInWithGoogle(): Promise<void>;
     signOut(): Promise<void>;
     getCurrentUser(): IAuthUser | null;
+    sendPasswordResetEmail(email: string): Promise<void>;
 }
 //# sourceMappingURL=firebase-client-auth.d.ts.map

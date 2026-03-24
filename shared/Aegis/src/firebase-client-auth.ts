@@ -11,6 +11,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   signOut as fbSignOut,
+  sendPasswordResetEmail as fbSendPasswordResetEmail,
 } from 'firebase/auth';
 import type { Auth, User } from 'firebase/auth';
 import type { IAuthUser, IClientAuth, AuthStateListener } from './interfaces/client-auth.js';
@@ -130,5 +131,9 @@ export class FirebaseClientAuth implements IClientAuth {
   getCurrentUser(): IAuthUser | null {
     const user = this.auth.currentUser;
     return user !== null ? new FirebaseAuthUser(user) : null;
+  }
+
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    await fbSendPasswordResetEmail(this.auth, email);
   }
 }

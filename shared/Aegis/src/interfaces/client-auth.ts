@@ -84,4 +84,12 @@ export interface IClientAuth {
    * authenticated.
    */
   getCurrentUser(): IAuthUser | null;
+
+  /**
+   * Sends a password-reset email to the given address.
+   *
+   * @param email - The email address to send the reset link to.
+   * @throws If the operation fails (e.g. invalid email, network error).
+   */
+  sendPasswordResetEmail(email: string): Promise<void>;
 }

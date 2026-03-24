@@ -215,6 +215,19 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
 }
 
 /**
+ * Looks up a user by email address.
+ *
+ * @param email - Email address to search for.
+ * @returns The matching {@link UserRecord}, or `null` if not found.
+ */
+export async function getUserByEmail(email: string): Promise<UserRecord | null> {
+  logger.debug({ email }, 'getUserByEmail: fetching user');
+  const user = await getUserStore().getUserByEmail(email);
+  if (user) logger.trace({ email }, 'getUserByEmail: user found');
+  return user ?? null;
+}
+
+/**
  * Updates mutable attributes of a user.
  *
  * @param uid - Unique identifier of the user to update.

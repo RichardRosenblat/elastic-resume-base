@@ -12,6 +12,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
   isAdmin: boolean;
   getToken: () => Promise<string>;
 }
