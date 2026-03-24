@@ -95,7 +95,7 @@ export default function DashboardPage() {
                       label: t('users.email'),
                       render: (val) => (
                         <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
-                          {(val as string)?.split('@')[0] ?? '-'}
+                          {(val as string) ?? '-'}
                         </Typography>
                       ),
                     },
