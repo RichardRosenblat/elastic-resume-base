@@ -256,7 +256,10 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
     if (isCurrentAdmin) {
       const adminCount = await countEnabledAdmins();
       if (adminCount <= 1) {
-        throw new ForbiddenError('Cannot remove the last enabled admin from the system');
+        const reason = wouldDisable
+          ? 'You cannot deactivate this user because they are the only active admin in the system. Please assign another user as admin before deactivating this user.'
+          : 'You cannot change the role of this user because they are the only active admin in the system. Please assign another user as admin before changing their role.';
+        throw new ForbiddenError(reason);
       }
     }
   }
@@ -281,7 +284,9 @@ export async function deleteUser(uid: string): Promise<void> {
   if (current.role === 'admin' && current.enable) {
     const adminCount = await countEnabledAdmins();
     if (adminCount <= 1) {
-      throw new ForbiddenError('Cannot delete the last enabled admin from the system');
+      throw new ForbiddenError(
+        'You cannot delete this user because they are the only active admin in the system. Please assign another user as admin before deleting this user.',
+      );
     }
   }
 
