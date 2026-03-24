@@ -30,7 +30,8 @@
     "statistics": "Estadísticas",
     "recentActivity": "Actividad Reciente",
     "comingSoon": "Próximamente",
-    "featureNotAvailable": "Esta función aún no está disponible"
+    "featureNotAvailable": "Esta función aún no está disponible",
+    "editProfile": "Editar tu perfil"
   },
   "users": {
     "title": "Usuarios",
@@ -45,10 +46,17 @@
     "noUsersFound": "No se encontraron usuarios",
     "preApprovedUsers": "Usuarios Pre-aprobados",
     "addPreApproved": "Agregar Usuario Pre-aprobado",
+    "editPreApproved": "Editar Usuario Pre-aprobado",
+    "confirmDeletePreApproved": "¿Estás seguro de que deseas eliminar este usuario pre-aprobado?",
     "uid": "UID",
     "email": "Correo electrónico",
     "deleteSuccess": "Usuario eliminado correctamente",
-    "updateSuccess": "Usuario actualizado correctamente"
+    "updateSuccess": "Usuario actualizado correctamente",
+    "preApprovedUpdateSuccess": "Usuario pre-aprobado actualizado correctamente",
+    "editUserTooltip": "Editar usuario",
+    "deleteUserTooltip": "Eliminar usuario",
+    "editPreApprovedTooltip": "Editar usuario pre-aprobado",
+    "deletePreApprovedTooltip": "Eliminar de la lista de pre-aprobados"
   },
   "resumes": {
     "title": "Currículums",

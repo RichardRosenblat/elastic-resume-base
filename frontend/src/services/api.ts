@@ -229,7 +229,17 @@ export const addPreApprovedUser = async (data: PreApprovedUser): Promise<PreAppr
 
 /** Removes an email address from the pre-approved list. Admin only. */
 export const deletePreApprovedUser = async (email: string): Promise<void> => {
-  await apiClient.delete('/api/v1/users/pre-approve', { data: { email } });
+  await apiClient.delete('/api/v1/users/pre-approve', { params: { email } });
+};
+
+/** Updates a pre-approved user's role. Admin only. */
+export const updatePreApprovedUser = async (email: string, role: 'admin' | 'user'): Promise<PreApprovedUser> => {
+  const res = await apiClient.patch<SuccessResponse<PreApprovedUser>>(
+    '/api/v1/users/pre-approve',
+    { role },
+    { params: { email } },
+  );
+  return unwrapSuccessResponse(res.data);
 };
 
 /**

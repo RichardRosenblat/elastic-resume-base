@@ -30,10 +30,10 @@
     "statistics": "Estatísticas",
     "recentActivity": "Atividade Recente",
     "comingSoon": "Em Breve",
-    "featureNotAvailable": "Esta funcionalidade ainda não está disponível"
+    "featureNotAvailable": "Esta funcionalidade ainda não está disponível",
+    "editProfile": "Editar seu perfil"
   },
   "users": {
-    "title": "Usuários",
     "addUser": "Adicionar Usuário",
     "editUser": "Editar Usuário",
     "deleteUser": "Excluir Usuário",
@@ -45,10 +45,17 @@
     "noUsersFound": "Nenhum usuário encontrado",
     "preApprovedUsers": "Usuários Pré-aprovados",
     "addPreApproved": "Adicionar Usuário Pré-aprovado",
+    "editPreApproved": "Editar Usuário Pré-aprovado",
+    "confirmDeletePreApproved": "Tem certeza que deseja remover este usuário pré-aprovado?",
     "uid": "UID",
     "email": "E-mail",
     "deleteSuccess": "Usuário excluído com sucesso",
-    "updateSuccess": "Usuário atualizado com sucesso"
+    "updateSuccess": "Usuário atualizado com sucesso",
+    "preApprovedUpdateSuccess": "Usuário pré-aprovado atualizado com sucesso",
+    "editUserTooltip": "Editar usuário",
+    "deleteUserTooltip": "Excluir usuário",
+    "editPreApprovedTooltip": "Editar usuário pré-aprovado",
+    "deletePreApprovedTooltip": "Remover da lista de pré-aprovados"
   },
   "resumes": {
     "title": "Currículos",

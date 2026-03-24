@@ -4,13 +4,13 @@
  * Provides two sections (admin access required for all operations):
  *
  * **Users table** — paginated list of all platform users with inline
- * edit (role, enabled status) and delete actions. Changes are persisted
+ * edit (role, email, enabled status) and delete actions. Changes are persisted
  * through the BFF Gateway and the table is refreshed automatically.
  * Rendered via {@link TableTemplate}.
  *
  * **Pre-approved users table** — manages the list of email addresses that
- * are automatically onboarded on first sign-in. Admins can add and remove
- * entries.  Rendered via {@link TableTemplate}; the "add" form uses
+ * are automatically onboarded on first sign-in. Admins can add, edit and
+ * remove entries.  Rendered via {@link TableTemplate}; the "add" form uses
  * {@link FormTemplate}.
  */
 import { useState, useEffect, useCallback } from 'react';
@@ -29,8 +29,9 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  TextField,
   Divider,
-  Alert,
+  Tooltip,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -39,10 +40,9 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
-import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser } from '../../services/api';
+import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import ErrorMessage from '../../components/ErrorMessage';
 import { useToast } from '../../contexts/use-toast';
 import { TableTemplate, FormTemplate } from '../../components/templates';
 import type { ColumnConfig } from '../../components/templates';
@@ -56,15 +56,29 @@ export default function UsersPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // User edit dialog state
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
-  const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserRecord | null>(null);
+  const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
   const [editEnabled, setEditEnabled] = useState(true);
+
+  // User delete dialog state
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserRecord | null>(null);
+
+  // Pre-approved users state
   const [preApproved, setPreApproved] = useState<PreApprovedUser[]>([]);
   const [newPreApprovedEmail, setNewPreApprovedEmail] = useState('');
   const [newPreApprovedRole, setNewPreApprovedRole] = useState<'admin' | 'user'>('user');
+
+  // Pre-approved edit dialog state
+  const [editPreApproved, setEditPreApproved] = useState<PreApprovedUser | null>(null);
+  const [editPreApprovedRole, setEditPreApprovedRole] = useState<'admin' | 'user'>('user');
+
+  // Pre-approved delete confirm state
+  const [deleteConfirmPreApproved, setDeleteConfirmPreApproved] = useState<PreApprovedUser | null>(null);
+
+  // Sorting / filtering
   const [usersSortBy, setUsersSortBy] = useState<UserSortField>('email');
   const [usersSortDirection, setUsersSortDirection] = useState<SortDirection>('asc');
   const [usersRoleFilter, setUsersRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
@@ -72,8 +86,12 @@ export default function UsersPage() {
   const [preApprovedSortBy, setPreApprovedSortBy] = useState<PreApprovedSortField>('email');
   const [preApprovedSortDirection, setPreApprovedSortDirection] = useState<SortDirection>('asc');
   const [preApprovedRoleFilter, setPreApprovedRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
+
+  // Button lock hooks
   const { locked: editSaveLocked, wrap: wrapEditSave } = useButtonLock();
   const { locked: deleteConfirmLocked, wrap: wrapDeleteConfirm } = useButtonLock();
+  const { locked: editPreApprovedSaveLocked, wrap: wrapEditPreApprovedSave } = useButtonLock();
+  const { locked: deletePreApprovedConfirmLocked, wrap: wrapDeletePreApprovedConfirm } = useButtonLock();
 
   const toggleSortDirection = (current: SortDirection): SortDirection => (current === 'asc' ? 'desc' : 'asc');
 
@@ -121,7 +139,6 @@ export default function UsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await listUsers(page + 1, rowsPerPage, {
         role: usersRoleFilter === 'all' ? undefined : usersRoleFilter,
@@ -132,9 +149,7 @@ export default function UsersPage() {
       setUsers(res.data.users);
       setTotal(res.data.users.length);
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setError(errorMessage);
-      showToast(errorMessage, { severity: 'error' });
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -158,8 +173,7 @@ export default function UsersPage() {
       });
       setPreApproved(data);
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      showToast(errorMessage, { severity: 'error' });
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
     }
   }, [showToast, t, preApprovedSortBy, preApprovedSortDirection, preApprovedRoleFilter]);
 
@@ -171,8 +185,11 @@ export default function UsersPage() {
     void fetchPreApproved();
   }, [fetchPreApproved]);
 
+  // ─── User CRUD handlers ────────────────────────────────────────────────────
+
   const handleEditOpen = (user: UserRecord) => {
     setEditUser(user);
+    setEditEmail(user.email);
     setEditRole(user.role);
     setEditEnabled(user.enable);
   };
@@ -182,16 +199,16 @@ export default function UsersPage() {
   const handleEditSave = async () => {
     if (!editUser) return;
     try {
-      await updateUser(editUser.uid, { role: editRole, enable: editEnabled });
-      const successMessage = t('users.updateSuccess');
-      setSuccessMsg(successMessage);
-      showToast(successMessage, { severity: 'success' });
+      const payload: Partial<UserRecord> = { role: editRole, enable: editEnabled };
+      if (editEmail !== editUser.email) {
+        payload.email = editEmail;
+      }
+      await updateUser(editUser.uid, payload);
+      showToast(t('users.updateSuccess'), { severity: 'success' });
       handleEditClose();
       void fetchUsers();
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setError(errorMessage);
-      showToast(errorMessage, { severity: 'error' });
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
     }
   };
 
@@ -199,17 +216,15 @@ export default function UsersPage() {
     if (!deleteConfirmUser) return;
     try {
       await deleteUser(deleteConfirmUser.uid);
-      const successMessage = t('users.deleteSuccess');
-      setSuccessMsg(successMessage);
-      showToast(successMessage, { severity: 'success' });
+      showToast(t('users.deleteSuccess'), { severity: 'success' });
       setDeleteConfirmUser(null);
       void fetchUsers();
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setError(errorMessage);
-      showToast(errorMessage, { severity: 'error' });
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
     }
   };
+
+  // ─── Pre-approved CRUD handlers ────────────────────────────────────────────
 
   const handleAddPreApproved = async () => {
     if (!newPreApprovedEmail) return;
@@ -219,21 +234,38 @@ export default function UsersPage() {
       showToast(t('common.success'), { severity: 'success' });
       void fetchPreApproved();
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setError(errorMessage);
-      showToast(errorMessage, { severity: 'error' });
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
     }
   };
 
-  const handleDeletePreApproved = async (email: string) => {
+  const handleEditPreApprovedOpen = (preApprovedUser: PreApprovedUser) => {
+    setEditPreApproved(preApprovedUser);
+    setEditPreApprovedRole(preApprovedUser.role);
+  };
+
+  const handleEditPreApprovedClose = () => setEditPreApproved(null);
+
+  const handleEditPreApprovedSave = async () => {
+    if (!editPreApproved) return;
     try {
-      await deletePreApprovedUser(email);
-      showToast(t('common.success'), { severity: 'success' });
+      await updatePreApprovedUser(editPreApproved.email, editPreApprovedRole);
+      showToast(t('users.preApprovedUpdateSuccess'), { severity: 'success' });
+      handleEditPreApprovedClose();
       void fetchPreApproved();
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      setError(errorMessage);
-      showToast(errorMessage, { severity: 'error' });
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+    }
+  };
+
+  const handleDeletePreApprovedConfirm = async () => {
+    if (!deleteConfirmPreApproved) return;
+    try {
+      await deletePreApprovedUser(deleteConfirmPreApproved.email);
+      showToast(t('common.success'), { severity: 'success' });
+      setDeleteConfirmPreApproved(null);
+      void fetchPreApproved();
+    } catch (error) {
+      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
     }
   };
 
@@ -337,12 +369,16 @@ export default function UsersPage() {
       header: t('users.actions'),
       cell: (row) => (
         <>
-          <IconButton size="small" onClick={() => handleEditOpen(row)}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" color="error" onClick={() => setDeleteConfirmUser(row)}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          <Tooltip title={t('users.editUserTooltip')}>
+            <IconButton size="small" onClick={() => handleEditOpen(row)} aria-label={t('users.editUserTooltip')}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('users.deleteUserTooltip')}>
+            <IconButton size="small" color="error" onClick={() => setDeleteConfirmUser(row)} aria-label={t('users.deleteUserTooltip')}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </>
       ),
     },
@@ -391,9 +427,18 @@ export default function UsersPage() {
       id: 'actions',
       header: t('users.actions'),
       cell: (row) => (
-        <IconButton size="small" color="error" onClick={() => { void handleDeletePreApproved(row.email); }}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
+        <>
+          <Tooltip title={t('users.editPreApprovedTooltip')}>
+            <IconButton size="small" onClick={() => handleEditPreApprovedOpen(row)} aria-label={t('users.editPreApprovedTooltip')}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('users.deletePreApprovedTooltip')}>
+            <IconButton size="small" color="error" onClick={() => setDeleteConfirmPreApproved(row)} aria-label={t('users.deletePreApprovedTooltip')}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </>
       ),
     },
   ];
@@ -403,12 +448,6 @@ export default function UsersPage() {
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('users.title')}</Typography>
-      {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
-      {successMsg && (
-        <Alert severity="success" onClose={() => setSuccessMsg(null)} sx={{ mb: 2 }}>
-          {successMsg}
-        </Alert>
-      )}
 
       {/* ── Users table ───────────────────────────────────────────────────── */}
       {loading ? (
@@ -494,11 +533,19 @@ export default function UsersPage() {
         }}
       />
 
-      {/* ── Edit Dialog ───────────────────────────────────────────────────── */}
+      {/* ── Edit User Dialog ──────────────────────────────────────────────── */}
       <Dialog open={!!editUser} onClose={handleEditClose}>
         <DialogTitle>{t('users.editUser')}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Typography variant="body2" gutterBottom>{editUser?.email}</Typography>
+          <TextField
+            fullWidth
+            margin="normal"
+            label={t('users.email')}
+            type="email"
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+            size="small"
+          />
           <FormControl fullWidth margin="normal">
             <InputLabel>{t('users.role')}</InputLabel>
             <Select
@@ -528,7 +575,7 @@ export default function UsersPage() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Delete Confirm Dialog ─────────────────────────────────────────── */}
+      {/* ── Delete User Confirm Dialog ────────────────────────────────────── */}
       <Dialog open={!!deleteConfirmUser} onClose={() => setDeleteConfirmUser(null)}>
         <DialogTitle>{t('users.deleteUser')}</DialogTitle>
         <DialogContent>
@@ -538,6 +585,44 @@ export default function UsersPage() {
         <DialogActions>
           <Button onClick={() => setDeleteConfirmUser(null)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="error" onClick={wrapDeleteConfirm(handleDeleteConfirm)} disabled={deleteConfirmLocked}>{t('common.delete')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Edit Pre-approved User Dialog ─────────────────────────────────── */}
+      <Dialog open={!!editPreApproved} onClose={handleEditPreApprovedClose}>
+        <DialogTitle>{t('users.editPreApproved')}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            {editPreApproved?.email}
+          </Typography>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>{t('users.role')}</InputLabel>
+            <Select
+              value={editPreApprovedRole}
+              label={t('users.role')}
+              onChange={(e) => setEditPreApprovedRole(e.target.value as 'admin' | 'user')}
+            >
+              <MenuItem value="user">user</MenuItem>
+              <MenuItem value="admin">admin</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEditPreApprovedClose}>{t('common.cancel')}</Button>
+          <Button variant="contained" onClick={wrapEditPreApprovedSave(handleEditPreApprovedSave)} disabled={editPreApprovedSaveLocked}>{t('common.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Delete Pre-approved Confirm Dialog ───────────────────────────── */}
+      <Dialog open={!!deleteConfirmPreApproved} onClose={() => setDeleteConfirmPreApproved(null)}>
+        <DialogTitle>{t('users.deleteUser')}</DialogTitle>
+        <DialogContent>
+          <Typography>{t('users.confirmDeletePreApproved')}</Typography>
+          <Typography variant="body2" color="text.secondary">{deleteConfirmPreApproved?.email}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmPreApproved(null)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="error" onClick={wrapDeletePreApprovedConfirm(handleDeletePreApprovedConfirm)} disabled={deletePreApprovedConfirmLocked}>{t('common.delete')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -30,7 +30,8 @@
     "statistics": "Statistics",
     "recentActivity": "Recent Activity",
     "comingSoon": "Coming Soon",
-    "featureNotAvailable": "This feature is not yet available"
+    "featureNotAvailable": "This feature is not yet available",
+    "editProfile": "Edit your profile"
   },
   "users": {
     "title": "Users",
@@ -45,10 +46,17 @@
     "noUsersFound": "No users found",
     "preApprovedUsers": "Pre-approved Users",
     "addPreApproved": "Add Pre-approved User",
+    "editPreApproved": "Edit Pre-approved User",
+    "confirmDeletePreApproved": "Are you sure you want to remove this pre-approved user?",
     "uid": "UID",
     "email": "Email",
     "deleteSuccess": "User deleted successfully",
-    "updateSuccess": "User updated successfully"
+    "updateSuccess": "User updated successfully",
+    "preApprovedUpdateSuccess": "Pre-approved user updated successfully",
+    "editUserTooltip": "Edit user",
+    "deleteUserTooltip": "Delete user",
+    "editPreApprovedTooltip": "Edit pre-approved user",
+    "deletePreApprovedTooltip": "Remove from pre-approved list"
   },
   "resumes": {
     "title": "Resumes",

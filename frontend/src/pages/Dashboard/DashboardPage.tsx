@@ -15,14 +15,18 @@ import {
   Chip,
   Divider,
   Stack,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
 import {
   Person as PersonIcon,
   AdminPanelSettings as AdminIcon,
   Description as DescriptionIcon,
   Search as SearchIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth-context';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 
@@ -78,6 +82,7 @@ function ProfileField({ label, value }: ProfileFieldProps) {
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const features = useFeatureFlags();
 
   return (
@@ -91,7 +96,16 @@ export default function DashboardPage() {
             <CardContent>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <PersonIcon color="primary" />
-                <Typography variant="h6">{t('dashboard.yourProfile')}</Typography>
+                <Typography variant="h6" sx={{ flexGrow: 1 }}>{t('dashboard.yourProfile')}</Typography>
+                <Tooltip title={t('dashboard.editProfile')}>
+                  <IconButton
+                    size="small"
+                    onClick={() => { void navigate('/account'); }}
+                    aria-label={t('dashboard.editProfile')}
+                  >
+                    <SettingsIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
               <Divider sx={{ mb: 2.5 }} />
               <Stack spacing={1.25}>

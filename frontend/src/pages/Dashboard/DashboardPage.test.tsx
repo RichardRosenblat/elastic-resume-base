@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from './DashboardPage';
 
 // Default auth mock value — tests that need a different value can call
@@ -53,18 +54,18 @@ describe('DashboardPage', () => {
   });
 
   it('renders welcome message with user name', () => {
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     expect(screen.getByText(/dashboard.welcome/)).toBeInTheDocument();
     expect(screen.getByText(/Test User/)).toBeInTheDocument();
   });
 
   it('renders profile card', () => {
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     expect(screen.getByText('dashboard.yourProfile')).toBeInTheDocument();
   });
 
   it('shows only the username part of the email (before @) in the profile card', () => {
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     expect(screen.getByText(/^test$/)).toBeInTheDocument();
     expect(screen.queryByText(/test@example\.com/)).not.toBeInTheDocument();
   });
@@ -81,7 +82,7 @@ describe('DashboardPage', () => {
       },
     });
 
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     // The welcome h5 heading should contain 'noname' but not the '@domain' part
     const heading = screen.getByRole('heading', { level: 5 });
     expect(heading.textContent).toContain('noname');
