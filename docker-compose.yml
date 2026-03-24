@@ -34,7 +34,19 @@ services:
       - firebase-emulator
       - users-api
 
-  # 3. Users API Microservice
+  # 3. AI Worker Microservice
+  ai-worker:
+    build:
+      context: .
+      dockerfile: ai-worker/Dockerfile
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by the service at startup
+    depends_on:
+      - firebase-emulator
+
+  # 4. Users API Microservice
   users-api:
     build:
       context: .
