@@ -2,7 +2,12 @@ fastapi==0.111.0
 uvicorn[standard]==0.29.0
 pydantic==2.7.1
 pydantic-settings==2.3.4
-google-cloud-firestore==2.16.0
-google-cloud-pubsub==2.21.1
+pyyaml==6.0.2
+slowapi==0.1.9
+# ── Vertex AI is the ONLY permitted direct GCP dependency ──────────────────
 vertexai==1.52.0
-elastic-resume-base-hermes @ file://../shared/hermes
+# ── Shared libraries (own their own GCP/Firebase deps) ─────────────────────
+elastic-resume-base-toolbox @ file://../shared/toolbox
+elastic-resume-base-bowltie @ file://../shared/bowltie
+elastic-resume-base-synapse @ file://../shared/synapse
+elastic-resume-base-hermes[pubsub] @ file://../shared/hermes

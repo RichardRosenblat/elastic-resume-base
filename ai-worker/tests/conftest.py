@@ -6,22 +6,30 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.models.resume import ResumeDocument, ResumeStatus, StructuredResumeFields
-from app.repositories.resume_repository import ResumeRepository
+from app.models.resume import StructuredResumeFields
 from app.services.ai_worker_service import AIWorkerService
-from app.services.pubsub_service import PubSubService
 from app.services.vertex_ai_service import VertexAIService
+from synapse.interfaces.resume_document_store import IResumeDocumentStore, ResumeDocument
+from synapse.interfaces.resume_embedding_store import IResumeEmbeddingStore
 
 
 @pytest.fixture()
-def mock_resume_repo() -> MagicMock:
-    """Return a MagicMock that mimics ResumeRepository."""
-    repo = MagicMock(spec=ResumeRepository)
-    repo.get_by_id = AsyncMock()
-    repo.update_status = AsyncMock()
-    repo.save_processed_data = AsyncMock()
-    repo.save_error = AsyncMock()
-    return repo
+def mock_resume_store() -> MagicMock:
+    """Return a MagicMock that satisfies IResumeDocumentStore."""
+    store = MagicMock(spec=IResumeDocumentStore)
+    store.get_by_id = AsyncMock()
+    store.update_status = AsyncMock()
+    store.save_structured_data = AsyncMock()
+    store.save_error = AsyncMock()
+    return store
+
+
+@pytest.fixture()
+def mock_embedding_store() -> MagicMock:
+    """Return a MagicMock that satisfies IResumeEmbeddingStore."""
+    store = MagicMock(spec=IResumeEmbeddingStore)
+    store.save_embedding = AsyncMock()
+    return store
 
 
 @pytest.fixture()
@@ -41,9 +49,11 @@ def mock_vertex_ai() -> MagicMock:
 
 @pytest.fixture()
 def mock_pubsub() -> MagicMock:
-    """Return a MagicMock that mimics PubSubService."""
-    service = MagicMock(spec=PubSubService)
-    service.publish = AsyncMock()
+    """Return a MagicMock that satisfies IPubSubService."""
+    from hermes.interfaces.pubsub_service import IPubSubService
+
+    service = MagicMock(spec=IPubSubService)
+    service.publish = AsyncMock(return_value="msg-id-001")
     return service
 
 
@@ -52,22 +62,24 @@ def sample_resume() -> ResumeDocument:
     """Return a minimal INGESTED resume document."""
     return ResumeDocument(
         resume_id="resume-test-001",
-        status=ResumeStatus.INGESTED,
+        status="INGESTED",
         raw_text="Jane Doe — Software Engineer with 5 years of Python experience.",
     )
 
 
 @pytest.fixture()
 def worker_service(
-    mock_resume_repo: MagicMock,
+    mock_resume_store: MagicMock,
+    mock_embedding_store: MagicMock,
     mock_vertex_ai: MagicMock,
     mock_pubsub: MagicMock,
 ) -> AIWorkerService:
     """Return a fully-wired AIWorkerService with mocked dependencies."""
     return AIWorkerService(
-        resume_repo=mock_resume_repo,
+        resume_store=mock_resume_store,
+        embedding_store=mock_embedding_store,
         vertex_ai=mock_vertex_ai,
         pubsub=mock_pubsub,
-        output_topic="resume-indexed",
+        output_topic="resume_indexing",
         dlq_alert_recipient="ops@example.com",
     )

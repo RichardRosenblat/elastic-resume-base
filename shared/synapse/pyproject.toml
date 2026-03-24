@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "elastic-resume-base-synapse"
+version = "1.0.0"
+description = "Firestore persistence layer for Elastic Resume Base Python services"
+requires-python = ">=3.11"
+dependencies = [
+    "google-cloud-firestore==2.16.0",
+    "elastic-resume-base-toolbox",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["synapse*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["synapse"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

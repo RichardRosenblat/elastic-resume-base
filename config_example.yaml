@@ -112,14 +112,22 @@ systems:
     VERTEX_AI_LOCATION: us-central1
     VERTEX_AI_EXTRACTION_MODEL: gemini-1.5-flash
     VERTEX_AI_EMBEDDING_MODEL: text-multilingual-embedding-002
-    PUBSUB_AI_WORKER_TOPIC: resume-extracted
-    PUBSUB_SEARCH_INDEX_TOPIC: resume-indexed
+    # Maximum Vertex AI API calls per minute (extraction + embedding combined).
+    # Raise to match your project quota; lower to protect against cost overruns.
+    VERTEX_AI_MAX_CALLS_PER_MINUTE: "60"
+    # HTTP rate limit applied to the /pubsub/push endpoint (requests/minute).
+    RATE_LIMIT_PER_MINUTE: "30"
+    # Input topic — must match the Ingestor's output topic.
+    PUBSUB_INPUT_TOPIC: resume-extracted
+    # Output topic — consumed by the Search Base indexing service.
+    PUBSUB_OUTPUT_TOPIC: resume_indexing
+    PUBSUB_DLQ_TOPIC: dead-letter-queue
+    # Firestore collection for core resume documents (raw text + structured JSON).
     FIRESTORE_RESUMES_COLLECTION: resumes
-
-    # Cloud KMS — PII encryption keys
-    KMS_KEY_RING: elastic-resume-keyring
-    KMS_KEY_NAME: resume-pii-key
-    KMS_KEY_LOCATION: global
+    # Firestore collection for embedding vectors — kept SEPARATE from resumes.
+    FIRESTORE_EMBEDDINGS_COLLECTION: resume_embeddings
+    # Email address that receives DLQ failure alerts via Hermes SMTP.
+    DLQ_ALERT_RECIPIENT: ""
 
   # ---------------------------------------------------------------------------
   # Search Base (Python + FAISS — port 8002)

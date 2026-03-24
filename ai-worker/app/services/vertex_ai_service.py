@@ -2,12 +2,17 @@
 
 This module wraps the Vertex AI SDK calls so that they can be easily mocked
 in unit tests and swapped for alternative implementations in the future.
+
+A sliding-window rate limiter enforces the ``VERTEX_AI_MAX_CALLS_PER_MINUTE``
+setting loaded from ``config.yaml`` so the service never exceeds its quota.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from typing import Any
 
 import vertexai  # type: ignore[import-untyped]
@@ -74,11 +79,16 @@ class VertexAIService:
         location: GCP region for Vertex AI (e.g. ``"us-central1"``).
         extraction_model: Generative model name for field extraction.
         embedding_model: Embedding model name.
+        max_calls_per_minute: Maximum total Vertex AI API calls per minute
+            (shared across extraction and embedding calls).  Defaults to
+            ``60``.  Set via ``VERTEX_AI_MAX_CALLS_PER_MINUTE`` in
+            ``config.yaml``.
 
     Example:
         >>> service = VertexAIService(
         ...     project_id="my-project",
         ...     location="us-central1",
+        ...     max_calls_per_minute=30,
         ... )
         >>> fields = await service.extract_fields("John Doe — Software Engineer...")
         >>> embedding = await service.generate_embedding("John Doe — Software Engineer...")
@@ -90,17 +100,43 @@ class VertexAIService:
         location: str = "us-central1",
         extraction_model: str = "gemini-1.5-flash",
         embedding_model: str = "text-multilingual-embedding-002",
+        max_calls_per_minute: int = 60,
     ) -> None:
         vertexai.init(project=project_id, location=location)
         self._extraction_model_name = extraction_model
         self._embedding_model_name = embedding_model
+        self._max_calls_per_minute = max_calls_per_minute
+        self._call_count: int = 0
+        self._window_start: float = time.monotonic()
+        self._rate_lock = asyncio.Lock()
+
+    async def _check_rate_limit(self) -> None:
+        """Enforce the per-minute Vertex AI call rate limit.
+
+        Uses a fixed sliding window (60 s).  Raises :class:`RateLimitError`
+        when the window is exhausted so callers can surface it as a 429
+        response and let Pub/Sub retry.
+
+        Raises:
+            RateLimitError: When the call budget for the current window is
+                exceeded.
+        """
+        from toolbox.errors import RateLimitError  # local import avoids circular deps
+
+        async with self._rate_lock:
+            now = time.monotonic()
+            if now - self._window_start >= 60.0:
+                self._call_count = 0
+                self._window_start = now
+            if self._call_count >= self._max_calls_per_minute:
+                raise RateLimitError(
+                    f"Vertex AI rate limit of {self._max_calls_per_minute} calls/min exceeded. "
+                    "The message will be retried."
+                )
+            self._call_count += 1
 
     async def extract_fields(self, raw_text: str) -> StructuredResumeFields:
         """Extract structured resume fields from raw text using Vertex AI.
-
-        Sends the raw text to the configured Gemini model and parses the
-        returned JSON into a :class:`~app.models.resume.StructuredResumeFields`
-        instance.
 
         Args:
             raw_text: The raw resume text to process.
@@ -111,10 +147,13 @@ class VertexAIService:
 
         Raises:
             ValueError: If ``raw_text`` is empty.
+            RateLimitError: If the per-minute call budget is exhausted.
             VertexAIServiceError: If the model call fails or returns invalid JSON.
         """
         if not raw_text or not raw_text.strip():
             raise ValueError("raw_text must not be empty.")
+
+        await self._check_rate_limit()
 
         prompt = _EXTRACTION_PROMPT_TEMPLATE.format(raw_text=raw_text)
         logger.info("Calling Vertex AI for structured field extraction.")
@@ -149,18 +188,20 @@ class VertexAIService:
         """Generate a semantic embedding vector for the given text.
 
         Args:
-            text: The text to embed (typically the raw resume text or a
-                concatenation of key structured fields).
+            text: The text to embed.
 
         Returns:
             A list of floats representing the embedding vector.
 
         Raises:
             ValueError: If ``text`` is empty.
+            RateLimitError: If the per-minute call budget is exhausted.
             VertexAIServiceError: If the embedding model call fails.
         """
         if not text or not text.strip():
             raise ValueError("text must not be empty.")
+
+        await self._check_rate_limit()
 
         logger.info("Calling Vertex AI for embedding generation.")
         try:
