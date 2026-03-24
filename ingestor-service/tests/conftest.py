@@ -10,12 +10,12 @@ from fastapi.testclient import TestClient
 
 from hermes import _reset_pubsub_for_testing
 from hermes.interfaces.event_publisher import IEventPublisher, PublishPayload
+from synapse.interfaces.resume_store import IResumeStore
 
 from app.config import Settings
 from app.main import create_app
 from app.services.drive_service import DriveService
 from app.services.ingest_service import IngestService
-from app.services.resume_store import ResumeStore
 from app.services.sheets_service import SheetsService
 
 
@@ -48,6 +48,22 @@ class MockEventPublisher:
         return f"mock-msg-{len(self.published)}"
 
 
+class MockResumeStore:
+    """In-memory resume store backed by a dict (satisfies IResumeStore)."""
+
+    def __init__(self, default_id: str = "resume-test-001") -> None:
+        self._default_id = default_id
+        self.created: list[dict[str, Any]] = []
+
+    def create(
+        self,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        self.created.append({"text": text, "metadata": metadata or {}})
+        return self._default_id
+
+
 @pytest.fixture()
 def mock_publisher() -> MockEventPublisher:
     """Return a fresh MockEventPublisher for each test."""
@@ -67,14 +83,9 @@ def mock_drive_client() -> MagicMock:
 
 
 @pytest.fixture()
-def mock_db() -> MagicMock:
-    """Return a mock Firestore client."""
-    db = MagicMock()
-    # Default: doc.id returns a unique ID string
-    doc_ref = MagicMock()
-    doc_ref.id = "resume-test-001"
-    db.collection.return_value.document.return_value = doc_ref
-    return db
+def mock_resume_store() -> MockResumeStore:
+    """Return a fresh MockResumeStore for each test."""
+    return MockResumeStore()
 
 
 @pytest.fixture()
@@ -88,24 +99,20 @@ def drive_service(mock_drive_client: MagicMock) -> DriveService:
 
 
 @pytest.fixture()
-def resume_store(mock_db: MagicMock) -> ResumeStore:
-    return ResumeStore(db=mock_db, collection="resumes")
-
-
-@pytest.fixture()
 def ingest_service(
     sheets_service: SheetsService,
     drive_service: DriveService,
-    resume_store: ResumeStore,
+    mock_resume_store: MockResumeStore,
     mock_publisher: MockEventPublisher,
 ) -> IngestService:
     return IngestService(
         sheets=sheets_service,
         drive=drive_service,
-        store=resume_store,
+        store=mock_resume_store,  # type: ignore[arg-type]
         publisher=mock_publisher,  # type: ignore[arg-type]
         ingestor_topic="resume-ingested",
         dlq_topic="dead-letter-queue",
+        max_ai_calls_per_batch=50,
     )
 
 
@@ -117,6 +124,9 @@ def test_settings() -> Settings:
         firestore_resumes_collection="resumes",
         pubsub_ingestor_topic="resume-ingested",
         pubsub_dlq_topic="dead-letter-queue",
+        ingest_rate_limit_max_requests=10,
+        ingest_rate_limit_window_seconds=60,
+        max_ai_calls_per_batch=50,
     )
 
 

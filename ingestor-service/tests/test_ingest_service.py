@@ -25,6 +25,7 @@ def _make_service(
     publisher: MockEventPublisher | None = None,
     dlq_topic: str = "dead-letter-queue",
     ingestor_topic: str = "resume-ingested",
+    max_ai_calls_per_batch: int = 0,
 ) -> tuple[IngestService, MockEventPublisher]:
     """Build an IngestService with fully mocked dependencies."""
     if publisher is None:
@@ -46,6 +47,7 @@ def _make_service(
         publisher=publisher,
         ingestor_topic=ingestor_topic,
         dlq_topic=dlq_topic,
+        max_ai_calls_per_batch=max_ai_calls_per_batch,
     )
     return service, publisher
 
@@ -271,3 +273,55 @@ class TestIngestOne:
         assert topic == "dead-letter-queue"
         assert payload.data["fileId"] == "bad-file"
         assert payload.data["errorType"] == "ValueError"
+
+
+# ---------------------------------------------------------------------------
+# AI call cap (max_ai_calls_per_batch)
+# ---------------------------------------------------------------------------
+
+
+class TestAiCallCap:
+    """Tests for the max_ai_calls_per_batch limit in IngestService."""
+
+    def test_cap_limits_number_of_ingested_rows(self) -> None:
+        """Only the first max_ai_calls_per_batch rows are ingested."""
+        rows = [{"fileId": f"file-{i}"} for i in range(10)]
+        service, _ = _make_service(rows, max_ai_calls_per_batch=3)
+        result = service.ingest_from_sheet(sheet_id="sheet-abc")
+        assert len(result) == 3
+
+    def test_cap_of_zero_means_unlimited(self) -> None:
+        """max_ai_calls_per_batch=0 ingests all rows without truncation."""
+        rows = [{"fileId": f"file-{i}"} for i in range(10)]
+        service, _ = _make_service(rows, max_ai_calls_per_batch=0)
+        result = service.ingest_from_sheet(sheet_id="sheet-abc")
+        assert len(result) == 10
+
+    def test_cap_larger_than_batch_ingests_all(self) -> None:
+        """When the cap exceeds the number of rows, all rows are ingested."""
+        rows = [{"fileId": "file-1"}, {"fileId": "file-2"}]
+        service, _ = _make_service(rows, max_ai_calls_per_batch=100)
+        result = service.ingest_from_sheet(sheet_id="sheet-abc")
+        assert len(result) == 2
+
+    def test_rows_without_file_id_not_counted_toward_cap(self) -> None:
+        """Rows without fileId are excluded before the cap is applied."""
+        rows = [
+            {"name": "no-file-id"},
+            {"fileId": "file-1"},
+            {"fileId": "file-2"},
+            {"fileId": "file-3"},
+        ]
+        service, _ = _make_service(rows, max_ai_calls_per_batch=2)
+        result = service.ingest_from_sheet(sheet_id="sheet-abc")
+        assert len(result) == 2
+
+    def test_cap_one_ingests_first_row_only(self) -> None:
+        """max_ai_calls_per_batch=1 processes only the first eligible row."""
+        rows = [{"fileId": "file-1"}, {"fileId": "file-2"}, {"fileId": "file-3"}]
+        service, publisher = _make_service(rows, max_ai_calls_per_batch=1)
+        result = service.ingest_from_sheet(sheet_id="sheet-abc")
+        assert len(result) == 1
+        # Only one resume-ingested event should have been published.
+        ingest_events = [t for t, _ in publisher.published if t == "resume-ingested"]
+        assert len(ingest_events) == 1

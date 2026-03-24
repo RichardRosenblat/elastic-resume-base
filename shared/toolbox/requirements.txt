@@ -1,1 +1,4 @@
-# Toolbox has no runtime dependencies — it only uses the Python standard library.
+pydantic==2.7.1
+pydantic-settings==2.3.4
+starlette>=0.37.0
+pyyaml>=6.0

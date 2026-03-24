@@ -3,28 +3,18 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "elastic-resume-base-ingestor"
+name = "elastic-resume-base-synapse"
 version = "1.0.0"
-description = "Resume ingestor microservice for Elastic Resume Base"
+description = "Shared Firestore persistence library for Elastic Resume Base Python services"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi==0.111.0",
-    "uvicorn[standard]==0.29.0",
-    "pydantic==2.7.1",
-    "pydantic-settings==2.3.4",
+    "google-cloud-firestore==2.16.1",
     "google-auth==2.29.0",
-    "google-api-python-client==2.128.0",
-    "pypdf==4.2.0",
-    "slowapi==0.1.9",
-    "elastic-resume-base-hermes",
-    "elastic-resume-base-bowltie",
-    "elastic-resume-base-toolbox",
-    "elastic-resume-base-synapse",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*"]
+include = ["synapse*"]
 
 # ---------------------------------------------------------------------------
 # Black
@@ -65,7 +55,7 @@ python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["app"]
+source = ["synapse"]
 omit = ["tests/*"]
 
 [tool.coverage.report]

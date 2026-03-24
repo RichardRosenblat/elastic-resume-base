@@ -1,76 +1,57 @@
-"""Unit tests for the ResumeStore."""
+"""Tests verifying the ingestor uses Synapse's IResumeStore interface.
+
+The concrete Firestore implementation (FirestoreResumeStore) is tested
+exhaustively in shared/synapse/tests/.  These tests focus on:
+1. The IResumeStore import from app.services.resume_store is stable.
+2. IngestService accepts any IResumeStore-compatible object.
+3. MockResumeStore (used across the test suite) satisfies IResumeStore.
+"""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from typing import Any
 
 import pytest
 
-from app.services.resume_store import ResumeStore
+from synapse.interfaces.resume_store import IResumeStore
+
+from app.services.resume_store import IResumeStore as AppIResumeStore
+from tests.conftest import MockResumeStore
 
 
-def _make_store(doc_id: str = "resume-001") -> tuple[ResumeStore, MagicMock]:
-    """Build a ResumeStore with a mock Firestore client."""
-    db = MagicMock()
-    doc_ref = MagicMock()
-    doc_ref.id = doc_id
-    db.collection.return_value.document.return_value = doc_ref
-    return ResumeStore(db=db, collection="resumes"), db
+class TestResumeStoreInterface:
+    """Verify that app.services.resume_store re-exports IResumeStore correctly."""
 
+    def test_app_import_is_synapse_interface(self) -> None:
+        """app.services.resume_store.IResumeStore is the Synapse IResumeStore."""
+        assert AppIResumeStore is IResumeStore
 
-class TestResumeStoreCreate:
-    """Tests for ResumeStore.create."""
+    def test_mock_resume_store_satisfies_protocol(self) -> None:
+        """MockResumeStore is structurally compatible with IResumeStore."""
+        store = MockResumeStore()
+        # isinstance checks the Protocol (runtime_checkable).
+        assert isinstance(store, IResumeStore)
 
-    def test_returns_document_id(self) -> None:
-        """Returns the Firestore document ID."""
-        store, _ = _make_store(doc_id="resume-xyz")
-        result = store.create(text="Hello world")
-        assert result == "resume-xyz"
+    def test_mock_resume_store_create_returns_id(self) -> None:
+        """MockResumeStore.create() returns the configured default ID."""
+        store = MockResumeStore(default_id="mock-001")
+        result = store.create(text="Resume text")
+        assert result == "mock-001"
 
-    def test_writes_text_to_firestore(self) -> None:
-        """The text is written to the Firestore document."""
-        store, db = _make_store()
-        store.create(text="Resume content")
-        doc_ref = db.collection.return_value.document.return_value
-        call_args = doc_ref.set.call_args
-        doc = call_args[0][0]
-        assert doc["text"] == "Resume content"
+    def test_mock_resume_store_records_text(self) -> None:
+        """MockResumeStore.create() records the provided text."""
+        store = MockResumeStore()
+        store.create(text="Candidate resume content", metadata={"source": "test"})
+        assert store.created[0]["text"] == "Candidate resume content"
 
-    def test_writes_ingested_status(self) -> None:
-        """The document status is set to INGESTED."""
-        store, db = _make_store()
+    def test_mock_resume_store_records_metadata(self) -> None:
+        """MockResumeStore.create() records the provided metadata."""
+        store = MockResumeStore()
+        store.create(text="text", metadata={"campaign": "spring-2026"})
+        assert store.created[0]["metadata"]["campaign"] == "spring-2026"
+
+    def test_mock_resume_store_empty_metadata_defaults_to_dict(self) -> None:
+        """MockResumeStore.create() uses empty dict when metadata is None."""
+        store = MockResumeStore()
         store.create(text="text")
-        doc = db.collection.return_value.document.return_value.set.call_args[0][0]
-        assert doc["status"] == "INGESTED"
-
-    def test_writes_metadata(self) -> None:
-        """Metadata is written to the document."""
-        store, db = _make_store()
-        store.create(text="text", metadata={"source": "sheet-abc", "candidateName": "Alice"})
-        doc = db.collection.return_value.document.return_value.set.call_args[0][0]
-        assert doc["metadata"]["source"] == "sheet-abc"
-        assert doc["metadata"]["candidateName"] == "Alice"
-
-    def test_writes_empty_metadata_when_not_provided(self) -> None:
-        """Metadata defaults to an empty dict when not supplied."""
-        store, db = _make_store()
-        store.create(text="text")
-        doc = db.collection.return_value.document.return_value.set.call_args[0][0]
-        assert doc["metadata"] == {}
-
-    def test_writes_created_at_timestamp(self) -> None:
-        """A createdAt ISO-8601 timestamp is included in the document."""
-        from datetime import datetime
-
-        store, db = _make_store()
-        store.create(text="text")
-        doc = db.collection.return_value.document.return_value.set.call_args[0][0]
-        dt = datetime.fromisoformat(doc["createdAt"])
-        assert dt is not None
-
-    def test_uses_configured_collection(self) -> None:
-        """The configured collection name is used for the Firestore write."""
-        store, db = _make_store()
-        store._collection = "custom-resumes"
-        store.create(text="text")
-        db.collection.assert_called_with("custom-resumes")
+        assert store.created[0]["metadata"] == {}

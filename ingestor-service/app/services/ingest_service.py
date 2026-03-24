@@ -3,9 +3,12 @@
 Coordinates the full resume ingestion pipeline:
 1. Read resume rows from a Google Sheet.
 2. For each row, download the file from Google Drive and extract text.
-3. Persist the raw text (+ metadata) in Firestore.
+3. Persist the raw text (+ metadata) in Firestore via Synapse.
 4. Publish a ``resume-ingested`` event to Cloud Pub/Sub via Hermes.
 5. On any unrecoverable error, publish a DLQ event via Hermes.
+
+The ``max_ai_calls_per_batch`` setting caps the number of resumes processed
+per job so that unexpected batch sizes cannot cause runaway Vertex AI costs.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ from typing import Any
 from hermes.interfaces.event_publisher import IEventPublisher, PublishPayload
 
 from app.services.drive_service import DriveService
-from app.services.resume_store import ResumeStore
+from app.services.resume_store import IResumeStore
 from app.services.sheets_service import SheetsService
 
 logger = logging.getLogger(__name__)
@@ -35,10 +38,11 @@ class IngestService:
         >>> service = IngestService(
         ...     sheets=SheetsService(sheets_client=mock_sheets),
         ...     drive=DriveService(drive_client=mock_drive),
-        ...     store=ResumeStore(db=mock_db),
+        ...     store=mock_resume_store,
         ...     publisher=mock_publisher,
         ...     ingestor_topic="resume-ingested",
         ...     dlq_topic="dead-letter-queue",
+        ...     max_ai_calls_per_batch=50,
         ... )
         >>> resume_ids = service.ingest_from_sheet(sheet_id="1BxiMVs0...", metadata={})
     """
@@ -47,10 +51,11 @@ class IngestService:
         self,
         sheets: SheetsService,
         drive: DriveService,
-        store: ResumeStore,
+        store: IResumeStore,
         publisher: IEventPublisher,
         ingestor_topic: str,
         dlq_topic: str,
+        max_ai_calls_per_batch: int = 50,
     ) -> None:
         self._sheets = sheets
         self._drive = drive
@@ -58,6 +63,7 @@ class IngestService:
         self._publisher = publisher
         self._ingestor_topic = ingestor_topic
         self._dlq_topic = dlq_topic
+        self._max_ai_calls_per_batch = max_ai_calls_per_batch
 
     def ingest_from_sheet(
         self,
@@ -69,6 +75,10 @@ class IngestService:
         Iterates over every data row in the sheet.  For each row that contains
         a ``fileId`` column, the corresponding Drive file is downloaded and
         ingested.  Rows without a ``fileId`` are skipped with a warning.
+
+        If ``max_ai_calls_per_batch`` is set (> 0), only the first
+        ``max_ai_calls_per_batch`` rows with a ``fileId`` are processed; the
+        rest are skipped with a warning.
 
         If a single row fails, the error is published to the DLQ and processing
         continues with the next row so that one bad file does not block the
@@ -93,12 +103,31 @@ class IngestService:
             logger.warning("No rows found in sheet '%s'.", sheet_id)
             return []
 
+        # Filter rows that have a fileId before applying the AI call cap.
+        eligible = [r for r in rows if r.get(_FILE_ID_COL, "").strip()]
+        skipped_no_file_id = len(rows) - len(eligible)
+        if skipped_no_file_id:
+            logger.warning(
+                "Skipping %d row(s) without fileId in sheet '%s'.",
+                skipped_no_file_id,
+                sheet_id,
+            )
+
+        # Apply the AI call budget cap.
+        if self._max_ai_calls_per_batch > 0 and len(eligible) > self._max_ai_calls_per_batch:
+            logger.warning(
+                "Batch size %d exceeds max_ai_calls_per_batch=%d; "
+                "truncating to %d rows for sheet '%s'.",
+                len(eligible),
+                self._max_ai_calls_per_batch,
+                self._max_ai_calls_per_batch,
+                sheet_id,
+            )
+            eligible = eligible[: self._max_ai_calls_per_batch]
+
         ingested_ids: list[str] = []
-        for row in rows:
-            file_id = row.get(_FILE_ID_COL, "").strip()
-            if not file_id:
-                logger.warning("Skipping row without fileId: %s", row)
-                continue
+        for row in eligible:
+            file_id = row[_FILE_ID_COL].strip()
             resume_id = self._ingest_one(
                 file_id=file_id,
                 row_metadata={**row, **(metadata or {})},
@@ -107,7 +136,10 @@ class IngestService:
                 ingested_ids.append(resume_id)
 
         logger.info(
-            "Sheet ingest complete: %d/%d rows ingested.", len(ingested_ids), len(rows)
+            "Sheet ingest complete: %d/%d rows ingested (cap=%s).",
+            len(ingested_ids),
+            len(eligible),
+            self._max_ai_calls_per_batch or "unlimited",
         )
         return ingested_ids
 

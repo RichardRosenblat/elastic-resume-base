@@ -104,6 +104,18 @@ systems:
     PUBSUB_INGESTOR_TOPIC: resume-ingested
     PUBSUB_AI_WORKER_TOPIC: resume-extracted
 
+    # Rate limiting — limits the number of POST /ingest requests accepted in a
+    # sliding window.  Prevents runaway ingestion jobs from exhausting downstream
+    # resources.
+    INGEST_RATE_LIMIT_MAX_REQUESTS: "10"
+    INGEST_RATE_LIMIT_WINDOW_SECONDS: "60"
+
+    # AI call budget — caps the number of resumes processed per ingest batch.
+    # Each ingested resume eventually triggers one AI extraction call in the
+    # AI Worker.  Setting this limit avoids unexpectedly large Vertex AI bills.
+    # Set to 0 for unlimited (not recommended in production).
+    MAX_AI_CALLS_PER_BATCH: "50"
+
   # ---------------------------------------------------------------------------
   # AI Worker (Python — Pub/Sub triggered)
   # Extracts structured data and generates embeddings using Vertex AI.
