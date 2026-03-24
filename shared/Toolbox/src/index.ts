@@ -30,5 +30,6 @@ export {
   ForbiddenError,
   DownstreamError,
   UnavailableError,
+  RateLimitError,
   isAppError,
 } from './errors.js';

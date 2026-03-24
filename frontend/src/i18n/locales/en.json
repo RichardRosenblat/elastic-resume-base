@@ -102,6 +102,7 @@
     "rowsPerPage": "Rows per page",
     "featureNotAvailable": "This feature is not yet available",
     "contactAdministrator": "Please contact your administrator for access",
+    "rateLimitExceeded": "Too many requests. Please wait a moment and try again.",
     "or": "or"
   },
   "theme": {

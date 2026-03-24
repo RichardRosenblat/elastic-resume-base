@@ -102,6 +102,7 @@
     "rowsPerPage": "Linhas por página",
     "featureNotAvailable": "Esta funcionalidade ainda não está disponível",
     "contactAdministrator": "Entre em contato com seu administrador para obter acesso",
+    "rateLimitExceeded": "Muitas requisições. Aguarde um momento e tente novamente.",
     "or": "ou"
   },
   "theme": {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { config } from '../config.js';
-import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, UnavailableError, ValidationError } from '../errors.js';
+import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, RateLimitError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
 import { logger } from '../utils/logger.js';
 import type {
@@ -74,6 +74,11 @@ function handleUserApiError(
     if (status === 409) {
       logger.info(context, `${operationName}: UserAPI returned 409 Conflict`);
       throw new ConflictError(extractApiMessage(err, 'Resource already exists'));
+    }
+
+    if (status === 429) {
+      logger.warn(context, `${operationName}: UserAPI returned 429 Too Many Requests`);
+      throw new RateLimitError(extractApiMessage(err, 'Too many requests. Please wait a moment and try again.'));
     }
 
     const handler = status !== undefined ? STATUS_ERROR_MAP[status] : undefined;
