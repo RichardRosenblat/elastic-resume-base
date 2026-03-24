@@ -1,0 +1,1 @@
+# Bowltie has no runtime dependencies — it only uses the Python standard library.

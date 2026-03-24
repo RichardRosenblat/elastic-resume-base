@@ -45,3 +45,23 @@ services:
       - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
     depends_on:
       - firebase-emulator
+
+  # 4. Ingestor Service (Python)
+  ingestor-service:
+    build:
+      context: .
+      dockerfile: ingestor-service/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      PORT: "8001"
+      GCP_PROJECT_ID: "${GCP_PROJECT_ID:-demo-elastic-resume-base}"
+      FIRESTORE_EMULATOR_HOST: "firebase-emulator:8080"
+      PUBSUB_EMULATOR_HOST: "firebase-emulator:8085"
+      FIRESTORE_RESUMES_COLLECTION: "resumes"
+      PUBSUB_INGESTOR_TOPIC: "resume-ingested"
+      PUBSUB_DLQ_TOPIC: "dead-letter-queue"
+      LOG_LEVEL: "info"
+      LOG_FORMAT: "json"
+    depends_on:
+      - firebase-emulator

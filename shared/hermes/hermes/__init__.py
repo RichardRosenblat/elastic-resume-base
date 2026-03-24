@@ -4,7 +4,7 @@ Hermes decouples Python services from any specific messaging transport (SMTP,
 SendGrid, Slack, etc.) so that swapping providers requires only a configuration
 change — no consuming service needs to be refactored.
 
-Quick start::
+Quick start — email messaging::
 
     from hermes import initialize_messaging_from_env, get_messaging_service
     from hermes.interfaces import Message
@@ -21,8 +21,24 @@ Quick start::
             body="The job resume-ingestion-001 exceeded its retry limit.",
         )
     )
+
+Quick start — event publishing (Cloud Pub/Sub)::
+
+    from hermes import initialize_pubsub_from_env, get_event_publisher
+    from hermes.interfaces.event_publisher import PublishPayload
+
+    # Call once at application startup.
+    initialize_pubsub_from_env()
+
+    # Anywhere in your service:
+    publisher = get_event_publisher()
+    publisher.publish(
+        "resume-ingested",
+        PublishPayload(data={"resumeId": "resume-abc123"}),
+    )
 """
 
+from hermes.interfaces.event_publisher import IEventPublisher, PublishPayload
 from hermes.interfaces.messaging_service import IMessagingService, Message
 from hermes.messaging import (
     _reset_messaging_for_testing,
@@ -31,21 +47,38 @@ from hermes.messaging import (
     initialize_messaging_from_env,
 )
 from hermes.options import MessagingOptions
+from hermes.publishing import (
+    _reset_pubsub_for_testing,
+    get_event_publisher,
+    initialize_pubsub,
+    initialize_pubsub_from_env,
+)
+from hermes.services.pubsub_event_publisher import PubSubEventPublisher
 from hermes.services.smtp_messaging_service import SmtpMessagingService
 
 __all__ = [
-    # Interface & message model
+    # Messaging interface & message model
     "IMessagingService",
     "Message",
-    # Configuration
+    # Event publisher interface & payload model
+    "IEventPublisher",
+    "PublishPayload",
+    # Messaging configuration
     "MessagingOptions",
-    # Initialisation
+    # Messaging initialisation
     "initialize_messaging",
     "initialize_messaging_from_env",
-    # Singleton accessor
+    # Messaging singleton accessor
     "get_messaging_service",
+    # Pub/Sub initialisation
+    "initialize_pubsub",
+    "initialize_pubsub_from_env",
+    # Pub/Sub singleton accessor
+    "get_event_publisher",
     # Concrete implementations
     "SmtpMessagingService",
-    # Test helper
+    "PubSubEventPublisher",
+    # Test helpers
     "_reset_messaging_for_testing",
+    "_reset_pubsub_for_testing",
 ]
