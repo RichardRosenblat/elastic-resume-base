@@ -7,10 +7,17 @@
  * Auth flow:
  * 1. Aegis `onAuthStateChanged` fires whenever the session changes.
  * 2. On sign-in, the ID token is exchanged for a full user profile via
- *    `GET /api/v1/users/me` on the BFF Gateway.
- * 3. `userProfile.enable === false` means the account is pending approval —
- *    the `ProtectedRoute` component gates access in that case.
- * 4. `isAdmin` is `true` when `userProfile.role === 'admin'`.
+ *    `GET /api/v1/users/me` on the BFF Gateway. `loading` is set to `true`
+ *    for the duration of this fetch so that LoginPage shows a spinner and
+ *    does not redirect or flash the form prematurely.
+ * 3. If the profile fetch returns 403 FORBIDDEN with "pending approval", the
+ *    user is left authenticated in Firebase but `userProfile.enable` is set
+ *    to `false` — the `ProtectedRoute` component gates access in that case.
+ * 4. If the profile fetch returns 403 FORBIDDEN for any other reason (the
+ *    user has no application access), Firebase sign-out is called immediately
+ *    so that the session is cleared, a toast is shown, and the user stays on
+ *    the login page.
+ * 5. `isAdmin` is `true` when `userProfile.role === 'admin'`.
  */
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
@@ -56,6 +63,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
       if (user) {
+        // Keep the loading spinner visible while the profile is being fetched so that
+        // LoginPage does not flash the login form or redirect prematurely.
+        setLoading(true);
         try {
           const token = await user.getIdToken();
           const profile = await fetchUserProfile(token);
@@ -76,6 +86,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
               enable: false,
             });
           } else {
+            // User is authenticated with Firebase but has no application access.
+            // Sign them out so the Firebase session is cleared and they stay on the
+            // login page rather than being redirected to the dashboard.
+            await auth.signOut();
             setUserProfile(null);
             showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
           }

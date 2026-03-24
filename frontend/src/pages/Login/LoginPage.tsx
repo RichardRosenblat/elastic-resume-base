@@ -9,7 +9,7 @@
  * If the user is already authenticated, they are redirected to `/`.
  */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,6 +31,7 @@ import ErrorMessage from '../../components/ErrorMessage';
 import { useAppTheme } from '../../theme';
 import SupportFooter from '../../components/SupportFooter';
 import { useButtonLock } from '../../hooks/useButtonLock';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 const loginSchema = z.object({
   email: z.email().min(1),
@@ -41,9 +42,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const { t } = useTranslation();
-  const { login, loginWithGoogle, currentUser } = useAuth();
+  const { login, loginWithGoogle, currentUser, userProfile, loading } = useAuth();
   const { theme } = useAppTheme();
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { locked: googleLocked, wrap: wrapGoogle } = useButtonLock();
@@ -56,16 +56,28 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  if (currentUser) {
-    void navigate('/');
-    return null;
+  // Show a full-page spinner while the initial auth check or profile fetch is in progress.
+  // This prevents the login form from flashing before we know whether the user is authenticated.
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  // Once loading is complete, redirect authenticated users with a valid profile to the dashboard.
+  // We require `userProfile` (not just `currentUser`) so that users who are still in Firebase
+  // but lack application access (403 FORBIDDEN) are never forwarded to protected routes.
+  if (currentUser && userProfile) {
+    return <Navigate to="/" replace />;
   }
 
   const onSubmit = async (data: LoginFormData) => {
     setError(null);
     try {
       await login(data.email, data.password);
-      void navigate('/');
+      // Do NOT navigate here. AuthContext.onAuthStateChanged will fetch the user profile
+      // and set `loading=true` while that happens. Once loading finishes, the guard above
+      // (`currentUser && userProfile`) triggers navigation on a successful profile fetch.
+      // If the profile fetch fails with 403, AuthContext signs the user out and shows a
+      // toast so they remain on this page.
     } catch {
       setError(t('auth.invalidCredentials'));
     }
@@ -76,7 +88,7 @@ export default function LoginPage() {
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
-      void navigate('/');
+      // Do NOT navigate here — same reasoning as onSubmit above.
     } catch {
       setError(t('auth.loginError'));
     } finally {
