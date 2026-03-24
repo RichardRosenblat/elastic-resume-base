@@ -33,7 +33,7 @@
  * const { locked: deleteLocked, wrap: wrapDelete } = useButtonLock();
  * ```
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface UseButtonLockReturn {
   /** `true` while the wrapped handler is executing or during the lock delay. */
@@ -58,11 +58,22 @@ export interface UseButtonLockReturn {
  */
 export function useButtonLock(delayMs = 500): UseButtonLockReturn {
   const [locked, setLocked] = useState(false);
+  const lockedRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const wrap = useCallback(
     (fn: () => void | Promise<void>) =>
       async (): Promise<void> => {
-        if (locked) return;
+        if (lockedRef.current) return;
+        lockedRef.current = true;
         setLocked(true);
         const startTime = Date.now();
         try {
@@ -70,10 +81,17 @@ export function useButtonLock(delayMs = 500): UseButtonLockReturn {
         } finally {
           const elapsed = Date.now() - startTime;
           const remaining = Math.max(0, delayMs - elapsed);
-          setTimeout(() => setLocked(false), remaining);
+          if (timeoutRef.current !== null) {
+            clearTimeout(timeoutRef.current);
+          }
+          timeoutRef.current = setTimeout(() => {
+            lockedRef.current = false;
+            setLocked(false);
+            timeoutRef.current = null;
+          }, remaining);
         }
       },
-    [locked, delayMs],
+    [delayMs],
   );
 
   return { locked, wrap };
