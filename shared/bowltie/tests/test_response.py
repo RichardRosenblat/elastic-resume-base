@@ -28,7 +28,7 @@ class TestResponseMeta:
         """correlation_id is not included when it is None."""
         meta = ResponseMeta(timestamp="2026-01-15T10:30:00.000000+00:00")
         result = meta.to_dict()
-        assert "correlationId" in result is False or "correlationId" not in result
+        assert "correlationId" not in result
 
     def test_to_dict_includes_correlation_id_when_set(self) -> None:
         """correlation_id is serialised as correlationId when provided."""
