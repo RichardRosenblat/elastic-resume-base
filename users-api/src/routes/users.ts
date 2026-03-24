@@ -101,7 +101,7 @@ const validationErrorResponse = {
 
 /** Reusable schema for 403 forbidden responses. */
 const forbiddenResponse = {
-  description: 'User does not have access to this application.',
+  description: 'The action is forbidden (e.g. insufficient permissions or last-admin guard).',
   type: 'object',
   properties: {
     success: { type: 'boolean', example: false },
@@ -109,7 +109,7 @@ const forbiddenResponse = {
       type: 'object',
       properties: {
         code: { type: 'string', example: 'FORBIDDEN' },
-        message: { type: 'string', example: 'User does not have access to this application' },
+        message: { type: 'string', example: 'Access forbidden' },
       },
     },
     meta: {
