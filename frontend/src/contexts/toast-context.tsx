@@ -87,10 +87,15 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
   }, []);
 
   const handleMouseEnter = useCallback(() => {
-    // Pause: calculate how much time is left and cancel the timer.
-    const elapsed = Date.now() - timerStartedAtRef.current;
-    remainingMsRef.current = Math.max(0, remainingMsRef.current - elapsed);
-    clearTimer();
+    // Only subtract elapsed time when a timer is actually running.
+    // If the user hovers before the mount effect starts the timer,
+    // timerStartedAtRef is still 0 and the elapsed calculation would be
+    // enormous, resetting remainingMsRef to 0.
+    if (timerRef.current !== null) {
+      const elapsed = Date.now() - timerStartedAtRef.current;
+      remainingMsRef.current = Math.max(0, remainingMsRef.current - elapsed);
+      clearTimer();
+    }
     setIsHovered(true);
   }, [clearTimer]);
 
