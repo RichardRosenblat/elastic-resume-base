@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadTheme } from './loadTheme';
+import { loadTheme, resolveLogoUrl } from './loadTheme';
 import { toCssVariables } from './toCssVariables';
 
 describe('loadTheme', () => {
@@ -74,5 +74,50 @@ describe('toCssVariables', () => {
     if (theme.palette.ui?.border) {
       expect(vars['--color-ui-border']).toBe(theme.palette.ui.border);
     }
+  });
+});
+
+describe('resolveLogoUrl', () => {
+  it('returns empty string unchanged', () => {
+    expect(resolveLogoUrl('')).toBe('');
+  });
+
+  it('returns mdi: icons unchanged', () => {
+    expect(resolveLogoUrl('mdi:briefcase')).toBe('mdi:briefcase');
+  });
+
+  it('returns https:// URLs unchanged', () => {
+    expect(resolveLogoUrl('https://cdn.example.com/logo.png')).toBe('https://cdn.example.com/logo.png');
+  });
+
+  it('returns http:// URLs unchanged', () => {
+    expect(resolveLogoUrl('http://localhost:3000/logo.png')).toBe('http://localhost:3000/logo.png');
+  });
+
+  it('returns protocol-relative // URLs unchanged', () => {
+    expect(resolveLogoUrl('//cdn.example.com/logo.svg')).toBe('//cdn.example.com/logo.svg');
+  });
+
+  it('returns data: URIs unchanged', () => {
+    expect(resolveLogoUrl('data:image/png;base64,abc')).toBe('data:image/png;base64,abc');
+  });
+
+  it('returns root-relative /paths unchanged', () => {
+    expect(resolveLogoUrl('/logo.png')).toBe('/logo.png');
+    expect(resolveLogoUrl('/assets/images/logo.svg')).toBe('/assets/images/logo.svg');
+  });
+
+  it('prefixes a bare filename with / to point to the dist/public folder', () => {
+    expect(resolveLogoUrl('logo.png')).toBe('/logo.png');
+    expect(resolveLogoUrl('brand-logo.svg')).toBe('/brand-logo.svg');
+  });
+
+  it('strips leading ./ from relative paths and prefixes with /', () => {
+    expect(resolveLogoUrl('./logo.png')).toBe('/logo.png');
+    expect(resolveLogoUrl('./images/brand.svg')).toBe('/images/brand.svg');
+  });
+
+  it('prefixes sub-folder paths without ./ with /', () => {
+    expect(resolveLogoUrl('images/logo.png')).toBe('/images/logo.png');
   });
 });

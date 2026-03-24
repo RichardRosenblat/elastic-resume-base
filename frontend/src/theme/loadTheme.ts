@@ -97,12 +97,41 @@ function validateTheme(raw: unknown): asserts raw is RawTheme {
 }
 
 /**
+ * Resolves a logo value to a usable URL/identifier.
+ *
+ * Accepted forms (evaluated in order):
+ * 1. Empty string → returned as-is (no image rendered).
+ * 2. `mdi:<name>` → Iconify icon identifier, returned as-is.
+ * 3. `data:` URI → inline image, returned as-is.
+ * 4. `https://`, `http://`, or `//` → external or protocol-relative URL, returned as-is.
+ * 5. `/` prefix → root-relative path already pointing into `dist/` / `public/`, returned as-is.
+ * 6. Any other string (bare filename or relative path like `logo.png` or `./images/logo.png`)
+ *    → treated as a path relative to the application root; a leading `/` is prepended so that
+ *    it resolves to the file served from the app's `dist/` / `public/` folder (e.g. the Vite
+ *    `public/` directory, which is copied verbatim to `dist/` on build).
+ *
+ * @param value - The raw string from `theme.json` branding config.
+ * @returns The normalized string ready for use as an `<img src>` or Iconify `icon`.
+ */
+export function resolveLogoUrl(value: string): string {
+  if (!value) return '';
+  if (value.startsWith('mdi:')) return value;
+  if (value.startsWith('data:')) return value;
+  if (value.startsWith('https://') || value.startsWith('http://') || value.startsWith('//')) return value;
+  if (value.startsWith('/')) return value;
+  // Bare filename or relative path — anchor it to the app root so it
+  // always resolves to the dist/public folder regardless of the current route.
+  const stripped = value.startsWith('./') ? value.slice(2) : value;
+  return `/${stripped}`;
+}
+
+/**
  * Supports legacy branding shape while enforcing explicit app/company naming.
  */
 function normalizeTheme(raw: RawTheme): AppTheme {
   const fallbackName = raw.branding.companyName || 'Elastic Resume Base';
-  const appLogoUrl = raw.branding.appLogoUrl || raw.branding.logoUrl || '';
-  const companyLogoUrl = raw.branding.companyLogoUrl || raw.branding.companyLogo || '';
+  const appLogoUrl = resolveLogoUrl(raw.branding.appLogoUrl || raw.branding.logoUrl || '');
+  const companyLogoUrl = resolveLogoUrl(raw.branding.companyLogoUrl || raw.branding.companyLogo || '');
   return {
     ...raw,
     branding: {

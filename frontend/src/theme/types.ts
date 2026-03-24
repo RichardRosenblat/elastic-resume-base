@@ -111,13 +111,24 @@ export interface Branding {
   /** Company/customer name using the app. */
   companyName: string;
   /**
-   * Absolute/root-relative URL or Iconify identifier (e.g. `mdi:briefcase`)
-   * used as the app/platform logo.
+   * URL, root-relative path, bare filename, or Iconify identifier used as
+   * the app/platform logo.
+   *
+   * Accepted forms:
+   * - `https://cdn.example.com/logo.png` — external URL
+   * - `/logo.png` or `/assets/logo.png` — root-relative path (file served from `dist/` / `public/`)
+   * - `logo.png` or `./images/logo.png` — bare filename / relative path, resolved against the
+   *   app root so it points to a file in the `public/` folder (Vite copies `public/` verbatim
+   *   into `dist/` on build)
+   * - `mdi:briefcase` — Iconify icon identifier (no image file needed)
+   * - `data:image/…` — inline base64 data URI
    */
   appLogoUrl: string;
   /**
-   * Absolute/root-relative URL or Iconify identifier (e.g. `mdi:domain`)
-   * shown as the partner/customer logo in the topbar.
+   * URL, root-relative path, bare filename, or Iconify identifier shown as
+   * the partner/customer logo in the topbar.
+   *
+   * Accepted forms: same as {@link appLogoUrl}.
    */
   companyLogoUrl: string;
   /** @deprecated Use `appLogoUrl` instead. */
