@@ -27,13 +27,13 @@ bowltie = "bowltie_py"
 # ---------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["bowltie_ts/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
 source = ["bowltie_py"]
-omit = ["tests/*"]
+omit = ["bowltie_ts/tests/*"]
 
 [tool.coverage.report]
 fail_under = 80

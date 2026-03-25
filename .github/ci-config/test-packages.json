@@ -1,8 +1,8 @@
 [
   {
     "id": "bowltie",
-    "name": "shared/Bowltie",
-    "path": "shared/Bowltie",
+    "name": "shared/Bowltie/bowltie_ts",
+    "path": "shared/Bowltie/bowltie_ts",
     "dependsOn": []
   },
   {

@@ -16,8 +16,8 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^js-yaml$': '<rootDir>/node_modules/js-yaml',
     '^@elastic-resume-base/bugle$': '<rootDir>/../shared/Bugle/src/index.ts',
-    '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
+    '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/bowltie_ts/src/index.ts',
     '^@elastic-resume-base/synapse$': '<rootDir>/../shared/Synapse/src/index.ts',
-    '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',
+    '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
   },
 };

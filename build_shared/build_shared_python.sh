@@ -5,10 +5,10 @@
 #   ./build_shared_python.sh
 #
 # For each sub-directory of shared/ that contains a pyproject.toml, this script:
-#   1. Creates (or reuses) a virtual environment in shared/<lib>/<lib>_venv
+#   1. Creates (or reuses) a virtual environment in shared/<lib>/<lib_lower>_py/venv
 #   2. Installs production and development dependencies
 #   3. Installs the package in editable mode
-#   4. Runs the test suite with coverage
+#   4. Runs the test suite with coverage (testpaths are read from pyproject.toml)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,8 +20,10 @@ for dir in "${ROOT_DIR}"/shared/*/; do
         echo "Building ${dir}"
         (
             cd "${dir}"
-            LIB_NAME="$(basename "${dir}")"
-            VENV_DIR="${LIB_NAME}_venv"
+            LIB_NAME="$(basename "${dir%/}")"
+            LIB_NAME_LOWER="${LIB_NAME,,}"
+            # venv lives inside the language-specific _py directory
+            VENV_DIR="${LIB_NAME_LOWER}_py/venv"
 
             # Create a virtual environment if one doesn't exist.
             if [ ! -d "${VENV_DIR}" ]; then
@@ -49,7 +51,8 @@ for dir in "${ROOT_DIR}"/shared/*/; do
 
             python -m pip install --quiet -e .
 
-            python -m pytest tests/ --cov --cov-report=term-missing
+            # testpaths are defined in pyproject.toml — no explicit path needed here
+            python -m pytest --cov --cov-report=term-missing
         )
     fi
 done

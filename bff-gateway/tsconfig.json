@@ -9,7 +9,9 @@
     "baseUrl": "..",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@shared/toolbox": ["shared/Toolbox/src/index.ts"]
+      "@shared/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
+      "firebase-admin": ["bff-gateway/node_modules/firebase-admin"],
+      "firebase-admin/*": ["bff-gateway/node_modules/firebase-admin/*"]
     },
     "strict": true,
     "noUncheckedIndexedAccess": true,

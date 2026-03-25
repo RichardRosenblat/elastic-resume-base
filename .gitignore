@@ -213,3 +213,8 @@ temp/
 !shared/*/
 !shared/*/dist/
 !shared/*/dist/**
+# Libraries with both Python and TypeScript implementations keep their
+# TypeScript build output one level deeper inside the _ts subdirectory.
+!shared/*/*_ts/
+!shared/*/*_ts/dist/
+!shared/*/*_ts/dist/**

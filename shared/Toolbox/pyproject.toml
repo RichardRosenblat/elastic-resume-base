@@ -27,13 +27,13 @@ toolbox = "toolbox_py"
 # ---------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["toolbox_ts/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
 source = ["toolbox_py"]
-omit = ["tests/*"]
+omit = ["toolbox_ts/tests/*"]
 
 [tool.coverage.report]
 fail_under = 80
