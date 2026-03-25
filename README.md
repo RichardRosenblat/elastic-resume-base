@@ -234,7 +234,7 @@ The following local endpoints will be available:
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:5174 |
+| Frontend | http://localhost:5173 |
 | BFF Gateway | http://localhost:3000 |
 | BFF Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
