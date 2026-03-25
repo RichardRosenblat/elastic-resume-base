@@ -6,20 +6,24 @@ A cloud-native, microservices-based resume processing platform built on Google C
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Implementation Status](#implementation-status)
-- [Architecture](#architecture)
-- [Services](#services)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Local Development Setup](#local-development-setup)
-  - [Running with Docker Compose](#running-with-docker-compose)
-- [Repository Structure](#repository-structure)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [Security](#security)
-- [License](#license)
+- [Elastic Resume Base](#elastic-resume-base)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Implementation Status](#implementation-status)
+  - [Architecture](#architecture)
+    - [Current Implementation](#current-implementation)
+    - [Full Target Architecture (Planned)](#full-target-architecture-planned)
+  - [Services](#services)
+  - [Tech Stack](#tech-stack)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Local Development Setup](#local-development-setup)
+    - [Running with Docker Compose](#running-with-docker-compose)
+  - [Repository Structure](#repository-structure)
+  - [Documentation](#documentation)
+  - [Contributing](#contributing)
+  - [Security](#security)
+  - [License](#license)
 
 ---
 

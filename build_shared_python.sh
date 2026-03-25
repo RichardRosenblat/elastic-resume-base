@@ -37,7 +37,7 @@ for dir in shared/*/; do
 
             pip install --quiet -e .
 
-            pytest --cov --cov-report=term-missing
+            pytest tests/ --cov --cov-report=term-missing
         )
     fi
 done
