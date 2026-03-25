@@ -61,7 +61,8 @@ services:
   # 5. Document Reader / OCR (Python — port 8004)
   document-reader:
     build:
-      context: ./document-reader
+      context: .
+      dockerfile: document-reader/Dockerfile
     ports:
       - "8004:8004"
     environment:

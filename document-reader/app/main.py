@@ -1,15 +1,14 @@
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from toolbox import get_logger, setup_logging
 
 from app.config import settings
 from app.routers import documents, health
-from app.utils.logger import configure_logging
 
-configure_logging(settings.log_level)
-logger = logging.getLogger(__name__)
+setup_logging(level=settings.log_level)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager

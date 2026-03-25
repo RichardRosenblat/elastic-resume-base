@@ -1,22 +1,25 @@
-import logging
-import sys
+"""Logger module — re-exports the shared Toolbox logger for backwards compatibility.
+
+New code in this service should import directly from ``toolbox``::
+
+    from toolbox import get_logger, setup_logging
+
+This module is kept so that any internal references to
+``app.utils.logger.configure_logging`` continue to work during the transition.
+"""
+
+from toolbox import get_logger, setup_logging
 
 
 def configure_logging(log_level: str = "INFO") -> None:
-    """Configure root logger with structured formatting.
+    """Configure root logger using the shared Toolbox logger.
+
+    Delegates to :func:`toolbox.setup_logging` with the given level.
 
     Args:
         log_level: Logging level string (e.g. "INFO", "DEBUG").
     """
-    level = getattr(logging, log_level.upper(), logging.INFO)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(level)
-    fmt = (
-        '{"time": "%(asctime)s", "level": "%(levelname)s",'
-        ' "logger": "%(name)s", "message": "%(message)s"}'
-    )
-    formatter = logging.Formatter(fmt=fmt, datefmt="%Y-%m-%dT%H:%M:%S")
-    handler.setFormatter(formatter)
-    root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-    root_logger.addHandler(handler)
+    setup_logging(level=log_level)
+
+
+__all__ = ["configure_logging", "setup_logging", "get_logger"]

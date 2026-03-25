@@ -270,10 +270,10 @@ elastic-resume-base/
 │   └── pyproject.toml
 ├── shared/                    # ✅ Shared libraries (TypeScript + Python)
 │   ├── Synapse/               # Persistence abstraction (Firestore via firebase-admin)
-│   ├── Bowltie/               # Response formatting utilities
+│   ├── Bowltie/               # Response formatting utilities (TypeScript + Python)
 │   ├── Bugle/                 # Google API integration (Auth + Drive)
 │   ├── Aegis/                 # Auth abstraction (Firebase Admin / Firebase Client)
-│   ├── Toolbox/               # Cross-cutting utilities (logger, config loader, middleware)
+│   ├── Toolbox/               # Cross-cutting utilities — logger, errors (TypeScript + Python)
 │   └── Hermes/                # Messaging abstraction (SMTP — TypeScript + Python)
 ├── firebase-emulator/         # Local Firebase Emulator setup
 │   ├── Dockerfile

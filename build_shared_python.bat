@@ -33,7 +33,7 @@ for /d %%d in (shared\*) do (
 
         pip install --quiet -e .
 
-        pytest tests\ --cov --cov-report=term-missing
+        pytest --cov --cov-report=term-missing
 
         call .venv\Scripts\deactivate.bat
         popd
