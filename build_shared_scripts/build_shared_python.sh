@@ -1,29 +1,42 @@
 #!/usr/bin/env bash
-# build_shared_python.sh — Install and test all Python shared libraries under shared/.
+# build_shared_python.sh — Install Python shared libraries under shared/.
 #
 # Usage:
-#   ./build_shared_python.sh
+#   ./build_shared_python.sh [--prod]
 #
-# For each sub-directory of shared/ that contains a pyproject.toml, this script:
+# Options:
+#   --prod   Install without the -e (editable) flag.  Default is editable mode.
+#
+# For each sub-directory of shared/ that contains a <lib_lower>_py/ sub-directory
+# with a pyproject.toml, this script:
 #   1. Creates (or reuses) a virtual environment in shared/<lib>/<lib_lower>_py/venv
 #   2. Installs production and development dependencies
-#   3. Installs the package in editable mode
+#   3. Installs the package (editable by default, non-editable with --prod)
 #   4. Runs the test suite with coverage (testpaths are read from pyproject.toml)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-for dir in "${ROOT_DIR}"/shared/*/; do
-    if [ -f "${dir}pyproject.toml" ]; then
+# Parse flags
+EDITABLE="-e"
+for arg in "$@"; do
+    if [ "${arg}" = "--prod" ]; then
+        EDITABLE=""
+    fi
+done
+
+for lib_dir in "${ROOT_DIR}"/shared/*/; do
+    lib_name="$(basename "${lib_dir%/}")"
+    lib_name_lower="${lib_name,,}"
+    py_dir="${lib_dir}${lib_name_lower}_py"
+
+    if [ -d "${py_dir}" ] && [ -f "${py_dir}/pyproject.toml" ]; then
         echo ""
-        echo "Building ${dir}"
+        echo "Installing ${py_dir}"
         (
-            cd "${dir}"
-            LIB_NAME="$(basename "${dir%/}")"
-            LIB_NAME_LOWER="${LIB_NAME,,}"
-            # venv lives inside the language-specific _py directory
-            VENV_DIR="${LIB_NAME_LOWER}_py/venv"
+            cd "${py_dir}"
+            VENV_DIR="venv"
 
             # Create a virtual environment if one doesn't exist.
             if [ ! -d "${VENV_DIR}" ]; then
@@ -41,21 +54,25 @@ for dir in "${ROOT_DIR}"/shared/*/; do
             # shellcheck source=/dev/null
             . "${VENV_DIR}/bin/activate"
 
-            pip install --quiet --upgrade pip
+            python -m pip install --quiet --upgrade pip
 
             if [ -f "requirements-dev.txt" ]; then
-                pip install --quiet -r requirements-dev.txt
+                python -m pip install --quiet -r requirements-dev.txt
             elif [ -f "requirements.txt" ]; then
-                pip install --quiet -r requirements.txt
+                python -m pip install --quiet -r requirements.txt
             fi
 
-            pip install --quiet -e .
+            if [ -n "${EDITABLE}" ]; then
+                python -m pip install --quiet -e .
+            else
+                python -m pip install --quiet .
+            fi
 
             # testpaths are defined in pyproject.toml — no explicit path needed here
-            pytest --cov --cov-report=term-missing
+            python -m pytest --cov --cov-report=term-missing
         )
     fi
 done
 
 echo ""
-echo "All Python builds completed!"
+echo "All Python installs completed!"

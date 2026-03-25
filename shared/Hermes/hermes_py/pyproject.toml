@@ -3,37 +3,42 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "elastic-resume-base-bowltie"
+name = "elastic-resume-base-hermes"
 version = "1.0.0"
-description = "Standard API response formatting for Elastic Resume Base Python services"
+description = "Shared messaging abstraction library for Elastic Resume Base Python services"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pydantic==2.7.1",
+    "pydantic-settings==2.3.4",
+]
 
 # ---------------------------------------------------------------------------
 # Package discovery
 #
-# The Python source lives in bowltie_py/ but is installed as the `bowltie`
-# package so consumers simply write `from bowltie import format_success`.
+# The Python source lives here (hermes_py/) and is installed as the `hermes`
+# package so that consumers simply do `from hermes import ...`.
 # ---------------------------------------------------------------------------
 
 [tool.setuptools]
-packages = ["bowltie"]
+packages = ["hermes", "hermes.interfaces", "hermes.services"]
 
 [tool.setuptools.package-dir]
-bowltie = "bowltie_py"
+hermes = "."
+"hermes.interfaces" = "interfaces"
+"hermes.services" = "services"
 
 # ---------------------------------------------------------------------------
-# pytest
+# pytest — tests live under hermes_ts/tests/ (shared test suite)
 # ---------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
-testpaths = ["bowltie_ts/tests"]
+testpaths = ["../hermes_ts/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["bowltie_py"]
-omit = ["bowltie_ts/tests/*"]
+source = ["."]
+omit = ["../hermes_ts/tests/*"]
 
 [tool.coverage.report]
 fail_under = 80

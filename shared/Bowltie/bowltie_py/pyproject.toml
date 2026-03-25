@@ -3,37 +3,37 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "elastic-resume-base-toolbox"
+name = "elastic-resume-base-bowltie"
 version = "1.0.0"
-description = "Cross-cutting utilities for Elastic Resume Base Python services — structured logging and standard HTTP error classes"
+description = "Standard API response formatting for Elastic Resume Base Python services"
 requires-python = ">=3.11"
 dependencies = []
 
 # ---------------------------------------------------------------------------
 # Package discovery
 #
-# The Python source lives in toolbox_py/ but is installed as the `toolbox`
-# package so consumers simply write `from toolbox import setup_logging`.
+# The Python source lives here (bowltie_py/) and is installed as the `bowltie`
+# package so consumers simply write `from bowltie import format_success`.
 # ---------------------------------------------------------------------------
 
 [tool.setuptools]
-packages = ["toolbox"]
+packages = ["bowltie"]
 
 [tool.setuptools.package-dir]
-toolbox = "toolbox_py"
+bowltie = "."
 
 # ---------------------------------------------------------------------------
 # pytest
 # ---------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
-testpaths = ["toolbox_ts/tests"]
+testpaths = ["../bowltie_ts/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["toolbox_py"]
-omit = ["toolbox_ts/tests/*"]
+source = ["."]
+omit = ["../bowltie_ts/tests/*"]
 
 [tool.coverage.report]
 fail_under = 80

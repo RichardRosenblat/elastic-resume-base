@@ -218,3 +218,11 @@ temp/
 !shared/*/*_ts/
 !shared/*/*_ts/dist/
 !shared/*/*_ts/dist/**
+
+# -----------------------------------------------------------------------------
+# Python shared library virtualenvs
+# -----------------------------------------------------------------------------
+# Each Python shared library creates its venv inside its own _py/ subdirectory:
+#   shared/<lib>/<lib_lower>_py/venv/
+# The global `venv/` rule above already ignores these; this entry documents it.
+shared/*/*_py/venv/

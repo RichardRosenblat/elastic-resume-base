@@ -3,42 +3,37 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "elastic-resume-base-hermes"
+name = "elastic-resume-base-toolbox"
 version = "1.0.0"
-description = "Shared messaging abstraction library for Elastic Resume Base Python services"
+description = "Cross-cutting utilities for Elastic Resume Base Python services — structured logging and standard HTTP error classes"
 requires-python = ">=3.11"
-dependencies = [
-    "pydantic==2.7.1",
-    "pydantic-settings==2.3.4",
-]
+dependencies = []
 
 # ---------------------------------------------------------------------------
 # Package discovery
 #
-# The Python source lives in hermes_py/ but is installed as the `hermes`
-# package so that consumers simply do `from hermes import ...`.
+# The Python source lives here (toolbox_py/) and is installed as the `toolbox`
+# package so consumers simply write `from toolbox import setup_logging`.
 # ---------------------------------------------------------------------------
 
 [tool.setuptools]
-packages = ["hermes", "hermes.interfaces", "hermes.services"]
+packages = ["toolbox"]
 
 [tool.setuptools.package-dir]
-hermes = "hermes_py"
-"hermes.interfaces" = "hermes_py/interfaces"
-"hermes.services" = "hermes_py/services"
+toolbox = "."
 
 # ---------------------------------------------------------------------------
-# pytest — tests live under hermes_ts/tests/ (shared test suite)
+# pytest
 # ---------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
-testpaths = ["hermes_ts/tests"]
+testpaths = ["../toolbox_ts/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["hermes_py"]
-omit = ["hermes_ts/tests/*"]
+source = ["."]
+omit = ["../toolbox_ts/tests/*"]
 
 [tool.coverage.report]
 fail_under = 80
