@@ -1,20 +1,22 @@
-# Toolbox
+# Toolbox (TypeScript)
 
-A shared collection of **cross-cutting utility functions** for Elastic Resume Base microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested source directory.
+A shared collection of **cross-cutting utility functions** for Elastic Resume Base Node.js microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested source directory.
 
-Toolbox is **not** an npm package. It is a plain set of TypeScript source files that services import directly using relative paths. No build step or installation is required.
+> **Python version:** The Python README can be found at [shared/Toolbox/toolbox_py/README.md](../toolbox_py/README.md). Both versions share the same design principles, but the Python version is a separate implementation targeted at FastAPI services.
+
+Toolbox is **not** an npm package. It is a plain set of TypeScript source files that services import via a `@shared/toolbox` path alias configured in `tsconfig.json` and `jest.config.cjs`. No build step or installation is required.
 
 ---
 
 ## Usage
 
-Import the functions you need directly from the source files using a relative path from your service:
+Register the `@shared/toolbox` path alias in your service's `tsconfig.json` (see [Typical Service Setup](#typical-service-setup)), then import as:
 
 ```typescript
-import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
-import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
-import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
-import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
+import { loadConfigYaml } from '@shared/toolbox';
+import { createLogger } from '@shared/toolbox';
+import { correlationIdHook } from '@shared/toolbox';
+import { createRequestLoggerHook } from '@shared/toolbox';
 ```
 
 Your service must have the following packages in its own `package.json` dependencies (they are **not** bundled with Toolbox):
@@ -31,10 +33,7 @@ The service's `tsconfig.json` and `jest.config.cjs` must also include mapper ent
 ## Quick Start
 
 ```typescript
-import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
-import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
-import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
-import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
+import { loadConfigYaml, createLogger, correlationIdHook, createRequestLoggerHook } from '@shared/toolbox';
 
 // 1. Load config.yaml before reading process.env
 loadConfigYaml('my-service');
@@ -69,7 +68,7 @@ Loads `config.yaml` and populates `process.env` with the merged contents of `sys
 3. `config.yaml` one directory above the current working directory.
 
 ```typescript
-import { loadConfigYaml } from '../../../shared/Toolbox/src/loadConfigYaml.js';
+import { loadConfigYaml } from '@shared/toolbox';
 
 // Call before importing config.ts so env vars are in place when Zod reads them
 loadConfigYaml('my-service');
@@ -95,7 +94,7 @@ Factory that returns a configured [Pino](https://getpino.io/) logger instance.
 - **production** — structured JSON formatted for Google Cloud Logging, using `@google-cloud/pino-logging-gcp-config`.
 
 ```typescript
-import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
+import { createLogger } from '@shared/toolbox';
 import { config } from '../config.js';
 
 export const logger = createLogger({
@@ -124,7 +123,7 @@ Fastify `onRequest` hook that attaches a correlation ID to every incoming reques
 The resolved ID is stored on `request.correlationId` and echoed back via the `x-correlation-id` response header.
 
 ```typescript
-import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+import { correlationIdHook } from '@shared/toolbox';
 
 app.addHook('onRequest', correlationIdHook);
 
@@ -149,7 +148,7 @@ Each response emits a single `info`-level log entry containing:
 | `correlationId` | Trace ID from `correlationIdHook`            |
 
 ```typescript
-import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
+import { createRequestLoggerHook } from '@shared/toolbox';
 import { logger } from '../utils/logger.js';
 
 app.addHook('onResponse', createRequestLoggerHook(logger));
@@ -164,8 +163,6 @@ app.addHook('onResponse', createRequestLoggerHook(logger));
 
 Canonical application-level error classes shared across all microservices. Each class maps a domain error to an HTTP status code and a machine-readable code string.
 
-Import them from `src/errors.ts` in each service (which re-exports from Toolbox), or directly from Toolbox:
-
 ```typescript
 import {
   AppError,
@@ -177,7 +174,7 @@ import {
   DownstreamError,
   UnavailableError,
   isAppError,
-} from '../../../shared/Toolbox/src/errors.js';
+} from '@shared/toolbox';
 ```
 
 | Class | HTTP | Code | When to use |
@@ -205,7 +202,7 @@ The canonical way to wire up Toolbox in a Node.js microservice:
 
 **`src/utils/logger.ts`**
 ```typescript
-import { createLogger } from '../../../shared/Toolbox/src/createLogger.js';
+import { createLogger } from '@shared/toolbox';
 import { config } from '../config.js';
 
 export const logger = createLogger({
@@ -217,8 +214,7 @@ export const logger = createLogger({
 
 **`src/app.ts`** (excerpt)
 ```typescript
-import { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
-import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
+import { correlationIdHook, createRequestLoggerHook } from '@shared/toolbox';
 import { logger } from './utils/logger.js';
 
 // In buildApp():
@@ -228,20 +224,36 @@ app.addHook('onResponse', createRequestLoggerHook(logger));
 
 **`src/middleware/correlationId.ts`** (thin re-export)
 ```typescript
-export { correlationIdHook } from '../../../shared/Toolbox/src/middleware/correlationId.js';
+export { correlationIdHook } from '@shared/toolbox';
 ```
 
 **`src/middleware/requestLogger.ts`** (thin wrapper)
 ```typescript
-import { createRequestLoggerHook } from '../../../shared/Toolbox/src/middleware/requestLogger.js';
+import { createRequestLoggerHook } from '@shared/toolbox';
 import { logger } from '../utils/logger.js';
 
 export const requestLoggerHook = createRequestLoggerHook(logger);
 ```
 
-**`tsconfig.json`** — add `paths` to redirect Toolbox's external deps to this service's `node_modules`:
+**`src/errors.ts`** (re-export error classes)
+```typescript
+export {
+  AppError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+  ConflictError,
+  ForbiddenError,
+  DownstreamError,
+  UnavailableError,
+  isAppError,
+} from '@shared/toolbox';
+```
+
+**`tsconfig.json`** — add `paths` to resolve the `@shared/toolbox` alias and redirect Toolbox's external deps to this service's `node_modules`:
 ```json
 "paths": {
+  "@shared/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
   "pino": ["./node_modules/pino"],
   "js-yaml": ["./node_modules/@types/js-yaml"],
   "@google-cloud/pino-logging-gcp-config": ["./node_modules/@google-cloud/pino-logging-gcp-config"]
@@ -250,13 +262,14 @@ export const requestLoggerHook = createRequestLoggerHook(logger);
 
 > **Note on `js-yaml`:** the path points to `@types/js-yaml` (not `js-yaml` itself) because js-yaml's `exports` field has no `types` condition, which prevents TypeScript's NodeNext resolution from automatically finding `@types/js-yaml`. This makes TypeScript pick up the declarations directly. At runtime, Node.js and esbuild resolve the actual js-yaml implementation through normal `node_modules` lookup.
 
+> **Note on `rootDir` / `baseUrl`:** the `tsconfig.json` must set `"rootDir": ".."` and `"baseUrl": ".."` (one level above the service root) so that the TypeScript compiler can resolve Toolbox source files located outside the service directory.
+
 **`jest.config.cjs`** — add `moduleNameMapper` entries so Jest resolves the same packages:
 ```javascript
 moduleNameMapper: {
   '^(\\.{1,2}/.*)\\.js$': '$1',
-  '^pino$': '<rootDir>/node_modules/pino',
   '^js-yaml$': '<rootDir>/node_modules/js-yaml',
-  '^@google-cloud/pino-logging-gcp-config$': '<rootDir>/node_modules/@google-cloud/pino-logging-gcp-config',
+  '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
 },
 ```
 

@@ -1,28 +1,43 @@
-# Bowltie
+# Bowltie (TypeScript)
 
-A shared library providing **consistent API response formatting** utilities for Elastic Resume Base microservices. Bowltie wraps any payload — from persistence layers, downstream services, or business logic — into a uniform JSON envelope that is easy to consume across the application.
+A shared library providing **consistent API response formatting** utilities for Elastic Resume Base Node.js microservices. Bowltie wraps any payload — from persistence layers, downstream services, or business logic — into a uniform JSON envelope that is easy to consume across the application.
+
+> **Python version:** The Python README can be found at [shared/Bowltie/bowltie_py/README.md](../bowltie_py/README.md). Both versions produce identical JSON envelopes, but the Python version is a separate implementation.
 
 ---
 
 ## Installation
-To install Bowltie you must use a relative path to the package since it is not published to npm. From the root of your project, run:
 
-```bash
-npm install ../shared/Bowltie
+Bowltie is an internal package and is not published to npm. Reference it via a local `file:` path in your service's `package.json`:
+
+```json
+{
+  "dependencies": {
+    "@elastic-resume-base/bowltie": "file:../shared/Bowltie/bowltie_ts"
+  }
+}
 ```
-if Synapse hasnt been built yet, you may need to build it first, from the root of the monorepo, run:
+
+Then run:
 
 ```bash
-cd shared/Synapse
+npm install
+```
+
+If Bowltie has not been built yet, build it first from the monorepo root:
+
+```bash
+cd shared/Bowltie/bowltie_ts
 npm install
 npm run build
 ```
 
-or to build all shared packages at once from the root:
+Or build all shared packages at once from the root:
 
 ```bash
 .\build_shared.bat
 ```
+
 ---
 
 ## Quick Start
