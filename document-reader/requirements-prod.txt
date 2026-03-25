@@ -1,0 +1,5 @@
+-r requirements-root.txt
+
+../shared/Toolbox/toolbox_py
+../shared/Hermes/hermes_py
+../shared/Bowltie/bowltie_py

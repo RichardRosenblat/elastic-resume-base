@@ -299,8 +299,6 @@ elastic-resume-base/
 │                              # Copy to config.yaml (git-ignored) and edit
 ├── build_shared.sh            # Builds all TypeScript shared libraries (Linux/macOS)
 ├── build_shared.bat           # Builds all TypeScript shared libraries (Windows)
-├── build_shared_python.sh     # Builds all Python shared libraries (Linux/macOS)
-├── build_shared_python.bat    # Builds all Python shared libraries (Windows)
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md
