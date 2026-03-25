@@ -1,10 +1,10 @@
 import io
-import logging
 import os
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from toolbox_py import get_logger
 
 from app.config import settings
 from app.document_schema import ALLOWED_FILE_EXTENSIONS
@@ -14,7 +14,7 @@ from app.services.ocr_service import OcrService
 from app.services.zip_service import ZipService
 from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError, ZipExtractionError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["Documents"])
 

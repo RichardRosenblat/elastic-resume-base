@@ -1,11 +1,12 @@
 import io
-import logging
 import os
 import zipfile
 
+from toolbox_py import get_logger
+
 from app.utils.exceptions import ZipExtractionError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ZIP entry prefixes that are always skipped (macOS resource-fork metadata, etc.)
 _SKIP_PREFIXES = ("__MACOSX/",)

@@ -1,14 +1,14 @@
 import asyncio
 import io
-import logging
 
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud import vision
+from toolbox_py import get_logger
 
 from app.document_schema import IMAGE_EXTENSIONS
 from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OcrService:

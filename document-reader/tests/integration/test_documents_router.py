@@ -3,7 +3,7 @@ import zipfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.models.document import DocumentType, ExtractedDocument
@@ -29,19 +29,25 @@ def _make_zip(entries: dict[str, bytes]) -> bytes:
 
 @pytest.fixture
 def client() -> AsyncClient:
-    return AsyncClient(app=app, base_url="http://test")
+    """Return an AsyncClient using ASGI transport (compatible with newer httpx)."""
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 # ---------------------------------------------------------------------------
-# Existing tests (unchanged)
+# Tests
 # ---------------------------------------------------------------------------
 
 
 async def test_health_check(client: AsyncClient) -> None:
+    """Health endpoint returns Bowltie-formatted success with status ok."""
     async with client as c:
         response = await c.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    # Bowltie envelope
+    assert body["success"] is True
+    assert body["data"]["status"] == "ok"
+    assert "timestamp" in body["meta"]
 
 
 async def test_ocr_no_files_returns_422(client: AsyncClient) -> None:
@@ -57,7 +63,10 @@ async def test_ocr_unsupported_file_type(client: AsyncClient) -> None:
             files=[("files", ("document.txt", b"some text content", "text/plain"))],
         )
     assert response.status_code == 400
-    assert "Unsupported file type" in response.json()["detail"]
+    body = response.json()
+    # Bowltie error envelope
+    assert body["success"] is False
+    assert "Unsupported file type" in body["error"]["message"]
 
 
 async def test_ocr_success(client: AsyncClient, sample_image_bytes: bytes) -> None:
@@ -93,7 +102,7 @@ async def test_ocr_success(client: AsyncClient, sample_image_bytes: bytes) -> No
 
 
 async def test_ocr_file_too_large(client: AsyncClient) -> None:
-    """File exceeding max size returns 422."""
+    """File exceeding max size returns 422 with Bowltie error envelope."""
     large_content = b"x" * (11 * 1024 * 1024)  # 11 MB > default 10 MB limit
 
     with patch("app.routers.documents.OcrService"):
@@ -104,7 +113,9 @@ async def test_ocr_file_too_large(client: AsyncClient) -> None:
             )
 
     assert response.status_code == 422
-    assert "exceeds maximum size" in response.json()["detail"]
+    body = response.json()
+    assert body["success"] is False
+    assert "exceeds maximum size" in body["error"]["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +195,7 @@ async def test_ocr_zip_multiple_entries(client: AsyncClient, sample_image_bytes:
 
 
 async def test_ocr_zip_no_supported_contents(client: AsyncClient) -> None:
-    """ZIP containing only unsupported file types returns 400."""
+    """ZIP containing only unsupported file types returns 400 with Bowltie error."""
     zip_bytes = _make_zip({"notes.txt": b"just text", "data.csv": b"a,b,c"})
 
     async with client as c:
@@ -194,11 +205,13 @@ async def test_ocr_zip_no_supported_contents(client: AsyncClient) -> None:
         )
 
     assert response.status_code == 400
-    assert "no supported document files" in response.json()["detail"]
+    body = response.json()
+    assert body["success"] is False
+    assert "no supported document files" in body["error"]["message"]
 
 
 async def test_ocr_zip_invalid_archive(client: AsyncClient) -> None:
-    """Bytes that are not a valid ZIP file return 400."""
+    """Bytes that are not a valid ZIP file return 400 with Bowltie error."""
     async with client as c:
         response = await c.post(
             "/api/v1/documents/ocr",
@@ -206,11 +219,13 @@ async def test_ocr_zip_invalid_archive(client: AsyncClient) -> None:
         )
 
     assert response.status_code == 400
-    assert "Invalid ZIP archive" in response.json()["detail"]
+    body = response.json()
+    assert body["success"] is False
+    assert "Invalid ZIP archive" in body["error"]["message"]
 
 
 async def test_ocr_zip_entry_too_large(client: AsyncClient, sample_image_bytes: bytes) -> None:
-    """ZipExtractionError for an oversized entry surfaces as 400."""
+    """ZipExtractionError for an oversized entry surfaces as 400 with Bowltie error."""
     from app.utils.exceptions import ZipExtractionError
 
     zip_bytes = _make_zip({"doc.jpg": sample_image_bytes})
@@ -226,7 +241,9 @@ async def test_ocr_zip_entry_too_large(client: AsyncClient, sample_image_bytes: 
             )
 
     assert response.status_code == 400
-    assert "exceeds the maximum allowed size" in response.json()["detail"]
+    body = response.json()
+    assert body["success"] is False
+    assert "exceeds the maximum allowed size" in body["error"]["message"]
 
 
 async def test_ocr_mixed_direct_and_zip(client: AsyncClient, sample_image_bytes: bytes) -> None:

@@ -12,6 +12,13 @@ dependencies = [
     "pydantic-settings==2.3.4",
 ]
 
+[project.optional-dependencies]
+# Install google-cloud-pubsub to enable the PubSubPublisher:
+#   pip install "elastic-resume-base-hermes[pubsub]"
+pubsub = [
+    "google-cloud-pubsub>=2.21.0",
+]
+
 # ---------------------------------------------------------------------------
 # Package discovery
 #

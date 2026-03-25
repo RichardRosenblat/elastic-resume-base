@@ -2,7 +2,7 @@ import struct
 import zlib
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
@@ -43,4 +43,4 @@ def sample_pdf_bytes() -> bytes:
 @pytest.fixture
 def app_client() -> AsyncClient:
     """Return an AsyncClient configured for the FastAPI app."""
-    return AsyncClient(app=app, base_url="http://test")
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

@@ -1,16 +1,16 @@
 import io
-import logging
 from collections import OrderedDict
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from toolbox_py import get_logger
 
 from app.document_schema import DOCUMENT_SCHEMA
 from app.models.document import ExtractedDocument
 from app.utils.exceptions import ExcelGenerationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _HEADER_FILL = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
 _HEADER_FONT = Font(bold=True, color="FFFFFF")

@@ -6,7 +6,7 @@
  * (SMTP, SendGrid, Slack, etc.) so that swapping transports requires only a
  * Hermes configuration change — no consuming service needs to be refactored.
  *
- * ## Quick Start
+ * ## Quick Start — Messaging (SMTP)
  *
  * ```typescript
  * import { initializeMessagingFromEnv, getMessagingService } from '@elastic-resume-base/hermes';
@@ -22,7 +22,24 @@
  *   body: 'The DLQ job resume-ingestion-001 failed.',
  * });
  * ```
+ *
+ * ## Quick Start — Pub/Sub (Google Cloud)
+ *
+ * ```typescript
+ * import { initializePubSubFromEnv, getPublisher } from '@elastic-resume-base/hermes';
+ *
+ * // Call once at application startup — reads GCP_PROJECT_ID from environment.
+ * initializePubSubFromEnv();
+ *
+ * // Later, anywhere in your service:
+ * const publisher = getPublisher();
+ * await publisher.publish('resume-ingested', { resumeId: 'abc-123', status: 'ok' });
+ * ```
  */
+
+// ---------------------------------------------------------------------------
+// Messaging (SMTP)
+// ---------------------------------------------------------------------------
 
 // Messaging initialisation (must be called before using getMessagingService)
 export type { MessagingOptions } from './messaging.js';
@@ -36,5 +53,23 @@ export {
 // Core interface and message type
 export type { IMessagingService, Message } from './interfaces/messaging-service.js';
 
-// Concrete implementations
+// Concrete messaging implementations
 export { SmtpMessagingService } from './services/smtp-messaging-service.js';
+
+// ---------------------------------------------------------------------------
+// Pub/Sub (Google Cloud)
+// ---------------------------------------------------------------------------
+
+// Pub/Sub initialisation (must be called before using getPublisher)
+export {
+  initializePubSub,
+  initializePubSubFromEnv,
+  getPublisher,
+  _resetPubSubForTesting,
+} from './pubsub.js';
+
+// Pub/Sub interface
+export type { IPubSubPublisher } from './interfaces/pub-sub-publisher.js';
+
+// Concrete Pub/Sub implementations
+export { PubSubPublisher } from './services/pub-sub-publisher.js';
