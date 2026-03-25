@@ -68,6 +68,7 @@ __pycache__/
 venv/
 env/
 ENV/
+**_venv/
 .python-version
 
 # Distribution / packaging
