@@ -2,6 +2,18 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
 import { authHook, _setTokenVerifier, _resetTokenVerifier } from '../../../src/middleware/auth.js';
 
+jest.mock('../../../src/services/usersService', () => ({
+  getUserByUid: jest.fn(),
+  updateUser: jest.fn(),
+  deleteUser: jest.fn(),
+  listUsers: jest.fn(),
+  getPreApproved: jest.fn(),
+  listPreApproved: jest.fn(),
+  addPreApproved: jest.fn(),
+  deletePreApproved: jest.fn(),
+  updatePreApproved: jest.fn(),
+}));
+
 jest.mock('../../../src/services/userApiClient', () => ({
   authorizeUser: jest.fn(),
   getUserById: jest.fn(),
@@ -16,6 +28,7 @@ jest.mock('../../../src/services/userApiClient', () => ({
 }));
 
 import * as userApiClient from '../../../src/services/userApiClient.js';
+import * as usersService from '../../../src/services/usersService.js';
 import { ForbiddenError } from '../../../src/errors.js';
 
 /** Creates a mock ITokenVerifier with a controllable verifyToken implementation. */
@@ -42,10 +55,16 @@ describe('authHook', () => {
     jest.clearAllMocks();
     // Default: UserAPI grants access with enable=true
     (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
+    (usersService.getUserByUid as jest.Mock).mockResolvedValue({
+      uid: 'user123',
+      email: 'test@example.com',
+      role: 'user',
+      enable: true,
+    });
   });
 
   it('returns 401 when no Authorization header', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/v1/me' });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/users/me' });
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('UNAUTHORIZED');
   });
@@ -53,7 +72,7 @@ describe('authHook', () => {
   it('returns 401 when Authorization header does not start with Bearer', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Basic sometoken' },
     });
     expect(res.statusCode).toBe(401);
@@ -64,7 +83,7 @@ describe('authHook', () => {
     mockVerifier.verifyToken.mockRejectedValue(new Error('Invalid token'));
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer invalid-token' },
     });
     expect(res.statusCode).toBe(401);
@@ -78,7 +97,7 @@ describe('authHook', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer valid-token' },
     });
     expect(res.statusCode).toBe(200);
@@ -93,7 +112,7 @@ describe('authHook', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer valid-token-pending' },
     });
     expect(res.statusCode).toBe(403);
@@ -109,7 +128,7 @@ describe('authHook', () => {
     );
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer valid-token-unregistered' },
     });
     expect(res.statusCode).toBe(403);
@@ -122,7 +141,7 @@ describe('authHook', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer no-email-token' },
     });
     expect(res.statusCode).toBe(403);

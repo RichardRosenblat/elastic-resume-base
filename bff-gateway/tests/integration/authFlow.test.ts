@@ -2,6 +2,18 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
 import { _setTokenVerifier, _resetTokenVerifier } from '../../src/middleware/auth.js';
 
+jest.mock('../../src/services/usersService', () => ({
+  getUserByUid: jest.fn(),
+  updateUser: jest.fn(),
+  deleteUser: jest.fn(),
+  listUsers: jest.fn(),
+  getPreApproved: jest.fn(),
+  listPreApproved: jest.fn(),
+  addPreApproved: jest.fn(),
+  deletePreApproved: jest.fn(),
+  updatePreApproved: jest.fn(),
+}));
+
 jest.mock('../../src/services/userApiClient', () => ({
   authorizeUser: jest.fn().mockResolvedValue({ role: 'user', enable: true }),
   getUserById: jest.fn(),
@@ -14,6 +26,8 @@ jest.mock('../../src/services/userApiClient', () => ({
   deletePreApprovedFromApi: jest.fn(),
   updatePreApprovedInApi: jest.fn(),
 }));
+
+import * as usersService from '../../src/services/usersService.js';
 
 const mockVerifier = { verifyToken: jest.fn() };
 
@@ -34,19 +48,25 @@ describe('Auth Flow Integration', () => {
     jest.clearAllMocks();
   });
 
-  it('GET /api/v1/me with valid mocked token returns user profile', async () => {
+  it('GET /api/v1/users/me with valid mocked token returns user profile', async () => {
     const mockDecodedToken = {
       uid: 'integration-user-001',
       email: 'integration@example.com',
       name: 'Integration User',
       picture: 'https://example.com/photo.jpg',
     };
+    (usersService.getUserByUid as jest.Mock).mockResolvedValue({
+      uid: 'integration-user-001',
+      email: 'integration@example.com',
+      role: 'user',
+      enable: true,
+    });
 
     mockVerifier.verifyToken.mockResolvedValue(mockDecodedToken);
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: {
         authorization: 'Bearer mock-firebase-token',
         'x-correlation-id': 'test-correlation-id',
@@ -59,7 +79,8 @@ describe('Auth Flow Integration', () => {
     expect(body.data).toMatchObject({
       uid: 'integration-user-001',
       email: 'integration@example.com',
-      name: 'Integration User',
+      role: 'user',
+      enable: true,
     });
     expect(res.headers['x-correlation-id']).toBe('test-correlation-id');
   });

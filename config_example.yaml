@@ -36,6 +36,9 @@ systems:
     # Google Cloud / Firebase project identifiers
     GCP_PROJECT_ID: demo-elastic-resume-base
     FIREBASE_PROJECT_ID: demo-elastic-resume-base
+    # Auth domain for the Firebase project (e.g. <project-id>.firebaseapp.com).
+    # Vite derives VITE_FIREBASE_AUTH_DOMAIN from this automatically.
+    FIREBASE_AUTH_DOMAIN: ""        # e.g. demo-elastic-resume-base.firebaseapp.com
 
     # Firebase Local Emulator Suite — point at the docker-compose service name.
     # For local dev without Docker, change these to localhost:<port>.
@@ -58,6 +61,14 @@ systems:
   bff-gateway:
     PORT: "3000"
 
+    # Global request rate-limiting for BFF.
+    RATE_LIMIT_MAX: "1000"
+    RATE_LIMIT_TIME_WINDOW: "15 minutes"
+
+    # Additional rate-limiting for protected /api/v1 routes.
+    API_V1_RATE_LIMIT_MAX: "1000"
+    API_V1_RATE_LIMIT_TIME_WINDOW: "15 minutes"
+
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
 
@@ -77,6 +88,11 @@ systems:
   users-api:
     PORT: "8005"
 
+    # Global request rate-limiting for Users API.
+    # Increase RATE_LIMIT_MAX if admins perform many user-management actions.
+    RATE_LIMIT_MAX: "500"
+    RATE_LIMIT_TIME_WINDOW: "15 minutes"
+
     # Name of the Firestore collection where user documents are stored.
     FIRESTORE_USERS_COLLECTION: users
 
@@ -92,6 +108,37 @@ systems:
     # Users from these domains are registered with enable=false and must be approved by an admin.
     # Leave empty to disable automatic onboarding (only pre-approved users gain access).
     ONBOARDABLE_EMAIL_DOMAINS: ""
+
+  # ---------------------------------------------------------------------------
+  # Frontend (React — port 5173 dev / 80 Docker)
+  # Build-time VITE_ variables injected as Docker ARGs during `docker compose build`.
+  #
+  # For LOCAL DEVELOPMENT: these values are read directly from this file by
+  # the Vite dev server
+  #
+  # SEPARATION OF CONCERNS:
+  #   - Operational / infrastructure config → this file (systems.frontend)
+  #   - Appearance (colours, fonts, branding, dark-mode) → frontend/src/theme/theme.json
+  # ---------------------------------------------------------------------------
+  frontend:
+    # Base URL for the BFF Gateway API
+    VITE_BFF_URL: "http://localhost:3000"
+
+    # Support contact email shown in the footer of every page.
+    # Leave empty ("") to hide the support footer entirely.
+    VITE_SUPPORT_EMAIL: ""
+
+    # Firebase Web SDK configuration (must match the Firebase project)
+    # VITE_FIREBASE_PROJECT_ID  → derived automatically from systems.shared.FIREBASE_PROJECT_ID
+    # VITE_FIREBASE_AUTH_DOMAIN → derived automatically from systems.shared.FIREBASE_AUTH_DOMAIN
+    VITE_FIREBASE_API_KEY: ""           # fill in locally
+
+    # Feature flags — set to "true" to enable, "false" to hide/disable
+    VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)
+    VITE_FEATURE_RESUME_SEARCH: "false"    # Semantic search (search-base not ready)
+    VITE_FEATURE_DOCUMENT_READ: "false"    # Document reader (OCR service not ready)
+    VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
+    VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
 
   # ---------------------------------------------------------------------------
   # Ingestor Service (Python — port 8001)

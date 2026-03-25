@@ -1,0 +1,128 @@
+{
+  "nav": {
+    "dashboard": "Painel",
+    "users": "Usuários",
+    "resumes": "Currículos",
+    "search": "Busca",
+    "documents": "Documentos",
+    "account": "Conta",
+    "logout": "Sair",
+    "comingSoon": "Em Breve"
+  },
+  "auth": {
+    "login": "Entrar",
+    "email": "E-mail",
+    "password": "Senha",
+    "signIn": "Entrar",
+    "signInWithGoogle": "Entrar com Google",
+    "forgotPassword": "Esqueceu a senha?",
+    "welcomeBack": "Bem-vindo de volta",
+    "invalidCredentials": "E-mail ou senha inválidos",
+    "loginError": "Ocorreu um erro durante o login"
+  },
+  "dashboard": {
+    "welcome": "Bem-vindo",
+    "yourProfile": "Seu Perfil",
+    "profile": "Perfil",
+    "role": "Função",
+    "status": "Status",
+    "active": "Ativo",
+    "pending": "Pendente",
+    "statistics": "Estatísticas",
+    "recentActivity": "Atividade Recente",
+    "comingSoon": "Em Breve",
+    "featureNotAvailable": "Esta funcionalidade ainda não está disponível",
+    "editProfile": "Editar seu perfil"
+  },
+  "users": {
+    "addUser": "Adicionar Usuário",
+    "editUser": "Editar Usuário",
+    "deleteUser": "Excluir Usuário",
+    "preApprove": "Pré-aprovar",
+    "role": "Função",
+    "enabled": "Habilitado",
+    "actions": "Ações",
+    "confirmDelete": "Tem certeza que deseja excluir este usuário?",
+    "noUsersFound": "Nenhum usuário encontrado",
+    "preApprovedUsers": "Usuários Pré-aprovados",
+    "addPreApproved": "Adicionar Usuário Pré-aprovado",
+    "editPreApproved": "Editar Usuário Pré-aprovado",
+    "confirmDeletePreApproved": "Tem certeza que deseja remover este usuário pré-aprovado?",
+    "uid": "UID",
+    "email": "E-mail",
+    "deleteSuccess": "Usuário excluído com sucesso",
+    "updateSuccess": "Usuário atualizado com sucesso",
+    "preApprovedUpdateSuccess": "Usuário pré-aprovado atualizado com sucesso",
+    "editUserTooltip": "Editar usuário",
+    "deleteUserTooltip": "Excluir usuário",
+    "editPreApprovedTooltip": "Editar usuário pré-aprovado",
+    "deletePreApprovedTooltip": "Remover da lista de pré-aprovados"
+  },
+  "resumes": {
+    "title": "Currículos",
+    "ingestResumes": "Importar Currículos",
+    "generateResume": "Gerar Currículo",
+    "sheetId": "ID da Planilha",
+    "batchId": "ID do Lote",
+    "submit": "Enviar",
+    "language": "Idioma",
+    "format": "Formato",
+    "loading": "Carregando currículos...",
+    "noResumesFound": "Nenhum currículo encontrado"
+  },
+  "search": {
+    "title": "Busca",
+    "searchResumes": "Buscar Currículos",
+    "searchQuery": "Consulta de busca",
+    "results": "Resultados",
+    "noResults": "Nenhum resultado encontrado",
+    "loading": "Buscando..."
+  },
+  "account": {
+    "title": "Configurações da Conta",
+    "updateEmail": "Atualizar E-mail",
+    "newEmail": "Novo E-mail",
+    "languagePreference": "Preferência de Idioma",
+    "saveChanges": "Salvar Alterações",
+    "changePassword": "Alterar Senha",
+    "changePasswordDescription": "Um link de redefinição de senha será enviado para o seu endereço de e-mail.",
+    "sendPasswordReset": "Enviar E-mail de Redefinição de Senha",
+    "passwordResetSent": "E-mail de redefinição enviado. Verifique sua caixa de entrada."
+  },
+  "pending": {
+    "title": "Conta Aguardando Aprovação",
+    "message": "Sua conta está aguardando aprovação de um administrador. Por favor, volte mais tarde.",
+    "logout": "Sair"
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso",
+    "notFound": "Não Encontrado",
+    "unauthorized": "Não Autorizado",
+    "forbidden": "Proibido",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "previous": "Anterior",
+    "of": "de",
+    "rowsPerPage": "Linhas por página",
+    "featureNotAvailable": "Esta funcionalidade ainda não está disponível",
+    "contactAdministrator": "Entre em contato com seu administrador para obter acesso",
+    "rateLimitExceeded": "Muitas requisições. Aguarde um momento e tente novamente.",
+    "or": "ou"
+  },
+  "theme": {
+    "switchToLight": "Alternar para modo claro",
+    "switchToDark": "Alternar para modo escuro"
+  },
+  "support": {
+    "notWorking": "Algo não está funcionando como esperado?",
+    "contactSupport": "Entre em contato com o suporte por e-mail"
+  }
+}

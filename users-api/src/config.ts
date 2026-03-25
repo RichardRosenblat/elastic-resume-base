@@ -18,10 +18,19 @@ const configSchema = z.object({
   logLevel: z.string().default('info'),
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
   allowedOrigins: z.string().default('http://localhost:3000'),
+  rateLimitMax: z.number().int().positive().default(500),
+  rateLimitTimeWindow: z.string().default('15 minutes'),
 });
 
 /** Application configuration type inferred from schema. */
 export type Config = z.infer<typeof configSchema>;
+
+/** Parses a string to an integer, returning undefined for missing or non-numeric values. */
+function safeParseInt(val: string | undefined): number | undefined {
+  if (!val) return undefined;
+  const n = parseInt(val, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
 
 /**
  * Loads and validates configuration from environment variables.
@@ -29,7 +38,7 @@ export type Config = z.infer<typeof configSchema>;
  */
 function loadConfig(): Config {
   return configSchema.parse({
-    port: process.env['PORT'] ? parseInt(process.env['PORT'], 10) : undefined,
+    port: safeParseInt(process.env['PORT']),
     nodeEnv: process.env['NODE_ENV'],
     projectId: process.env['FIREBASE_PROJECT_ID'],
     googleServiceAccountKey: process.env['GOOGLE_SERVICE_ACCOUNT_KEY'],
@@ -40,6 +49,8 @@ function loadConfig(): Config {
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
     bootstrapAdminUserEmail: process.env['BOOTSTRAP_ADMIN_USER_EMAIL'],
+    rateLimitMax: safeParseInt(process.env['RATE_LIMIT_MAX']),
+    rateLimitTimeWindow: process.env['RATE_LIMIT_TIME_WINDOW'],
   });
 }
 

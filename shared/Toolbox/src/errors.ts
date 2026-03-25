@@ -74,6 +74,18 @@ export class UnavailableError extends AppError {
 }
 
 /**
+ * Error representing a rate limit imposed by a downstream service or by this
+ * gateway itself (HTTP 429). Thrown when a downstream API returns 429 so the
+ * BFF can propagate the rate-limit signal to the caller with an appropriate
+ * status code and error code.
+ */
+export class RateLimitError extends AppError {
+  constructor(message = 'Too many requests. Please wait a moment and try again.') {
+    super(message, 429, 'RATE_LIMIT_EXCEEDED');
+  }
+}
+
+/**
  * Checks whether the given value is an {@link AppError}.
  *
  * @param err - The value to check.

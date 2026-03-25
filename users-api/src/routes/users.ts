@@ -101,7 +101,7 @@ const validationErrorResponse = {
 
 /** Reusable schema for 403 forbidden responses. */
 const forbiddenResponse = {
-  description: 'User does not have access to this application.',
+  description: 'The action is forbidden (e.g. insufficient permissions or last-admin guard).',
   type: 'object',
   properties: {
     success: { type: 'boolean', example: false },
@@ -109,7 +109,7 @@ const forbiddenResponse = {
       type: 'object',
       properties: {
         code: { type: 'string', example: 'FORBIDDEN' },
-        message: { type: 'string', example: 'User does not have access to this application' },
+        message: { type: 'string', example: 'Access forbidden' },
       },
     },
     meta: {
@@ -246,6 +246,18 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             enum: ['admin', 'user'],
             description: 'Filter pre-approved users by role (ignored when email is provided).',
             example: 'admin',
+          },
+          orderBy: {
+            type: 'string',
+            enum: ['email', 'role'],
+            description: "Sort pre-approved users by field (ignored when 'email' is provided).",
+            example: 'email',
+          },
+          orderDirection: {
+            type: 'string',
+            enum: ['asc', 'desc'],
+            description: 'Sort direction for pre-approved list ordering.',
+            example: 'asc',
           },
         },
       },
@@ -420,6 +432,18 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
             description: 'Filter users by enabled status.',
             example: 'true',
           },
+          orderBy: {
+            type: 'string',
+            enum: ['uid', 'email', 'role', 'enable'],
+            description: 'Sort users by field.',
+            example: 'email',
+          },
+          orderDirection: {
+            type: 'string',
+            enum: ['asc', 'desc'],
+            description: 'Sort direction for user list ordering.',
+            example: 'asc',
+          },
         },
       },
       response: {
@@ -534,6 +558,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           },
         },
         400: validationErrorResponse,
+        403: forbiddenResponse,
         404: notFoundResponse,
         500: internalErrorResponse,
       },
@@ -561,6 +586,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           description: 'User document deleted successfully. No response body.',
           type: 'null',
         },
+        403: forbiddenResponse,
         404: notFoundResponse,
         500: internalErrorResponse,
       },

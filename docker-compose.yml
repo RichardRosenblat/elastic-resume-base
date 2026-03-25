@@ -45,3 +45,15 @@ services:
       - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
     depends_on:
       - firebase-emulator
+
+  # 4. React Frontend (static bundle served by nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_BFF_URL=http://localhost:3000
+    ports:
+      - "5173:80"
+    depends_on:
+      - bff-gateway

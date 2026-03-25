@@ -6,6 +6,19 @@ This document describes each service and component in the Elastic Resume Base pl
 
 ## Implemented Services
 
+### Frontend SPA (✅ Implemented)
+
+A React + TypeScript single-page application that serves as the user interface for the platform. Hosted on Firebase Hosting (or served via the Docker Compose stack during local development).
+
+- Authenticates users with Firebase Auth (email/password and Google SSO)
+- Calls the BFF Gateway for all API interactions; never communicates directly with microservices
+- Enforces role-based access: admin-only pages (`/users`) are guarded at the routing level
+- Feature flags driven by `VITE_FEATURE_*` environment variables allow progressive rollout of backend features
+- Supports English, Portuguese (Brazil), and Spanish via i18next
+- Responsive layout built with Material UI (MUI) v7
+
+See [frontend/README.md](../frontend/README.md) for environment variables, setup instructions, and development guide.
+
 ### BFF Gateway (✅ Implemented)
 
 Backend For Frontend service responsible for handling requests from the frontend and communicating with backend services. Hosted on Cloud Run (while at low usage, minimum instances can be set to 0; higher-performance options can be enabled as needed).
@@ -34,9 +47,9 @@ See [users-api/README.md](../users-api/README.md) for full API documentation.
 
 > The following services are part of the target architecture but have not yet been implemented.
 
-### Frontend SPA (🔄 Planned)
+### Frontend SPA (🔄 Planned — see above for current implementation)
 
-A Single Page Application that serves as the user interface for interacting with the system. Will be hosted on Firebase Hosting.
+> The base frontend is implemented. The following backend-dependent features are not yet available: resume ingest, AI worker, search, and file generation. These are controlled via feature flags in `VITE_FEATURE_*` environment variables.
 
 ### Ingestor Service (🔄 Planned)
 

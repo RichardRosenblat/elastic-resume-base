@@ -113,31 +113,16 @@ describe('usersService (bff-gateway)', () => {
       expect(userApiClient.updateUserInApi).toHaveBeenCalledWith('uid123', { role: 'admin', enable: false });
     });
 
-    it('allows non-admin to update their own email', async () => {
-      (userApiClient.updateUserInApi as jest.Mock).mockResolvedValue({ ...mockUser, email: 'new@example.com' });
-
-      const result = await updateUser('uid123', { email: 'new@example.com' }, 'uid123', 'user');
-      expect(result.email).toBe('new@example.com');
-      expect(userApiClient.updateUserInApi).toHaveBeenCalledWith('uid123', { email: 'new@example.com' });
-    });
-
-    it('throws ForbiddenError when non-admin tries to update role field', async () => {
+    it('throws ForbiddenError when non-admin tries to update any field', async () => {
       await expect(
         updateUser('uid123', { role: 'admin' }, 'uid123', 'user'),
       ).rejects.toThrow(ForbiddenError);
     });
 
-    it('throws ForbiddenError when non-admin tries to update enable field', async () => {
+    it('throws ForbiddenError when non-admin tries to update another user', async () => {
       await expect(
-        updateUser('uid123', { enable: true }, 'uid123', 'user'),
+        updateUser('other-uid', { role: 'admin' }, 'uid123', 'user'),
       ).rejects.toThrow(ForbiddenError);
-    });
-
-    it('allows admin to update email without domain validation', async () => {
-      (userApiClient.updateUserInApi as jest.Mock).mockResolvedValue({ ...mockUser, email: 'user@any-domain.org' });
-
-      const result = await updateUser('uid123', { email: 'user@any-domain.org' }, 'admin-uid', 'admin');
-      expect(result.email).toBe('user@any-domain.org');
     });
   });
 

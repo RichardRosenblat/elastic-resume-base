@@ -40,14 +40,13 @@ const authorizeSchema = z.object({
 
 const updateUserSchema = z
   .object({
-    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
     role: z.enum(['admin', 'user'], {
       errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
     }).optional(),
     enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
   })
   .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
-    message: 'Request body must contain at least one valid field to update (email, role, or enable)',
+    message: 'Request body must contain at least one valid field to update (role or enable)',
   });
 
 const listUsersQuerySchema = z.object({
@@ -60,6 +59,12 @@ const listUsersQuerySchema = z.object({
   enable: z.enum(['true', 'false'], {
     errorMap: () => ({ message: "enable must be 'true' or 'false'" }),
   }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
+  orderBy: z.enum(['uid', 'email', 'role', 'enable'], {
+    errorMap: () => ({ message: "orderBy must be one of 'uid', 'email', 'role', or 'enable'" }),
+  }).optional(),
+  orderDirection: z.enum(['asc', 'desc'], {
+    errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
+  }).optional(),
 });
 
 const addPreApprovedSchema = z.object({
@@ -84,11 +89,25 @@ const listPreApprovedQuerySchema = z.object({
   role: z.enum(['admin', 'user'], {
     errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
   }).optional(),
+  orderBy: z.enum(['email', 'role'], {
+    errorMap: () => ({ message: "orderBy must be either 'email' or 'role'" }),
+  }).optional(),
+  orderDirection: z.enum(['asc', 'desc'], {
+    errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
+  }).optional(),
 });
 
 type UidParams = { uid: string };
-type ListUsersQuery = { maxResults?: number; pageToken?: string; email?: string; role?: string; enable?: string };
-type ListPreApprovedQuery = { email?: string; role?: string };
+type ListUsersQuery = {
+  maxResults?: number;
+  pageToken?: string;
+  email?: string;
+  role?: string;
+  enable?: string;
+  orderBy?: string;
+  orderDirection?: string;
+};
+type ListPreApprovedQuery = { email?: string; role?: string; orderBy?: string; orderDirection?: string };
 
 // ---------------------------------------------------------------------------
 // Authorize Handler (Unauthenticated)
@@ -216,11 +235,19 @@ export async function listUsersHandler(
     return;
   }
 
-  const { maxResults, pageToken, email: emailFilter, role, enable } = parsed.data;
-  const filters: { email?: string; role?: string; enable?: boolean } = {};
+  const { maxResults, pageToken, email: emailFilter, role, enable, orderBy, orderDirection } = parsed.data;
+  const filters: {
+    email?: string;
+    role?: string;
+    enable?: boolean;
+    orderBy?: 'uid' | 'email' | 'role' | 'enable';
+    orderDirection?: 'asc' | 'desc';
+  } = {};
   if (emailFilter !== undefined) filters.email = emailFilter;
   if (role !== undefined) filters.role = role;
   if (enable !== undefined) filters.enable = enable;
+  if (orderBy !== undefined) filters.orderBy = orderBy;
+  if (orderDirection !== undefined) filters.orderDirection = orderDirection;
   const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
 
   logger.debug(
@@ -256,7 +283,7 @@ export async function getPreApprovedHandler(
     return;
   }
 
-  const { email, role } = parsed.data;
+  const { email, role, orderBy, orderDirection } = parsed.data;
 
   if (email) {
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: fetching single pre-approved user');
@@ -264,9 +291,13 @@ export async function getPreApprovedHandler(
     logger.debug({ correlationId: request.correlationId, email }, 'getPreApprovedHandler: pre-approved user retrieved');
     void reply.send(formatSuccess(user, request.correlationId));
   } else {
-    const filters = role !== undefined ? { role } : undefined;
+    const filters: { role?: 'admin' | 'user'; orderBy?: 'email' | 'role'; orderDirection?: 'asc' | 'desc' } = {};
+    if (role !== undefined) filters.role = role;
+    if (orderBy !== undefined) filters.orderBy = orderBy;
+    if (orderDirection !== undefined) filters.orderDirection = orderDirection;
+    const finalFilters = Object.keys(filters).length > 0 ? filters : undefined;
     logger.debug({ correlationId: request.correlationId, filters }, 'getPreApprovedHandler: listing pre-approved users');
-    const users = await listPreApprovedUsers(filters);
+    const users = await listPreApprovedUsers(finalFilters);
     logger.debug({ correlationId: request.correlationId, count: users.length }, 'getPreApprovedHandler: pre-approved users listed');
     void reply.send(formatSuccess(users, request.correlationId));
   }

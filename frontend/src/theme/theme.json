@@ -1,0 +1,95 @@
+{
+  "mode": "light",
+  "branding": {
+    "appName": "Elastic Resume Base",
+    "companyName": "Acme Talent",
+    "appLogoUrl": "",
+    "companyLogoUrl": ""
+  },
+  "typography": {
+    "fontFamily": "\"Source Sans 3\", \"Segoe UI\", \"Helvetica Neue\", sans-serif"
+  },
+  "icons": {
+    "default": "mdi:home"
+  },
+  "palette": {
+    "primary": {
+      "main": "#1F5AA6",
+      "light": "#4B84CE",
+      "dark": "#163F73",
+      "contrastText": "#FFFFFF"
+    },
+    "secondary": {
+      "main": "#0D9488",
+      "light": "#3AB9AD",
+      "dark": "#0A6C63",
+      "contrastText": "#FFFFFF"
+    },
+    "tertiary": {
+      "main": "#F59E0B"
+    },
+    "success": { "main": "#198754" },
+    "warning": { "main": "#B7791F" },
+    "error": { "main": "#C53030" },
+    "info": { "main": "#2563EB" },
+    "background": {
+      "default": "#F3F7FC",
+      "paper": "#FFFFFF",
+      "elevated": "#FFFFFF",
+      "sidebar": "#EAF1FB",
+      "topbar": "#FFFFFF",
+      "input": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#112133",
+      "secondary": "#3E5166",
+      "muted": "#657990",
+      "inverse": "#FFFFFF"
+    },
+    "ui": {
+      "border": "#CFDAE8",
+      "divider": "#D8E2EE",
+      "disabledBackground": "#E6ECF4",
+      "disabledText": "#8092A6",
+      "focusRing": "#3A7BD5"
+    }
+  },
+  "presets": {
+    "Corporate Blue": {
+      "mode": "light",
+      "branding": {
+        "appName": "Elastic Resume Base",
+        "companyName": "Acme Talent",
+        "appLogoUrl": "",
+        "companyLogoUrl": ""
+      },
+      "typography": {
+        "fontFamily": "\"Source Sans 3\", \"Segoe UI\", \"Helvetica Neue\", sans-serif"
+      },
+      "palette": {
+        "primary": { "main": "#1F5AA6", "light": "#4B84CE", "dark": "#163F73", "contrastText": "#FFFFFF" },
+        "secondary": { "main": "#0D9488", "light": "#3AB9AD", "dark": "#0A6C63", "contrastText": "#FFFFFF" },
+        "background": { "default": "#F3F7FC", "paper": "#FFFFFF" },
+        "text": { "primary": "#112133", "secondary": "#3E5166" }
+      }
+    },
+    "Warm Neutral": {
+      "mode": "light",
+      "branding": {
+        "appName": "Elastic Resume Base",
+        "companyName": "Acme Talent",
+        "appLogoUrl": "",
+        "companyLogoUrl": ""
+      },
+      "typography": {
+        "fontFamily": "\"Nunito Sans\", \"Segoe UI\", sans-serif"
+      },
+      "palette": {
+        "primary": { "main": "#7A5C3E", "light": "#9B7A5B", "dark": "#5D462F", "contrastText": "#FFFFFF" },
+        "secondary": { "main": "#A56A43", "light": "#BF865F", "dark": "#7F4E31", "contrastText": "#FFFFFF" },
+        "background": { "default": "#F8F4EF", "paper": "#FFFDF9" },
+        "text": { "primary": "#2F2A24", "secondary": "#5D5247" }
+      }
+    }
+  }
+}

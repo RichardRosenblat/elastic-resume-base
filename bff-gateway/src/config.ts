@@ -17,6 +17,10 @@ const configSchema = z.object({
   fileGeneratorServiceUrl: z.string().url().default('http://localhost:8003'),
   documentReaderServiceUrl: z.string().url().default('http://localhost:8004'),
   requestTimeoutMs: z.number().default(30000),
+  rateLimitMax: z.number().int().positive().default(1000),
+  rateLimitTimeWindow: z.string().default('15 minutes'),
+  apiV1RateLimitMax: z.number().int().positive().default(1000),
+  apiV1RateLimitTimeWindow: z.string().default('15 minutes'),
   logLevel: z.string().default('info'),
   allowedOrigins: z.string().default('http://localhost:3000'),
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
@@ -26,13 +30,20 @@ const configSchema = z.object({
 /** Application configuration type inferred from schema. */
 export type Config = z.infer<typeof configSchema>;
 
+/** Parses a string to an integer, returning undefined for missing or non-numeric values. */
+function safeParseInt(val: string | undefined): number | undefined {
+  if (!val) return undefined;
+  const n = parseInt(val, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
+
 /**
  * Loads and validates configuration from environment variables.
  * @returns Validated configuration object.
  */
 function loadConfig(): Config {
   return configSchema.parse({
-    port: process.env['PORT'] ? parseInt(process.env['PORT'], 10) : undefined,
+    port: safeParseInt(process.env['PORT']),
     nodeEnv: process.env['NODE_ENV'],
     projectId: process.env['FIREBASE_PROJECT_ID'],
     firestoreEmulatorHost: process.env['FIRESTORE_EMULATOR_HOST'],
@@ -41,7 +52,11 @@ function loadConfig(): Config {
     searchBaseServiceUrl: process.env['SEARCH_BASE_SERVICE_URL'],
     fileGeneratorServiceUrl: process.env['FILE_GENERATOR_SERVICE_URL'],
     documentReaderServiceUrl: process.env['DOCUMENT_READER_SERVICE_URL'],
-    requestTimeoutMs: process.env['REQUEST_TIMEOUT_MS'] ? parseInt(process.env['REQUEST_TIMEOUT_MS'], 10) : undefined,
+    requestTimeoutMs: safeParseInt(process.env['REQUEST_TIMEOUT_MS']),
+    rateLimitMax: safeParseInt(process.env['RATE_LIMIT_MAX']),
+    rateLimitTimeWindow: process.env['RATE_LIMIT_TIME_WINDOW'],
+    apiV1RateLimitMax: safeParseInt(process.env['API_V1_RATE_LIMIT_MAX']),
+    apiV1RateLimitTimeWindow: process.env['API_V1_RATE_LIMIT_TIME_WINDOW'],
     logLevel: process.env['LOG_LEVEL'],
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
     gcpProjectId: process.env['GCP_PROJECT_ID'],

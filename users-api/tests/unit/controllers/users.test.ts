@@ -231,6 +231,23 @@ describe('users controller', () => {
       });
       expect(res.statusCode).toBe(404);
     });
+
+    it('returns 403 when update would remove the last enabled admin', async () => {
+      (usersService.updateUser as jest.Mock).mockRejectedValue(
+        new ForbiddenError(
+          'You cannot deactivate this user because they are the only active admin in the system. Please assign another user as admin before deactivating this user.',
+        ),
+      );
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/uid123',
+        payload: { enable: false },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('FORBIDDEN');
+      expect(res.json().error.message).toContain('only active admin');
+    });
   });
 
   // ── DELETE /api/v1/users/:uid ──────────────────────────────────────────────
@@ -250,6 +267,19 @@ describe('users controller', () => {
 
       const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/missing-uid' });
       expect(res.statusCode).toBe(404);
+    });
+
+    it('returns 403 when deleting the last enabled admin', async () => {
+      (usersService.deleteUser as jest.Mock).mockRejectedValue(
+        new ForbiddenError(
+          'You cannot delete this user because they are the only active admin in the system. Please assign another user as admin before deleting this user.',
+        ),
+      );
+
+      const res = await app.inject({ method: 'DELETE', url: '/api/v1/users/uid123' });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('FORBIDDEN');
+      expect(res.json().error.message).toContain('only active admin');
     });
   });
 

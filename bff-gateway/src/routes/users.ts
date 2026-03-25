@@ -2,7 +2,6 @@ import type { FastifyPluginAsync, RouteHandlerMethod } from 'fastify';
 import { requireAdminHook } from '../middleware/auth.js';
 import {
   getMeHandler,
-  updateMeHandler,
   listUsersHandler,
   getUserHandler,
   updateUserHandler,
@@ -181,36 +180,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
     },
   }, getMeHandler);
 
-  app.patch('/me', {
-    schema: {
-      tags: ['Users'],
-      summary: 'Update authenticated user profile',
-      description: 'Updates the authenticated user\'s own profile. Cannot update role or enable fields.',
-      security: [{ bearerAuth: [] }],
-      body: {
-        type: 'object',
-        properties: {
-          email: { type: 'string', example: 'new.email@example.com' },
-        },
-      },
-      response: {
-        200: {
-          description: 'User profile updated successfully.',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: userRecordSchema,
-            meta: successMeta,
-          },
-        },
-        400: validationErrorResponse,
-        401: unauthorizedResponse,
-        403: forbiddenResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, updateMeHandler);
-
   // ── Admin & User Routes ─────────────────────────────────────────────────────
 
   app.get('/', {
@@ -227,6 +196,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
           email: { type: 'string', format: 'email', description: 'Filter by exact email address.', example: 'jane.doe@example.com' },
           role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Filter by role ('admin' or 'user')." },
           enable: { type: 'string', enum: ['true', 'false'], description: 'Filter by enabled status.' },
+          orderBy: { type: 'string', enum: ['uid', 'email', 'role', 'enable'], description: 'Sort users by field.', example: 'email' },
+          orderDirection: { type: 'string', enum: ['asc', 'desc'], description: 'Sort direction.', example: 'asc' },
         },
       },
       response: {
@@ -266,6 +237,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           email: { type: 'string', example: 'jane.doe@example.com' },
           role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: 'Filter list by role.' },
+          orderBy: { type: 'string', enum: ['email', 'role'], example: 'email', description: 'Sort pre-approved users by field.' },
+          orderDirection: { type: 'string', enum: ['asc', 'desc'], example: 'asc', description: 'Sort direction.' },
         },
       },
       response: {
@@ -421,8 +394,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Users'],
       summary: 'Update user by UID',
       description:
-        'Updates a user. Admins may update any user with any field. ' +
-        'Non-admins may only update their own email.',
+        'Updates a user (admin only). Admins may update role or enable status.',
       security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
@@ -434,9 +406,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
-          email: { type: 'string', format: 'email', example: 'new.email@example.com' },
-          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Admin only. Must be 'admin' or 'user'." },
-          enable: { type: 'boolean', example: true, description: 'Admin only.' },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Must be 'admin' or 'user'." },
+          enable: { type: 'boolean', example: true },
         },
       },
       response: {

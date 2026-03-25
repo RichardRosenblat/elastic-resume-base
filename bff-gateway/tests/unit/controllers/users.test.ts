@@ -28,7 +28,7 @@ jest.mock('../../../src/services/userApiClient', () => ({
 }));
 
 import * as usersService from '../../../src/services/usersService.js';
-import { ForbiddenError, NotFoundError } from '../../../src/errors.js';
+import { ForbiddenError, NotFoundError, RateLimitError } from '../../../src/errors.js';
 
 const mockUser = {
   uid: 'uid123',
@@ -477,6 +477,41 @@ describe('Users Controller', () => {
         expect.any(String),
         { role: 'admin' },
       );
+    });
+  });
+
+  describe('Rate limit propagation', () => {
+    it('returns 429 with RATE_LIMIT_EXCEEDED when service throws RateLimitError', async () => {
+      (usersService.getUserByUid as jest.Mock).mockRejectedValue(
+        new RateLimitError('Too many requests. Please wait a moment and try again.'),
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/me',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(429);
+      const body = res.json<{ success: boolean; error: { code: string; message: string } }>();
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+    });
+
+    it('returns 429 when listUsers service throws RateLimitError', async () => {
+      (usersService.listUsers as jest.Mock).mockRejectedValue(
+        new RateLimitError(),
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(429);
+      const body = res.json<{ success: boolean; error: { code: string } }>();
+      expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
     });
   });
 });

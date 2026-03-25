@@ -99,9 +99,8 @@ export interface CreatePreApprovedRequest {
   role: string;
 }
 
-/** Request payload for updating an existing user. */
+/** Request payload for an admin updating an existing user (role / enabled status). */
 export interface UpdateUserRequest {
-  email?: string;
   role?: string;
   enable?: boolean;
 }
@@ -114,7 +113,7 @@ export interface UpdatePreApprovedRequest {
 /** Firebase Auth user record enriched with role and enable status from users-api. */
 export interface UserRecord {
   uid: string;
-  email?: string;
+  email: string;
   role: string;
   enable: boolean;
 }
@@ -131,14 +130,22 @@ export interface PreApprovedUser {
   role: string;
 }
 
+export type SortDirection = 'asc' | 'desc';
+export type UserSortField = 'uid' | 'email' | 'role' | 'enable';
+export type PreApprovedSortField = 'email' | 'role';
+
 /** Filters for listing users. */
 export interface UserFilters {
   email?: string;
   role?: string;
   enable?: boolean;
+  orderBy?: UserSortField;
+  orderDirection?: SortDirection;
 }
 
 /** Filters for listing pre-approved users. */
 export interface PreApprovedFilters {
   role?: string;
+  orderBy?: PreApprovedSortField;
+  orderDirection?: SortDirection;
 }

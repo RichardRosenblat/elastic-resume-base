@@ -1,11 +1,24 @@
-import { NotFoundError, ValidationError } from '../errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import {
   FirestorePreApprovedStore,
   type IPreApprovedStore,
 } from '@elastic-resume-base/synapse';
 import { config } from '../config.js';
+import { getUserByEmail } from './usersService.js';
 import type { AddPreApprovedRequest, PreApprovedFilters, PreApprovedUser, UpdatePreApprovedRequest } from '../models/index.js';
 import { logger } from '../utils/logger.js';
+
+function sortPreApprovedUsers(users: PreApprovedUser[], filters?: PreApprovedFilters): PreApprovedUser[] {
+  const orderBy = filters?.orderBy ?? 'email';
+  const orderDirection = filters?.orderDirection ?? 'asc';
+
+  const sorted = [...users].sort((left, right) => {
+    const result = left[orderBy].localeCompare(right[orderBy], undefined, { sensitivity: 'base' });
+    return orderDirection === 'desc' ? -result : result;
+  });
+
+  return sorted;
+}
 
 // ---------------------------------------------------------------------------
 // Store singleton (lazy-initialized on first call)
@@ -61,9 +74,13 @@ export async function getPreApprovedUser(email: string): Promise<PreApprovedUser
  */
 export async function listPreApprovedUsers(filters?: PreApprovedFilters): Promise<PreApprovedUser[]> {
   logger.debug({ filters }, 'listPreApprovedUsers: fetching pre-approved users');
-  const users = await getPreApprovedStore().list(filters);
-  logger.debug({ count: users.length }, 'listPreApprovedUsers: query complete');
-  return users;
+  const storeFilters: PreApprovedFilters = {};
+  if (filters?.role !== undefined) storeFilters.role = filters.role;
+  const finalStoreFilters = Object.keys(storeFilters).length > 0 ? storeFilters : undefined;
+  const users = await getPreApprovedStore().list(finalStoreFilters);
+  const sortedUsers = sortPreApprovedUsers(users, filters);
+  logger.debug({ count: sortedUsers.length }, 'listPreApprovedUsers: query complete');
+  return sortedUsers;
 }
 
 /**
@@ -72,12 +89,17 @@ export async function listPreApprovedUsers(filters?: PreApprovedFilters): Promis
  * @param data - The pre-approval data (email and role).
  * @returns The newly created {@link PreApprovedUser}.
  * @throws {ValidationError} If the email is invalid.
- * @throws {ConflictError} If the email is already pre-approved.
+ * @throws {ConflictError} If the email is already pre-approved or already an active user.
  */
 export async function addToPreApproved(data: AddPreApprovedRequest): Promise<PreApprovedUser> {
   const { email, role } = data;
   logger.debug({ email }, 'addToPreApproved: validating email');
   validateEmail(email);
+
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    throw new ConflictError(`User with email '${email}' already exists in the users list`);
+  }
 
   const preApproved = await getPreApprovedStore().add({ email, role });
   logger.info({ email, action: 'addToPreApproved' }, 'Pre-approved user added');
