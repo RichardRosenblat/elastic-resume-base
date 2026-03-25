@@ -81,15 +81,37 @@ All error responses use the standard [Bowltie](../shared/Bowltie/bowltie_py/READ
 }
 ```
 
-### `GET /health`
+### `GET /health/live`
 
-Liveness probe.
+Liveness probe — confirms the service process is running. Used by orchestrators (Cloud Run, Kubernetes) to decide whether to restart the container.
 
 **Response — 200 OK**
 
 ```json
 { "success": true, "data": { "status": "ok" }, "meta": { "timestamp": "..." } }
 ```
+
+### `GET /health/ready`
+
+Readiness probe — confirms the service is ready to accept traffic. Used by orchestrators to gate traffic until the service has fully initialised.
+
+**Response — 200 OK**
+
+```json
+{ "success": true, "data": { "status": "ok" }, "meta": { "timestamp": "..." } }
+```
+
+---
+
+## API Documentation (Swagger UI)
+
+The service exposes interactive API documentation powered by FastAPI's built-in OpenAPI support:
+
+| URL | Description |
+|---|---|
+| `GET /api/v1/docs` | Swagger UI — browse and try all endpoints interactively |
+| `GET /api/v1/redoc` | ReDoc — alternative documentation UI |
+| `GET /api/v1/docs/json` | Raw OpenAPI JSON schema |
 
 ---
 

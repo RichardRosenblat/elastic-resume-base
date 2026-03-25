@@ -38,13 +38,24 @@ def client() -> AsyncClient:
 # ---------------------------------------------------------------------------
 
 
-async def test_health_check(client: AsyncClient) -> None:
-    """Health endpoint returns Bowltie-formatted success with status ok."""
+async def test_health_live(client: AsyncClient) -> None:
+    """Liveness probe returns Bowltie-formatted success with status ok."""
     async with client as c:
-        response = await c.get("/health")
+        response = await c.get("/health/live")
     assert response.status_code == 200
     body = response.json()
     # Bowltie envelope
+    assert body["success"] is True
+    assert body["data"]["status"] == "ok"
+    assert "timestamp" in body["meta"]
+
+
+async def test_health_ready(client: AsyncClient) -> None:
+    """Readiness probe returns Bowltie-formatted success with status ok."""
+    async with client as c:
+        response = await c.get("/health/ready")
+    assert response.status_code == 200
+    body = response.json()
     assert body["success"] is True
     assert body["data"]["status"] == "ok"
     assert "timestamp" in body["meta"]

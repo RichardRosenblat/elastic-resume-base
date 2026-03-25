@@ -26,10 +26,13 @@ app = FastAPI(
     version="1.0.0",
     description="OCR service for extracting text and structured data from Brazilian documents.",
     lifespan=lifespan,
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/docs/json",
 )
 
 app.include_router(documents.router, prefix="/api/v1")
-app.include_router(health.router)
+app.include_router(health.router, prefix="/health")
 
 
 @app.exception_handler(HTTPException)
