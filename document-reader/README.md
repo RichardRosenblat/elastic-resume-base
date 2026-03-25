@@ -142,7 +142,7 @@ POST /api/v1/documents/ocr
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11 | 3.12
 - A Google Cloud project with the Cloud Vision API enabled
 - Application Default Credentials configured (e.g. `gcloud auth application-default login`)
 
