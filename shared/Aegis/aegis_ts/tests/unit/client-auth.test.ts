@@ -129,6 +129,7 @@ describe('_setClientAuth / _resetClientAuth', () => {
       signInWithGoogle: jest.fn(),
       signOut: jest.fn(),
       getCurrentUser: jest.fn(),
+      sendPasswordResetEmail: jest.fn(),
     };
     _setClientAuth(stub);
 
@@ -142,6 +143,7 @@ describe('_setClientAuth / _resetClientAuth', () => {
       signInWithGoogle: jest.fn(),
       signOut: jest.fn(),
       getCurrentUser: jest.fn(),
+      sendPasswordResetEmail: jest.fn(),
     };
     _setClientAuth(stub);
     _resetClientAuth();

@@ -28,13 +28,14 @@ function formatZodErrors(issues: ZodIssue[]): string {
 
 const updateUserSchema = z
   .object({
+    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
     role: z.enum(['admin', 'user'], {
       errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
     }).optional(),
     enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
   })
   .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
-    message: 'Request body must contain at least one valid field to update (role or enable)',
+    message: 'Request body must contain at least one valid field to update (email, role or enable)',
   });
 
 const updatePreApprovedSchema = z

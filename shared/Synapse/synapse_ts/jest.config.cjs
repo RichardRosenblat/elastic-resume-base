@@ -10,7 +10,6 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     // Resolve Toolbox source files for Jest (which bypasses esbuild)
-    '^../../../Toolbox/src/(.*)$': '<rootDir>/../Toolbox/src/$1',
-    '^../../Toolbox/src/(.*)$': '<rootDir>/../Toolbox/src/$1',
+    '^../../../Toolbox/toolbox_ts/src/(.*)$': '<rootDir>/../../Toolbox/toolbox_ts/src/$1',
   },
 };
