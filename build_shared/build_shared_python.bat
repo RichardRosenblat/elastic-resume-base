@@ -32,6 +32,11 @@ for /d %%d in ("%ROOT_DIR%\shared\*") do (
         call "!VENV_DIR!\Scripts\activate.bat"
 
         python -m pip install --quiet --upgrade pip
+        if errorlevel 1 (
+            echo Failed to upgrade pip for !LIB_NAME!
+            popd
+            exit /b 1
+        )
 
         if exist "requirements-dev.txt" (
             python -m pip install --quiet -r requirements-dev.txt

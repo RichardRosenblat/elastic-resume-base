@@ -31,18 +31,23 @@ for /d %%d in ("%ROOT_DIR%\shared\*") do (
 
         call "!VENV_DIR!\Scripts\activate.bat"
 
-        pip install --quiet --upgrade pip
-
-        if exist "requirements-dev.txt" (
-            pip install --quiet -r requirements-dev.txt
-        ) else if exist "requirements.txt" (
-            pip install --quiet -r requirements.txt
+        python -m pip install --quiet --upgrade pip
+        if errorlevel 1 (
+            echo Failed to upgrade pip for !LIB_NAME!
+            popd
+            exit /b 1
         )
 
-        pip install --quiet -e .
+        if exist "requirements-dev.txt" (
+            python -m pip install --quiet -r requirements-dev.txt
+        ) else if exist "requirements.txt" (
+            python -m pip install --quiet -r requirements.txt
+        )
+
+        python -m pip install --quiet -e .
 
         :: testpaths are defined in pyproject.toml — no explicit path needed here
-        pytest --cov --cov-report=term-missing
+        python -m pytest --cov --cov-report=term-missing
 
         call "!VENV_DIR!\Scripts\deactivate.bat"
         popd
