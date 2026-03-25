@@ -12,15 +12,13 @@ dependencies = []
 # ---------------------------------------------------------------------------
 # Package discovery
 #
-# The Python source lives here (toolbox_py/) and is installed as the `toolbox`
-# package so consumers simply write `from toolbox import setup_logging`.
+# The importable source lives in the toolbox_py/ sub-directory.  Consumers
+# write `from toolbox_py import setup_logging`.
 # ---------------------------------------------------------------------------
 
-[tool.setuptools]
-packages = ["toolbox"]
-
-[tool.setuptools.package-dir]
-toolbox = "."
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["toolbox_py*"]
 
 # ---------------------------------------------------------------------------
 # pytest

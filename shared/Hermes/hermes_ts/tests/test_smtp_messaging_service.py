@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hermes.interfaces.messaging_service import Message
-from hermes.options import MessagingOptions
-from hermes.services.smtp_messaging_service import SmtpMessagingService
+from hermes_py.interfaces.messaging_service import Message
+from hermes_py.options import MessagingOptions
+from hermes_py.services.smtp_messaging_service import SmtpMessagingService
 
 
 def _make_options(**overrides: object) -> MessagingOptions:
@@ -78,10 +78,10 @@ class TestCreateSmtpConnection:
 
         with (
             patch(
-                "hermes.services.smtp_messaging_service.smtplib.SMTP_SSL",
+                "hermes_py.services.smtp_messaging_service.smtplib.SMTP_SSL",
                 return_value=mock_ssl_instance,
             ) as mock_ssl,
-            patch("hermes.services.smtp_messaging_service.smtplib.SMTP") as mock_plain,
+            patch("hermes_py.services.smtp_messaging_service.smtplib.SMTP") as mock_plain,
         ):
             service._create_smtp_connection()
 
@@ -94,7 +94,7 @@ class TestCreateSmtpConnection:
         service = SmtpMessagingService(opts)
 
         mock_conn = MagicMock()
-        with patch("hermes.services.smtp_messaging_service.smtplib.SMTP", return_value=mock_conn):
+        with patch("hermes_py.services.smtp_messaging_service.smtplib.SMTP", return_value=mock_conn):
             service._create_smtp_connection()
 
         mock_conn.ehlo.assert_called()
@@ -110,7 +110,7 @@ class TestCreateSmtpConnection:
         service = SmtpMessagingService(opts)
 
         mock_conn = MagicMock()
-        with patch("hermes.services.smtp_messaging_service.smtplib.SMTP", return_value=mock_conn):
+        with patch("hermes_py.services.smtp_messaging_service.smtplib.SMTP", return_value=mock_conn):
             service._create_smtp_connection()
 
         mock_conn.login.assert_called_once_with("user@test.com", "secret")
@@ -121,7 +121,7 @@ class TestCreateSmtpConnection:
         service = SmtpMessagingService(opts)
 
         mock_conn = MagicMock()
-        with patch("hermes.services.smtp_messaging_service.smtplib.SMTP", return_value=mock_conn):
+        with patch("hermes_py.services.smtp_messaging_service.smtplib.SMTP", return_value=mock_conn):
             service._create_smtp_connection()
 
         mock_conn.login.assert_not_called()

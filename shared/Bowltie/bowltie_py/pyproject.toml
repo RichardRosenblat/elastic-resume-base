@@ -12,15 +12,13 @@ dependencies = []
 # ---------------------------------------------------------------------------
 # Package discovery
 #
-# The Python source lives here (bowltie_py/) and is installed as the `bowltie`
-# package so consumers simply write `from bowltie import format_success`.
+# The importable source lives in the bowltie_py/ sub-directory.  Consumers
+# write `from bowltie_py import format_success`.
 # ---------------------------------------------------------------------------
 
-[tool.setuptools]
-packages = ["bowltie"]
-
-[tool.setuptools.package-dir]
-bowltie = "."
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bowltie_py*"]
 
 # ---------------------------------------------------------------------------
 # pytest

@@ -1,5 +1,5 @@
-"""Public re-exports for the hermes.services sub-package."""
+"""Public re-exports for the hermes_py.services sub-package."""
 
-from hermes.services.smtp_messaging_service import SmtpMessagingService
+from hermes_py.services.smtp_messaging_service import SmtpMessagingService
 
 __all__ = ["SmtpMessagingService"]

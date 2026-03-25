@@ -5,10 +5,8 @@
 ::   build_shared_typescript.bat
 ::
 :: For each sub-directory of shared\:
-::   - If a <lib_lower>_ts\ subdirectory with a package.json exists (library has both
-::     Python and TypeScript implementations), build from that _ts directory.
-::   - Otherwise, if a package.json exists at the root of the shared lib directory
-::     (TypeScript-only library such as Aegis, Bugle, Synapse), build from there.
+::   - If a <lib_lower>_ts\ subdirectory with a package.json exists (all libraries
+::     now follow this convention), build from that _ts directory.
 setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
@@ -26,15 +24,8 @@ for /d %%d in ("%ROOT_DIR%\shared\*") do (
         call npm install
         call npm run build
         popd
-    ) else if exist "%%d\package.json" (
-        echo.
-        echo Building %%d
-        pushd "%%d"
-        call npm install
-        call npm run build
-        popd
     )
 )
 
 echo.
-echo All builds completed!
+echo All TypeScript builds completed!

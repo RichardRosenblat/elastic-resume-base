@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from toolbox import get_logger, setup_logging
+from toolbox_py import get_logger, setup_logging
 
 from app.config import settings
 from app.routers import documents, health

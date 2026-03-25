@@ -6,7 +6,7 @@ Node.js services.
 
 Quick start::
 
-    from toolbox import setup_logging, get_logger
+    from toolbox_py import setup_logging, get_logger
 
     setup_logging(level="INFO")
     logger = get_logger(__name__)
@@ -14,12 +14,12 @@ Quick start::
 
 Error classes::
 
-    from toolbox import NotFoundError, ValidationError
+    from toolbox_py import NotFoundError, ValidationError
 
     raise NotFoundError("Resume abc-123 not found")
 """
 
-from toolbox.errors import (
+from toolbox_py.errors import (
     AppError,
     ConflictError,
     DownstreamError,
@@ -31,7 +31,7 @@ from toolbox.errors import (
     ValidationError,
     is_app_error,
 )
-from toolbox.logger import get_logger, setup_logging
+from toolbox_py.logger import get_logger, setup_logging
 
 __all__ = [
     # Logging

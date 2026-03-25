@@ -1,9 +1,9 @@
-"""Unit tests for toolbox.errors module."""
+"""Unit tests for toolbox_py.errors module."""
 
 from __future__ import annotations
 
 import pytest
-from toolbox import (
+from toolbox_py import (
     AppError,
     ConflictError,
     DownstreamError,

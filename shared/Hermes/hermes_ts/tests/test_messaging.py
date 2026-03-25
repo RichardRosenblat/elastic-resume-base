@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import pytest
 
-from hermes import (
+from hermes_py import (
     get_messaging_service,
     initialize_messaging,
     initialize_messaging_from_env,
 )
-from hermes.options import MessagingOptions
-from hermes.services.smtp_messaging_service import SmtpMessagingService
+from hermes_py.options import MessagingOptions
+from hermes_py.services.smtp_messaging_service import SmtpMessagingService
 
 # ---------------------------------------------------------------------------
 # initialize_messaging

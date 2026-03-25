@@ -6,7 +6,7 @@ regardless of implementation language.
 
 Quick start::
 
-    from bowltie import format_success, format_error
+    from bowltie_py import format_success, format_error
     from fastapi.responses import JSONResponse
 
     # In a FastAPI router:
@@ -14,7 +14,7 @@ Quick start::
     return JSONResponse(format_error("NOT_FOUND", "Resume not found"), status_code=404)
 """
 
-from bowltie.response import format_error, format_success
+from bowltie_py.response import format_error, format_success
 
 __all__ = [
     "format_success",

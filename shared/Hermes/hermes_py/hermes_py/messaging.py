@@ -6,9 +6,9 @@ import logging
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from hermes.interfaces.messaging_service import IMessagingService
-from hermes.options import MessagingOptions
-from hermes.services.smtp_messaging_service import SmtpMessagingService
+from hermes_py.interfaces.messaging_service import IMessagingService
+from hermes_py.options import MessagingOptions
+from hermes_py.services.smtp_messaging_service import SmtpMessagingService
 
 logger = logging.getLogger(__name__)
 

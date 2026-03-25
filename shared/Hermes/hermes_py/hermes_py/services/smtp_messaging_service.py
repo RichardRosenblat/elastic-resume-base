@@ -8,8 +8,8 @@ from collections.abc import Callable
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from hermes.interfaces.messaging_service import Message
-from hermes.options import MessagingOptions
+from hermes_py.interfaces.messaging_service import Message
+from hermes_py.options import MessagingOptions
 
 logger = logging.getLogger(__name__)
 

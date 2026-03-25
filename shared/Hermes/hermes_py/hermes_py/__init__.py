@@ -6,8 +6,8 @@ change — no consuming service needs to be refactored.
 
 Quick start::
 
-    from hermes import initialize_messaging_from_env, get_messaging_service
-    from hermes.interfaces import Message
+    from hermes_py import initialize_messaging_from_env, get_messaging_service
+    from hermes_py.interfaces import Message
 
     # Call once at application startup (after config.yaml has been loaded).
     initialize_messaging_from_env()
@@ -23,15 +23,15 @@ Quick start::
     )
 """
 
-from hermes.interfaces.messaging_service import IMessagingService, Message
-from hermes.messaging import (
+from hermes_py.interfaces.messaging_service import IMessagingService, Message
+from hermes_py.messaging import (
     _reset_messaging_for_testing,
     get_messaging_service,
     initialize_messaging,
     initialize_messaging_from_env,
 )
-from hermes.options import MessagingOptions
-from hermes.services.smtp_messaging_service import SmtpMessagingService
+from hermes_py.options import MessagingOptions
+from hermes_py.services.smtp_messaging_service import SmtpMessagingService
 
 __all__ = [
     # Interface & message model

@@ -2,13 +2,13 @@
 
 New code in this service should import directly from ``toolbox``::
 
-    from toolbox import get_logger, setup_logging
+    from toolbox_py import get_logger, setup_logging
 
 This module is kept so that any internal references to
 ``app.utils.logger.configure_logging`` continue to work during the transition.
 """
 
-from toolbox import get_logger, setup_logging
+from toolbox_py import get_logger, setup_logging
 
 
 def configure_logging(log_level: str = "INFO") -> None:

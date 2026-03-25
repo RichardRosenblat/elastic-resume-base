@@ -15,17 +15,13 @@ dependencies = [
 # ---------------------------------------------------------------------------
 # Package discovery
 #
-# The Python source lives here (hermes_py/) and is installed as the `hermes`
-# package so that consumers simply do `from hermes import ...`.
+# The importable source lives in the hermes_py/ sub-directory.  Consumers
+# write `from hermes_py import initialize_messaging_from_env`.
 # ---------------------------------------------------------------------------
 
-[tool.setuptools]
-packages = ["hermes", "hermes.interfaces", "hermes.services"]
-
-[tool.setuptools.package-dir]
-hermes = "."
-"hermes.interfaces" = "interfaces"
-"hermes.services" = "services"
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hermes_py*"]
 
 # ---------------------------------------------------------------------------
 # pytest — tests live under hermes_ts/tests/ (shared test suite)

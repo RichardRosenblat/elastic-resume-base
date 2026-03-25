@@ -1,4 +1,4 @@
-"""Unit tests for toolbox.logger module."""
+"""Unit tests for toolbox_py.logger module."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 import logging
 from io import StringIO
 
-from toolbox import get_logger, setup_logging
+from toolbox_py import get_logger, setup_logging
 
 
 class TestSetupLogging:

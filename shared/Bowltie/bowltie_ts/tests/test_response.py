@@ -1,10 +1,10 @@
-"""Unit tests for bowltie.response module."""
+"""Unit tests for bowltie_py.response module."""
 
 from __future__ import annotations
 
 import re
 
-from bowltie import format_error, format_success
+from bowltie_py import format_error, format_success
 
 # ---------------------------------------------------------------------------
 # Helpers
