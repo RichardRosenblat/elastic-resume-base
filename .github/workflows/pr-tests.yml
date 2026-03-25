@@ -53,8 +53,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.has-packages == 'true'
     runs-on: ubuntu-latest
-    # Never let a test failure block the workflow; actual results are read from artifacts.
-    continue-on-error: true
+    continue-on-error: false
     timeout-minutes: 15
     strategy:
       fail-fast: false
