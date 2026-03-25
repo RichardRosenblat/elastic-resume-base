@@ -13,7 +13,7 @@ body,
 }
 
 html {
-  font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  font-family: var(--font-family, 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

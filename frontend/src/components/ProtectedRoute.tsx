@@ -33,7 +33,9 @@ export default function ProtectedRoute({ adminOnly = false, children }: Protecte
     return <Navigate to="/login" replace />;
   }
 
-  console.debug('ProtectedRoute auth state:', { currentUser, userProfile, isAdmin });
+  if (import.meta.env.DEV) {
+    console.debug('ProtectedRoute auth state:', { currentUser, userProfile, isAdmin });
+  }
 
   if (userProfile && !userProfile.enable) {
     return (

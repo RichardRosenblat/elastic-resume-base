@@ -7,6 +7,7 @@ import type {
   PreApprovedUser,
   UserRecord,
   ListUsersResponse,
+  UpdateMeRequest,
   UpdateUserRequest,
   UpdatePreApprovedRequest,
   UserFilters,
@@ -206,7 +207,7 @@ export async function listUsersFromApi(maxResults?: number, pageToken?: string, 
 /**
  * Updates a user in the users-api.
  */
-export async function updateUserInApi(uid: string, data: UpdateUserRequest): Promise<UserRecord> {
+export async function updateUserInApi(uid: string, data: UpdateMeRequest | UpdateUserRequest): Promise<UserRecord> {
   logger.debug({ uid }, 'updateUserInApi: updating user in UserAPI');
   try {
     const response = await client.patch<{ success: boolean; data: UserRecord }>(

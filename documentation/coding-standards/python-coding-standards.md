@@ -91,7 +91,7 @@ service-name/
 ├── Dockerfile
 ├── requirements.txt
 ├── requirements-dev.txt  # Development/test dependencies
-└── 
+└── .env.example          # Example environment variables
 ```
 
 ---

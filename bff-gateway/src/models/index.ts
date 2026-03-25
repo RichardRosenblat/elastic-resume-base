@@ -99,7 +99,12 @@ export interface CreatePreApprovedRequest {
   role: string;
 }
 
-/** Request payload for updating an existing user. */
+/** Request payload for a user updating their own profile (self-service). */
+export interface UpdateMeRequest {
+  email?: string;
+}
+
+/** Request payload for an admin updating an existing user (role / enabled status). */
 export interface UpdateUserRequest {
   role?: string;
   enable?: boolean;

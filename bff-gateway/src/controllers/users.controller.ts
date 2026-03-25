@@ -3,10 +3,11 @@ import { z } from 'zod';
 import type { ZodIssue } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
-import type { UpdateUserRequest } from '../models/index.js';
+import type { UpdateMeRequest, UpdateUserRequest } from '../models/index.js';
 import {
   getUserByUid,
   listUsers,
+  updateMe,
   updateUser,
   deleteUser,
   listPreApproved,
@@ -25,6 +26,14 @@ function formatZodErrors(issues: ZodIssue[]): string {
     .map((issue) => issue.path.length !== 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)
     .join('; ');
 }
+
+const updateMeSchema = z
+  .object({
+    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+  })
+  .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
+    message: 'Request body must contain at least one valid field to update (email)',
+  });
 
 const updateUserSchema = z
   .object({
@@ -111,18 +120,18 @@ export async function getMeHandler(request: FastifyRequest, reply: FastifyReply)
  * Handles PATCH /api/v1/users/me — updates the authenticated user's own profile.
  */
 export async function updateMeHandler(
-  request: FastifyRequest<{ Body: UpdateUserRequest }>,
+  request: FastifyRequest<{ Body: UpdateMeRequest }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const { uid, role } = request.user;
+  const { uid } = request.user;
   logger.debug({ uid }, 'updateMeHandler: validating request body');
-  const parsed = updateUserSchema.safeParse(request.body);
+  const parsed = updateMeSchema.safeParse(request.body);
   if (!parsed.success) {
     void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
     return;
   }
   logger.debug({ uid }, 'updateMeHandler: updating authenticated user profile');
-  const updated = await updateUser(uid, parsed.data, uid, role ?? 'user');
+  const updated = await updateMe(uid, parsed.data);
   void reply.send(formatSuccess(updated, request.correlationId));
 }
 
