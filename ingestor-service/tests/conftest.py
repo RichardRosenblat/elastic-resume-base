@@ -124,7 +124,7 @@ def test_settings() -> Settings:
         firestore_resumes_collection="resumes",
         pubsub_ingestor_topic="resume-ingested",
         pubsub_dlq_topic="dead-letter-queue",
-        ingest_rate_limit_max_requests=10,
+        ingest_rate_limit_max_requests=1000,
         ingest_rate_limit_window_seconds=60,
         max_ai_calls_per_batch=50,
     )
