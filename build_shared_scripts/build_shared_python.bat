@@ -5,23 +5,28 @@
 ::   build_shared_python.bat
 ::
 :: For each sub-directory of shared\ that contains a pyproject.toml, this script:
-::   1. Creates (or reuses) a virtual environment in shared\<lib>\.venv
+::   1. Creates (or reuses) a virtual environment in shared\<lib>\<lib>_venv
 ::   2. Installs production and development dependencies
 ::   3. Installs the package in editable mode
 ::   4. Runs the test suite with coverage
 setlocal
 
-for /d %%d in (shared\*) do (
+set "SCRIPT_DIR=%~dp0"
+for %%i in ("%SCRIPT_DIR%..") do set "ROOT_DIR=%%~fi"
+
+for /d %%d in ("%ROOT_DIR%\shared\*") do (
     if exist "%%d\pyproject.toml" (
         echo.
         echo Building %%d
         pushd "%%d"
 
-        if not exist ".venv" (
-            python -m venv .venv
+        for %%n in ("%%d\.") do set "VENV_DIR=%%~nn_venv"
+
+        if not exist "%VENV_DIR%" (
+            python -m venv "%VENV_DIR%"
         )
 
-        call .venv\Scripts\activate.bat
+        call "%VENV_DIR%\Scripts\activate.bat"
 
         pip install --quiet --upgrade pip
 
@@ -35,11 +40,10 @@ for /d %%d in (shared\*) do (
 
         pytest tests\ --cov --cov-report=term-missing
 
-        call .venv\Scripts\deactivate.bat
+        call "%VENV_DIR%\Scripts\deactivate.bat"
         popd
     )
 )
 
 echo.
 echo All Python builds completed!
-pause
