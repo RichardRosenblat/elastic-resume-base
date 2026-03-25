@@ -102,10 +102,9 @@ Pass an `x-correlation-id` request header to trace requests across services. If 
 | `GET` | `/health/ready` | No | No | Readiness probe |
 | `GET` | `/health/downstream` | No | No | Downstream services health status |
 | `GET` | `/api/v1/users/me` | Yes | No | Get authenticated user record from users-api |
-| `PATCH` | `/api/v1/users/me` | Yes | No | Update authenticated user's own email |
 | `GET` | `/api/v1/users` | Yes | No | List all users (paginated) |
 | `GET` | `/api/v1/users/:uid` | Yes | No | Get user by UID |
-| `PATCH` | `/api/v1/users/:uid` | Yes | No* | Update user (admin: any field; self: email only) |
+| `PATCH` | `/api/v1/users/:uid` | Yes | Yes | Update user (`role` and/or `enable`); admin only |
 | `DELETE` | `/api/v1/users/:uid` | Yes | Yes | Delete a user |
 | `GET` | `/api/v1/users/pre-approve` | Yes | Yes | List or get pre-approved users |
 | `POST` | `/api/v1/users/pre-approve` | Yes | Yes | Add a pre-approved user |
@@ -113,8 +112,6 @@ Pass an `x-correlation-id` request header to trace requests across services. If 
 | `DELETE` | `/api/v1/users/pre-approve` | Yes | Yes | Remove a pre-approved user |
 | `GET` | `/api/v1/docs` | No | No | Swagger UI |
 | `GET` | `/api/v1/docs.json` | No | No | Swagger JSON spec |
-
-> \* `PATCH /api/v1/users/:uid` is available to all authenticated users but non-admins can only update their own email. Only admins can update `role` or `enable`.
 
 ## Environment Variables
 
