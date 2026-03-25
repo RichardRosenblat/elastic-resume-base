@@ -7,8 +7,6 @@
  * fallback — the regression scenario is the "last-admin" deletion guard.
  */
 
-import axios from 'axios';
-
 // ---------------------------------------------------------------------------
 // Mocks — must be hoisted before any `import … from` that touches the module
 // under test.

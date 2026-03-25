@@ -15,7 +15,7 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^js-yaml$': '<rootDir>/node_modules/js-yaml',
-    '^firebase-admin(.*)$': '<rootDir>/../shared/Aegis/node_modules/firebase-admin$1',
+    '^firebase-admin(.*)$': '<rootDir>/node_modules/firebase-admin$1',
     '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
     '^@elastic-resume-base/aegis$': '<rootDir>/../shared/Aegis/src/index.ts',
     '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',
