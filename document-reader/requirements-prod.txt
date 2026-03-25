@@ -1,4 +1,4 @@
--r requirements-root.txt
+-r base.txt
 
 ../shared/Toolbox/toolbox_py
 ../shared/Hermes/hermes_py

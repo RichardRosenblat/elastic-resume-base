@@ -1,4 +1,4 @@
--r requirements-root.txt
+-r base.txt
 pytest==8.2.0
 pytest-asyncio==0.23.6
 pytest-cov==5.0.0
