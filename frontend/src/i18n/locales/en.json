@@ -6,7 +6,8 @@
     "search": "Search",
     "documents": "Documents",
     "account": "Account",
-    "logout": "Logout"
+    "logout": "Logout",
+    "comingSoon": "Coming Soon"
   },
   "auth": {
     "login": "Login",

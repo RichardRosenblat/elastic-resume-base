@@ -6,7 +6,8 @@
     "search": "Búsqueda",
     "documents": "Documentos",
     "account": "Cuenta",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "comingSoon": "Próximamente"
   },
   "auth": {
     "login": "Iniciar sesión",

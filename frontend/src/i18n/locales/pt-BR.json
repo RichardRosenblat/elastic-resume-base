@@ -6,7 +6,8 @@
     "search": "Busca",
     "documents": "Documentos",
     "account": "Conta",
-    "logout": "Sair"
+    "logout": "Sair",
+    "comingSoon": "Em Breve"
   },
   "auth": {
     "login": "Entrar",

@@ -4,13 +4,15 @@
  * Renders an MUI `Drawer` with a list of navigation links. Items are
  * filtered based on:
  * - `adminOnly` — hidden for non-admin users.
- * - `featureFlag` — always shown (the flag controls UI state, not
- *   visibility, so users can see what is coming).
+ * - `featureFlag` — when `false`, the item is shown but disabled with a
+ *   "Coming Soon" badge so users can see what is planned.
  *
  * Navigating to a route on a `temporary` variant drawer auto-closes it.
  */
 import type { ReactNode } from 'react';
 import {
+  Box,
+  Chip,
   Drawer,
   List,
   ListItem,
@@ -19,6 +21,7 @@ import {
   ListItemText,
   Divider,
   Toolbar,
+  Tooltip,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -85,17 +88,33 @@ export default function Sidebar({ open, variant, onClose }: SidebarProps) {
       <Toolbar />
       <Divider />
       <List>
-        {visibleItems.map((item) => (
-          <ListItem key={item.path} disablePadding>
+        {visibleItems.map((item) => {
+          const isDisabled = item.featureFlag === false;
+          const button = (
             <ListItemButton
-              selected={location.pathname === item.path}
+              selected={!isDisabled && location.pathname === item.path}
               onClick={() => handleNav(item.path)}
+              disabled={isDisabled}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.label} />
+              {isDisabled && (
+                <Chip label={t('nav.comingSoon')} size="small" sx={{ ml: 1 }} />
+              )}
             </ListItemButton>
-          </ListItem>
-        ))}
+          );
+          return (
+            <ListItem key={item.path} disablePadding>
+              {isDisabled ? (
+                <Tooltip title={t('nav.comingSoon')} placement="right">
+                  <Box component="span" sx={{ width: '100%', display: 'block' }}>{button}</Box>
+                </Tooltip>
+              ) : (
+                button
+              )}
+            </ListItem>
+          );
+        })}
       </List>
     </>
   );
