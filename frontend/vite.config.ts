@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import { loadConfigYaml } from '../shared/Toolbox/src/loadConfigYaml.ts';
+import { loadConfigYaml } from '../shared/Toolbox/toolbox_ts/src/loadConfigYaml.js';
 
 /**
  * Frontend runtime config is loaded from monorepo config.yaml via Toolbox,
