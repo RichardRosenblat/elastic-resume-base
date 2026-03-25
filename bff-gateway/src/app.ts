@@ -45,7 +45,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Security / cross-cutting plugins
   await app.register(helmet);
   await app.register(cors, { origin: config.allowedOrigins.split(',') });
-  await app.register(rateLimit, { max: 100, timeWindow: '15 minutes' });
+  await app.register(rateLimit, {
+    max: config.rateLimitMax,
+    timeWindow: config.rateLimitTimeWindow,
+  });
 
   // Global request hooks
   app.addHook('onRequest', correlationIdHook);

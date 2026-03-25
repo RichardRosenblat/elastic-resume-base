@@ -1,14 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
-import { _resetFirebaseApp } from '../../../src/middleware/auth.js';
-
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn().mockReturnValue({}),
-  auth: jest.fn().mockReturnValue({
-    verifyIdToken: jest.fn(),
-  }),
-}));
+import { _setTokenVerifier, _resetTokenVerifier } from '../../../src/middleware/auth.js';
 
 jest.mock('../../../src/services/usersService', () => ({
   getUserByUid: jest.fn(),
@@ -35,9 +27,8 @@ jest.mock('../../../src/services/userApiClient', () => ({
   updatePreApprovedInApi: jest.fn(),
 }));
 
-import * as admin from 'firebase-admin';
 import * as usersService from '../../../src/services/usersService.js';
-import { ForbiddenError, NotFoundError } from '../../../src/errors.js';
+import { ForbiddenError, NotFoundError, RateLimitError } from '../../../src/errors.js';
 
 const mockUser = {
   uid: 'uid123',
@@ -51,30 +42,28 @@ const mockPreApproved = {
   role: 'admin',
 };
 
+const mockVerifier = { verifyToken: jest.fn() };
+
 function setupAuth(uid = 'admin-uid') {
-  (admin.auth as jest.Mock).mockReturnValue({
-    verifyIdToken: jest.fn().mockResolvedValue({ uid, email: `${uid}@example.com` }),
-  });
+  mockVerifier.verifyToken.mockResolvedValue({ uid, email: `${uid}@example.com` });
 }
 
 describe('Users Controller', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
+    _setTokenVerifier(mockVerifier);
     setupAuth();
     app = await buildApp();
   });
 
   afterAll(async () => {
     await app.close();
+    _resetTokenVerifier();
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
     setupAuth();
   });
 
@@ -488,6 +477,41 @@ describe('Users Controller', () => {
         expect.any(String),
         { role: 'admin' },
       );
+    });
+  });
+
+  describe('Rate limit propagation', () => {
+    it('returns 429 with RATE_LIMIT_EXCEEDED when service throws RateLimitError', async () => {
+      (usersService.getUserByUid as jest.Mock).mockRejectedValue(
+        new RateLimitError('Too many requests. Please wait a moment and try again.'),
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/me',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(429);
+      const body = res.json<{ success: boolean; error: { code: string; message: string } }>();
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+    });
+
+    it('returns 429 when listUsers service throws RateLimitError', async () => {
+      (usersService.listUsers as jest.Mock).mockRejectedValue(
+        new RateLimitError(),
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(429);
+      const body = res.json<{ success: boolean; error: { code: string } }>();
+      expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
     });
   });
 });

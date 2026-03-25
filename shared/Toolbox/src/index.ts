@@ -2,7 +2,6 @@
  * @elastic-resume-base/toolbox
  *
  * Shared cross-cutting utilities for Elastic Resume Base microservices.
- * All exports rely only on Node.js built-ins — no npm packages required.
  *
  * ## Exports
  *
@@ -31,5 +30,6 @@ export {
   ForbiddenError,
   DownstreamError,
   UnavailableError,
+  RateLimitError,
   isAppError,
 } from './errors.js';

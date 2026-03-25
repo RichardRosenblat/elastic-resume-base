@@ -42,7 +42,7 @@ jest.mock('../../../src/utils/logger', () => ({
 
 import { FirestoreUserDocumentStore, FirestorePreApprovedStore } from '@elastic-resume-base/synapse';
 import { config } from '../../../src/config.js';
-import { NotFoundError, ForbiddenError, ValidationError } from '../../../src/errors.js';
+import { NotFoundError, ForbiddenError } from '../../../src/errors.js';
 import { authorizeUser,
   getUserByUid,
   updateUser,
@@ -209,6 +209,7 @@ describe('usersService', () => {
     it('updates the user and returns the updated record', async () => {
       const updatedData = { ...MOCK_USER, enable: false, role: 'admin' };
       const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue({ ...MOCK_USER, role: 'user', enable: true });
       userStore.updateUser.mockResolvedValue(updatedData);
 
       const result = await updateUser('uid123', { enable: false, role: 'admin' });
@@ -220,13 +221,40 @@ describe('usersService', () => {
     it('throws NotFoundError when the user does not exist', async () => {
       const { userStore } = setupMocks();
       userStore.updateUser.mockRejectedValue(new NotFoundError('not found'));
+      // role:'admin' → need to check existing user first; simulate a regular user
+      userStore.getUserByUid.mockResolvedValue({ ...MOCK_USER, role: 'user', enable: true });
 
       await expect(updateUser('missing-uid', { role: 'admin' })).rejects.toThrow(NotFoundError);
     });
 
-    it('throws ValidationError when email is invalid', async () => {
-      setupMocks();
-      await expect(updateUser('uid123', { email: 'bad-email' })).rejects.toThrow(ValidationError);
+    it('throws ForbiddenError when trying to disable the last enabled admin', async () => {
+      const adminUser = { ...MOCK_USER, role: 'admin', enable: true };
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(adminUser);
+      userStore.listUsers.mockResolvedValue({ users: [adminUser], pageToken: undefined });
+
+      await expect(updateUser('uid123', { enable: false })).rejects.toThrow(ForbiddenError);
+    });
+
+    it('throws ForbiddenError when trying to demote the last enabled admin', async () => {
+      const adminUser = { ...MOCK_USER, role: 'admin', enable: true };
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(adminUser);
+      userStore.listUsers.mockResolvedValue({ users: [adminUser], pageToken: undefined });
+
+      await expect(updateUser('uid123', { role: 'user' })).rejects.toThrow(ForbiddenError);
+    });
+
+    it('allows disabling an admin when another enabled admin exists', async () => {
+      const adminUser = { ...MOCK_USER, role: 'admin', enable: true };
+      const anotherAdmin = { uid: 'uid456', email: 'bob@example.com', role: 'admin', enable: true };
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(adminUser);
+      userStore.listUsers.mockResolvedValue({ users: [adminUser, anotherAdmin], pageToken: undefined });
+      userStore.updateUser.mockResolvedValue({ ...adminUser, enable: false });
+
+      const result = await updateUser('uid123', { enable: false });
+      expect(result.enable).toBe(false);
     });
   });
 
@@ -234,7 +262,9 @@ describe('usersService', () => {
 
   describe('deleteUser', () => {
     it('deletes the user when they exist', async () => {
+      const regularUser = { ...MOCK_USER, role: 'user', enable: true };
       const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(regularUser);
       userStore.deleteUser.mockResolvedValue(undefined);
 
       await deleteUser('uid123');
@@ -243,9 +273,31 @@ describe('usersService', () => {
 
     it('throws NotFoundError when the user does not exist', async () => {
       const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue({ ...MOCK_USER, role: 'user', enable: true });
       userStore.deleteUser.mockRejectedValue(new NotFoundError('not found'));
 
       await expect(deleteUser('missing-uid')).rejects.toThrow(NotFoundError);
+    });
+
+    it('throws ForbiddenError when trying to delete the last enabled admin', async () => {
+      const adminUser = { ...MOCK_USER, role: 'admin', enable: true };
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(adminUser);
+      userStore.listUsers.mockResolvedValue({ users: [adminUser], pageToken: undefined });
+
+      await expect(deleteUser('uid123')).rejects.toThrow(ForbiddenError);
+    });
+
+    it('allows deleting an admin when another enabled admin exists', async () => {
+      const adminUser = { ...MOCK_USER, role: 'admin', enable: true };
+      const anotherAdmin = { uid: 'uid456', email: 'bob@example.com', role: 'admin', enable: true };
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue(adminUser);
+      userStore.listUsers.mockResolvedValue({ users: [adminUser, anotherAdmin], pageToken: undefined });
+      userStore.deleteUser.mockResolvedValue(undefined);
+
+      await deleteUser('uid123');
+      expect(userStore.deleteUser).toHaveBeenCalledWith('uid123');
     });
   });
 

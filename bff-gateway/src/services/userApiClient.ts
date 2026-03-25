@@ -1,9 +1,17 @@
 import axios from 'axios';
 import { config } from '../config.js';
-import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, UnavailableError, ValidationError } from '../errors.js';
+import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, RateLimitError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
 import { logger } from '../utils/logger.js';
-import type { PreApprovedUser, UserRecord, ListUsersResponse, UpdateUserRequest, UpdatePreApprovedRequest } from '../models/index.js';
+import type {
+  PreApprovedUser,
+  UserRecord,
+  ListUsersResponse,
+  UpdateUserRequest,
+  UpdatePreApprovedRequest,
+  UserFilters,
+  PreApprovedFilters,
+} from '../models/index.js';
 
 const client = createHttpClient(config.userApiServiceUrl);
 
@@ -15,10 +23,10 @@ type ErrorHandlerParams = {
 };
 
 /** Dispatch table: HTTP status code → error factory. */
-const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams) => never>> = {
-  403: ({ context, operationName, forbiddenMsg }) => {
+const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams & { err: unknown }) => never>> = {
+  403: ({ context, operationName, forbiddenMsg, err }) => {
     logger.info(context, `${operationName}: UserAPI returned 403 Forbidden`);
-    throw new ForbiddenError(forbiddenMsg);
+    throw new ForbiddenError(extractApiMessage(err, forbiddenMsg));
   },
   404: ({ context, operationName, notFoundMsg }) => {
     logger.info(context, `${operationName}: resource not found (404)`);
@@ -68,9 +76,14 @@ function handleUserApiError(
       throw new ConflictError(extractApiMessage(err, 'Resource already exists'));
     }
 
+    if (status === 429) {
+      logger.warn(context, `${operationName}: UserAPI returned 429 Too Many Requests`);
+      throw new RateLimitError(extractApiMessage(err, 'Too many requests. Please wait a moment and try again.'));
+    }
+
     const handler = status !== undefined ? STATUS_ERROR_MAP[status] : undefined;
     if (handler) {
-      handler(params);
+      handler({ ...params, err });
     }
 
     if (err.code === 'ECONNABORTED') {
@@ -163,7 +176,7 @@ export async function getUserById(uid: string): Promise<UserRecord> {
 /**
  * Retrieves a paginated list of users from the users-api.
  */
-export async function listUsersFromApi(maxResults?: number, pageToken?: string, filters?: { email?: string; role?: string; enable?: boolean }): Promise<ListUsersResponse> {
+export async function listUsersFromApi(maxResults?: number, pageToken?: string, filters?: UserFilters): Promise<ListUsersResponse> {
   logger.debug({ maxResults, pageToken, filters }, 'listUsersFromApi: requesting user list from UserAPI');
   try {
     const params = new URLSearchParams();
@@ -172,6 +185,8 @@ export async function listUsersFromApi(maxResults?: number, pageToken?: string, 
     if (filters?.email !== undefined) params.set('email', filters.email);
     if (filters?.role !== undefined) params.set('role', filters.role);
     if (filters?.enable !== undefined) params.set('enable', String(filters.enable));
+    if (filters?.orderBy !== undefined) params.set('orderBy', filters.orderBy);
+    if (filters?.orderDirection !== undefined) params.set('orderDirection', filters.orderDirection);
     const query = params.toString() ? `?${params.toString()}` : '';
     const response = await client.get<{ success: boolean; data: ListUsersResponse }>(
       `/api/v1/users${query}`,
@@ -221,7 +236,7 @@ export async function deleteUserFromApi(uid: string): Promise<void> {
     handleUserApiError(err, {
       context: { uid },
       operationName: 'deleteUserFromApi',
-      forbiddenMsg: 'User not found',
+      forbiddenMsg: 'User cannot be deleted',
       notFoundMsg: 'User not found',
       unavailableActionMsg: 'delete user',
     });
@@ -235,11 +250,13 @@ export async function deleteUserFromApi(uid: string): Promise<void> {
 /**
  * Lists all pre-approved users from the users-api.
  */
-export async function listPreApprovedFromApi(filters?: { role?: string }): Promise<PreApprovedUser[]> {
+export async function listPreApprovedFromApi(filters?: PreApprovedFilters): Promise<PreApprovedUser[]> {
   logger.debug({ filters }, 'listPreApprovedFromApi: requesting pre-approved users from UserAPI');
   try {
     const params = new URLSearchParams();
     if (filters?.role !== undefined) params.set('role', filters.role);
+    if (filters?.orderBy !== undefined) params.set('orderBy', filters.orderBy);
+    if (filters?.orderDirection !== undefined) params.set('orderDirection', filters.orderDirection);
     const query = params.toString() ? `?${params.toString()}` : '';
     const response = await client.get<{ success: boolean; data: PreApprovedUser[] }>(
       `/api/v1/users/pre-approve${query}`,

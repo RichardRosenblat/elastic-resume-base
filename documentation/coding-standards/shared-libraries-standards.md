@@ -1,12 +1,12 @@
 # Shared Libraries Coding Standards
 
-This document defines the standards for developing and maintaining the shared TypeScript libraries (`Synapse`, `Bowltie`, `Bugle`, `Toolbox`) under `shared/`.
+This document defines the standards for developing and maintaining the shared libraries (`Synapse`, `Bowltie`, `Bugle`, `Toolbox`, `Hermes` TypeScript, `hermes` Python) under `shared/`.
 
 ---
 
 ## Purpose
 
-Shared libraries eliminate code duplication across Node.js microservices. They are **internal packages** — not published to npm — and are installed via relative `file:` paths in `package.json`. Each library must be independently buildable, testable, and documented.
+Shared libraries eliminate code duplication across microservices. They are **internal packages** — not published to npm or PyPI — and are installed via relative `file:` paths (Node.js) or editable local paths (Python). Each library must be independently buildable, testable, and documented.
 
 > **Exception — Toolbox:** `shared/Toolbox` is a plain collection of TypeScript source files with no `package.json`. Services import directly from its `src/` files using relative paths. No build step or `npm install` is required. See [Using Toolbox](nodejs-coding-standards.md#using-toolbox) for service integration details.
 
@@ -14,18 +14,29 @@ Shared libraries eliminate code duplication across Node.js microservices. They a
 
 ## Library Responsibilities
 
+### TypeScript Libraries (Node.js services)
+
 | Library | Package Name | Responsibility |
 |---|---|---|
 | **Synapse** | `@elastic-resume-base/synapse` | Error class hierarchy (`AppError`, `NotFoundError`, `ValidationError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError`, `DownstreamError`), `UserRepository` interface, `FirestoreUserRepository` implementation |
 | **Bowltie** | `@elastic-resume-base/bowltie` | Uniform API response envelope: `formatSuccess<T>()`, `formatError()`, `SuccessResponse<T>`, `ErrorResponse`, `ApiResponse<T>` |
 | **Bugle** | `@elastic-resume-base/bugle` | Google API authentication (`getGoogleAuthClient`), Google Drive permissions (`DrivePermissionsService.getUsersWithFileAccess`) |
+| **Hermes** | `@elastic-resume-base/hermes` | Messaging abstraction: `IMessagingService`, `SmtpMessagingService`, `initializeMessaging`, `getMessagingService` |
 | **Toolbox** | *(plain source, no package name)* | Config loading (`loadConfigYaml`), structured logger factory (`createLogger`), Fastify hooks (`correlationIdHook`, `createRequestLoggerHook`) |
+
+### Python Libraries (Python services)
+
+| Library | Package Name | Responsibility |
+|---|---|---|
+| **hermes** | `elastic-resume-base-hermes` | Messaging abstraction: `IMessagingService` protocol, `SmtpMessagingService`, `initialize_messaging`, `get_messaging_service` |
 
 ---
 
 ## Package Structure
 
-Each library (Synapse, Bowltie, Bugle) must follow this structure:
+### TypeScript Libraries
+
+Each TypeScript library (Synapse, Bowltie, Bugle, Hermes) must follow this structure:
 
 ```
 shared/<LibraryName>/
@@ -57,6 +68,35 @@ shared/Toolbox/
 ```
 
 Toolbox unit tests live in `bff-gateway/tests/unit/toolbox/` and run as part of the bff-gateway test suite.
+
+### Python Libraries
+
+Each Python library (e.g. `hermes`) must follow this structure:
+
+```
+shared/<library-name>/
+├── <package>/
+│   ├── __init__.py       # Public API: re-exports everything consumers need
+│   ├── interfaces/
+│   │   ├── __init__.py
+│   │   └── <interface>.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── <service>.py
+│   └── <module>.py       # Implementation files
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py       # pytest fixtures (including singleton reset)
+│   └── test_<module>.py
+├── pyproject.toml
+├── requirements.txt       # Production dependencies (pinned)
+├── requirements-dev.txt   # Dev/test dependencies
+└── README.md              # API reference with usage examples
+```
+
+- Use **`snake_case`** for all Python package and module names.
+- Install via `pip install -e ../shared/<library-name>` (editable local path).
+- Build and test Python libraries with `build_shared_python.sh` / `build_shared_python.bat`.
 
 ---
 
@@ -119,17 +159,25 @@ For **Toolbox**:
 
 ## Testing Shared Libraries
 
-For **Synapse, Bowltie, and Bugle**: run `npm test` from within the library directory.
+### TypeScript
+
+For **Synapse, Bowltie, Bugle, and Hermes**: run `npm test` from within the library directory.
 
 For **Toolbox**: run `npm test` from within the `bff-gateway/` directory (Toolbox tests live in `bff-gateway/tests/unit/toolbox/`).
 
+### Python
+
+For **hermes** (Python): run `pytest tests/` from within `shared/hermes/`.
+
 Aim for **80% coverage minimum** — coverage must include all exported functions.
-Use `jest.mock()` to isolate external dependencies (e.g., `firebase-admin`, `google-auth-library`).
+Use `jest.mock()` (TypeScript) or `unittest.mock` / `pytest-mock` (Python) to isolate external dependencies.
 Libraries must not have integration tests that call real GCP services.
 
 ---
 
 ## Development Commands
+
+### TypeScript
 
 Run these commands from within the library directory (e.g., `cd shared/Synapse`):
 
@@ -149,19 +197,42 @@ cd bff-gateway
 npm test
 ```
 
+### Python
+
+Run these commands from within the Python library directory (e.g., `cd shared/hermes`):
+
+```bash
+pip install -r requirements-dev.txt   # Install dev + prod dependencies
+pip install -e .                      # Install the package in editable mode
+ruff check hermes/ tests/             # Lint
+black hermes/ tests/                  # Format
+mypy hermes/                          # Type-check
+pytest tests/                         # Run unit tests
+pytest tests/ --cov=hermes --cov-report=term-missing  # With coverage
+```
+
 ---
 
 ## Build Order
 
-The libraries have the following build-time dependency order. Always build them in this sequence:
+### TypeScript
+
+The TypeScript libraries have the following build-time dependency order. Always build them in this sequence:
 
 1. **Synapse** — no shared-lib dependencies
 2. **Bowltie** — depends on Synapse for error types
 3. **Bugle** — no shared-lib dependencies
+4. **Hermes** — no shared-lib dependencies
 
 **Toolbox** is not included in the build order — it has no `package.json` and is automatically skipped by `build_shared.bat` / `build_shared.sh`.
 
 The `build_shared.bat` / `build_shared.sh` scripts at the repo root iterate the `shared/` directory in filesystem order and only process directories that contain a `package.json`. **Do not rename the library directories** without updating the build scripts.
+
+### Python
+
+Python shared libraries are built and tested separately using `build_shared_python.sh` / `build_shared_python.bat` at the repo root. These scripts iterate `shared/` and process any directory containing a `pyproject.toml`.
+
+1. **hermes** — no shared-lib dependencies
 
 See [Monorepo Scripts](../monorepo-scripts.md) for details on the build scripts.
 

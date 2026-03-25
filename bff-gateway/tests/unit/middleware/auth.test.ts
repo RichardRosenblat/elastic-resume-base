@@ -1,13 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
-import { authHook, _resetFirebaseApp } from '../../../src/middleware/auth.js';
+import { authHook, _setTokenVerifier, _resetTokenVerifier } from '../../../src/middleware/auth.js';
 
-jest.mock('firebase-admin', () => ({
-  apps: [],
-  initializeApp: jest.fn().mockReturnValue({}),
-  auth: jest.fn().mockReturnValue({
-    verifyIdToken: jest.fn(),
-  }),
+jest.mock('../../../src/services/usersService', () => ({
+  getUserByUid: jest.fn(),
+  updateUser: jest.fn(),
+  deleteUser: jest.fn(),
+  listUsers: jest.fn(),
+  getPreApproved: jest.fn(),
+  listPreApproved: jest.fn(),
+  addPreApproved: jest.fn(),
+  deletePreApproved: jest.fn(),
+  updatePreApproved: jest.fn(),
 }));
 
 jest.mock('../../../src/services/userApiClient', () => ({
@@ -23,33 +27,44 @@ jest.mock('../../../src/services/userApiClient', () => ({
   updatePreApprovedInApi: jest.fn(),
 }));
 
-import * as admin from 'firebase-admin';
 import * as userApiClient from '../../../src/services/userApiClient.js';
+import * as usersService from '../../../src/services/usersService.js';
 import { ForbiddenError } from '../../../src/errors.js';
+
+/** Creates a mock ITokenVerifier with a controllable verifyToken implementation. */
+function createMockVerifier() {
+  return { verifyToken: jest.fn() };
+}
 
 describe('authHook', () => {
   let app: FastifyInstance;
+  let mockVerifier: ReturnType<typeof createMockVerifier>;
 
   beforeAll(async () => {
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
+    mockVerifier = createMockVerifier();
+    _setTokenVerifier(mockVerifier);
     app = await buildApp();
   });
 
   afterAll(async () => {
     await app.close();
+    _resetTokenVerifier();
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (admin.apps as unknown[]).length = 0;
-    _resetFirebaseApp();
     // Default: UserAPI grants access with enable=true
     (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
+    (usersService.getUserByUid as jest.Mock).mockResolvedValue({
+      uid: 'user123',
+      email: 'test@example.com',
+      role: 'user',
+      enable: true,
+    });
   });
 
   it('returns 401 when no Authorization header', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/v1/me' });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/users/me' });
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('UNAUTHORIZED');
   });
@@ -57,7 +72,7 @@ describe('authHook', () => {
   it('returns 401 when Authorization header does not start with Bearer', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Basic sometoken' },
     });
     expect(res.statusCode).toBe(401);
@@ -65,12 +80,10 @@ describe('authHook', () => {
   });
 
   it('returns 401 when token verification fails', async () => {
-    (admin.auth as jest.Mock).mockReturnValue({
-      verifyIdToken: jest.fn().mockRejectedValue(new Error('Invalid token')),
-    });
+    mockVerifier.verifyToken.mockRejectedValue(new Error('Invalid token'));
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer invalid-token' },
     });
     expect(res.statusCode).toBe(401);
@@ -79,14 +92,12 @@ describe('authHook', () => {
 
   it('proceeds and sets request.user when token is valid and user has access (enable=true)', async () => {
     const decodedToken = { uid: 'user123', email: 'test@example.com', name: 'Test User', picture: 'http://pic.url' };
-    (admin.auth as jest.Mock).mockReturnValue({
-      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
-    });
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
     (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer valid-token' },
     });
     expect(res.statusCode).toBe(200);
@@ -96,14 +107,12 @@ describe('authHook', () => {
 
   it('returns 403 with pending approval message when enable=false', async () => {
     const decodedToken = { uid: 'pending-uid', email: 'pending@example.com', name: 'Pending User', picture: '' };
-    (admin.auth as jest.Mock).mockReturnValue({
-      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
-    });
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
     (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: false });
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer valid-token-pending' },
     });
     expect(res.statusCode).toBe(403);
@@ -113,15 +122,13 @@ describe('authHook', () => {
 
   it('returns 403 when token is valid but user is not authorized (ForbiddenError)', async () => {
     const decodedToken = { uid: 'unregistered-uid', email: 'ghost@example.com', name: 'Ghost', picture: '' };
-    (admin.auth as jest.Mock).mockReturnValue({
-      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
-    });
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
     (userApiClient.authorizeUser as jest.Mock).mockRejectedValue(
       new ForbiddenError('User does not have access to this application'),
     );
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer valid-token-unregistered' },
     });
     expect(res.statusCode).toBe(403);
@@ -130,13 +137,11 @@ describe('authHook', () => {
 
   it('returns 403 when token has no email', async () => {
     const decodedToken = { uid: 'user-no-email' }; // no email
-    (admin.auth as jest.Mock).mockReturnValue({
-      verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
-    });
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/me',
+      url: '/api/v1/users/me',
       headers: { authorization: 'Bearer no-email-token' },
     });
     expect(res.statusCode).toBe(403);

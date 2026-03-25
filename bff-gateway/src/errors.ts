@@ -12,6 +12,7 @@ export {
   ForbiddenError,
   DownstreamError,
   UnavailableError,
+  RateLimitError,
   isAppError,
 } from '@shared/toolbox';
 

@@ -1,4 +1,4 @@
-import { ForbiddenError, ValidationError } from '../errors.js';
+import { ForbiddenError } from '../errors.js';
 import {
   FirestoreUserDocumentStore,
   FirestorePreApprovedStore,
@@ -18,6 +18,26 @@ import { logger } from '../utils/logger.js';
 
 /** Default role assigned to newly created users. */
 const DEFAULT_ROLE = 'user';
+
+function compareValues(a: string | boolean, b: string | boolean): number {
+  if (typeof a === 'boolean' && typeof b === 'boolean') {
+    if (a === b) return 0;
+    return a ? 1 : -1;
+  }
+  return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+}
+
+function sortUsers(users: UserRecord[], filters?: UserFilters): UserRecord[] {
+  const orderBy = filters?.orderBy ?? 'uid';
+  const orderDirection = filters?.orderDirection ?? 'asc';
+
+  const sorted = [...users].sort((left, right) => {
+    const result = compareValues(left[orderBy], right[orderBy]);
+    return orderDirection === 'desc' ? -result : result;
+  });
+
+  return sorted;
+}
 
 // ---------------------------------------------------------------------------
 // Store singletons (lazy-initialized on first call)
@@ -49,15 +69,6 @@ export function _resetStores(): void {
   _preApprovedStore = null;
 }
 
-/**
- * Validates that the email field is present and is a non-empty string.
- */
-function validateEmail(email: string): void {
-  if (!email || !email.includes('@')) {
-    throw new ValidationError('A valid email address is required');
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Authorization Logic
 // ---------------------------------------------------------------------------
@@ -86,15 +97,24 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
   logger.trace({ uid }, 'authorizeUser: checking users store');
   try {
     const user = await userStore.getUserByUid(uid);
-    logger.debug({ uid, role: user.role, enable: user.enable }, 'authorizeUser: user found in users store');
+    logger.debug(
+      { uid, role: user.role, enable: user.enable },
+      'authorizeUser: user found in users store',
+    );
     // Auto-update email if it has changed in the auth provider
     if (user.email !== email) {
-      logger.info({ uid, oldEmail: user.email, newEmail: email }, 'authorizeUser: email has changed, updating user record');
+      logger.info(
+        { uid, oldEmail: user.email, newEmail: email },
+        'authorizeUser: email has changed, updating user record',
+      );
       try {
         await userStore.updateUser(uid, { email });
       } catch (updateErr) {
         // Non-fatal: log and continue with existing record
-        logger.warn({ uid, err: updateErr }, 'authorizeUser: failed to update email, continuing with existing record');
+        logger.warn(
+          { uid, err: updateErr },
+          'authorizeUser: failed to update email, continuing with existing record',
+        );
       }
     }
     return { role: user.role, enable: user.enable };
@@ -111,7 +131,10 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
   const preApproved = await preApprovedStore.getByEmail(email);
   if (preApproved) {
     const role = preApproved.role;
-    logger.info({ uid, email, role }, 'authorizeUser: user found in pre-approved store, promoting to users store');
+    logger.info(
+      { uid, email, role },
+      'authorizeUser: user found in pre-approved store, promoting to users store',
+    );
 
     await userStore.createUser({ uid, email, role, enable: true });
     await preApprovedStore.delete(email);
@@ -128,8 +151,32 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
 
   if (onboardableDomains.length > 0) {
     const domain = email.split('@')[1]?.toLowerCase();
-    if (domain && onboardableDomains.includes(domain)) {
-      logger.info({ uid, email, domain }, 'authorizeUser: email domain is onboardable, creating user with enable=false');
+
+    const isOnboardable =
+      domain &&
+      onboardableDomains.some((pattern) => {
+        const normalizedPattern = pattern.toLowerCase();
+        const normalizedDomain = domain.toLowerCase();
+
+        // 1. Exact domain match (handles "@example.com" or "example.com")
+        if (normalizedPattern.startsWith('@')) {
+          return normalizedPattern.slice(1) === normalizedDomain;
+        }
+
+        // 2. Simple domain match "example.com"
+        if (!normalizedPattern.includes('@')) {
+          return normalizedPattern === normalizedDomain;
+        }
+
+        // 3. Fallback: Full email match "user@example.com"
+        return normalizedPattern === email.toLowerCase();
+      });
+
+    if (isOnboardable) {
+      logger.info(
+        { uid, email, domain },
+        'authorizeUser: email is onboardable, creating user with enable=false',
+      );
       await userStore.createUser({ uid, email, role: DEFAULT_ROLE, enable: false });
       return { role: DEFAULT_ROLE, enable: false };
     }
@@ -159,17 +206,62 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
 }
 
 /**
+ * Looks up a user by email address.
+ *
+ * @param email - Email address to search for.
+ * @returns The matching {@link UserRecord}, or `null` if not found.
+ */
+export async function getUserByEmail(email: string): Promise<UserRecord | null> {
+  logger.debug({ email }, 'getUserByEmail: fetching user');
+  const user = await getUserStore().getUserByEmail(email);
+  if (user) logger.trace({ email }, 'getUserByEmail: user found');
+  return user ?? null;
+}
+
+/** Upper-bound page size used when listing all admins for the last-admin guard. */
+const MAX_ADMIN_FETCH = 10_000;
+
+/**
+ * Counts the number of currently enabled admin users.
+ *
+ * @returns Total count of enabled admin users in the store.
+ */
+async function countEnabledAdmins(): Promise<number> {
+  const result = await getUserStore().listUsers(MAX_ADMIN_FETCH, undefined, { role: 'admin', enable: true });
+  return result.users.length;
+}
+
+/**
  * Updates mutable attributes of a user.
+ *
+ * Guards against removing the last enabled admin:
+ * - If the target user is an enabled admin and the update would disable them or
+ *   demote their role to `'user'`, this function checks whether they are the
+ *   last enabled admin and rejects the change if so.
  *
  * @param uid - Unique identifier of the user to update.
  * @param data - Fields to update. Only supplied fields are changed.
  * @returns The updated {@link UserRecord}.
  * @throws {NotFoundError} If no user with that UID exists.
+ * @throws {ForbiddenError} If the update would remove the last enabled admin.
  */
 export async function updateUser(uid: string, data: UpdateUserRequest): Promise<UserRecord> {
-  if (data.email !== undefined) {
-    logger.debug({ uid, email: data.email }, 'updateUser: validating new email');
-    validateEmail(data.email);
+  const wouldDisable = data.enable === false;
+  const wouldDemote = data.role !== undefined && data.role !== 'admin';
+
+  if (wouldDisable || wouldDemote) {
+    const current = await getUserStore().getUserByUid(uid);
+    const isCurrentAdmin = current.role === 'admin' && current.enable;
+
+    if (isCurrentAdmin) {
+      const adminCount = await countEnabledAdmins();
+      if (adminCount <= 1) {
+        const reason = wouldDisable
+          ? 'You cannot deactivate this user because they are the only active admin in the system. Please assign another user as admin before deactivating this user.'
+          : 'You cannot change the role of this user because they are the only active admin in the system. Please assign another user as admin before changing their role.';
+        throw new ForbiddenError(reason);
+      }
+    }
   }
 
   logger.debug({ uid }, 'updateUser: updating user');
@@ -181,10 +273,23 @@ export async function updateUser(uid: string, data: UpdateUserRequest): Promise<
 /**
  * Permanently removes a user.
  *
+ * Guards against deleting the last enabled admin.
+ *
  * @param uid - Unique identifier of the user to delete.
  * @throws {NotFoundError} If no user with that UID exists.
+ * @throws {ForbiddenError} If deleting this user would leave no enabled admin.
  */
 export async function deleteUser(uid: string): Promise<void> {
+  const current = await getUserStore().getUserByUid(uid);
+  if (current.role === 'admin' && current.enable) {
+    const adminCount = await countEnabledAdmins();
+    if (adminCount <= 1) {
+      throw new ForbiddenError(
+        'You cannot delete this user because they are the only active admin in the system. Please assign another user as admin before deleting this user.',
+      );
+    }
+  }
+
   logger.debug({ uid }, 'deleteUser: removing user');
   await getUserStore().deleteUser(uid);
   logger.info({ uid, action: 'deleteUser' }, 'User deleted');
@@ -204,9 +309,19 @@ export async function listUsers(
   filters?: UserFilters,
 ): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken, filters }, 'listUsers: building query');
-  const result = await getUserStore().listUsers(maxResults, pageToken, filters);
-  logger.debug({ count: result.users.length, hasNextPage: !!result.pageToken }, 'listUsers: query complete');
-  return { users: result.users, pageToken: result.pageToken };
+  const storeFilters: UserFilters = {};
+  if (filters?.email !== undefined) storeFilters.email = filters.email;
+  if (filters?.role !== undefined) storeFilters.role = filters.role;
+  if (filters?.enable !== undefined) storeFilters.enable = filters.enable;
+  const finalStoreFilters = Object.keys(storeFilters).length > 0 ? storeFilters : undefined;
+
+  const result = await getUserStore().listUsers(maxResults, pageToken, finalStoreFilters);
+  const users = sortUsers(result.users, filters);
+  logger.debug(
+    { count: users.length, hasNextPage: !!result.pageToken },
+    'listUsers: query complete',
+  );
+  return { users, pageToken: result.pageToken };
 }
 
 // ---------------------------------------------------------------------------
@@ -253,4 +368,3 @@ export async function bootstrapAdminUser(): Promise<void> {
     logger.error({ email, error }, 'Error occurred while bootstrapping admin user');
   }
 }
-

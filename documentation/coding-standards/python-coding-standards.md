@@ -6,21 +6,23 @@ This document defines the coding standards and best practices for all Python mic
 
 ## Table of Contents
 
-- [Language and Runtime](#language-and-runtime)
-- [Style Guide](#style-guide)
-- [Project Structure](#project-structure)
-- [Naming Conventions](#naming-conventions)
-- [Type Hints](#type-hints)
-- [Docstrings and Comments](#docstrings-and-comments)
-- [Error Handling](#error-handling)
-- [Logging](#logging)
-- [Security](#security)
-- [Dependencies](#dependencies)
-- [Testing](#testing)
-- [Linting and Formatting](#linting-and-formatting)
-- [Environment Variables](#environment-variables)
-- [Async Programming](#async-programming)
-- [Database Access](#database-access)
+- [Python Coding Standards](#python-coding-standards)
+  - [Table of Contents](#table-of-contents)
+  - [Language and Runtime](#language-and-runtime)
+  - [Style Guide](#style-guide)
+  - [Project Structure](#project-structure)
+  - [Naming Conventions](#naming-conventions)
+  - [Type Hints](#type-hints)
+  - [Docstrings and Comments](#docstrings-and-comments)
+  - [Error Handling](#error-handling)
+  - [Logging](#logging)
+  - [Security](#security)
+  - [Dependencies](#dependencies)
+  - [Testing](#testing)
+  - [Linting and Formatting](#linting-and-formatting)
+  - [Environment Variables](#environment-variables)
+  - [Async Programming](#async-programming)
+  - [Database Access](#database-access)
 
 ---
 
@@ -89,7 +91,7 @@ service-name/
 ├── Dockerfile
 ├── requirements.txt
 ├── requirements-dev.txt  # Development/test dependencies
-└── .env.example
+└── .env.example          # Example environment variables
 ```
 
 ---

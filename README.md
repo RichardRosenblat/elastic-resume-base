@@ -44,13 +44,13 @@ This repository is under active development. The following table summarizes what
 |---|---|---|
 | **BFF Gateway** | ✅ Implemented | Full auth, RBAC, user management routes |
 | **Users API** | ✅ Implemented | Authorization logic, user CRUD, pre-approval management |
-| **Shared Libraries** (Synapse, Bowltie, Bugle, Toolbox) | ✅ Implemented | Consumed by BFF Gateway and Users API |
-| **Frontend SPA** | 🔄 Planned | Not yet implemented |
+| **Shared Libraries** (Synapse, Bowltie, Bugle, Aegis, Toolbox, Hermes) | ✅ Implemented | TypeScript libs consumed by BFF Gateway and Users API; Hermes also available as Python package |
+| **Frontend SPA** | ✅ Implemented | React + TypeScript SPA with Firebase Auth, i18n, MUI, and feature flags |
 | **Ingestor Service** | 🔄 Planned | Not yet implemented |
 | **AI Worker** | 🔄 Planned | Not yet implemented |
 | **Search Base** | 🔄 Planned | Not yet implemented |
 | **File Generator** | 🔄 Planned | Not yet implemented |
-| **Document Reader** | 🔄 Planned | Not yet implemented |
+| **Document Reader** | ✅ Implemented | OCR and structured data extraction from Brazilian documents using Cloud Vision API |
 | **DLQ Notifier** | 🔄 Planned | Not yet implemented |
 
 ---
@@ -116,12 +116,12 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 |---|---|---|---|
 | **BFF Gateway** | Node.js | ✅ Implemented | Backend-for-Frontend: handles authentication, RBAC, and routes client requests to microservices |
 | **Users API** | Node.js | ✅ Implemented | Manages user records, authorization logic, and pre-approval workflows |
-| **Frontend SPA** | React / Vue / Angular | 🔄 Planned | User interface hosted on Firebase Hosting |
+| **Frontend SPA** | React + TypeScript | ✅ Implemented | User interface hosted on Firebase Hosting; integrates with BFF Gateway |
 | **Ingestor Service** | Python | 🔄 Planned | Downloads resumes from Google Sheets/Drive, publishes to Pub/Sub |
 | **AI Worker** | Python | 🔄 Planned | Extracts structured JSON and generates embeddings using Vertex AI |
 | **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
 | **File Generator** | Python | 🔄 Planned | Generates resume documents and handles translation via Cloud Translation |
-| **Document Reader** | Python | 🔄 Planned | OCR processing of scanned documents using Cloud Vision API |
+| **Document Reader** | Python | ✅ Implemented | OCR processing of scanned documents and field extraction using Cloud Vision API |
 | **DLQ Notifier** | Python | 🔄 Planned | Monitors Dead Letter Queue and sends failure alerts |
 
 ---
@@ -202,6 +202,9 @@ Ensure you have the following tools installed locally:
 
    # Users API
    cd users-api && npm install
+
+   # Frontend
+   cd frontend && npm install
    ```
 
 ### Running with Docker Compose
@@ -231,6 +234,9 @@ The following local endpoints will be available:
 
 | Service | URL |
 |---|---|
+| Frontend | http://localhost:5173 |
+| Document Reader | http://localhost:8004 |
+| Document Reader API Docs (Swagger) | http://localhost:8004/docs |
 | BFF Gateway | http://localhost:3000 |
 | BFF Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
@@ -254,11 +260,21 @@ elastic-resume-base/
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
-├── shared/                    # ✅ Shared TypeScript libraries
+├── frontend/                  # ✅ React + TypeScript SPA (Vite)
+│   ├── src/
+│   ├── Dockerfile
+│   └── package.json
+├── document-reader/               # ✅ Python Document Reader (FastAPI)
+│   ├── app/
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── shared/                    # ✅ Shared libraries (TypeScript + Python)
 │   ├── Synapse/               # Persistence abstraction (Firestore via firebase-admin)
 │   ├── Bowltie/               # Response formatting utilities
 │   ├── Bugle/                 # Google API integration (Auth + Drive)
-│   └── Toolbox/               # Cross-cutting utilities (logger, config loader, middleware)
+│   ├── Aegis/                 # Auth abstraction (Firebase Admin / Firebase Client)
+│   ├── Toolbox/               # Cross-cutting utilities (logger, config loader, middleware)
+│   └── Hermes/                # Messaging abstraction (SMTP — TypeScript + Python)
 ├── firebase-emulator/         # Local Firebase Emulator setup
 │   ├── Dockerfile
 │   └── firebase.json
@@ -277,8 +293,10 @@ elastic-resume-base/
 │   └── costs and services.md
 ├── config_example.yaml        # Environment configuration template (committed)
 │                              # Copy to config.yaml (git-ignored) and edit
-├── build_shared.sh            # Builds all shared libraries (Linux/macOS)
-├── build_shared.bat           # Builds all shared libraries (Windows)
+├── build_shared.sh            # Builds all TypeScript shared libraries (Linux/macOS)
+├── build_shared.bat           # Builds all TypeScript shared libraries (Windows)
+├── build_shared_python.sh     # Builds all Python shared libraries (Linux/macOS)
+├── build_shared_python.bat    # Builds all Python shared libraries (Windows)
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md
@@ -304,8 +322,10 @@ elastic-resume-base/
 | [Costs and Scaling](documentation/costs%20and%20services.md) | Cost analysis and scaling projections |
 | [Architecture Decision Records](documentation/adr/README.md) | Records of key architectural decisions and their rationale |
 | [Node.js Coding Standards](documentation/coding-standards/nodejs-coding-standards.md) | Node.js style guide and best practices |
+| [Frontend Coding Standards](documentation/coding-standards/frontend-coding-standards.md) | React/TypeScript style guide and best practices for the frontend SPA |
 | [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
 | [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
+| [Frontend README](frontend/README.md) | Frontend SPA setup, environment variables, and development guide |
 | [Contributing](CONTRIBUTING.md) | How to contribute to this project |
 | [Security](SECURITY.md) | Security policy and vulnerability reporting |
 

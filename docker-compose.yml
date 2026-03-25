@@ -46,7 +46,19 @@ services:
     depends_on:
       - firebase-emulator
 
-  # 4. Document Reader / OCR (Python — port 8004)
+  # 4. React Frontend (static bundle served by nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_BFF_URL=http://localhost:3000
+    ports:
+      - "5173:80"
+    depends_on:
+      - bff-gateway
+
+  # 5. Document Reader / OCR (Python — port 8004)
   document-reader:
     build:
       context: ./document-reader
