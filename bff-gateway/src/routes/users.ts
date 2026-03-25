@@ -2,7 +2,6 @@ import type { FastifyPluginAsync, RouteHandlerMethod } from 'fastify';
 import { requireAdminHook } from '../middleware/auth.js';
 import {
   getMeHandler,
-  updateMeHandler,
   listUsersHandler,
   getUserHandler,
   updateUserHandler,
@@ -180,36 +179,6 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, getMeHandler);
-
-  app.patch('/me', {
-    schema: {
-      tags: ['Users'],
-      summary: 'Update authenticated user profile',
-      description: 'Updates the authenticated user\'s own profile. Cannot update role or enable fields.',
-      security: [{ bearerAuth: [] }],
-      body: {
-        type: 'object',
-        properties: {
-          email: { type: 'string', example: 'new.email@example.com' },
-        },
-      },
-      response: {
-        200: {
-          description: 'User profile updated successfully.',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            data: userRecordSchema,
-            meta: successMeta,
-          },
-        },
-        400: validationErrorResponse,
-        401: unauthorizedResponse,
-        403: forbiddenResponse,
-        500: internalErrorResponse,
-      },
-    },
-  }, updateMeHandler);
 
   // ── Admin & User Routes ─────────────────────────────────────────────────────
 

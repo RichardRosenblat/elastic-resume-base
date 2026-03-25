@@ -4,7 +4,6 @@ import type {
   ListUsersResponse,
   PreApprovedFilters,
   PreApprovedUser,
-  UpdateMeRequest,
   UpdatePreApprovedRequest,
   UpdateUserRequest,
   UserFilters,
@@ -40,18 +39,6 @@ export async function getUserByUid(uid: string): Promise<UserRecord> {
 export async function listUsers(maxResults?: number, pageToken?: string, filters?: UserFilters): Promise<ListUsersResponse> {
   logger.debug({ maxResults, hasPageToken: !!pageToken, filters }, 'listUsers: fetching users from UserAPI');
   return listUsersFromApi(maxResults, pageToken, filters);
-}
-
-/**
- * Updates a user's own profile (self-service). Does not require admin access.
- *
- * @param uid - UID of the authenticated user.
- * @param payload - Self-service fields to update (e.g. `email`).
- * @returns The updated UserRecord.
- */
-export async function updateMe(uid: string, payload: UpdateMeRequest): Promise<UserRecord> {
-  logger.debug({ uid }, 'updateMe: self-service profile update');
-  return updateUserInApi(uid, payload);
 }
 
 /**
