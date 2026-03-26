@@ -1,11 +1,99 @@
 """Application configuration for the document-reader service.
 
-Settings are read from environment variables (or an optional ``.env`` file)
-via :class:`pydantic_settings.BaseSettings`.  Instantiate :data:`settings`
-once at module level; every other module imports that singleton.
+Settings are read from environment variables and optional config files.
+
+At import time, this module attempts to load monorepo YAML configuration
+(``config.yaml`` or ``configs.yaml``), merge ``systems.shared`` with
+``systems.document-reader``, and seed any missing environment variables.
+Variables already present in the process environment always take precedence.
 """
 
+import os
+from pathlib import Path
+from typing import Any
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+try:
+    import yaml
+except ImportError:  # pragma: no cover - handled gracefully when dependency missing
+    yaml = None
+
+
+def _config_candidates() -> list[Path]:
+    """Return candidate YAML config paths in search order."""
+    cwd = Path.cwd()
+    repo_root = Path(__file__).resolve().parents[2]
+
+    candidates: list[Path] = []
+    explicit = os.environ.get("CONFIG_FILE")
+    if explicit:
+        candidates.append(Path(explicit))
+
+    candidates.extend(
+        [
+            cwd / "configs.yaml",
+            cwd / "config.yaml",
+            cwd.parent / "configs.yaml",
+            cwd.parent / "config.yaml",
+            repo_root / "configs.yaml",
+            repo_root / "config.yaml",
+        ]
+    )
+
+    # De-duplicate while preserving order.
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for path in candidates:
+        if path not in seen:
+            unique.append(path)
+            seen.add(path)
+    return unique
+
+
+def _load_yaml_config_into_environ(service_name: str = "document-reader") -> None:
+    """Seed os.environ from monorepo YAML config when available.
+
+    Only scalar values are loaded and only when a key does not already exist
+    in ``os.environ``.
+    """
+    if yaml is None:
+        return
+
+    config_path = next((path for path in _config_candidates() if path.exists()), None)
+    if config_path is None:
+        return
+
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        # Preserve current environment values when YAML is malformed/unreadable.
+        return
+
+    if not isinstance(raw, dict):
+        return
+
+    systems = raw.get("systems")
+    if not isinstance(systems, dict):
+        return
+
+    merged: dict[str, Any] = {}
+    shared = systems.get("shared")
+    service = systems.get(service_name)
+
+    if isinstance(shared, dict):
+        merged.update(shared)
+    if isinstance(service, dict):
+        merged.update(service)
+
+    for key, value in merged.items():
+        if not isinstance(key, str) or value is None:
+            continue
+        if isinstance(value, (str | int | float | bool)):
+            os.environ.setdefault(key, str(value))
+
+
+_load_yaml_config_into_environ()
 
 
 class Settings(BaseSettings):
