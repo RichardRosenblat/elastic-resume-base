@@ -146,7 +146,7 @@ jobs:
           PR_NUMBER:       ${{ github.event.pull_request.number }}
           GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
           REPO:            ${{ github.repository }}
-          MODE:            ${{ inputs.mode || 'informational' }}
+          MODE:            ${{ github.event_name == 'pull_request' && 'strict' || inputs.mode || 'informational' }}
           # Tells the summary script that tests were intentionally skipped.
           TESTS_SKIPPED:   ${{ needs.detect-changes.outputs.has-packages == 'false' && 'true' || 'false' }}
 
