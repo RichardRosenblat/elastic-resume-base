@@ -419,3 +419,111 @@ export interface DataDisplayConfig<TData = Record<string, unknown>> {
 
 // Re-export SyntheticEvent so consumers don't need to import from React directly
 export type { SyntheticEvent };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// File Upload Template
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Configuration object accepted by {@link FileUploadTemplate}.
+ *
+ * The component is **controlled** — `files` and `onFilesChange` must be
+ * provided by the parent.  Action buttons (select, process, clear, etc.) are
+ * described through the same {@link ButtonConfig} array used by
+ * {@link FormTemplate}.
+ *
+ * @example
+ * ```tsx
+ * const config: FileUploadConfig = {
+ *   accept: '.pdf,.jpg,.docx,.zip',
+ *   multiple: true,
+ *   maxFiles: 20,
+ *   disabled: !features.documentRead,
+ *   loading: isProcessing,
+ *   files: selectedFiles,
+ *   onFilesChange: setSelectedFiles,
+ *   description: 'Upload documents for OCR processing.',
+ *   acceptedFormats: ['PDF', 'JPEG', 'DOCX', 'ZIP'],
+ *   showSuccess: downloadReady,
+ *   successMessage: 'File ready and downloaded.',
+ *   buttons: [
+ *     { label: 'Process & Download', onClick: handleUpload, variant: 'contained' },
+ *   ],
+ * };
+ * ```
+ */
+export interface FileUploadConfig {
+  /**
+   * Comma-separated list of MIME types or file extensions accepted by the
+   * hidden `<input type="file">` element (e.g. `'.pdf,.jpg,.docx,.zip'`).
+   */
+  accept: string;
+  /** Allow selecting multiple files at once (default: `true`). */
+  multiple?: boolean;
+  /**
+   * Maximum number of files that may be selected in a single upload.
+   * Used only for documentation/display purposes — the parent's
+   * `onFilesChange` callback receives the full selection and is responsible
+   * for enforcing the limit and showing a warning.  Omit for no limit.
+   */
+  maxFiles?: number;
+  /**
+   * Disables the entire upload section (select button, action buttons, and
+   * the hidden file input) when `true`.
+   */
+  disabled?: boolean;
+  /**
+   * When `true`, action buttons that depend on file selection are shown in a
+   * loading state.  The select button is also disabled.
+   */
+  loading?: boolean;
+  /** Currently selected files (controlled). */
+  files: File[];
+  /**
+   * Called with the new file list whenever the user selects files or the
+   * selection is cleared.
+   */
+  onFilesChange: (files: File[]) => void;
+  /**
+   * Ordered action buttons rendered below the file-select button row.
+   * Use the same {@link ButtonConfig} objects as {@link FormConfig.buttons}.
+   */
+  buttons: ButtonConfig[];
+  /**
+   * Short description shown below the section title and above the accepted
+   * format chips.
+   */
+  description?: string;
+  /**
+   * Labels for the accepted file formats displayed as outlined `<Chip>`
+   * badges (e.g. `['PDF', 'JPEG', 'PNG', 'DOCX', 'ZIP']`).
+   * Omit to hide the chips row.
+   */
+  acceptedFormats?: string[];
+  /**
+   * When `true`, a success alert ({@link successMessage}) is rendered below
+   * the file list.
+   */
+  showSuccess?: boolean;
+  /**
+   * Text shown inside the success alert.  Only rendered when
+   * `showSuccess` is `true`.
+   */
+  successMessage?: string;
+  /**
+   * Label for the "Select Files" button.
+   * Defaults to `'Select Files'` when omitted.
+   */
+  selectFilesLabel?: string;
+  /**
+   * Label for the "Clear selection" text button that appears when files are
+   * selected.  Defaults to `'Clear'` when omitted.
+   */
+  clearLabel?: string;
+  /**
+   * Message displayed below the file list showing how many files are
+   * selected.  Receives `{count}` interpolation.
+   * Defaults to `'{count} file(s) selected'` when omitted.
+   */
+  selectedFilesLabel?: string;
+}

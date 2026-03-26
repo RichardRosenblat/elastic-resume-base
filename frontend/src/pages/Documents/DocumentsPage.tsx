@@ -9,32 +9,26 @@
  * The upload UI is gated by the `documentRead` feature flag. When the flag is
  * disabled an informational banner is shown instead.
  */
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Typography,
 } from '@mui/material';
 import {
-  AttachFile as AttachFileIcon,
   CloudUpload as CloudUploadIcon,
   Description as DescriptionIcon,
-  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { ocrDocuments } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import { useToast } from '../../contexts/use-toast';
+import { FileUploadTemplate } from '../../components/templates';
+import type { FileUploadConfig } from '../../components/templates';
 
 /** File extensions the document reader service accepts for direct OCR. */
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.docx,.zip';
@@ -42,18 +36,19 @@ const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.docx,.z
 /** Maximum number of files that can be uploaded in a single request. */
 const MAX_FILES = 20;
 
+/** Supported format labels shown as chips in the file upload section. */
+const ACCEPTED_FORMATS = ['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX', 'ZIP'];
+
 export default function DocumentsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const features = useFeatureFlags();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [downloadReady, setDownloadReady] = useState(false);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
+  const handleFilesChange = (files: File[]) => {
     if (files.length > MAX_FILES) {
       showToast(t('documents.tooManyFiles', { max: MAX_FILES }), { severity: 'warning' });
       return;
@@ -87,12 +82,30 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleClear = () => {
-    setSelectedFiles([]);
-    setDownloadReady(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const uploadConfig: FileUploadConfig = {
+    accept: ACCEPTED_EXTENSIONS,
+    multiple: true,
+    maxFiles: MAX_FILES,
+    disabled: !features.documentRead,
+    loading,
+    files: selectedFiles,
+    onFilesChange: handleFilesChange,
+    description: t('documents.uploadDescription'),
+    acceptedFormats: ACCEPTED_FORMATS,
+    showSuccess: downloadReady,
+    successMessage: t('documents.downloadReady'),
+    selectFilesLabel: t('documents.selectFiles'),
+    clearLabel: t('common.cancel'),
+    selectedFilesLabel: t('documents.selectedFiles', { count: selectedFiles.length }),
+    buttons: [
+      {
+        label: loading ? t('documents.processing') : t('documents.processAndDownload'),
+        onClick: handleUpload,
+        variant: 'contained',
+        disabled: !features.documentRead || loading || selectedFiles.length === 0,
+        startIcon: loading ? <CircularProgress size={16} color="inherit" /> : <DescriptionIcon />,
+      },
+    ],
   };
 
   return (
@@ -114,83 +127,10 @@ export default function DocumentsPage() {
             <Typography variant="h6">{t('documents.uploadDocuments')}</Typography>
           </Box>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t('documents.uploadDescription')}
-          </Typography>
-
-          <Box display="flex" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
-            {['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX', 'ZIP'].map((ext) => (
-              <Chip key={ext} label={ext} size="small" variant="outlined" />
-            ))}
-          </Box>
-
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_EXTENSIONS}
-            multiple
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-            disabled={!features.documentRead || loading}
-          />
-
-          <Box display="flex" gap={2} flexWrap="wrap" alignItems="center" sx={{ mb: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<AttachFileIcon />}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!features.documentRead || loading}
-            >
-              {t('documents.selectFiles')}
-            </Button>
-
-            <Button
-              variant="contained"
-              startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <DescriptionIcon />}
-              onClick={() => { void handleUpload(); }}
-              disabled={!features.documentRead || loading || selectedFiles.length === 0}
-            >
-              {loading ? t('documents.processing') : t('documents.processAndDownload')}
-            </Button>
-
-            {selectedFiles.length > 0 && (
-              <Button variant="text" onClick={handleClear} disabled={loading}>
-                {t('common.cancel')}
-              </Button>
-            )}
-          </Box>
-
-          {selectedFiles.length > 0 && (
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                {t('documents.selectedFiles', { count: selectedFiles.length })}
-              </Typography>
-              <List dense disablePadding>
-                {selectedFiles.map((file) => (
-                  <ListItem key={`${file.name}-${file.size}`} disableGutters>
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <AttachFileIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={file.name}
-                      secondary={`${(file.size / 1024).toFixed(1)} KB`}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          )}
-
-          {downloadReady && (
-            <Alert severity="success" icon={<DownloadIcon />} sx={{ mt: 2 }}>
-              {t('documents.downloadReady')}
-            </Alert>
-          )}
+          <FileUploadTemplate config={uploadConfig} />
         </CardContent>
       </Card>
     </Box>
   );
 }
+
