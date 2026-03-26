@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -8,6 +9,15 @@ from toolbox_py import get_logger, is_app_error, setup_logging
 
 from app.config import settings
 from app.routers import documents, health
+
+# Apply the service-account key path for local development before any GCP
+# client is constructed.  setdefault only sets the var when it is not already
+# present in the environment so that shell / Docker / CI credentials always
+# take precedence over the config-file value.
+if settings.google_application_credentials:
+    os.environ.setdefault(
+        "GOOGLE_APPLICATION_CREDENTIALS", settings.google_application_credentials
+    )
 
 setup_logging(level=settings.log_level)
 logger = get_logger(__name__)

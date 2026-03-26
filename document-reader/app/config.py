@@ -31,6 +31,13 @@ class Settings(BaseSettings):
             allowed per minute across all requests.  Exceeding this raises a
             rate-limit error with a message directing users to contact support.
             Defaults to ``60``.
+        google_application_credentials: Path to a GCP service-account JSON key
+            file used for local development.  When non-empty the path is
+            exported to the ``GOOGLE_APPLICATION_CREDENTIALS`` environment
+            variable before any GCP client is created so that the Google Cloud
+            libraries pick it up automatically.  Leave empty (the default) in
+            production where Application Default Credentials are provided by
+            the hosting environment (Cloud Run, GKE, etc.).
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -41,6 +48,7 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 10
     rate_limit_per_minute: int = 60
     vision_api_rate_limit: int = 60
+    google_application_credentials: str = ""
 
 
 settings = Settings()

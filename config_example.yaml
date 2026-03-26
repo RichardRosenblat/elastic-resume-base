@@ -40,6 +40,14 @@ systems:
     # Vite derives VITE_FIREBASE_AUTH_DOMAIN from this automatically.
     FIREBASE_AUTH_DOMAIN: ""        # e.g. demo-elastic-resume-base.firebaseapp.com
 
+    # Google Cloud service-account key file for local development.
+    # Set this to the absolute path of a JSON key file whose service account
+    # has the permissions required by every GCP-backed service (Vision API,
+    # Firestore, Pub/Sub, Vertex AI, …).
+    # Leave empty in production — GCP-hosted environments (Cloud Run, GKE, …)
+    # provide Application Default Credentials automatically.
+    GOOGLE_APPLICATION_CREDENTIALS: ""   # e.g. /home/user/keys/my-sa-key.json
+
     # Firebase Local Emulator Suite — point at the docker-compose service name.
     # For local dev without Docker, change these to localhost:<port>.
     FIRESTORE_EMULATOR_HOST: "firebase-emulator:8080"
