@@ -205,6 +205,17 @@ systems:
     # Files larger than this value are rejected with HTTP 422.
     MAX_FILE_SIZE_MB: "10"
 
+    # Maximum number of API requests accepted from a single client IP per
+    # minute.  Exceeding this limit returns HTTP 429 with a message asking
+    # the user to try again later.  Increase for trusted high-volume clients.
+    RATE_LIMIT_PER_MINUTE: "60"
+
+    # Maximum number of Google Cloud Vision API calls allowed per minute
+    # across all incoming requests.  This guards against runaway usage of the
+    # Vision API quota.  Exceeding this returns HTTP 429 with a message
+    # directing users to contact support.  Adjust to match your GCP quota.
+    VISION_API_RATE_LIMIT: "60"
+
     # Logging verbosity (debug | info | warning | error | critical).
     # Inherited from systems.shared.LOG_LEVEL — override here for more
     # verbose OCR debugging without flooding the rest of the platform.

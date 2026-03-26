@@ -2,11 +2,12 @@ import io
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from toolbox_py import get_logger
+from toolbox_py import RateLimitError, get_logger
 
 from app.config import settings
+from app.dependencies import check_api_rate_limit
 from app.document_schema import ALLOWED_FILE_EXTENSIONS
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
@@ -16,7 +17,7 @@ from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError, ZipE
 
 logger = get_logger(__name__)
 
-router = APIRouter(tags=["Documents"])
+router = APIRouter(tags=["Documents"], dependencies=[Depends(check_api_rate_limit)])
 
 # Extensions that can be processed directly by OCR — sourced from the document schema.
 ALLOWED_EXTENSIONS: frozenset[str] = ALLOWED_FILE_EXTENSIONS
@@ -110,6 +111,8 @@ async def ocr_documents(
 
         except UnsupportedFileTypeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RateLimitError as exc:
+            raise HTTPException(status_code=429, detail=exc.message) from exc
         except OcrServiceError as exc:
             logger.error("OCR failed for file", extra={"doc_filename": filename, "error": str(exc)})
             raise HTTPException(status_code=502, detail="OCR processing failed") from exc

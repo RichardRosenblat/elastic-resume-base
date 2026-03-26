@@ -3,12 +3,25 @@ import io
 
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud import vision
-from toolbox_py import get_logger
+from toolbox_py import RateLimitError, get_logger
 
+from app.config import settings
 from app.document_schema import IMAGE_EXTENSIONS
 from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError
+from app.utils.rate_limiter import RateLimiter
 
 logger = get_logger(__name__)
+
+# Module-level singleton so the budget is shared across all OcrService instances.
+_vision_api_rate_limiter = RateLimiter(
+    max_calls=settings.vision_api_rate_limit,
+    window_seconds=60,
+)
+
+_VISION_RATE_LIMIT_MESSAGE = (
+    "The system cannot process your request at this time due to high demand. "
+    "If this problem persists, please contact support."
+)
 
 
 class OcrService:
@@ -52,8 +65,12 @@ class OcrService:
             Extracted text from the image.
 
         Raises:
+            RateLimitError: If the Vision API rate limit has been reached.
             OcrServiceError: If the Vision API returns an error or raises an exception.
         """
+        if not _vision_api_rate_limiter.is_allowed():
+            logger.warning("Vision API rate limit reached")
+            raise RateLimitError(_VISION_RATE_LIMIT_MESSAGE)
         try:
             image = vision.Image(content=content)
             response = self._client.document_text_detection(image=image)
@@ -74,6 +91,7 @@ class OcrService:
             Concatenated text from all pages.
 
         Raises:
+            RateLimitError: If the Vision API rate limit is reached during page processing.
             OcrServiceError: If PDF processing or OCR fails.
         """
         try:
@@ -89,7 +107,7 @@ class OcrService:
                     texts.append(page_text)
             doc.close()
             return "\n".join(texts)
-        except OcrServiceError:
+        except (OcrServiceError, RateLimitError):
             raise
         except Exception as exc:
             logger.error("PDF processing failed: %s", exc)

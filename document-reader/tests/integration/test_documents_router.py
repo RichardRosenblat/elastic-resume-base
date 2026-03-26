@@ -297,3 +297,92 @@ async def test_ocr_mixed_direct_and_zip(client: AsyncClient, sample_image_bytes:
     # Two documents: one direct + one from ZIP
     call_args = mock_excel_cls.return_value.generate.call_args[0][0]
     assert len(call_args) == 2
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting tests
+# ---------------------------------------------------------------------------
+
+
+async def test_api_rate_limit_returns_429(sample_image_bytes: bytes) -> None:
+    """Exceeding the per-IP API rate limit returns HTTP 429 with Bowltie envelope."""
+    from app.dependencies import _api_rate_limiters, _reset_rate_limiters_for_testing
+    from app.utils.rate_limiter import RateLimiter
+
+    # Inject an exhausted rate limiter for the test client IP.
+    # ASGITransport uses 127.0.0.1 as the client address.
+    _reset_rate_limiters_for_testing()
+    exhausted = RateLimiter(max_calls=0, window_seconds=60)
+    _api_rate_limiters["127.0.0.1"] = exhausted
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[("files", ("test.png", sample_image_bytes, "image/png"))],
+            )
+    finally:
+        _reset_rate_limiters_for_testing()
+
+    assert response.status_code == 429
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+    assert "exceeded the maximum number of requests" in body["error"]["message"]
+    assert "try again later" in body["error"]["message"]
+
+
+async def test_vision_api_rate_limit_returns_429(sample_image_bytes: bytes) -> None:
+    """Exceeding the Vision API rate limit returns HTTP 429 with Bowltie envelope."""
+    from toolbox_py import RateLimitError
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(
+            side_effect=RateLimitError(
+                "The system cannot process your request at this time due to high demand. "
+                "If this problem persists, please contact support."
+            )
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[("files", ("test.png", sample_image_bytes, "image/png"))],
+            )
+
+    assert response.status_code == 429
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+    assert "contact support" in body["error"]["message"]
+
+
+async def test_health_endpoints_bypass_rate_limit() -> None:
+    """Health endpoints are never blocked by the API rate limiter."""
+    from app.dependencies import _api_rate_limiters, _reset_rate_limiters_for_testing
+    from app.utils.rate_limiter import RateLimiter
+
+    # Rate-limit the test client IP — health endpoints should still be reachable
+    # because they don't use the check_api_rate_limit dependency.
+    _reset_rate_limiters_for_testing()
+    exhausted = RateLimiter(max_calls=0, window_seconds=60)
+    _api_rate_limiters["127.0.0.1"] = exhausted
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            live_response = await c.get("/health/live")
+            ready_response = await c.get("/health/ready")
+    finally:
+        _reset_rate_limiters_for_testing()
+
+    assert live_response.status_code == 200
+    assert ready_response.status_code == 200
+

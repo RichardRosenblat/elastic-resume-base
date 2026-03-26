@@ -95,3 +95,4 @@ async def generic_exception_handler(_request: Request, exc: Exception) -> JSONRe
         status_code=500,
         content=format_error("INTERNAL_ERROR", "An unexpected error occurred"),
     )
+
