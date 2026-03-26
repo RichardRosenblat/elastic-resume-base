@@ -10,7 +10,7 @@ Variables already present in the process environment always take precedence.
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -73,24 +73,27 @@ def _load_yaml_config_into_environ(service_name: str = "document-reader") -> Non
     if not isinstance(raw, dict):
         return
 
-    systems = raw.get("systems")
+    systems = cast("dict[str, Any]", raw).get("systems")
     if not isinstance(systems, dict):
         return
 
+    systems_dict = cast("dict[str, Any]", systems)
     merged: dict[str, Any] = {}
-    shared = systems.get("shared")
-    service = systems.get(service_name)
+    shared = systems_dict.get("shared")
+    service = systems_dict.get(service_name)
 
     if isinstance(shared, dict):
-        merged.update(shared)
+        merged.update(cast("dict[str, Any]", shared))
     if isinstance(service, dict):
-        merged.update(service)
+        merged.update(cast("dict[str, Any]", service))
 
     for key, value in merged.items():
-        if not isinstance(key, str) or value is None:
+        if value is None:
             continue
-        if isinstance(value, (str | int | float | bool)):
+        if isinstance(value, (int, float, bool)):
             os.environ.setdefault(key, str(value))
+        elif isinstance(value, str):
+            os.environ.setdefault(key, value)
 
 
 _load_yaml_config_into_environ()
@@ -126,6 +129,13 @@ class Settings(BaseSettings):
             libraries pick it up automatically.  Leave empty (the default) in
             production where Application Default Credentials are provided by
             the hosting environment (Cloud Run, GKE, etc.).
+        vision_api_timeout: Timeout in seconds for each Google Cloud Vision API
+            call.  Defaults to ``30.0``.  Set higher when processing very large
+            images or under heavy load; lower values help fail-fast on hung
+            connections.
+        http_request_timeout: Maximum seconds a single HTTP request to this
+            service may take before a 504 Gateway Timeout is returned.
+            Defaults to ``60``.  Health endpoints are excluded from this limit.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -137,6 +147,8 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     vision_api_rate_limit: int = 60
     google_application_credentials: str = ""
+    vision_api_timeout: float = 30.0
+    http_request_timeout: int = 60
 
 
 settings = Settings()

@@ -69,8 +69,14 @@ class ExcelService:
             ExcelGenerationError: If Excel generation fails.
         """
         try:
+            logger.debug(
+                "Generating Excel report",
+                extra={"document_count": len(documents)},
+            )
             wb = Workbook()
             ws = wb.active
+            if ws is None:  # pragma: no cover – new Workbook always has an active sheet
+                raise ExcelGenerationError("Workbook has no active worksheet")
             ws.title = "Documentos"
 
             # Write styled header row
@@ -104,7 +110,12 @@ class ExcelService:
 
             buffer = io.BytesIO()
             wb.save(buffer)
-            return buffer.getvalue()
+            file_bytes = buffer.getvalue()
+            logger.debug(
+                "Excel report generated",
+                extra={"document_count": len(documents), "file_size_bytes": len(file_bytes)},
+            )
+            return file_bytes
 
         except Exception as exc:
             logger.error("Excel generation failed: %s", exc)

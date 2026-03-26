@@ -1,7 +1,11 @@
 import re
 
+from toolbox_py import get_logger
+
 from app.document_schema import DETECTION_PRIORITY, DOCUMENT_SCHEMA
 from app.models.document import DocumentType, ExtractedDocument
+
+logger = get_logger(__name__)
 
 
 class ExtractorService:
@@ -23,7 +27,12 @@ class ExtractorService:
         for doc_type_key in DETECTION_PRIORITY:
             spec = DOCUMENT_SCHEMA[doc_type_key]
             if any(kw in upper for kw in spec.keywords):
+                logger.debug(
+                    "Document type detected",
+                    extra={"doc_type": doc_type_key},
+                )
                 return DocumentType(doc_type_key)
+        logger.debug("Document type could not be determined; classified as UNKNOWN")
         return DocumentType.UNKNOWN
 
     def extract(self, filename: str, raw_text: str) -> ExtractedDocument:
@@ -37,8 +46,19 @@ class ExtractorService:
             :class:`~app.models.document.ExtractedDocument` with detected type
             and extracted fields.
         """
+        logger.debug("Extracting fields from document", extra={"doc_filename": filename})
         doc_type = self.detect_document_type(raw_text)
         fields = self._extract_fields(doc_type, raw_text)
+        populated = sum(1 for v in fields.values() if v is not None)
+        logger.debug(
+            "Field extraction complete",
+            extra={
+                "doc_filename": filename,
+                "doc_type": doc_type.value,
+                "fields_total": len(fields),
+                "fields_populated": populated,
+            },
+        )
         return ExtractedDocument(
             filename=filename,
             document_type=doc_type,

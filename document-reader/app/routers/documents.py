@@ -9,6 +9,7 @@ from toolbox_py import RateLimitError, get_logger
 from app.config import settings
 from app.dependencies import check_api_rate_limit
 from app.document_schema import ALLOWED_FILE_EXTENSIONS
+from app.models.document import ExtractedDocument
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
 from app.services.ocr_service import OcrService
@@ -60,12 +61,26 @@ async def ocr_documents(
     # Result: a flat list of (filename, extension, content) ready for OCR.
     validated: list[tuple[str, str, bytes]] = []
 
+    logger.debug(
+        "Received OCR request",
+        extra={"file_count": len(files)},
+    )
+
     for upload_file in files:
         filename = upload_file.filename or "unknown"
         ext = _get_extension(filename)
 
+        logger.debug(
+            "Validating uploaded file",
+            extra={"doc_filename": filename, "extension": ext},
+        )
+
         if ext not in ACCEPTED_UPLOAD_EXTENSIONS:
             allowed = ", ".join(sorted(ACCEPTED_UPLOAD_EXTENSIONS))
+            logger.warning(
+                "Rejected unsupported file type",
+                extra={"doc_filename": filename, "extension": ext},
+            )
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported file type '{ext}'. Allowed: {allowed}",
@@ -74,6 +89,14 @@ async def ocr_documents(
         content = await upload_file.read()
 
         if len(content) > MAX_FILE_SIZE_BYTES:
+            logger.warning(
+                "Rejected file exceeding size limit",
+                extra={
+                    "doc_filename": filename,
+                    "size_bytes": len(content),
+                    "limit_bytes": MAX_FILE_SIZE_BYTES,
+                },
+            )
             raise HTTPException(
                 status_code=422,
                 detail=f"File '{filename}' exceeds maximum size of {settings.max_file_size_mb} MB",
@@ -95,12 +118,21 @@ async def ocr_documents(
                 extra={"zip_filename": filename, "entry_count": len(entries)},
             )
         else:
+            logger.debug(
+                "File accepted for OCR",
+                extra={"doc_filename": filename, "size_bytes": len(content)},
+            )
             validated.append((filename, ext, content))
+
+    logger.info(
+        "Starting OCR processing",
+        extra={"total_files": len(validated)},
+    )
 
     ocr_service = OcrService()
     extractor_service = ExtractorService()
     excel_service = ExcelService()
-    extracted_documents = []
+    extracted_documents: list[ExtractedDocument] = []
 
     for filename, ext, content in validated:
         logger.info("Processing file", extra={"doc_filename": filename})
@@ -108,6 +140,16 @@ async def ocr_documents(
             raw_text = await ocr_service.extract_text(content, ext)
             doc = extractor_service.extract(filename, raw_text)
             extracted_documents.append(doc)
+            logger.info(
+                "File processed successfully",
+                extra={
+                    "doc_filename": filename,
+                    "doc_type": doc.document_type.value,
+                    "fields_populated": sum(
+                        1 for v in doc.extracted_fields.values() if v is not None
+                    ),
+                },
+            )
 
         except UnsupportedFileTypeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -116,6 +158,11 @@ async def ocr_documents(
         except OcrServiceError as exc:
             logger.error("OCR failed for file", extra={"doc_filename": filename, "error": str(exc)})
             raise HTTPException(status_code=502, detail="OCR processing failed") from exc
+
+    logger.info(
+        "OCR request complete",
+        extra={"total_documents": len(extracted_documents)},
+    )
 
     excel_bytes = excel_service.generate(extracted_documents)
 

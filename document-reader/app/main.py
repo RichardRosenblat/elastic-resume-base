@@ -9,6 +9,7 @@ from toolbox_py import get_logger, is_app_error, setup_logging
 
 from app.config import settings
 from app.routers import documents, health
+from app.utils.timeout_middleware import TimeoutMiddleware
 
 # Apply the service-account key path for local development before any GCP
 # client is constructed.  setdefault only sets the var when it is not already
@@ -26,7 +27,27 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events."""
-    logger.info("Document Reader service starting up")
+    logger.info(
+        "Document Reader service starting up",
+        extra={
+            "port": settings.port,
+            "log_level": settings.log_level,
+            "max_file_size_mb": settings.max_file_size_mb,
+            "rate_limit_per_minute": settings.rate_limit_per_minute,
+            "vision_api_rate_limit": settings.vision_api_rate_limit,
+            "vision_api_timeout": settings.vision_api_timeout,
+            "http_request_timeout": settings.http_request_timeout,
+        },
+    )
+    logger.debug(
+        "GCP configuration",
+        extra={
+            "gcp_project_id": settings.gcp_project_id or "(not set)",
+            "google_application_credentials": (
+                settings.google_application_credentials or "(using ADC)"
+            ),
+        },
+    )
     yield
     logger.info("Document Reader service shutting down")
 
@@ -41,12 +62,14 @@ app = FastAPI(
     openapi_url="/api/v1/docs/json",
 )
 
+app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.http_request_timeout)
+
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(health.router, prefix="/health")
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle FastAPI HTTP exceptions and format them using Bowltie.
 
     Maps the HTTP status code to a machine-readable error code and wraps
@@ -54,7 +77,7 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
     responses share the same shape as the rest of the API.
 
     Args:
-        _request: The incoming HTTP request (required by FastAPI signature, not used).
+        request: The incoming HTTP request.
         exc: The :class:`~fastapi.HTTPException` raised by a route handler.
 
     Returns:
@@ -74,6 +97,16 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
         503: "SERVICE_UNAVAILABLE",
     }
     code = _code_map.get(exc.status_code, "HTTP_ERROR")
+    if exc.status_code >= 500:
+        logger.error(
+            "HTTP error response",
+            extra={"status_code": exc.status_code, "detail": str(exc.detail), "path": request.url.path},
+        )
+    elif exc.status_code >= 400:
+        logger.warning(
+            "HTTP client error response",
+            extra={"status_code": exc.status_code, "detail": str(exc.detail), "path": request.url.path},
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content=format_error(code, str(exc.detail)),
@@ -81,7 +114,7 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
 
 
 @app.exception_handler(Exception)
-async def generic_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unhandled exceptions and format them using Bowltie.
 
     Catches all :class:`~toolbox_py.AppError` subclasses (which carry a status
@@ -89,13 +122,22 @@ async def generic_exception_handler(_request: Request, exc: Exception) -> JSONRe
     unexpected exception is treated as an internal server error.
 
     Args:
-        _request: The incoming HTTP request (required by FastAPI signature, not used).
+        request: The incoming HTTP request.
         exc: The exception that propagated to the ASGI layer.
 
     Returns:
         JSONResponse with Bowltie-formatted error envelope.
     """
     if is_app_error(exc):
+        logger.warning(
+            "Application error",
+            extra={
+                "code": exc.code,  # type: ignore[union-attr]
+                "message": exc.message,  # type: ignore[union-attr]
+                "status_code": exc.status_code,  # type: ignore[union-attr]
+                "path": request.url.path,
+            },
+        )
         return JSONResponse(
             status_code=exc.status_code,  # type: ignore[union-attr]
             content=format_error(exc.code, exc.message),  # type: ignore[union-attr]

@@ -26,6 +26,8 @@ _API_RATE_LIMIT_MESSAGE = (
     "Please try again later."
 )
 
+__all__ = ["check_api_rate_limit", "_reset_rate_limiters_for_testing"]
+
 
 def _get_client_ip(request: Request) -> str:
     """Return the best-effort client IP address from the request.

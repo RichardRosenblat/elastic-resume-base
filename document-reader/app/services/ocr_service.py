@@ -1,5 +1,6 @@
 import asyncio
 import io
+from typing import cast
 
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud import vision
@@ -45,15 +46,29 @@ class OcrService:
             UnsupportedFileTypeError: If the file type is not supported.
         """
         ext = extension.lower()
+        logger.debug(
+            "Starting text extraction",
+            extra={"extension": ext, "content_size_bytes": len(content)},
+        )
 
         if ext == ".docx":
-            return await asyncio.to_thread(self._extract_docx, content)
+            text = await asyncio.to_thread(self._extract_docx, content)
         elif ext == ".pdf":
-            return await asyncio.to_thread(self._extract_pdf, content)
+            text = await asyncio.to_thread(self._extract_pdf, content)
         elif ext in IMAGE_EXTENSIONS:
-            return await asyncio.to_thread(self._extract_image, content)
+            text = await asyncio.to_thread(self._extract_image, content)
         else:
+            logger.warning(
+                "Unsupported file extension requested",
+                extra={"extension": extension},
+            )
             raise UnsupportedFileTypeError(f"Unsupported file extension: {extension!r}")
+
+        logger.debug(
+            "Text extraction complete",
+            extra={"extension": ext, "extracted_chars": len(text)},
+        )
+        return text
 
     def _extract_image(self, content: bytes) -> str:
         """Run Vision API text detection on an image.
@@ -72,11 +87,32 @@ class OcrService:
             logger.warning("Vision API rate limit reached")
             raise RateLimitError(_VISION_RATE_LIMIT_MESSAGE)
         try:
+            logger.debug(
+                "Calling Vision API for image OCR",
+                extra={
+                    "content_size_bytes": len(content),
+                    "timeout_seconds": settings.vision_api_timeout,
+                },
+            )
             image = vision.Image(content=content)
-            response = self._client.document_text_detection(image=image)
-            if response.error.message:
-                raise OcrServiceError(f"Vision API error: {response.error.message}")
-            return response.full_text_annotation.text or ""
+            response = self._client.document_text_detection(  # type: ignore[attr-defined]
+                image=image,
+                timeout=settings.vision_api_timeout,
+            )
+            if response.error.message:  # type: ignore[union-attr]
+                logger.warning(
+                    "Vision API returned an error",
+                    extra={"api_error": response.error.message},  # type: ignore[union-attr]
+                )
+                raise OcrServiceError(
+                    f"Vision API error: {response.error.message}"  # type: ignore[union-attr]
+                )
+            extracted = str(response.full_text_annotation.text or "")  # type: ignore[union-attr]
+            logger.debug(
+                "Vision API OCR succeeded",
+                extra={"extracted_chars": len(extracted)},
+            )
+            return extracted
         except GoogleAPIError as exc:
             logger.error("Vision API call failed: %s", exc)
             raise OcrServiceError(f"Vision API call failed: {exc}") from exc
@@ -98,14 +134,25 @@ class OcrService:
             import fitz  # type: ignore[import-untyped]  # pymupdf
 
             doc = fitz.open(stream=content, filetype="pdf")
+            page_count: int = int(doc.page_count)  # type: ignore[union-attr]
+            logger.debug("Processing PDF", extra={"page_count": page_count})
             texts: list[str] = []
-            for page in doc:
-                pix = page.get_pixmap(dpi=200)
-                img_bytes = pix.tobytes("png")
+            for page_index in range(page_count):
+                page = doc[page_index]  # type: ignore[index]
+                logger.debug(
+                    "Processing PDF page",
+                    extra={"page_index": page_index, "page_count": page_count},
+                )
+                pix = page.get_pixmap(dpi=200)  # type: ignore[union-attr]
+                img_bytes = cast(bytes, pix.tobytes("png"))  # type: ignore[union-attr]
                 page_text = self._extract_image(img_bytes)
                 if page_text:
                     texts.append(page_text)
             doc.close()
+            logger.debug(
+                "PDF processing complete",
+                extra={"pages_with_text": len(texts), "total_pages": page_count},
+            )
             return "\n".join(texts)
         except (OcrServiceError, RateLimitError):
             raise
@@ -128,8 +175,13 @@ class OcrService:
         try:
             import docx  # type: ignore[import-untyped]
 
+            logger.debug("Processing DOCX", extra={"content_size_bytes": len(content)})
             document = docx.Document(io.BytesIO(content))
             paragraphs = [para.text for para in document.paragraphs if para.text.strip()]
+            logger.debug(
+                "DOCX processing complete",
+                extra={"paragraph_count": len(paragraphs)},
+            )
             return "\n".join(paragraphs)
         except Exception as exc:
             logger.error("DOCX processing failed: %s", exc)
