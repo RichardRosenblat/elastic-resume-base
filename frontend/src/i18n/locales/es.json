@@ -71,6 +71,17 @@
     "loading": "Cargando currículums...",
     "noResumesFound": "No se encontraron currículums"
   },
+  "documents": {
+    "title": "Documentos",
+    "uploadDocuments": "Procesamiento OCR de Documentos",
+    "uploadDescription": "Sube uno o más documentos (o archivos ZIP) para extraer datos estructurados mediante OCR. Los datos extraídos se devolverán como un libro de Excel.",
+    "selectFiles": "Seleccionar Archivos",
+    "processAndDownload": "Procesar y Descargar",
+    "processing": "Procesando…",
+    "selectedFiles": "{{count}} archivo(s) seleccionado(s)",
+    "downloadReady": "Tu archivo Excel está listo y ha sido descargado.",
+    "tooManyFiles": "Puedes subir como máximo {{max}} archivos a la vez."
+  },
   "search": {
     "title": "Búsqueda",
     "searchResumes": "Buscar Currículums",

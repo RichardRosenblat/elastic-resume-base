@@ -27,6 +27,7 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import UsersPage from './pages/Users/UsersPage';
 import ResumesPage from './pages/Resumes/ResumesPage';
 import SearchPage from './pages/Search/SearchPage';
+import DocumentsPage from './pages/Documents/DocumentsPage';
 import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
 import BrandingMetaManager from './components/BrandingMetaManager';
@@ -50,6 +51,7 @@ export default function App() {
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/resumes" element={<ResumesPage />} />
                   <Route path="/search" element={<SearchPage />} />
+                  <Route path="/documents" element={<DocumentsPage />} />
                   <Route path="/account" element={<AccountPage />} />
                 </Route>
               </Route>

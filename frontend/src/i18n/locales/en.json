@@ -71,6 +71,17 @@
     "loading": "Loading resumes...",
     "noResumesFound": "No resumes found"
   },
+  "documents": {
+    "title": "Documents",
+    "uploadDocuments": "OCR Document Processing",
+    "uploadDescription": "Upload one or more documents (or ZIP archives) to extract structured data using OCR. The extracted data will be returned as an Excel workbook.",
+    "selectFiles": "Select Files",
+    "processAndDownload": "Process & Download",
+    "processing": "Processing…",
+    "selectedFiles": "{{count}} file(s) selected",
+    "downloadReady": "Your Excel file is ready and has been downloaded.",
+    "tooManyFiles": "You can upload at most {{max}} files at once."
+  },
   "search": {
     "title": "Search",
     "searchResumes": "Search Resumes",
