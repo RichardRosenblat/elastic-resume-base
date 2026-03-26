@@ -3,7 +3,7 @@ import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { DocumentReadRequest, DocumentReadResponse } from '../models/index.js';
-import { DownstreamError, UnavailableError } from '../errors.js';
+import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
 const client = createHttpClient(config.documentReaderServiceUrl);
 
@@ -23,6 +23,10 @@ export async function readDocument(payload: DocumentReadRequest): Promise<Docume
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn({ fileReference: payload.fileReference }, 'readDocument: document reader service unavailable');
         throw new UnavailableError('DocumentReader service unavailable');
+      }
+      if (err.response.status === 429) {
+        logger.warn({ fileReference: payload.fileReference }, 'readDocument: document reader service rate limit exceeded');
+        throw new RateLimitError();
       }
       if (err.response.status >= 500) {
         logger.warn({ fileReference: payload.fileReference, status: err.response.status }, 'readDocument: document reader service server error');

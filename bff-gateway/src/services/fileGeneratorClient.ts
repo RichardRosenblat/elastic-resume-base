@@ -3,7 +3,7 @@ import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { GenerateRequest, GenerateResponse } from '../models/index.js';
-import { DownstreamError, UnavailableError } from '../errors.js';
+import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
 const client = createHttpClient(config.fileGeneratorServiceUrl);
 
@@ -24,6 +24,10 @@ export async function generateResume(resumeId: string, payload: GenerateRequest)
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn({ resumeId }, 'generateResume: file generator service unavailable');
         throw new UnavailableError('FileGenerator service unavailable');
+      }
+      if (err.response.status === 429) {
+        logger.warn({ resumeId }, 'generateResume: file generator service rate limit exceeded');
+        throw new RateLimitError();
       }
       if (err.response.status >= 500) {
         logger.warn({ resumeId, status: err.response.status }, 'generateResume: file generator service server error');

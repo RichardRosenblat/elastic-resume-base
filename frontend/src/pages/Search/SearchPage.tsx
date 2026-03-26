@@ -19,14 +19,13 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { searchResumes } from '../../services/api';
-import { toUserFacingErrorMessage } from '../../services/api-error';
+import { useShowApiError } from '../../hooks/useShowApiError';
 import type { SearchResult } from '../../types';
-import { useToast } from '../../contexts/use-toast';
 import { FormTemplate, TableTemplate } from '../../components/templates';
 
 export default function SearchPage() {
   const { t } = useTranslation();
-  const { showToast } = useToast();
+  const showApiError = useShowApiError();
   const features = useFeatureFlags();
   const [formValues, setFormValues] = useState<Record<string, string>>({ query: '' });
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -41,8 +40,7 @@ export default function SearchPage() {
       setResults(res.data.results);
       setSearched(true);
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      showToast(errorMessage, { severity: 'error' });
+      showApiError(error, t('common.error'));
     } finally {
       setLoading(false);
     }
