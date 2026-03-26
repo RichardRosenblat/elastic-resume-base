@@ -19,6 +19,13 @@ const generateSchema = z.object({
   outputFormats: z.array(z.enum(['pdf', 'docx', 'html'])).optional(),
 });
 
+const generateParamsSchema = z.object({
+  resumeId: z
+    .string()
+    .min(1, 'resumeId is required')
+    .regex(/^[A-Za-z0-9_-]+$/, 'resumeId contains invalid characters'),
+});
+
 type GenerateParams = { resumeId: string };
 
 /** Handles POST /resumes/ingest - triggers a resume ingest job. */
@@ -36,10 +43,15 @@ export async function generate(
   request: FastifyRequest<{ Params: GenerateParams }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const resumeId = request.params.resumeId;
-  if (!resumeId) {
-    logger.warn({ correlationId: request.correlationId }, 'generate: resumeId missing from params');
-    void reply.code(400).send(formatError('VALIDATION_ERROR', 'resumeId is required'));
+  let resumeId: string;
+  try {
+    ({ resumeId } = generateParamsSchema.parse(request.params));
+  } catch (err) {
+    logger.warn(
+      { correlationId: request.correlationId, error: err },
+      'generate: invalid resumeId in params',
+    );
+    void reply.code(400).send(formatError('VALIDATION_ERROR', 'Invalid resumeId'));
     return;
   }
   logger.debug({ correlationId: request.correlationId, resumeId }, 'generate: validating request body');
