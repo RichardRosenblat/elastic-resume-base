@@ -85,15 +85,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
               role: 'user',
               enable: false,
             });
+          } else if (isRateLimitError(normalizedError)) {
+            // A transient rate-limit on the profile fetch must not sign the user
+            // out — it's a recoverable condition. Keep the existing session and
+            // profile state unchanged; the global rate-limit notifier will already
+            // have shown a warning toast.
           } else {
             // User is authenticated with Firebase but has no application access.
             // Sign them out so the Firebase session is cleared and they stay on the
             // login page rather than being redirected to the dashboard.
             await auth.signOut();
             setUserProfile(null);
-            if (!isRateLimitError(normalizedError)) {
-              showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
-            }
+            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
           }
         }
       } else {
