@@ -1,3 +1,5 @@
+"""Unit tests for the OcrService — text extraction via the Vision API."""
+
 import io
 from unittest.mock import MagicMock, patch
 

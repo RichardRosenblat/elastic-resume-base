@@ -1,3 +1,5 @@
+"""Unit tests for the ExcelService — Excel workbook generation from extracted documents."""
+
 import openpyxl
 import pytest
 
@@ -7,12 +9,14 @@ from app.services.excel_service import ExcelService
 
 @pytest.fixture
 def svc() -> ExcelService:
+    """Return a fresh ExcelService instance."""
     return ExcelService()
 
 
 def _make_doc(
     filename: str = "test.jpg", doc_type: DocumentType = DocumentType.RG
 ) -> ExtractedDocument:
+    """Build a minimal ExtractedDocument for use in tests."""
     return ExtractedDocument(
         filename=filename,
         document_type=doc_type,
@@ -22,12 +26,14 @@ def _make_doc(
 
 
 def test_generate_returns_bytes(svc: ExcelService) -> None:
+    """generate() returns a non-empty bytes object."""
     result = svc.generate([_make_doc()])
     assert isinstance(result, bytes)
     assert len(result) > 0
 
 
 def test_generate_creates_valid_excel(svc: ExcelService) -> None:
+    """The returned bytes are a valid .xlsx workbook with the 'Documentos' sheet."""
     result = svc.generate([_make_doc()])
     import io
 
@@ -36,6 +42,7 @@ def test_generate_creates_valid_excel(svc: ExcelService) -> None:
 
 
 def test_generate_correct_headers(svc: ExcelService) -> None:
+    """The header row includes all expected column labels."""
     result = svc.generate([_make_doc()])
     import io
 
@@ -49,6 +56,7 @@ def test_generate_correct_headers(svc: ExcelService) -> None:
 
 
 def test_generate_with_multiple_documents(svc: ExcelService) -> None:
+    """Passing multiple documents produces one data row per document."""
     docs = [
         _make_doc("doc1.jpg", DocumentType.RG),
         _make_doc("doc2.jpg", DocumentType.PIS),

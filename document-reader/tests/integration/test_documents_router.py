@@ -1,3 +1,9 @@
+"""Integration tests for the document-reader API endpoints.
+
+Uses the FastAPI test client (via ASGI transport) so the full request/response
+pipeline is exercised without starting a real HTTP server.
+"""
+
 import io
 import zipfile
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -62,6 +68,7 @@ async def test_health_ready(client: AsyncClient) -> None:
 
 
 async def test_ocr_no_files_returns_422(client: AsyncClient) -> None:
+    """Posting to /documents/ocr without any files returns 422 (FastAPI validation)."""
     async with client as c:
         response = await c.post("/api/v1/documents/ocr")
     assert response.status_code == 422  # FastAPI validation: required field missing

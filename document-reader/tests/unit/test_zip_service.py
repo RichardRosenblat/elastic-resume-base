@@ -1,3 +1,5 @@
+"""Unit tests for the ZipService — ZIP archive extraction and validation."""
+
 import io
 import zipfile
 

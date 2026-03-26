@@ -31,6 +31,7 @@ def test_detection_priority_matches_schema_keys() -> None:
 
 
 def test_detection_priority_has_no_duplicates() -> None:
+    """DETECTION_PRIORITY must not contain repeated document type keys."""
     assert len(DETECTION_PRIORITY) == len(set(DETECTION_PRIORITY))
 
 
@@ -51,6 +52,7 @@ def test_all_fields_have_valid_patterns(doc_type_key: str, doc_spec: DocumentSpe
 
 @pytest.mark.parametrize("doc_type_key, doc_spec", DOCUMENT_SCHEMA.items())
 def test_all_field_keys_are_non_empty(doc_type_key: str, doc_spec: DocumentSpec) -> None:
+    """Every FieldSpec must have a non-empty key string."""
     for field in doc_spec.fields:
         assert field.key, f"{doc_type_key}: FieldSpec has empty key"
 
@@ -74,6 +76,7 @@ def test_all_keywords_are_uppercase(doc_type_key: str, doc_spec: DocumentSpec) -
 
 @pytest.mark.parametrize("doc_type_key, doc_spec", DOCUMENT_SCHEMA.items())
 def test_each_type_has_at_least_one_keyword(doc_type_key: str, doc_spec: DocumentSpec) -> None:
+    """Every document type must declare at least one detection keyword."""
     assert doc_spec.keywords, f"{doc_type_key}: no detection keywords defined"
 
 
@@ -83,12 +86,14 @@ def test_each_type_has_at_least_one_keyword(doc_type_key: str, doc_spec: Documen
 
 
 def test_document_spec_is_frozen() -> None:
+    """DocumentSpec instances must be immutable (frozen dataclass)."""
     spec = next(iter(DOCUMENT_SCHEMA.values()))
     with pytest.raises((AttributeError, TypeError)):
         spec.keywords = ("NEW_KW",)  # type: ignore[misc]
 
 
 def test_field_spec_is_frozen() -> None:
+    """FieldSpec instances must be immutable (frozen dataclass)."""
     field = next(iter(DOCUMENT_SCHEMA.values())).fields[0]
     with pytest.raises((AttributeError, TypeError)):
         field.key = "changed"  # type: ignore[misc]
@@ -100,19 +105,23 @@ def test_field_spec_is_frozen() -> None:
 
 
 def test_image_extensions_subset_of_allowed() -> None:
+    """IMAGE_EXTENSIONS must be a subset of ALLOWED_FILE_EXTENSIONS."""
     assert IMAGE_EXTENSIONS.issubset(ALLOWED_FILE_EXTENSIONS)
 
 
 def test_allowed_extensions_include_pdf_and_docx() -> None:
+    """PDF and DOCX must be in the allowed extension set."""
     assert ".pdf" in ALLOWED_FILE_EXTENSIONS
     assert ".docx" in ALLOWED_FILE_EXTENSIONS
 
 
 def test_allowed_extensions_do_not_include_zip() -> None:
+    """ZIP is not a directly processable OCR format and must not be in the set."""
     assert ".zip" not in ALLOWED_FILE_EXTENSIONS
 
 
 def test_all_extensions_are_lowercase_with_dot() -> None:
+    """All extensions must start with '.' and be lowercase."""
     for ext in ALLOWED_FILE_EXTENSIONS | IMAGE_EXTENSIONS:
         assert ext.startswith("."), f"{ext!r} does not start with '.'"
         assert ext == ext.lower(), f"{ext!r} is not lowercase"
@@ -124,17 +133,20 @@ def test_all_extensions_are_lowercase_with_dot() -> None:
 
 
 def test_rg_schema_has_rg_number_and_name_fields() -> None:
+    """RG document spec must define both 'rg_number' and 'name' field keys."""
     keys = {f.key for f in DOCUMENT_SCHEMA["RG"].fields}
     assert "rg_number" in keys
     assert "name" in keys
 
 
 def test_birth_certificate_has_date_of_birth_field() -> None:
+    """Birth certificate document spec must define a 'date_of_birth' field key."""
     keys = {f.key for f in DOCUMENT_SCHEMA["BIRTH_CERTIFICATE"].fields}
     assert "date_of_birth" in keys
 
 
 def test_marriage_certificate_has_spouse_name_field() -> None:
+    """Marriage certificate document spec must define a 'spouse_name' field key."""
     keys = {f.key for f in DOCUMENT_SCHEMA["MARRIAGE_CERTIFICATE"].fields}
     assert "spouse_name" in keys
 
