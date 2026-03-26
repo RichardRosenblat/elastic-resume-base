@@ -15,6 +15,7 @@ await build({
   // require() calls (e.g. firebase-admin, @fastify/swagger-ui).
   packages: 'external',
   alias: {
+    '@shared/toolbox': resolve(__dirname, '../shared/Toolbox/toolbox_ts/src/index.ts'),
     '@elastic-resume-base/aegis': resolve(__dirname, '../shared/Aegis/aegis_ts/src/index.ts'),
   },
   outfile: 'dist/server.js',

@@ -1,1 +1,1 @@
-export { correlationIdHook } from '@elastic-resume-base/toolbox';
+export { correlationIdHook } from '@shared/toolbox';

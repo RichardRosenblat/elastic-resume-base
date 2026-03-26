@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@elastic-resume-base/bowltie": "file:../shared/Bowltie/bowltie_ts",
-    "@elastic-resume-base/toolbox": "file:../shared/Toolbox/toolbox_ts",
     "@elastic-resume-base/bugle": "file:../shared/Bugle/bugle_ts",
     "@elastic-resume-base/synapse": "file:../shared/Synapse/synapse_ts",
     "@fastify/cors": "^10.0.1",

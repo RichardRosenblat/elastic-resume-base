@@ -9,7 +9,7 @@
     "baseUrl": "..",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@elastic-resume-base/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
+      "@shared/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
       "firebase-admin": ["bff-gateway/node_modules/firebase-admin"],
       "firebase-admin/*": ["bff-gateway/node_modules/firebase-admin/*"]
     },
