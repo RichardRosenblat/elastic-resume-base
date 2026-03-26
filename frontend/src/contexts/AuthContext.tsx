@@ -29,7 +29,7 @@ import { config } from '../config';
 import { AuthContext } from './auth-context';
 import type { AuthContextType } from './auth-context';
 import { useToast } from './use-toast';
-import { ensureApiRequestError, toUserFacingErrorMessage } from '../services/api-error';
+import { ensureApiRequestError, isRateLimitError, toUserFacingErrorMessage } from '../services/api-error';
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await axios.get<SuccessResponse<UserProfile>>(
@@ -85,6 +85,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
               role: 'user',
               enable: false,
             });
+          } else if (isRateLimitError(normalizedError)) {
+            // A transient rate-limit on the profile fetch must not sign the user
+            // out — it's a recoverable condition. Keep the existing session and
+            // profile state unchanged; the global rate-limit notifier will already
+            // have shown a warning toast.
           } else {
             // User is authenticated with Firebase but has no application access.
             // Sign them out so the Firebase session is cleared and they stay on the

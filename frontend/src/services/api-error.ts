@@ -82,6 +82,15 @@ export function ensureApiRequestError(error: unknown, fallbackMessage = 'Request
   return toApiRequestErrorFromAxios(error, fallbackMessage);
 }
 
+/**
+ * Returns true when the given error represents an HTTP 429 rate-limit response.
+ * Works for both BFF-level rate limits and downstream rate-limit propagation.
+ */
+export function isRateLimitError(error: unknown): boolean {
+  const normalized = ensureApiRequestError(error, '');
+  return normalized.status === 429 || normalized.code === 'RATE_LIMIT_EXCEEDED';
+}
+
 export function toUserFacingErrorMessage(error: unknown, fallbackMessage: string): string {
   const normalized = ensureApiRequestError(error, fallbackMessage);
 

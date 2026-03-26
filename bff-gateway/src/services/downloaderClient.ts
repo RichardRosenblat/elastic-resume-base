@@ -3,7 +3,7 @@ import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { IngestRequest, IngestResponse } from '../models/index.js';
-import { DownstreamError, UnavailableError } from '../errors.js';
+import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
 const client = createHttpClient(config.downloaderServiceUrl);
 
@@ -23,6 +23,10 @@ export async function triggerIngest(payload: IngestRequest): Promise<IngestRespo
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn({ sheetId: payload.sheetId, batchId: payload.batchId }, 'triggerIngest: downloader service unavailable');
         throw new UnavailableError('Downloader service unavailable');
+      }
+      if (err.response.status === 429) {
+        logger.warn({ sheetId: payload.sheetId, batchId: payload.batchId }, 'triggerIngest: downloader service rate limit exceeded');
+        throw new RateLimitError();
       }
       if (err.response.status >= 500) {
         logger.warn({ sheetId: payload.sheetId, batchId: payload.batchId, status: err.response.status }, 'triggerIngest: downloader service server error');
