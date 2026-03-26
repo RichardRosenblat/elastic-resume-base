@@ -69,8 +69,8 @@ for (const pkg of packages) {
   const skipped = results.numPendingTests || 0;
 
   // Sum per-file runtimes for wall-clock duration (tests run --runInBand so sum == total).
-  // Jest JSON output provides perfStats.end and perfStats.start (ms epoch timestamps);
-  // perfStats.runtime is not a standard Jest field so we fall back to end - start.
+  // Jest 28+ JSON output provides endTime and startTime directly on each test result.
+  // Older versions used a nested perfStats object; we support both for compatibility.
   let durationMs = 0;
   if (Array.isArray(results.testResults)) {
     for (const r of results.testResults) {
@@ -80,6 +80,8 @@ for (const pkg of packages) {
         } else if (typeof r.perfStats.end === 'number' && typeof r.perfStats.start === 'number') {
           durationMs += r.perfStats.end - r.perfStats.start;
         }
+      } else if (typeof r.endTime === 'number' && typeof r.startTime === 'number') {
+        durationMs += r.endTime - r.startTime;
       }
     }
   }
@@ -110,8 +112,13 @@ for (const pkg of packages) {
   rows.push({ pkg, status: results.success ? 'passed' : 'failed', passed, failed, skipped, durationMs, coverage });
 }
 
-// ── Sort: failed packages first, then alphabetically ─────────────────────────
+// ── Sort: failed packages first, then by failed test count, then alphabetically ─
 rows.sort((a, b) => {
+  // Any status==='failed' (suite errors, runtime errors, or individual test failures)
+  // always appears before non-failed packages.
+  const aIsFailure = a.status === 'failed' ? 1 : 0;
+  const bIsFailure = b.status === 'failed' ? 1 : 0;
+  if (aIsFailure !== bIsFailure) return bIsFailure - aIsFailure;
   if (a.failed !== b.failed) return b.failed - a.failed;
   return a.pkg.name.localeCompare(b.pkg.name);
 });

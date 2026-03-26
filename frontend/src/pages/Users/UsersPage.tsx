@@ -43,9 +43,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
 import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser } from '../../services/api';
-import { toUserFacingErrorMessage } from '../../services/api-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useToast } from '../../contexts/use-toast';
+import { useShowApiError } from '../../hooks/useShowApiError';
 import { TableTemplate, FormTemplate } from '../../components/templates';
 import type { ColumnConfig } from '../../components/templates';
 import { useButtonLock } from '../../hooks/useButtonLock';
@@ -53,6 +53,7 @@ import { useButtonLock } from '../../hooks/useButtonLock';
 export default function UsersPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const showApiError = useShowApiError();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -151,14 +152,14 @@ export default function UsersPage() {
       setUsers(res.data.users);
       setTotal(res.data.users.length);
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     } finally {
       setLoading(false);
     }
   }, [
     page,
     rowsPerPage,
-    showToast,
+    showApiError,
     t,
     usersSortBy,
     usersSortDirection,
@@ -175,9 +176,9 @@ export default function UsersPage() {
       });
       setPreApproved(data);
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     }
-  }, [showToast, t, preApprovedSortBy, preApprovedSortDirection, preApprovedRoleFilter]);
+  }, [showApiError, t, preApprovedSortBy, preApprovedSortDirection, preApprovedRoleFilter]);
 
   useEffect(() => {
     void fetchUsers();
@@ -211,7 +212,7 @@ export default function UsersPage() {
       setEditingUserId(null);
       void fetchUsers();
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     }
   };
 
@@ -223,7 +224,7 @@ export default function UsersPage() {
       setDeleteConfirmUser(null);
       void fetchUsers();
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     }
   };
 
@@ -237,7 +238,7 @@ export default function UsersPage() {
       showToast(t('common.success'), { severity: 'success' });
       void fetchPreApproved();
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     }
   };
 
@@ -256,7 +257,7 @@ export default function UsersPage() {
       setEditingPreApprovedEmail(null);
       void fetchPreApproved();
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     }
   };
 
@@ -268,7 +269,7 @@ export default function UsersPage() {
       setDeleteConfirmPreApproved(null);
       void fetchPreApproved();
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     }
   };
 
