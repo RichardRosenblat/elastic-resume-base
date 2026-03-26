@@ -14,5 +14,5 @@ export {
   UnavailableError,
   RateLimitError,
   isAppError,
-} from '@shared/toolbox';
+} from '@elastic-resume-base/toolbox';
 

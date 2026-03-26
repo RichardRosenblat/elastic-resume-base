@@ -13,4 +13,4 @@ export {
   DownstreamError,
   UnavailableError,
   isAppError,
-} from '@shared/toolbox';
+} from '@elastic-resume-base/toolbox';

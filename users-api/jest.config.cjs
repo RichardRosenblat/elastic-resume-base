@@ -18,6 +18,6 @@ module.exports = {
     '^@elastic-resume-base/bugle$': '<rootDir>/../shared/Bugle/bugle_ts/src/index.ts',
     '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/bowltie_ts/src/index.ts',
     '^@elastic-resume-base/synapse$': '<rootDir>/../shared/Synapse/synapse_ts/src/index.ts',
-    '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
+    '^@elastic-resume-base/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
   },
 };

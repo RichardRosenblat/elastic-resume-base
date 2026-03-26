@@ -1,4 +1,4 @@
-import { createRequestLoggerHook } from '@shared/toolbox';
+import { createRequestLoggerHook } from '@elastic-resume-base/toolbox';
 import { logger } from '../utils/logger.js';
 
 /**
