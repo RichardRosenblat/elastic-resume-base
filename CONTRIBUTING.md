@@ -20,7 +20,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ## Code of Conduct
 
-By contributing to this project, you agree to uphold a respectful, inclusive, and constructive environment for all contributors. Harassment, discrimination, or dismissive behavior of any kind will not be tolerated.
+By contributing to this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it before participating. Harassment, discrimination, or dismissive behavior of any kind will not be tolerated.
 
 ---
 
