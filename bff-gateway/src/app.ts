@@ -3,12 +3,14 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
+import { formatError } from '@elastic-resume-base/bowltie';
 import { config } from './config.js';
 import { setupSwagger } from './swagger.js';
 import { correlationIdHook } from './middleware/correlationId.js';
 import { requestLoggerHook } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ValidationError } from './errors.js';
+import { logger } from './utils/logger.js';
 import routes from './routes/index.js';
 
 /**
@@ -48,6 +50,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     max: config.rateLimitMax,
     timeWindow: config.rateLimitTimeWindow,
+    errorResponseBuilder: (req, context) => {
+      const retryAfterSec = Math.ceil(context.ttl / 1000);
+      const message = `Too many requests. Please wait ${retryAfterSec} second${retryAfterSec !== 1 ? 's' : ''} and try again.`;
+      const correlationId = req.correlationId ?? req.id;
+      logger.warn({ correlationId, ip: req.ip, limit: context.max }, 'Global rate limit exceeded');
+      return formatError('RATE_LIMIT_EXCEEDED', message, correlationId);
+    },
   });
 
   // Global request hooks

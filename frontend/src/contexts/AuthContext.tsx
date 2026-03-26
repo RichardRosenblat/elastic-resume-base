@@ -29,7 +29,7 @@ import { config } from '../config';
 import { AuthContext } from './auth-context';
 import type { AuthContextType } from './auth-context';
 import { useToast } from './use-toast';
-import { ensureApiRequestError, toUserFacingErrorMessage } from '../services/api-error';
+import { ensureApiRequestError, isRateLimitError, toUserFacingErrorMessage } from '../services/api-error';
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await axios.get<SuccessResponse<UserProfile>>(
@@ -91,7 +91,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // login page rather than being redirected to the dashboard.
             await auth.signOut();
             setUserProfile(null);
-            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
+            if (!isRateLimitError(normalizedError)) {
+              showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
+            }
           }
         }
       } else {

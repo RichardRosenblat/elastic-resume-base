@@ -20,7 +20,7 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/auth-context';
-import { toUserFacingErrorMessage } from '../../services/api-error';
+import { useShowApiError } from '../../hooks/useShowApiError';
 import { useToast } from '../../contexts/use-toast';
 import { DataDisplayTemplate, FormTemplate } from '../../components/templates';
 
@@ -28,6 +28,7 @@ export default function AccountPage() {
   const { t, i18n } = useTranslation();
   const { userProfile, sendPasswordResetEmail } = useAuth();
   const { showToast } = useToast();
+  const showApiError = useShowApiError();
   const [resetLoading, setResetLoading] = useState(false);
 
   const handleSendPasswordReset = async () => {
@@ -38,7 +39,7 @@ export default function AccountPage() {
       await sendPasswordResetEmail(email);
       showToast(t('account.passwordResetSent'), { severity: 'success' });
     } catch (error) {
-      showToast(toUserFacingErrorMessage(error, t('common.error')), { severity: 'error' });
+      showApiError(error, t('common.error'));
     } finally {
       setResetLoading(false);
     }
