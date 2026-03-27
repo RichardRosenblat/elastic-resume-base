@@ -43,6 +43,7 @@
  */
 import {
   Paper,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -82,6 +83,8 @@ export default function TableTemplate<TRow>({ config }: { config: TableConfig<TR
     pagination,
     emptyMessage = 'No data found',
     size = 'medium',
+    loading = false,
+    skeletonRows = 5,
   } = config;
 
   const sortState: TableSortState = sort ?? NO_SORT;
@@ -101,7 +104,17 @@ export default function TableTemplate<TRow>({ config }: { config: TableConfig<TR
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.length === 0 ? (
+          {loading ? (
+            Array.from({ length: skeletonRows }).map((_, rowIdx) => (
+              <TableRow key={`skeleton-${rowIdx}`}>
+                {columns.map((col) => (
+                  <TableCell key={col.id}>
+                    <Skeleton variant="text" sx={{ fontSize: '1rem' }} />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : rows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={columns.length} align="center">
                 {emptyMessage}
