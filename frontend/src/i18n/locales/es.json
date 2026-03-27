@@ -143,6 +143,33 @@
     "loading": "Verificando el estado de los servicios...",
     "unavailable": "Estado No Disponible — no se pudo alcanzar el endpoint de salud.",
     "statusOk": "En línea",
-    "statusDegraded": "Degradado"
+    "statusDegraded": "Degradado",
+    "services": {
+      "usersApi": {
+        "name": "Gestión de Usuarios",
+        "description": "Administra cuentas de usuario, roles y permisos.",
+        "impact": "Las cuentas de usuario y la administración de acceso no estarán disponibles."
+      },
+      "downloader": {
+        "name": "Descargador de Archivos",
+        "description": "Entrega documentos generados como currículums para su descarga.",
+        "impact": "La descarga de documentos de currículum generados no estará disponible."
+      },
+      "searchBase": {
+        "name": "Búsqueda de Currículums",
+        "description": "Impulsa la búsqueda semántica sobre currículums indexados.",
+        "impact": "La búsqueda de currículums no estará disponible."
+      },
+      "fileGenerator": {
+        "name": "Generador de Archivos",
+        "description": "Produce documentos de currículum en varios formatos de salida.",
+        "impact": "La generación y exportación de documentos de currículum no estarán disponibles."
+      },
+      "documentReader": {
+        "name": "Lector de Documentos",
+        "description": "Extrae datos estructurados de documentos subidos mediante OCR.",
+        "impact": "La carga y el procesamiento de documentos mediante OCR no estarán disponibles."
+      }
+    }
   }
 }

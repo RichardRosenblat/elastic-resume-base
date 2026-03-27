@@ -23,8 +23,18 @@ import { getDownstreamHealth } from '../../services/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import type { DownstreamHealthData } from '../../types';
 
+/** Maps the BFF service key to its canonical technical service name. */
+const SERVICE_TECHNICAL_NAMES: Record<string, string> = {
+  usersApi: 'users-api',
+  downloader: 'downloader',
+  searchBase: 'search-base',
+  fileGenerator: 'file-generator',
+  documentReader: 'document-reader',
+};
+
 /**
- * Displays the operational status of a single downstream service.
+ * Displays the operational status of a single downstream service with
+ * a user-friendly name, description, impact notice, and technical identifier.
  */
 function ServiceStatusCard({ name, status }: { name: string; status: 'ok' | 'degraded' }) {
   const { t } = useTranslation();
@@ -32,21 +42,43 @@ function ServiceStatusCard({ name, status }: { name: string; status: 'ok' | 'deg
   const icon = isOk
     ? <CheckCircleIcon fontSize="small" />
     : <CancelIcon fontSize="small" />;
+  const technicalName = SERVICE_TECHNICAL_NAMES[name] ?? name;
 
   return (
     <Card>
       <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between" gap={1}>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {name}
-          </Typography>
+        {/* Header row: friendly name + status chip */}
+        <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1} mb={1}>
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600}>
+              {t(`systemStatus.services.${name}.name`)}
+            </Typography>
+            <Typography variant="caption" color="text.disabled">
+              {technicalName}
+            </Typography>
+          </Box>
           <Chip
             icon={icon}
             label={isOk ? t('systemStatus.statusOk') : t('systemStatus.statusDegraded')}
             color={isOk ? 'success' : 'error'}
             size="small"
+            sx={{ flexShrink: 0 }}
           />
         </Box>
+
+        {/* Service description */}
+        <Typography variant="body2" color="text.secondary">
+          {t(`systemStatus.services.${name}.description`)}
+        </Typography>
+
+        {/* Impact notice — always shown so users understand the service's importance */}
+        <Typography
+          variant="body2"
+          color={isOk ? 'text.secondary' : 'error.main'}
+          sx={{ mt: 0.5, fontStyle: 'italic' }}
+        >
+          {t(`systemStatus.services.${name}.impact`)}
+        </Typography>
       </CardContent>
     </Card>
   );

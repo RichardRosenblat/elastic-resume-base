@@ -44,11 +44,16 @@ describe('SystemStatusPage', () => {
     render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
 
     await waitFor(() => {
-      expect(screen.getByText('usersApi')).toBeInTheDocument();
+      // Technical names are shown verbatim (not translated)
+      expect(screen.getByText('users-api')).toBeInTheDocument();
       expect(screen.getByText('downloader')).toBeInTheDocument();
     });
 
-    // 'ok' service shows ok label, degraded service shows degraded label
+    // Friendly names are rendered via i18n (mock returns the key)
+    expect(screen.getByText('systemStatus.services.usersApi.name')).toBeInTheDocument();
+    expect(screen.getByText('systemStatus.services.downloader.name')).toBeInTheDocument();
+
+    // Status chips
     expect(screen.getByText('systemStatus.statusOk')).toBeInTheDocument();
     expect(screen.getByText('systemStatus.statusDegraded')).toBeInTheDocument();
   });

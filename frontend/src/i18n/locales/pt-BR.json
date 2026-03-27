@@ -142,6 +142,33 @@
     "loading": "Verificando a integridade dos serviços...",
     "unavailable": "Status Indisponível — não foi possível acessar o endpoint de saúde.",
     "statusOk": "Online",
-    "statusDegraded": "Degradado"
+    "statusDegraded": "Degradado",
+    "services": {
+      "usersApi": {
+        "name": "Gestão de Usuários",
+        "description": "Gerencia contas de usuário, funções e permissões.",
+        "impact": "O gerenciamento de contas e acessos de usuários ficará indisponível."
+      },
+      "downloader": {
+        "name": "Baixador de Arquivos",
+        "description": "Entrega documentos gerados, como currículos, para download.",
+        "impact": "O download de documentos de currículo gerados ficará indisponível."
+      },
+      "searchBase": {
+        "name": "Busca de Currículos",
+        "description": "Realiza a busca semântica nos currículos indexados.",
+        "impact": "A busca de currículos ficará indisponível."
+      },
+      "fileGenerator": {
+        "name": "Gerador de Arquivos",
+        "description": "Produz documentos de currículo em diversos formatos de saída.",
+        "impact": "A geração e exportação de documentos de currículo ficarão indisponíveis."
+      },
+      "documentReader": {
+        "name": "Leitor de Documentos",
+        "description": "Extrai dados estruturados de documentos enviados via OCR.",
+        "impact": "O upload e o processamento de documentos via OCR ficarão indisponíveis."
+      }
+    }
   }
 }
