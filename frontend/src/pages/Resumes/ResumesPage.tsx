@@ -24,13 +24,14 @@ import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/i
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { triggerResumeIngest, generateResume } from '../../services/api';
-import { toUserFacingErrorMessage } from '../../services/api-error';
+import { useShowApiError } from '../../hooks/useShowApiError';
 import { useToast } from '../../contexts/use-toast';
 import { FormTemplate } from '../../components/templates';
 
 export default function ResumesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const showApiError = useShowApiError();
   const features = useFeatureFlags();
   const [ingestValues, setIngestValues] = useState<Record<string, string>>({ sheetId: '' });
   const [ingestLoading, setIngestLoading] = useState(false);
@@ -52,8 +53,7 @@ export default function ResumesPage() {
       setIngestSuccess(successMessage);
       showToast(successMessage, { severity: 'success' });
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      showToast(errorMessage, { severity: 'error' });
+      showApiError(error, t('common.error'));
     } finally {
       setIngestLoading(false);
     }
@@ -81,8 +81,7 @@ export default function ResumesPage() {
       setGenerateSuccess(successMessage);
       showToast(successMessage, { severity: 'success' });
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      showToast(errorMessage, { severity: 'error' });
+      showApiError(error, t('common.error'));
     } finally {
       setGenerateLoading(false);
     }

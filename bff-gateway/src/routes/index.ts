@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { config } from '../config.js';
 import { authHook } from '../middleware/auth.js';
+import { buildRateLimitErrorResponseBuilder } from '../utils/rateLimitErrorResponseBuilder.js';
 import healthPlugin from './health.js';
 import resumesPlugin from './resumes.js';
 import searchPlugin from './search.js';
@@ -24,6 +25,7 @@ const routes: FastifyPluginAsync = async (app) => {
       await api.register(rateLimit, {
         max: config.apiV1RateLimitMax,
         timeWindow: config.apiV1RateLimitTimeWindow,
+        errorResponseBuilder: buildRateLimitErrorResponseBuilder('API v1'),
       });
       api.addHook('preHandler', authHook);
       await api.register(resumesPlugin, { prefix: '/resumes' });

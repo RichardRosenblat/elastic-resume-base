@@ -32,6 +32,16 @@ import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
 import BrandingMetaManager from './components/BrandingMetaManager';
 import { ToastProvider } from './contexts/toast-context';
+import { useRateLimitNotifier } from './hooks/useRateLimitNotifier';
+
+/**
+ * Mounts the global rate-limit toast notifier. Must be rendered inside
+ * `ToastProvider`.
+ */
+function RateLimitNotifier() {
+  useRateLimitNotifier();
+  return null;
+}
 
 /**
  * Root React component. Renders the full route tree inside the
@@ -41,6 +51,7 @@ export default function App() {
   return (
     <AppThemeProvider>
       <ToastProvider>
+        <RateLimitNotifier />
         <BrowserRouter>
           <BrandingMetaManager />
           <AuthProvider>

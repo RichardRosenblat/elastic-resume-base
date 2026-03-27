@@ -9,6 +9,7 @@ import { correlationIdHook } from './middleware/correlationId.js';
 import { requestLoggerHook } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ValidationError } from './errors.js';
+import { buildRateLimitErrorResponseBuilder } from './utils/rateLimitErrorResponseBuilder.js';
 import routes from './routes/index.js';
 
 /**
@@ -45,14 +46,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Security / cross-cutting plugins
   await app.register(helmet);
   await app.register(cors, { origin: config.allowedOrigins.split(',') });
+
+  // Correlation ID hook must run before rate-limit so that rate-limited
+  // responses include the same correlationId as all other responses.
+  app.addHook('onRequest', correlationIdHook);
+  app.addHook('onResponse', requestLoggerHook);
+
   await app.register(rateLimit, {
     max: config.rateLimitMax,
     timeWindow: config.rateLimitTimeWindow,
+    errorResponseBuilder: buildRateLimitErrorResponseBuilder('Global'),
   });
-
-  // Global request hooks
-  app.addHook('onRequest', correlationIdHook);
-  app.addHook('onResponse', requestLoggerHook);
 
   // Global error handler (must be set before routes)
   app.setErrorHandler(errorHandler);
