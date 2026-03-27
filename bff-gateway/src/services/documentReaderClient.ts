@@ -85,7 +85,7 @@ export async function ocrDocuments(
       const responseMessage = (err.response.data as { error?: { message?: string } } | undefined)?.error?.message;
       if (err.response.status >= 500) {
         logger.warn({ status: err.response.status }, 'ocrDocuments: document reader service server error');
-        throw new DownstreamError(responseMessage ?? 'DocumentReader service error');
+        throw new UnavailableError(responseMessage ?? 'DocumentReader service error');
       }
       // Forward 4xx errors (e.g. unsupported file type, file too large) as downstream errors
       throw new DownstreamError(
