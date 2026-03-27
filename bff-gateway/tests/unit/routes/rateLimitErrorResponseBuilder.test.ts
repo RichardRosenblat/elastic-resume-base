@@ -92,4 +92,26 @@ describe('buildRateLimitErrorResponseBuilder', () => {
 
     await app.close();
   });
+
+  it('falls back to req.id for correlationId when correlationId hook is not registered', async () => {
+    const app = Fastify();
+    // No correlationId hook — req.correlationId will be undefined, falling back to req.id
+    await app.register(rateLimit, {
+      max: 1,
+      timeWindow: '1 minute',
+      errorResponseBuilder: buildRateLimitErrorResponseBuilder('FallbackTest'),
+    });
+    app.setErrorHandler(errorHandler);
+    app.get('/test', (_req, reply) => { void reply.send({ ok: true }); });
+    await app.ready();
+
+    await app.inject({ method: 'GET', url: '/test' });
+    const res = await app.inject({ method: 'GET', url: '/test' });
+
+    expect(res.statusCode).toBe(429);
+    const body = res.json<{ success: boolean; error: { code: string } }>();
+    expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+
+    await app.close();
+  });
 });
