@@ -43,6 +43,7 @@ import {
   getPreApproved,
   addPreApproved,
   deletePreApproved,
+  updatePreApproved,
 } from '../../../src/services/usersService.js';
 
 const mockUser = {
@@ -219,6 +220,21 @@ describe('usersService (bff-gateway)', () => {
 
       await deletePreApproved('test@example.com', 'admin');
       expect(userApiClient.deletePreApprovedFromApi).toHaveBeenCalledWith('test@example.com');
+    });
+  });
+
+  describe('updatePreApproved', () => {
+    it('throws ForbiddenError when requester is not admin', async () => {
+      await expect(updatePreApproved('test@example.com', { role: 'user' }, 'user')).rejects.toThrow(ForbiddenError);
+    });
+
+    it('updates pre-approved user when requester is admin', async () => {
+      const updated = { email: 'test@example.com', role: 'user' };
+      (userApiClient.updatePreApprovedInApi as jest.Mock).mockResolvedValue(updated);
+
+      const result = await updatePreApproved('test@example.com', { role: 'user' }, 'admin');
+      expect(result).toEqual(updated);
+      expect(userApiClient.updatePreApprovedInApi).toHaveBeenCalledWith('test@example.com', { role: 'user' });
     });
   });
 });

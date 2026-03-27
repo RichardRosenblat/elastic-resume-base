@@ -221,16 +221,15 @@ describe('requireAdminHook', () => {
     expect([200, 403]).toContain(res.statusCode);
   });
 
-  it('returns 403 for non-admin user accessing admin-only PATCH /api/v1/users/:uid', async () => {
+  it('returns 403 for non-admin user accessing admin-only DELETE /api/v1/users/:uid', async () => {
     const decodedToken = { uid: 'regular-uid', email: 'regular@example.com' };
     mockVerifier.verifyToken.mockResolvedValue(decodedToken);
     (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
 
     const res = await app.inject({
-      method: 'PATCH',
+      method: 'DELETE',
       url: '/api/v1/users/target-uid',
       headers: { authorization: 'Bearer user-token' },
-      payload: { role: 'admin' },
     });
 
     expect(res.statusCode).toBe(403);

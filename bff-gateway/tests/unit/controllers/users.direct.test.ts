@@ -30,7 +30,8 @@ jest.mock('../../../src/utils/logger', () => ({
   },
 }));
 
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest, RouteGenericInterface, RawServerDefault } from 'fastify';
+import type { IncomingMessage } from 'http';
 import * as usersService from '../../../src/services/usersService.js';
 import {
   listUsersHandler,
@@ -93,7 +94,7 @@ describe('users.controller (direct) — listUsersHandler', () => {
     const request = makeMockRequest({ query: { maxResults: 'not-a-number' } });
     const reply = makeMockReply();
 
-    await listUsersHandler(request, reply as unknown as FastifyReply);
+    await listUsersHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     expect(reply.send).toHaveBeenCalled();
@@ -103,7 +104,7 @@ describe('users.controller (direct) — listUsersHandler', () => {
     const request = makeMockRequest({ query: { role: 'superuser' } });
     const reply = makeMockReply();
 
-    await listUsersHandler(request, reply as unknown as FastifyReply);
+    await listUsersHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -114,7 +115,7 @@ describe('users.controller (direct) — listUsersHandler', () => {
     const request = makeMockRequest({ query: { enable: 'maybe' } });
     const reply = makeMockReply();
 
-    await listUsersHandler(request, reply as unknown as FastifyReply);
+    await listUsersHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -125,7 +126,7 @@ describe('users.controller (direct) — listUsersHandler', () => {
     const request = makeMockRequest({ query: { orderBy: 'name' } });
     const reply = makeMockReply();
 
-    await listUsersHandler(request, reply as unknown as FastifyReply);
+    await listUsersHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -136,7 +137,7 @@ describe('users.controller (direct) — listUsersHandler', () => {
     const request = makeMockRequest({ query: { orderDirection: 'random' } });
     const reply = makeMockReply();
 
-    await listUsersHandler(request, reply as unknown as FastifyReply);
+    await listUsersHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -158,7 +159,7 @@ describe('users.controller (direct) — listUsersHandler', () => {
     });
     const reply = makeMockReply();
 
-    await listUsersHandler(request, reply as unknown as FastifyReply);
+    await listUsersHandler(request as never, reply as unknown as FastifyReply);
 
     expect(usersService.listUsers).toHaveBeenCalled();
     expect(reply.send).toHaveBeenCalled();
@@ -176,7 +177,7 @@ describe('users.controller (direct) — getPreApprovedHandler', () => {
     const request = makeMockRequest({ query: { role: 'superadmin' } });
     const reply = makeMockReply();
 
-    await getPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -187,7 +188,7 @@ describe('users.controller (direct) — getPreApprovedHandler', () => {
     const request = makeMockRequest({ query: { orderBy: 'uid' } });
     const reply = makeMockReply();
 
-    await getPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -198,7 +199,7 @@ describe('users.controller (direct) — getPreApprovedHandler', () => {
     const request = makeMockRequest({ query: { orderDirection: 'random' } });
     const reply = makeMockReply();
 
-    await getPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -214,7 +215,7 @@ describe('users.controller (direct) — getPreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await getPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(usersService.getPreApproved).toHaveBeenCalledWith('u@e.com', 'admin');
     expect(reply.send).toHaveBeenCalled();
@@ -228,7 +229,7 @@ describe('users.controller (direct) — getPreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await getPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(usersService.listPreApproved).toHaveBeenCalledWith('admin', {
       role: 'admin',
@@ -246,7 +247,7 @@ describe('users.controller (direct) — getPreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await getPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(usersService.listPreApproved).toHaveBeenCalledWith('admin', undefined);
   });
@@ -263,7 +264,7 @@ describe('users.controller (direct) — deletePreApprovedHandler', () => {
     const request = makeMockRequest({ query: {} });
     const reply = makeMockReply();
 
-    await deletePreApprovedHandler(request, reply as unknown as FastifyReply);
+    await deletePreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -278,7 +279,7 @@ describe('users.controller (direct) — deletePreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await deletePreApprovedHandler(request, reply as unknown as FastifyReply);
+    await deletePreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(usersService.deletePreApproved).toHaveBeenCalledWith('u@e.com', 'admin');
     expect(reply.code).toHaveBeenCalledWith(204);
@@ -296,7 +297,7 @@ describe('users.controller (direct) — updatePreApprovedHandler', () => {
     const request = makeMockRequest({ query: {}, body: { role: 'admin' } });
     const reply = makeMockReply();
 
-    await updatePreApprovedHandler(request, reply as unknown as FastifyReply);
+    await updatePreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -307,7 +308,7 @@ describe('users.controller (direct) — updatePreApprovedHandler', () => {
     const request = makeMockRequest({ query: { email: 'u@e.com' }, body: {} });
     const reply = makeMockReply();
 
-    await updatePreApprovedHandler(request, reply as unknown as FastifyReply);
+    await updatePreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
   });
@@ -316,7 +317,7 @@ describe('users.controller (direct) — updatePreApprovedHandler', () => {
     const request = makeMockRequest({ query: { email: 'u@e.com' }, body: { role: 'superadmin' } });
     const reply = makeMockReply();
 
-    await updatePreApprovedHandler(request, reply as unknown as FastifyReply);
+    await updatePreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -333,7 +334,7 @@ describe('users.controller (direct) — updatePreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await updatePreApprovedHandler(request, reply as unknown as FastifyReply);
+    await updatePreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(usersService.updatePreApproved).toHaveBeenCalledWith('u@e.com', { role: 'user' }, 'admin');
     expect(reply.send).toHaveBeenCalled();
@@ -354,7 +355,7 @@ describe('users.controller (direct) — updateUserHandler', () => {
     });
     const reply = makeMockReply();
 
-    await updateUserHandler(request, reply as unknown as FastifyReply);
+    await updateUserHandler(request as unknown as FastifyRequest<{ Params: { uid: string } }>, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -368,7 +369,7 @@ describe('users.controller (direct) — updateUserHandler', () => {
     });
     const reply = makeMockReply();
 
-    await updateUserHandler(request, reply as unknown as FastifyReply);
+    await updateUserHandler(request as unknown as FastifyRequest<{ Params: { uid: string } }>, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -389,7 +390,7 @@ describe('users.controller (direct) — addPreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await addPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await addPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
     const payload = (reply.send as jest.Mock).mock.calls[0][0] as { error?: { message?: string } };
@@ -402,8 +403,85 @@ describe('users.controller (direct) — addPreApprovedHandler', () => {
     });
     const reply = makeMockReply();
 
-    await addPreApprovedHandler(request, reply as unknown as FastifyReply);
+    await addPreApprovedHandler(request as never, reply as unknown as FastifyReply);
 
     expect(reply.code).toHaveBeenCalledWith(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Null-coalescing (?? 'user') branches — when request.user.role is undefined
+// ---------------------------------------------------------------------------
+
+describe('users.controller (direct) — null-role fallbacks', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('deletePreApprovedHandler falls back to "user" role when role is undefined', async () => {
+    (usersService.deletePreApproved as jest.Mock).mockResolvedValue(undefined);
+    const request = makeMockRequest({
+      query: { email: 'u@e.com' },
+      user: { uid: 'uid-1', role: undefined },
+    });
+    const reply = makeMockReply();
+
+    await deletePreApprovedHandler(request as never, reply as unknown as FastifyReply);
+
+    expect(usersService.deletePreApproved).toHaveBeenCalledWith('u@e.com', 'user');
+    expect(reply.code).toHaveBeenCalledWith(204);
+  });
+
+  it('updatePreApprovedHandler falls back to "user" role when role is undefined', async () => {
+    const updated = { email: 'u@e.com', role: 'user' };
+    (usersService.updatePreApproved as jest.Mock).mockResolvedValue(updated);
+    const request = makeMockRequest({
+      query: { email: 'u@e.com' },
+      body: { role: 'user' },
+      user: { uid: 'uid-1', role: undefined },
+    });
+    const reply = makeMockReply();
+
+    await updatePreApprovedHandler(request as never, reply as unknown as FastifyReply);
+
+    expect(usersService.updatePreApproved).toHaveBeenCalledWith('u@e.com', { role: 'user' }, 'user');
+  });
+
+  it('getPreApprovedHandler (email path) falls back to "user" role when role is undefined', async () => {
+    (usersService.getPreApproved as jest.Mock).mockResolvedValue({ email: 'u@e.com', role: 'admin' });
+    const request = makeMockRequest({
+      query: { email: 'u@e.com' },
+      user: { uid: 'uid-1', role: undefined },
+    });
+    const reply = makeMockReply();
+
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
+
+    expect(usersService.getPreApproved).toHaveBeenCalledWith('u@e.com', 'user');
+  });
+
+  it('getPreApprovedHandler (list path) falls back to "user" role when role is undefined', async () => {
+    (usersService.listPreApproved as jest.Mock).mockResolvedValue([]);
+    const request = makeMockRequest({
+      query: {},
+      user: { uid: 'uid-1', role: undefined },
+    });
+    const reply = makeMockReply();
+
+    await getPreApprovedHandler(request as never, reply as unknown as FastifyReply);
+
+    expect(usersService.listPreApproved).toHaveBeenCalledWith('user', undefined);
+  });
+
+  it('addPreApprovedHandler falls back to "user" role when role is undefined', async () => {
+    const pa = { email: 'u@e.com', role: 'admin' };
+    (usersService.addPreApproved as jest.Mock).mockResolvedValue(pa);
+    const request = makeMockRequest({
+      body: { email: 'u@e.com', role: 'admin' },
+      user: { uid: 'uid-1', role: undefined },
+    });
+    const reply = makeMockReply();
+
+    await addPreApprovedHandler(request as never, reply as unknown as FastifyReply);
+
+    expect(usersService.addPreApproved).toHaveBeenCalledWith('u@e.com', 'admin', 'user');
   });
 });
