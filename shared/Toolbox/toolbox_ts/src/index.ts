@@ -4,8 +4,7 @@
  * Shared cross-cutting utility definitions for Elastic Resume Base microservices.
  * Consumed via the `@shared/toolbox` tsconfig path alias — this is intentionally
  * NOT a standalone npm package.  All definitions live here so that services only
- * need a single path alias, and tsx can load the file directly without resolving
- * any sub-module imports.
+ * need a single path alias, and tsx can load the file directly.
  *
  * ## Exports
  *
@@ -19,6 +18,9 @@
  *   `ValidationError`, `ConflictError`, `ForbiddenError`, `DownstreamError`,
  *   `UnavailableError`, `RateLimitError`, `isAppError` — canonical HTTP-mapped
  *   application errors shared across all microservices.
+ *
+ * - **API types** — Centralized request and response type definitions for all
+ *   toolbox APIs (users, downloader, search, file generator, document reader).
  */
 
 import { randomUUID } from 'node:crypto';
@@ -218,3 +220,33 @@ export class RateLimitError extends AppError {
 export function isAppError(err: unknown): err is AppError {
   return err instanceof AppError;
 }
+
+// ─── Centralized API types ────────────────────────────────────────────────────
+
+export type {
+  UserRecord,
+  PreApprovedUser,
+  AuthorizeRequest,
+  AuthorizeResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  AddPreApprovedRequest,
+  UpdatePreApprovedRequest,
+  ListUsersResponse,
+  SortDirection,
+  UserSortField,
+  PreApprovedSortField,
+  UserFilters,
+  PreApprovedFilters,
+  IngestRequest,
+  IngestResponse,
+  SearchRequest,
+  SearchResult,
+  SearchResponse,
+  ResumeFormat,
+  GenerateRequest,
+  GenerateResponse,
+  DocumentReadRequest,
+  DocumentReadResponse,
+} from './api-types.js';
+
