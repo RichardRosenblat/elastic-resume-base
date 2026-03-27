@@ -75,6 +75,7 @@ function ServiceStatusCard({ name, status }: { name: string; status: 'ok' | 'deg
         <Typography
           variant="body2"
           color={isOk ? 'text.secondary' : 'error.main'}
+          display={isOk ? 'none' : 'block'}
           sx={{ mt: 0.5, fontStyle: 'italic' }}
         >
           {t(`systemStatus.services.${name}.impact`)}
