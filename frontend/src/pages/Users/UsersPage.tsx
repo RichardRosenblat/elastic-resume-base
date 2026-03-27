@@ -43,7 +43,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
 import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser } from '../../services/api';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import { useToast } from '../../contexts/use-toast';
 import { useShowApiError } from '../../hooks/useShowApiError';
 import { TableTemplate, FormTemplate } from '../../components/templates';
@@ -71,6 +70,7 @@ export default function UsersPage() {
 
   // Pre-approved users state
   const [preApproved, setPreApproved] = useState<PreApprovedUser[]>([]);
+  const [preApprovedLoading, setPreApprovedLoading] = useState(true);
   const [newPreApprovedEmail, setNewPreApprovedEmail] = useState('');
   const [newPreApprovedRole, setNewPreApprovedRole] = useState<'admin' | 'user'>('user');
 
@@ -168,6 +168,7 @@ export default function UsersPage() {
   ]);
 
   const fetchPreApproved = useCallback(async () => {
+    setPreApprovedLoading(true);
     try {
       const data = await listPreApprovedUsers({
         role: preApprovedRoleFilter === 'all' ? undefined : preApprovedRoleFilter,
@@ -177,6 +178,8 @@ export default function UsersPage() {
       setPreApproved(data);
     } catch (error) {
       showApiError(error, t('common.error'));
+    } finally {
+      setPreApprovedLoading(false);
     }
   }, [showApiError, t, preApprovedSortBy, preApprovedSortDirection, preApprovedRoleFilter]);
 
@@ -562,31 +565,28 @@ export default function UsersPage() {
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('users.title')}</Typography>
 
       {/* ── Users table ───────────────────────────────────────────────────── */}
-      {loading ? (
-        <LoadingSpinner message={t('common.loading')} />
-      ) : (
-        <TableTemplate
-          config={{
-            columns: usersColumns,
-            rows: users,
-            getRowKey: (u) => u.uid,
-            sort: {
-              sortBy: usersSortBy,
-              sortDirection: usersSortDirection,
-              onSort: (field) => handleUsersSort(field as UserSortField),
-            },
-            pagination: {
-              total,
-              page,
-              rowsPerPage,
-              onPageChange: setPage,
-              onRowsPerPageChange: (rpp) => { setRowsPerPage(rpp); setPage(0); },
-              rowsPerPageLabel: t('common.rowsPerPage'),
-            },
-            emptyMessage: t('users.noUsersFound'),
-          }}
-        />
-      )}
+      <TableTemplate
+        config={{
+          columns: usersColumns,
+          rows: users,
+          getRowKey: (u) => u.uid,
+          sort: {
+            sortBy: usersSortBy,
+            sortDirection: usersSortDirection,
+            onSort: (field) => handleUsersSort(field as UserSortField),
+          },
+          pagination: {
+            total,
+            page,
+            rowsPerPage,
+            onPageChange: setPage,
+            onRowsPerPageChange: (rpp) => { setRowsPerPage(rpp); setPage(0); },
+            rowsPerPageLabel: t('common.rowsPerPage'),
+          },
+          emptyMessage: t('users.noUsersFound'),
+          loading,
+        }}
+      />
 
       <Divider sx={{ my: 4 }} />
 
@@ -642,6 +642,7 @@ export default function UsersPage() {
           },
           emptyMessage: t('users.noUsersFound'),
           size: 'small',
+          loading: preApprovedLoading,
         }}
       />
 

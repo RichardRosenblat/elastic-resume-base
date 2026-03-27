@@ -164,6 +164,7 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
             backgroundColor: palette.background.paper,
             border: `1px solid ${surfaceBorder}`,
             boxShadow: `0 14px 30px ${alpha('#000000', mode === 'dark' ? 0.26 : 0.12)}`,
+            transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
           },
         },
       },
@@ -263,6 +264,13 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
             textTransform: 'none',
             fontWeight: 600,
             minHeight: 40,
+            transition: 'transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out',
+            '&:not(.Mui-disabled):hover': {
+              transform: 'translateY(-1px)',
+            },
+            '&:not(.Mui-disabled):active': {
+              transform: 'translateY(0)',
+            },
             '&.Mui-disabled': {
               color: disabledText,
               border: `1px solid ${alpha(palette.text.primary, 0.25)}`,
@@ -271,6 +279,9 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
           },
           contained: {
             boxShadow: 'none',
+            '&:not(.Mui-disabled):hover': {
+              boxShadow: `0 4px 12px ${alpha('#000000', mode === 'dark' ? 0.35 : 0.2)}`,
+            },
           },
           outlined: {
             borderColor: alpha(palette.text.primary, 0.35),
@@ -283,6 +294,7 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
             fontWeight: 600,
             borderRadius: 8,
             border: `1px solid ${chipBorder.default}`,
+            transition: 'opacity 0.15s ease-in-out, transform 0.15s ease-in-out',
           },
           colorSuccess: {
             backgroundColor: chipBackground.success,
@@ -306,10 +318,42 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
           },
         },
       },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            borderLeft: '3px solid transparent',
+            transition: 'background-color 0.15s ease-in-out, border-left-color 0.15s ease-in-out, color 0.15s ease-in-out',
+            '& .MuiListItemIcon-root': {
+              transition: 'color 0.15s ease-in-out',
+            },
+            '&.Mui-selected': {
+              borderLeftColor: palette.primary.main,
+              backgroundColor: alpha(palette.primary.main, 0.1),
+              '& .MuiListItemIcon-root': {
+                color: palette.primary.main,
+              },
+              '& .MuiListItemText-primary': {
+                color: palette.primary.main,
+                fontWeight: 600,
+              },
+            },
+            '&.Mui-selected:hover': {
+              backgroundColor: alpha(palette.primary.main, 0.15),
+            },
+          },
+        },
+      },
       MuiIconButton: {
         styleOverrides: {
           root: {
             borderRadius: 10,
+            transition: 'transform 0.15s ease-in-out, background-color 0.15s ease-in-out',
+            '&:not(.Mui-disabled):hover': {
+              transform: 'scale(1.08)',
+            },
+            '&:not(.Mui-disabled):active': {
+              transform: 'scale(0.94)',
+            },
           },
         },
       },

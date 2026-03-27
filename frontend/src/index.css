@@ -23,4 +23,26 @@ html {
 body {
   background-color: var(--color-background-default, #0a101c);
   color: var(--color-text-primary, #f5f7fb);
+  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

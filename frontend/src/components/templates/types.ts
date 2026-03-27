@@ -333,6 +333,17 @@ export interface TableConfig<TRow> {
   emptyMessage?: string;
   /** MUI Table `size` prop (default: `'medium'`). */
   size?: 'small' | 'medium';
+  /**
+   * When `true`, renders skeleton placeholder rows instead of data rows.
+   * Use this to keep the table structure visible while data is loading,
+   * which preserves page-entry animations and prevents layout shifts.
+   */
+  loading?: boolean;
+  /**
+   * Number of skeleton placeholder rows to render while `loading` is `true`.
+   * Defaults to `5`.
+   */
+  skeletonRows?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
