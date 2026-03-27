@@ -1,8 +1,9 @@
 import asyncio
 import io
+import time
 from typing import cast
 
-from google.api_core.exceptions import GoogleAPIError
+from google.api_core.exceptions import DeadlineExceeded, GoogleAPIError, ServiceUnavailable
 from google.cloud import vision
 from toolbox_py import RateLimitError, get_logger
 
@@ -70,8 +71,82 @@ class OcrService:
         )
         return text
 
+    def _compress_image(self, content: bytes) -> bytes:
+        """Downscale and re-encode a PNG image to reduce its payload size.
+
+        When ``vision_api_image_max_dimension`` is ``0`` the original bytes are
+        returned unchanged.  Otherwise the image is downscaled proportionally so
+        that neither dimension exceeds the configured limit, then re-encoded as
+        JPEG (quality 85) to minimise the bytes sent to the Vision API.
+
+        Args:
+            content: Raw image bytes (any format supported by Pillow).
+
+        Returns:
+            Compressed image bytes, or the original bytes when compression is
+            disabled or results in a larger payload.
+        """
+        max_dim = settings.vision_api_image_max_dimension
+        if max_dim <= 0:
+            return content
+
+        try:
+            from PIL import Image  # type: ignore[import-untyped]
+
+            img = Image.open(io.BytesIO(content))
+
+            width, height = img.size
+            if width <= max_dim and height <= max_dim:
+                logger.debug(
+                    "Image within dimension limit — skipping resize",
+                    extra={"width": width, "height": height, "max_dim": max_dim},
+                )
+            else:
+                scale = max_dim / max(width, height)
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                img = img.resize((new_width, new_height), Image.LANCZOS)  # type: ignore[attr-defined]
+                logger.debug(
+                    "Resized image for Vision API",
+                    extra={
+                        "original_size": (width, height),
+                        "new_size": (new_width, new_height),
+                    },
+                )
+
+            # Re-encode as JPEG to further reduce payload size.
+            out = io.BytesIO()
+            rgb_img = img.convert("RGB")
+            rgb_img.save(out, format="JPEG", quality=85, optimize=True)
+            compressed = out.getvalue()
+
+            if len(compressed) < len(content):
+                logger.debug(
+                    "Image compressed successfully",
+                    extra={
+                        "original_bytes": len(content),
+                        "compressed_bytes": len(compressed),
+                    },
+                )
+                return compressed
+
+            logger.debug(
+                "Compression did not reduce size — using original",
+                extra={"original_bytes": len(content), "compressed_bytes": len(compressed)},
+            )
+            return content
+        except Exception as exc:
+            logger.warning(
+                "Image compression failed — using original bytes: %s", exc
+            )
+            return content
+
     def _extract_image(self, content: bytes) -> str:
         """Run Vision API text detection on an image.
+
+        Applies image compression before the API call and retries on transient
+        errors (``DeadlineExceeded``, ``ServiceUnavailable``) using exponential
+        backoff.
 
         Args:
             content: Raw image bytes.
@@ -86,36 +161,69 @@ class OcrService:
         if not _vision_api_rate_limiter.is_allowed():
             logger.warning("Vision API rate limit reached")
             raise RateLimitError(_VISION_RATE_LIMIT_MESSAGE)
-        try:
-            logger.debug(
-                "Calling Vision API for image OCR",
-                extra={
-                    "content_size_bytes": len(content),
-                    "timeout_seconds": settings.vision_api_timeout,
-                },
-            )
-            image = vision.Image(content=content)
-            response = self._client.document_text_detection(  # type: ignore[attr-defined]
-                image=image,
-                timeout=settings.vision_api_timeout,
-            )
-            if response.error.message:  # type: ignore[union-attr]
-                logger.warning(
-                    "Vision API returned an error",
-                    extra={"api_error": response.error.message},  # type: ignore[union-attr]
+
+        compressed = self._compress_image(content)
+
+        max_retries = settings.vision_api_max_retries
+        retry_delay = settings.vision_api_retry_delay
+        last_exc: GoogleAPIError | None = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                logger.debug(
+                    "Calling Vision API for image OCR",
+                    extra={
+                        "attempt": attempt + 1,
+                        "content_size_bytes": len(compressed),
+                        "timeout_seconds": settings.vision_api_timeout,
+                    },
                 )
-                raise OcrServiceError(
-                    f"Vision API error: {response.error.message}"  # type: ignore[union-attr]
+                image = vision.Image(content=compressed)
+                response = self._client.document_text_detection(  # type: ignore[attr-defined]
+                    image=image,
+                    timeout=settings.vision_api_timeout,
                 )
-            extracted = str(response.full_text_annotation.text or "")  # type: ignore[union-attr]
-            logger.debug(
-                "Vision API OCR succeeded",
-                extra={"extracted_chars": len(extracted)},
-            )
-            return extracted
-        except GoogleAPIError as exc:
-            logger.error("Vision API call failed: %s", exc)
-            raise OcrServiceError(f"Vision API call failed: {exc}") from exc
+                if response.error.message:  # type: ignore[union-attr]
+                    logger.warning(
+                        "Vision API returned an error",
+                        extra={"api_error": response.error.message},  # type: ignore[union-attr]
+                    )
+                    raise OcrServiceError(
+                        f"Vision API error: {response.error.message}"  # type: ignore[union-attr]
+                    )
+                extracted = str(response.full_text_annotation.text or "")  # type: ignore[union-attr]
+                logger.debug(
+                    "Vision API OCR succeeded",
+                    extra={"extracted_chars": len(extracted)},
+                )
+                return extracted
+            except (DeadlineExceeded, ServiceUnavailable) as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    wait = retry_delay * (2**attempt)
+                    logger.warning(
+                        "Vision API transient error — retrying",
+                        extra={
+                            "attempt": attempt + 1,
+                            "max_retries": max_retries,
+                            "wait_seconds": wait,
+                            "error": str(exc),
+                        },
+                    )
+                    time.sleep(wait)
+                else:
+                    logger.error(
+                        "Vision API call failed after %d attempt(s): %s",
+                        attempt + 1,
+                        exc,
+                    )
+            except OcrServiceError:
+                raise
+            except GoogleAPIError as exc:
+                logger.error("Vision API call failed: %s", exc)
+                raise OcrServiceError(f"Vision API call failed: {exc}") from exc
+
+        raise OcrServiceError(f"Vision API call failed: {last_exc}") from last_exc
 
     def _extract_pdf(self, content: bytes) -> str:
         """Render PDF pages as images and run OCR on each.

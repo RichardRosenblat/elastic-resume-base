@@ -78,14 +78,18 @@ export async function ocrDocuments(
         logger.warn('ocrDocuments: document reader service unavailable');
         throw new UnavailableError('DocumentReader service unavailable');
       }
+      if (err.response.status === 429) {
+        logger.warn('ocrDocuments: document reader service rate limit exceeded');
+        throw new RateLimitError();
+      }
+      const responseMessage = (err.response.data as { error?: { message?: string } } | undefined)?.error?.message;
       if (err.response.status >= 500) {
         logger.warn({ status: err.response.status }, 'ocrDocuments: document reader service server error');
-        throw new UnavailableError('DocumentReader service error');
+        throw new DownstreamError(responseMessage ?? 'DocumentReader service error');
       }
       // Forward 4xx errors (e.g. unsupported file type, file too large) as downstream errors
       throw new DownstreamError(
-        (err.response.data as { error?: { message?: string } } | undefined)?.error?.message
-        ?? 'DocumentReader service returned an error',
+        responseMessage ?? 'DocumentReader service returned an error',
       );
     }
     throw new DownstreamError('Unexpected error from DocumentReader service');
