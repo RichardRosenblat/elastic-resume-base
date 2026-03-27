@@ -514,4 +514,42 @@ describe('Users Controller', () => {
       expect(body.error.code).toBe('RATE_LIMIT_EXCEEDED');
     });
   });
+
+  describe('GET /api/v1/users/pre-approve — email-specific path', () => {
+    it('returns 200 fetching specific user by email query param', async () => {
+      (usersService.getPreApproved as jest.Mock).mockResolvedValue({
+        email: 'specific@example.com',
+        role: 'admin',
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/pre-approve?email=specific%40example.com',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toMatchObject({ email: 'specific@example.com', role: 'admin' });
+      expect(usersService.getPreApproved).toHaveBeenCalledWith('specific@example.com', 'admin');
+    });
+
+    it('passes all optional filters to listPreApproved', async () => {
+      (usersService.listPreApproved as jest.Mock).mockResolvedValue([]);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/pre-approve?role=user&orderBy=email&orderDirection=asc',
+        headers: { authorization: 'Bearer valid-token' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(usersService.listPreApproved).toHaveBeenCalledWith('admin', {
+        role: 'user',
+        orderBy: 'email',
+        orderDirection: 'asc',
+      });
+    });
+  });
 });

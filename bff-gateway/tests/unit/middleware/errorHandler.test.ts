@@ -53,6 +53,18 @@ describe('errorHandler', () => {
     expect(sendArg.error.message).toBe('Not found');
   });
 
+  it('handles AppError with statusCode 500, returning generic message', () => {
+    const err = new AppError('Internal server error details', 500, 'INTERNAL_ERROR');
+    const reply = makeMockReply();
+    errorHandler(err, makeMockRequest(), reply);
+    expect(reply.code).toHaveBeenCalledWith(500);
+    const sendArg = (reply.send as jest.Mock).mock.calls[0][0];
+    expect(sendArg.success).toBe(false);
+    expect(sendArg.error.code).toBe('INTERNAL_ERROR');
+    // statusCode 500 returns generic message instead of err.message
+    expect(sendArg.error.message).toBe('An unexpected error occurred');
+  });
+
   it('handles generic Error with 500 status', () => {
     const err = new Error('Something went wrong');
     const reply = makeMockReply();

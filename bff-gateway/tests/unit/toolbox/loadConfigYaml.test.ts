@@ -89,4 +89,44 @@ systems:
 
     expect(process.env['TEST_KEY_SHARED']).toBe('service-override');
   });
+
+  it('returns silently when yaml root is not an object (e.g. a bare string)', () => {
+    writeFileSync(TEMP_CONFIG, '"just a string"');
+    process.env['CONFIG_FILE'] = TEMP_CONFIG;
+    expect(() => loadConfigYaml('my-service')).not.toThrow();
+  });
+
+  it('returns silently when systems key is missing', () => {
+    writeFileSync(TEMP_CONFIG, 'other:\n  key: value\n');
+    process.env['CONFIG_FILE'] = TEMP_CONFIG;
+    expect(() => loadConfigYaml('my-service')).not.toThrow();
+  });
+
+  it('handles missing shared section gracefully', () => {
+    writeFileSync(
+      TEMP_CONFIG,
+      `
+systems:
+  my-service:
+    TEST_KEY_SERVICE: "only-service"
+`,
+    );
+    process.env['CONFIG_FILE'] = TEMP_CONFIG;
+    loadConfigYaml('my-service');
+    expect(process.env['TEST_KEY_SERVICE']).toBe('only-service');
+  });
+
+  it('handles missing service section gracefully', () => {
+    writeFileSync(
+      TEMP_CONFIG,
+      `
+systems:
+  shared:
+    TEST_KEY_SHARED: "only-shared"
+`,
+    );
+    process.env['CONFIG_FILE'] = TEMP_CONFIG;
+    loadConfigYaml('other-service');
+    expect(process.env['TEST_KEY_SHARED']).toBe('only-shared');
+  });
 });

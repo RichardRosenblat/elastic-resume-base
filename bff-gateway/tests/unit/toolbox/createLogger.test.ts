@@ -42,4 +42,10 @@ describe('createLogger', () => {
       createLogger({ serviceName: 'test-service', logLevel: 'info', nodeEnv: 'development' }),
     ).not.toThrow();
   });
+
+  it('defaults version to "1.0.0" when not provided', () => {
+    // Calling without version covers the `version = '1.0.0'` destructuring default branch
+    const logger = createLogger({ serviceName: 'svc', nodeEnv: 'test' });
+    expect(logger).toBeDefined();
+  });
 });
