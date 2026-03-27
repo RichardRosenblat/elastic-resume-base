@@ -2,14 +2,14 @@ import io
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from toolbox_py import RateLimitError, get_logger
 
 from app.config import settings
 from app.dependencies import check_api_rate_limit
-from app.document_schema import ALLOWED_FILE_EXTENSIONS
-from app.models.document import ExtractedDocument
+from app.document_schema import ALLOWED_FILE_EXTENSIONS, MIME_TYPE_TO_EXTENSION
+from app.models.document import DocumentType, ExtractedDocument
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
 from app.services.ocr_service import OcrService
@@ -52,6 +52,34 @@ The request **must** use `Content-Type: multipart/form-data` and include the
 | `.zip` | ✅ | ❌ (no nested archives) |
 
 ZIP archives are expanded server-side; each entry is validated individually.
+
+---
+
+### Explicit document type
+
+The optional `documentTypes` form field allows callers to declare the Brazilian
+document type of each uploaded file explicitly, bypassing the keyword-based OCR
+classifier.  When provided, `documentTypes` must contain exactly one entry per
+file in the `files` field (in the same order).
+
+An empty string in the list is treated as *"auto-detect for this file"*, so
+callers may send a full-length list even when only some files have known types.
+
+Supported values:
+
+| Value | Brazilian document |
+|-------|-------------------|
+| `RG` | Registro Geral (identity card) |
+| `BIRTH_CERTIFICATE` | Certidão de Nascimento |
+| `MARRIAGE_CERTIFICATE` | Certidão de Casamento |
+| `WORK_CARD` | Carteira de Trabalho (CTPS) |
+| `PIS` | PIS / PASEP / NIS |
+| `PROOF_OF_ADDRESS` | Comprovante de Residência |
+| `PROOF_OF_EDUCATION` | Diploma / Histórico Escolar |
+| `UNKNOWN` | No structured extraction (treated as unrecognised) |
+
+> **Note** — document type hints are ignored for ZIP archives.  Each entry
+> inside a ZIP is always classified via keyword detection.
 
 ---
 
@@ -126,6 +154,47 @@ _BOWLTIE_ERROR_SCHEMA: dict[str, object] = {
     },
     "required": ["success", "error", "meta"],
 }
+
+
+async def _get_document_types(request: Request) -> list[DocumentType | None] | None:
+    """Dependency that extracts all ``documentTypes`` form values from the request.
+
+    Reads the multipart form data and returns a list of explicit Brazilian
+    document type values provided by the caller (one per uploaded file, in the
+    same order).  Returns ``None`` when the ``documentTypes`` field is absent
+    entirely.
+
+    An empty string in the list is treated as *"auto-detect for this position"*
+    (i.e. ``None`` in the returned list).
+
+    Using a :func:`~fastapi.Depends` dependency instead of a plain ``Form``
+    parameter allows collecting *all* repeated form field values via
+    :meth:`~starlette.datastructures.FormData.getlist`, which is necessary when
+    multiple files are uploaded in a single request.
+
+    Raises:
+        HTTPException 422: If any value is not a valid
+            :class:`~app.models.document.DocumentType` string.
+    """
+    form = await request.form()
+    # FormData.getlist returns list[str | UploadFile]; keep only plain strings.
+    raw_values: list[str] = [v for v in form.getlist("documentTypes") if isinstance(v, str)]
+    if not raw_values:
+        return None
+
+    valid_type_values = {t.value for t in DocumentType}
+    invalid = [v for v in raw_values if v != "" and v not in valid_type_values]
+    if invalid:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Invalid document type(s): {invalid}. "
+                f"Valid values: {sorted(valid_type_values)}"
+            ),
+        )
+
+    # Map each value: empty string → None (auto-detect), otherwise → DocumentType
+    return [None if v == "" else DocumentType(v) for v in raw_values]
 
 
 @router.post(
@@ -208,6 +277,7 @@ async def ocr_documents(
             )
         ),
     ],
+    document_types: Annotated[list[DocumentType | None] | None, Depends(_get_document_types)],
 ) -> StreamingResponse:
     """Process uploaded documents with OCR and return extracted data as Excel file.
 
@@ -215,11 +285,24 @@ async def ocr_documents(
     When a ``.zip`` file is uploaded every supported document it contains is
     extracted and processed — the archive itself is never persisted.
 
+    Document type resolution:
+
+    1. Explicit type from the ``documentTypes`` form field (index-matched to the
+       corresponding ``files`` entry).  Non-empty values bypass keyword detection.
+    2. Keyword-based detection from OCR text (default when no explicit type is
+       provided or when the value is an empty string).
+
+    Document type hints are **ignored** for ZIP archives — ZIP entries always
+    use keyword-based detection.
+
     Args:
         files: One or more uploaded files.  Supported direct formats:
             ``.pdf``, ``.jpg``, ``.jpeg``, ``.png``, ``.tiff``, ``.tif``,
             ``.bmp``, ``.webp``, ``.docx``.  ZIP archives (``.zip``) may
             contain any mix of the above formats.
+        document_types: Optional list of :class:`~app.models.document.DocumentType`
+            values (or ``None`` for auto-detect), one per file in ``files``
+            (same order).  Invalid values produce a 422 response.
 
     Returns:
         StreamingResponse containing an Excel file with extracted document data.
@@ -228,23 +311,39 @@ async def ocr_documents(
         HTTPException 400: If an unsupported file type is uploaded or a ZIP
             archive is invalid / contains no supported documents.
         HTTPException 422: If a file (or a ZIP entry) exceeds the maximum
-            allowed size.
+            allowed size, or if ``documentTypes`` count does not match ``files``
+            count.
         HTTPException 502: If the OCR service fails to process a file.
     """
     zip_service = ZipService()
 
+    # Validate that documentTypes, when provided, has exactly one entry per file.
+    if document_types is not None and len(document_types) != len(files):
+        logger.warning(
+            "documentTypes count mismatch",
+            extra={"file_count": len(files), "document_types_count": len(document_types)},
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"'documentTypes' must contain exactly one value per uploaded file "
+                f"({len(files)} file(s) uploaded, {len(document_types)} documentTypes value(s) provided)."
+            ),
+        )
+
     # First pass: validate uploads and expand any ZIP archives.
-    # Result: a flat list of (filename, extension, content) ready for OCR.
-    validated: list[tuple[str, str, bytes]] = []
+    # Each tuple is (filename, extension, content, forced_document_type).
+    # ZIP entries always have forced_document_type=None (auto-detect).
+    validated: list[tuple[str, str, bytes, DocumentType | None]] = []
 
     logger.debug(
         "Received OCR request",
         extra={"file_count": len(files)},
     )
 
-    for upload_file in files:
+    for index, upload_file in enumerate(files):
         filename = upload_file.filename or "unknown"
-        ext = _get_extension(filename)
+        ext = _resolve_extension(filename, upload_file.content_type, None)
 
         logger.debug(
             "Validating uploaded file",
@@ -288,17 +387,19 @@ async def ocr_documents(
                 )
             except ZipExtractionError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-            validated.extend(entries)
+            # Document type hints do not apply to ZIP entries — they use auto-detect.
+            validated.extend((name, ext_, data, None) for name, ext_, data in entries)
             logger.info(
                 "ZIP archive expanded",
                 extra={"zip_filename": filename, "entry_count": len(entries)},
             )
         else:
+            forced_type = document_types[index] if document_types else None
             logger.debug(
                 "File accepted for OCR",
                 extra={"doc_filename": filename, "size_bytes": len(content)},
             )
-            validated.append((filename, ext, content))
+            validated.append((filename, ext, content, forced_type))
 
     logger.info(
         "Starting OCR processing",
@@ -310,11 +411,11 @@ async def ocr_documents(
     excel_service = ExcelService()
     extracted_documents: list[ExtractedDocument] = []
 
-    for filename, ext, content in validated:
+    for filename, ext, content, forced_type in validated:
         logger.info("Processing file", extra={"doc_filename": filename})
         try:
             raw_text = await ocr_service.extract_text(content, ext)
-            doc = extractor_service.extract(filename, raw_text)
+            doc = extractor_service.extract(filename, raw_text, forced_type=forced_type)
             extracted_documents.append(doc)
             logger.info(
                 "File processed successfully",
@@ -360,3 +461,38 @@ def _get_extension(filename: str) -> str:
     """
     _, ext = os.path.splitext(filename)
     return ext.lower()
+
+
+def _resolve_extension(
+    filename: str,
+    content_type: str | None,
+    explicit_mime: str | None = None,
+) -> str:
+    """Resolve a file's extension using MIME type hints with filename fallback.
+
+    Resolution priority:
+
+    1. ``explicit_mime`` — optional caller-supplied MIME type, if recognised in
+       :data:`~app.document_schema.MIME_TYPE_TO_EXTENSION`.
+    2. ``content_type`` — MIME type from the multipart part ``Content-Type``
+       header (populated automatically by browsers), if recognised.
+    3. Filename extension via :func:`_get_extension` as a last-resort fallback.
+
+    Parameters that are ``None`` or empty, or whose MIME type is not in the
+    mapping, are silently skipped and the next priority level is tried.
+
+    Args:
+        filename: Uploaded file name (used as last-resort fallback).
+        content_type: MIME type from the multipart part ``Content-Type`` header.
+        explicit_mime: Optional caller-supplied MIME type.  Defaults to ``None``.
+
+    Returns:
+        Lowercase file extension including the leading dot (e.g. ``'.pdf'``).
+    """
+    for mime in (explicit_mime, content_type):
+        if mime:
+            normalized = mime.split(";")[0].strip().lower()
+            mapped = MIME_TYPE_TO_EXTENSION.get(normalized)
+            if mapped:
+                return mapped
+    return _get_extension(filename)

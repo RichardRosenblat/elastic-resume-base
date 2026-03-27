@@ -33,6 +33,14 @@ export async function readDocumentHandler(
  * The raw multipart body is forwarded as-is, so the document reader can apply
  * its own validation (file type, size, etc.) and its error responses are
  * surfaced to the frontend through the standard Bowltie error envelope.
+ *
+ * The multipart body may include an optional `documentTypes` field alongside
+ * the `files` field.  When present, `documentTypes` contains one Brazilian
+ * document type string per uploaded file (in the same order), e.g. `'RG'` or
+ * `'BIRTH_CERTIFICATE'`.  An empty string signals "auto-detect for this file".
+ * The document reader uses this value to skip keyword-based OCR classification
+ * and apply the supplied type directly.  This field is forwarded transparently
+ * as part of the raw multipart stream.
  */
 export async function ocrDocumentsHandler(
   request: FastifyRequest,
