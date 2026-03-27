@@ -64,7 +64,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── Node.js setup (skipped for Python packages) ───────────────────────
       - name: Set up Node.js
+        if: matrix.package.runner != 'python'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -73,11 +75,13 @@ jobs:
           cache-dependency-path: ${{ matrix.package.path }}/package-lock.json
 
       - name: Install dependencies
+        if: matrix.package.runner != 'python'
         run: npm ci
         working-directory: ${{ matrix.package.path }}
 
       - name: Run tests
         id: run-tests
+        if: matrix.package.runner != 'python'
         # Step-level timeout prevents a hung test from consuming the full job budget.
         # --testRetries=1 retries each failed test once so transient / flaky failures
         # don't count as real failures.  A test must fail on both attempts to be reported.
@@ -100,6 +104,46 @@ jobs:
           # Move coverage summary to workspace root for consistent upload path.
           cp coverage/coverage-summary.json \
              "${GITHUB_WORKSPACE}/${{ matrix.package.id }}-coverage-summary.json" || true
+
+      # ── Python setup (skipped for Node.js packages) ──────────────────────
+      - name: Set up Python
+        if: matrix.package.runner == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        if: matrix.package.runner == 'python'
+        working-directory: ${{ matrix.package.path }}
+        run: pip install -r requirements/requirements-dev.txt
+
+      - name: Run Python tests
+        id: run-python-tests
+        if: matrix.package.runner == 'python'
+        timeout-minutes: 10
+        working-directory: ${{ matrix.package.path }}
+        env:
+          PACKAGE_ID: ${{ matrix.package.id }}
+        run: |
+          set +e
+          python -m pytest tests/ \
+            --asyncio-mode=auto \
+            -v \
+            --tb=short \
+            --cov=app \
+            --cov-report=json:coverage.json \
+            --cov-report=term-missing \
+            --json-report \
+            --json-report-file=pytest-report.json \
+            -p no:cacheprovider \
+            2>&1 | tee "${GITHUB_WORKSPACE}/${PACKAGE_ID}.log"
+          PYTEST_EXIT=${PIPESTATUS[0]}
+          # Convert pytest-json-report output to a Jest-compatible results file so
+          # the summarize job can display accurate pass/fail counts in the PR comment.
+          python3 "${GITHUB_WORKSPACE}/.github/scripts/convert-pytest-to-jest.py" \
+            pytest-report.json \
+            "${GITHUB_WORKSPACE}/${PACKAGE_ID}-results.json" || true
+          exit $PYTEST_EXIT
 
       - name: Upload test results
         # Always upload so the summarize job can process results even when tests failed.
