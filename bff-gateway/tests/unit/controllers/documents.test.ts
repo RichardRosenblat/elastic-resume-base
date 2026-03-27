@@ -217,7 +217,7 @@ describe('Documents Controller', () => {
       expect(body.error.code).toBe('BAD_REQUEST');
     });
 
-    it('returns 400 when content-type header is missing', async () => {
+    it('returns 415 when content-type header is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/documents/ocr',
@@ -227,7 +227,8 @@ describe('Documents Controller', () => {
         payload: Buffer.from('data'),
       });
 
-      expect(res.statusCode).toBe(400);
+      // Fastify returns 415 Unsupported Media Type when no content-type is set
+      expect(res.statusCode).toBe(415);
     });
 
     it('returns 401 when Authorization header is missing', async () => {

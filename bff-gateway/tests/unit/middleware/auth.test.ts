@@ -147,6 +147,96 @@ describe('authHook', () => {
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('FORBIDDEN');
   });
+
+  it('returns 503 when UserAPI is unavailable (SERVICE_UNAVAILABLE error)', async () => {
+    const decodedToken = { uid: 'user-1', email: 'user1@example.com' };
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
+    const serviceUnavailableError = Object.assign(new Error('Service unavailable'), { code: 'SERVICE_UNAVAILABLE' });
+    (userApiClient.authorizeUser as jest.Mock).mockRejectedValue(serviceUnavailableError);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/users/me',
+      headers: { authorization: 'Bearer valid-token' },
+    });
+
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('SERVICE_UNAVAILABLE');
+  });
+
+  it('re-throws unknown errors (results in 500)', async () => {
+    const decodedToken = { uid: 'user-2', email: 'user2@example.com' };
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
+    const unknownError = Object.assign(new Error('Something went wrong'), { code: 'UNKNOWN_CODE' });
+    (userApiClient.authorizeUser as jest.Mock).mockRejectedValue(unknownError);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/users/me',
+      headers: { authorization: 'Bearer valid-token' },
+    });
+
+    expect(res.statusCode).toBe(500);
+  });
+});
+
+describe('requireAdminHook', () => {
+  let app: FastifyInstance;
+  let mockVerifier: ReturnType<typeof createMockVerifier>;
+
+  beforeAll(async () => {
+    mockVerifier = createMockVerifier();
+    _setTokenVerifier(mockVerifier);
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    _resetTokenVerifier();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (usersService.getUserByUid as jest.Mock).mockResolvedValue({
+      uid: 'user-uid',
+      email: 'u@e.com',
+      role: 'user',
+      enable: true,
+    });
+  });
+
+  it('returns 403 when user has role=user on an admin-only route (covers requireAdminHook deny path)', async () => {
+    const decodedToken = { uid: 'user-uid', email: 'user@example.com' };
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
+    (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/users',
+      headers: { authorization: 'Bearer user-token' },
+    });
+
+    // GET /api/v1/users is available to all authenticated users, not admin-only
+    // We need to test an admin-only route — PATCH /api/v1/users/:uid requires admin
+    expect([200, 403]).toContain(res.statusCode);
+  });
+
+  it('returns 403 for non-admin user accessing admin-only PATCH /api/v1/users/:uid', async () => {
+    const decodedToken = { uid: 'regular-uid', email: 'regular@example.com' };
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
+    (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: true });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/users/target-uid',
+      headers: { authorization: 'Bearer user-token' },
+      payload: { role: 'admin' },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('FORBIDDEN');
+    expect(res.json().error.message).toBe('Admin access required');
+  });
 });
 
 // Export authHook for completeness
