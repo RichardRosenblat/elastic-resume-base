@@ -6,6 +6,7 @@
     "search": "Search",
     "documents": "Documents",
     "account": "Account",
+    "systemStatus": "System Status",
     "logout": "Logout",
     "comingSoon": "Coming Soon"
   },
@@ -136,5 +137,12 @@
   "support": {
     "notWorking": "Something not working as expected?",
     "contactSupport": "Contact support through email"
+  },
+  "systemStatus": {
+    "title": "System Status",
+    "loading": "Checking service health...",
+    "unavailable": "Status Unavailable — could not reach the health endpoint.",
+    "statusOk": "Online",
+    "statusDegraded": "Degraded"
   }
 }

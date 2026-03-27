@@ -25,6 +25,7 @@ import type {
   SearchResponseData,
   ListUsersData,
   SuccessResponse,
+  DownstreamHealthData,
 } from '../types';
 
 const apiClient: AxiosInstance = axios.create({
@@ -306,6 +307,15 @@ export const ocrDocuments = async (files: File[]): Promise<Blob> => {
   const res = await apiClient.post<Blob>('/api/v1/documents/ocr', formData, {
     responseType: 'blob',
   });
+  return res.data;
+};
+
+/**
+ * Fetches the health status of all downstream services from the BFF.
+ * Uses a plain axios call without auth since the `/health/downstream` endpoint is public.
+ */
+export const getDownstreamHealth = async (): Promise<DownstreamHealthData> => {
+  const res = await axios.get<DownstreamHealthData>(`${config.bffUrl}/health/downstream`);
   return res.data;
 };
 

@@ -6,6 +6,7 @@
     "search": "Búsqueda",
     "documents": "Documentos",
     "account": "Cuenta",
+    "systemStatus": "Estado del Sistema",
     "logout": "Cerrar sesión",
     "comingSoon": "Próximamente"
   },
@@ -136,5 +137,12 @@
   "support": {
     "notWorking": "¿Algo no funciona como se esperaba?",
     "contactSupport": "Contactar soporte por correo electrónico"
+  },
+  "systemStatus": {
+    "title": "Estado del Sistema",
+    "loading": "Verificando el estado de los servicios...",
+    "unavailable": "Estado No Disponible — no se pudo alcanzar el endpoint de salud.",
+    "statusOk": "En línea",
+    "statusDegraded": "Degradado"
   }
 }
