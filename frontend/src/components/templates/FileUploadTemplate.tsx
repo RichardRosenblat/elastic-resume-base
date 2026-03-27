@@ -58,7 +58,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   List,
   ListItem,
   ListItemIcon,
@@ -85,7 +84,6 @@ export default function FileUploadTemplate({ config }: { config: FileUploadConfi
   const {
     accept,
     multiple = true,
-    maxFiles,
     disabled = false,
     loading = false,
     files,
@@ -98,6 +96,7 @@ export default function FileUploadTemplate({ config }: { config: FileUploadConfi
     selectFilesLabel = 'Select Files',
     clearLabel = 'Clear',
     selectedFilesLabel,
+    hideFileList = false,
   } = config;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,7 +216,7 @@ export default function FileUploadTemplate({ config }: { config: FileUploadConfi
       </Box>
 
       {/* Selected files list */}
-      {files.length > 0 && (
+      {!hideFileList && files.length > 0 && (
         <Box>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             {filesLabel}

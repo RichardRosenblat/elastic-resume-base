@@ -79,3 +79,50 @@ def test_extract_proof_of_education_fields(svc: ExtractorService) -> None:
     assert doc.extracted_fields.get("institution_name") is not None
     assert "Universidade" in (doc.extracted_fields.get("institution_name") or "")
     assert doc.extracted_fields.get("year_of_completion") == "2020"
+
+
+# ---------------------------------------------------------------------------
+# forced_type tests
+# ---------------------------------------------------------------------------
+
+
+def test_extract_with_forced_type_skips_detection(svc: ExtractorService) -> None:
+    """Passing forced_type bypasses keyword detection and uses the supplied type."""
+    # Text has no BIRTH_CERTIFICATE keywords — detection would classify as UNKNOWN.
+    text = "Some random text without any recognisable document keywords"
+    doc = svc.extract("file.jpg", text, forced_type=DocumentType.BIRTH_CERTIFICATE)
+    assert doc.document_type == DocumentType.BIRTH_CERTIFICATE
+
+
+def test_extract_with_forced_type_runs_field_extraction(svc: ExtractorService) -> None:
+    """Fields are extracted for the forced type even when keywords are absent."""
+    # Text has no RG keywords but contains RG-style field patterns.
+    text = "Nome: Maria Oliveira\nRG: 98.765.432-1"
+    doc = svc.extract("file.jpg", text, forced_type=DocumentType.RG)
+    assert doc.document_type == DocumentType.RG
+    assert doc.extracted_fields.get("rg_number") == "98.765.432-1"
+    assert doc.extracted_fields.get("name") == "Maria Oliveira"
+
+
+def test_extract_with_forced_type_overrides_keyword_detection(svc: ExtractorService) -> None:
+    """forced_type wins even when the OCR text contains different document keywords."""
+    # Text would normally be classified as WORK_CARD, but forced_type says PIS.
+    text = "CARTEIRA DE TRABALHO E PREVIDÊNCIA SOCIAL"
+    doc = svc.extract("file.jpg", text, forced_type=DocumentType.PIS)
+    assert doc.document_type == DocumentType.PIS
+
+
+def test_extract_forced_type_none_falls_back_to_detection(svc: ExtractorService) -> None:
+    """forced_type=None uses the regular keyword-based detection path."""
+    text = "REGISTRO GERAL\nNome: Test\nRG: 11.111.111-1"
+    doc = svc.extract("file.jpg", text, forced_type=None)
+    assert doc.document_type == DocumentType.RG
+
+
+def test_extract_forced_type_unknown_returns_empty_fields(svc: ExtractorService) -> None:
+    """forced_type=UNKNOWN returns an empty extracted_fields dict."""
+    text = "REGISTRO GERAL\nNome: Test\nRG: 11.111.111-1"
+    doc = svc.extract("file.jpg", text, forced_type=DocumentType.UNKNOWN)
+    assert doc.document_type == DocumentType.UNKNOWN
+    assert doc.extracted_fields == {}
+

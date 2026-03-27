@@ -81,7 +81,20 @@
     "processing": "Procesando…",
     "selectedFiles": "{{count}} archivo(s) seleccionado(s)",
     "downloadReady": "Tu archivo Excel está listo y ha sido descargado.",
-    "tooManyFiles": "Puedes subir como máximo {{max}} archivos a la vez."
+    "tooManyFiles": "Puedes subir como máximo {{max}} archivos a la vez.",
+    "documentType": {
+      "label": "Tipo de Documento",
+      "autoDetect": "Detectar automáticamente",
+      "assignTitle": "Asignar Tipos de Documento",
+      "assignDescription": "Selecciona opcionalmente el tipo de cada documento. Si no se especifica, el sistema intentará detectarlo automáticamente.",
+      "RG": "RG — Registro General",
+      "BIRTH_CERTIFICATE": "Acta de Nacimiento",
+      "MARRIAGE_CERTIFICATE": "Acta de Matrimonio",
+      "WORK_CARD": "Carnet de Trabajo (CTPS)",
+      "PIS": "PIS / PASEP / NIS",
+      "PROOF_OF_ADDRESS": "Comprobante de Domicilio",
+      "PROOF_OF_EDUCATION": "Comprobante de Estudios"
+    }
   },
   "search": {
     "title": "Búsqueda",

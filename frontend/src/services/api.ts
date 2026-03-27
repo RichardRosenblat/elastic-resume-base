@@ -294,20 +294,29 @@ export const searchResumes = async (query: string): Promise<SuccessResponse<Sear
  * Returns a Blob containing the generated Excel workbook (.xlsx).
  * Returns an empty Blob when `config.features.documentRead` is `false`.
  *
- * Each file's MIME type is sent as an explicit `fileTypes` form field so the
- * document-reader service can use it directly instead of inferring the type
- * from the filename extension.
+ * Each file may be accompanied by an explicit document type string
+ * (e.g. `'RG'`, `'BIRTH_CERTIFICATE'`) at the same index in
+ * `documentTypes`.  An empty string or omitted value means "auto-detect"
+ * for that file.  If provided, the array must have the same length as
+ * `files`.
  *
- * @param files An array of File objects to process with OCR.
+ * @param files         An array of File objects to process with OCR.
+ * @param documentTypes Optional per-file document type hints (same order as files).
  */
-export const ocrDocuments = async (files: File[]): Promise<Blob> => {
+export const ocrDocuments = async (files: File[], documentTypes?: string[]): Promise<Blob> => {
   if (!config.features.documentRead) {
     return new Blob([], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
   const formData = new FormData();
   for (const file of files) {
     formData.append('files', file);
-    formData.append('fileTypes', file.type);
+  }
+  // Send documentTypes only when at least one entry is non-empty.
+  if (documentTypes?.some((t) => t)) {
+    for (const docType of documentTypes) {
+      // Empty string signals "auto-detect for this position" on the server side.
+      formData.append('documentTypes', docType ?? '');
+    }
   }
   const res = await apiClient.post<Blob>('/api/v1/documents/ocr', formData, {
     responseType: 'blob',

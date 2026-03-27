@@ -35,19 +35,40 @@ class ExtractorService:
         logger.debug("Document type could not be determined; classified as UNKNOWN")
         return DocumentType.UNKNOWN
 
-    def extract(self, filename: str, raw_text: str) -> ExtractedDocument:
-        """Detect document type and extract structured fields from OCR text.
+    def extract(
+        self,
+        filename: str,
+        raw_text: str,
+        forced_type: DocumentType | None = None,
+    ) -> ExtractedDocument:
+        """Detect (or use a provided) document type and extract structured fields.
+
+        When *forced_type* is supplied the keyword-based detection step is
+        skipped and the provided type is used directly.  This allows callers to
+        bypass the automatic classifier when the document type is already known
+        (e.g. explicitly selected by the user in the upload UI).
 
         Args:
             filename: Original filename of the uploaded document.
             raw_text: Raw OCR text.
+            forced_type: If not ``None``, use this document type instead of
+                running keyword-based detection.  Any valid
+                :class:`~app.models.document.DocumentType` value is accepted,
+                including ``UNKNOWN`` (which skips field extraction).
 
         Returns:
-            :class:`~app.models.document.ExtractedDocument` with detected type
-            and extracted fields.
+            :class:`~app.models.document.ExtractedDocument` with the resolved
+            type and extracted fields.
         """
         logger.debug("Extracting fields from document", extra={"doc_filename": filename})
-        doc_type = self.detect_document_type(raw_text)
+        if forced_type is not None:
+            logger.debug(
+                "Using caller-supplied document type (skipping detection)",
+                extra={"doc_filename": filename, "forced_type": forced_type.value},
+            )
+            doc_type = forced_type
+        else:
+            doc_type = self.detect_document_type(raw_text)
         fields = self._extract_fields(doc_type, raw_text)
         populated = sum(1 for v in fields.values() if v is not None)
         logger.debug(

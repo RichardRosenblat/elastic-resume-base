@@ -81,7 +81,20 @@
     "processing": "Processing…",
     "selectedFiles": "{{count}} file(s) selected",
     "downloadReady": "Your Excel file is ready and has been downloaded.",
-    "tooManyFiles": "You can upload at most {{max}} files at once."
+    "tooManyFiles": "You can upload at most {{max}} files at once.",
+    "documentType": {
+      "label": "Document Type",
+      "autoDetect": "Auto-detect",
+      "assignTitle": "Assign Document Types",
+      "assignDescription": "Optionally select the type of each document. If not specified, the system will attempt to detect it automatically.",
+      "RG": "RG — Identity Card",
+      "BIRTH_CERTIFICATE": "Birth Certificate",
+      "MARRIAGE_CERTIFICATE": "Marriage Certificate",
+      "WORK_CARD": "Work Card (CTPS)",
+      "PIS": "PIS / PASEP / NIS",
+      "PROOF_OF_ADDRESS": "Proof of Address",
+      "PROOF_OF_EDUCATION": "Proof of Education"
+    }
   },
   "search": {
     "title": "Search",

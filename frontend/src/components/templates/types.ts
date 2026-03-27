@@ -537,4 +537,12 @@ export interface FileUploadConfig {
    * Defaults to `'{count} file(s) selected'` when omitted.
    */
   selectedFilesLabel?: string;
+  /**
+   * When `true`, the component's built-in selected-files list is hidden.
+   * Use this when the parent wants to render its own enhanced file list
+   * (e.g. with per-file metadata selectors) below the component.
+   *
+   * Defaults to `false`.
+   */
+  hideFileList?: boolean;
 }

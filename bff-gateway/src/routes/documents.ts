@@ -186,9 +186,12 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
         'and the extracted structured data is returned as an Excel workbook (.xlsx). ' +
         'Supported file types: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.tiff`, `.tif`, `.bmp`, ' +
         '`.webp`, `.docx`. ZIP archives may contain any mix of the above. ' +
-        'An optional `fileTypes` field (one MIME type string per `files` entry, in the same ' +
-        'order) may be included to declare the file type explicitly, removing the need for ' +
-        'the document reader service to infer it from the filename extension.',
+        'An optional `documentTypes` field (one document type string per `files` entry, in the ' +
+        'same order) may be included to declare the Brazilian document type explicitly — e.g. ' +
+        '`RG`, `BIRTH_CERTIFICATE`, `MARRIAGE_CERTIFICATE`, `WORK_CARD`, `PIS`, ' +
+        '`PROOF_OF_ADDRESS`, `PROOF_OF_EDUCATION`. When provided, the document reader skips ' +
+        'keyword-based classification and uses the supplied type directly. An empty string ' +
+        'signals "auto-detect for this file". ZIP archive entries always use auto-detect.',
       security: [{ bearerAuth: [] }],
       consumes: ['multipart/form-data'],
       response: {
