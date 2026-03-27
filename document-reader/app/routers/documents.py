@@ -287,6 +287,20 @@ async def ocr_documents(
     """
     zip_service = ZipService()
 
+    # Validate that fileTypes, when provided, has exactly one entry per file.
+    if file_types is not None and len(file_types) != len(files):
+        logger.warning(
+            "fileTypes count mismatch",
+            extra={"file_count": len(files), "file_types_count": len(file_types)},
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"'fileTypes' must contain exactly one MIME type per uploaded file "
+                f"({len(files)} file(s) uploaded, {len(file_types)} fileTypes value(s) provided)."
+            ),
+        )
+
     # First pass: validate uploads and expand any ZIP archives.
     # Result: a flat list of (filename, extension, content) ready for OCR.
     validated: list[tuple[str, str, bytes]] = []
@@ -298,7 +312,7 @@ async def ocr_documents(
 
     for index, upload_file in enumerate(files):
         filename = upload_file.filename or "unknown"
-        explicit_mime = file_types[index] if file_types and index < len(file_types) else None
+        explicit_mime = file_types[index] if file_types else None
         ext = _resolve_extension(filename, upload_file.content_type, explicit_mime)
 
         logger.debug(

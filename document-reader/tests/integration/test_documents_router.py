@@ -392,6 +392,23 @@ async def test_health_endpoints_bypass_rate_limit() -> None:
 # ---------------------------------------------------------------------------
 
 
+async def test_ocr_file_types_count_mismatch_returns_422(
+    client: AsyncClient, sample_image_bytes: bytes
+) -> None:
+    """Providing fewer fileTypes entries than files returns 422."""
+    async with client as c:
+        # One file but two fileTypes — counts don't match
+        response = await c.post(
+            "/api/v1/documents/ocr",
+            data={"fileTypes": ["image/png", "image/jpeg"]},
+            files=[("files", ("photo.png", sample_image_bytes, "image/png"))],
+        )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["success"] is False
+    assert "fileTypes" in body["error"]["message"]
+
+
 async def test_ocr_explicit_file_type_overrides_filename(
     client: AsyncClient, sample_image_bytes: bytes
 ) -> None:
