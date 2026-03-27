@@ -251,7 +251,7 @@ class OcrService:
                     "Processing PDF page",
                     extra={"page_index": page_index, "page_count": page_count},
                 )
-                pix = page.get_pixmap(dpi=200)  # type: ignore[union-attr]
+                pix = page.get_pixmap(dpi=settings.vision_api_pdf_dpi)  # type: ignore[union-attr]
                 img_bytes = cast(bytes, pix.tobytes("png"))  # type: ignore[union-attr]
                 page_text = self._extract_image(img_bytes)
                 if page_text:
@@ -269,28 +269,73 @@ class OcrService:
             raise OcrServiceError(f"Failed to process PDF: {exc}") from exc
 
     def _extract_docx(self, content: bytes) -> str:
-        """Extract text from DOCX using python-docx.
+        """Extract text from DOCX using python-docx, including tables and embedded images.
+
+        Text is collected from paragraphs and table cells.  Any images embedded
+        in the document (e.g. scanned pages pasted as pictures) are extracted
+        and processed through the same compressed Vision API pipeline used for
+        standalone image files.
 
         Args:
             content: Raw DOCX bytes.
 
         Returns:
-            Extracted text with paragraphs joined by newlines.
+            Extracted text with paragraphs, table cells, and embedded-image
+            OCR results joined by newlines.
 
         Raises:
-            OcrServiceError: If DOCX processing fails.
+            RateLimitError: If the Vision API rate limit is reached while
+                processing an embedded image.
+            OcrServiceError: If DOCX processing or an embedded-image OCR call
+                fails.
         """
         try:
             import docx  # type: ignore[import-untyped]
 
             logger.debug("Processing DOCX", extra={"content_size_bytes": len(content)})
             document = docx.Document(io.BytesIO(content))
-            paragraphs = [para.text for para in document.paragraphs if para.text.strip()]
+            texts: list[str] = []
+
+            # Paragraph text
+            for para in document.paragraphs:
+                if para.text.strip():
+                    texts.append(para.text)
+
+            # Table cell text — deduplicate merged cells by XML element identity
+            seen_tcs: set[object] = set()
+            for table in document.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        tc = cell._tc  # type: ignore[attr-defined]
+                        if tc in seen_tcs:
+                            continue
+                        seen_tcs.add(tc)
+                        if cell.text.strip():
+                            texts.append(cell.text)
+
+            # Embedded images — extract and OCR through the compressed Vision API pipeline
+            image_count = 0
+            for rel in document.part.rels.values():
+                if "image" not in rel.reltype:
+                    continue
+                image_count += 1
+                try:
+                    img_bytes: bytes = rel.target_part.blob  # type: ignore[union-attr]
+                    img_text = self._extract_image(img_bytes)
+                    if img_text.strip():
+                        texts.append(img_text)
+                except (OcrServiceError, RateLimitError):
+                    raise
+                except Exception as exc:
+                    logger.warning("Failed to OCR embedded DOCX image: %s", exc)
+
             logger.debug(
                 "DOCX processing complete",
-                extra={"paragraph_count": len(paragraphs)},
+                extra={"paragraph_count": len(texts), "embedded_images": image_count},
             )
-            return "\n".join(paragraphs)
+            return "\n".join(texts)
+        except (OcrServiceError, RateLimitError):
+            raise
         except Exception as exc:
             logger.error("DOCX processing failed: %s", exc)
             raise OcrServiceError(f"Failed to process DOCX: {exc}") from exc
