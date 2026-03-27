@@ -293,6 +293,10 @@ export const searchResumes = async (query: string): Promise<SuccessResponse<Sear
  * Returns a Blob containing the generated Excel workbook (.xlsx).
  * Returns an empty Blob when `config.features.documentRead` is `false`.
  *
+ * Each file's MIME type is sent as an explicit `fileTypes` form field so the
+ * document-reader service can use it directly instead of inferring the type
+ * from the filename extension.
+ *
  * @param files An array of File objects to process with OCR.
  */
 export const ocrDocuments = async (files: File[]): Promise<Blob> => {
@@ -302,6 +306,7 @@ export const ocrDocuments = async (files: File[]): Promise<Blob> => {
   const formData = new FormData();
   for (const file of files) {
     formData.append('files', file);
+    formData.append('fileTypes', file.type);
   }
   const res = await apiClient.post<Blob>('/api/v1/documents/ocr', formData, {
     responseType: 'blob',

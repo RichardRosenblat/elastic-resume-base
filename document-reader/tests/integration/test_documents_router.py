@@ -386,3 +386,180 @@ async def test_health_endpoints_bypass_rate_limit() -> None:
     assert live_response.status_code == 200
     assert ready_response.status_code == 200
 
+
+# ---------------------------------------------------------------------------
+# Explicit fileTypes field tests
+# ---------------------------------------------------------------------------
+
+
+async def test_ocr_explicit_file_type_overrides_filename(
+    client: AsyncClient, sample_image_bytes: bytes
+) -> None:
+    """Providing fileTypes overrides the filename extension for file handling."""
+    mock_doc = ExtractedDocument(
+        filename="document.unknown",
+        document_type=DocumentType.RG,
+        raw_text="REGISTRO GERAL",
+        extracted_fields={"name": None, "rg_number": None},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="REGISTRO GERAL")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+
+        async with client as c:
+            # File is named ".unknown" but fileTypes says it is a PNG image.
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                data={"fileTypes": "image/png"},
+                files=[("files", ("document.unknown", sample_image_bytes, "application/octet-stream"))],
+            )
+
+    assert response.status_code == 200
+    # Confirm that OCR was invoked with the extension resolved from the MIME type.
+    mock_ocr_cls.return_value.extract_text.assert_awaited_once_with(
+        sample_image_bytes, ".png"
+    )
+
+
+async def test_ocr_content_type_header_overrides_filename(
+    client: AsyncClient, sample_image_bytes: bytes
+) -> None:
+    """Content-Type header of the multipart part is used when fileTypes is absent."""
+    mock_doc = ExtractedDocument(
+        filename="document.bin",
+        document_type=DocumentType.UNKNOWN,
+        raw_text="",
+        extracted_fields={},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+
+        async with client as c:
+            # Filename has no recognisable extension, but the part Content-Type
+            # identifies it as a PNG image.
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                files=[("files", ("document.bin", sample_image_bytes, "image/png"))],
+            )
+
+    assert response.status_code == 200
+    mock_ocr_cls.return_value.extract_text.assert_awaited_once_with(
+        sample_image_bytes, ".png"
+    )
+
+
+async def test_ocr_explicit_file_type_takes_priority_over_content_type(
+    client: AsyncClient, sample_image_bytes: bytes
+) -> None:
+    """Explicit fileTypes field takes priority over the part Content-Type header."""
+    mock_doc = ExtractedDocument(
+        filename="image.jpg",
+        document_type=DocumentType.UNKNOWN,
+        raw_text="",
+        extracted_fields={},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+
+        async with client as c:
+            # Filename and Content-Type both say JPEG, but fileTypes says PNG —
+            # fileTypes wins.
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                data={"fileTypes": "image/png"},
+                files=[("files", ("image.jpg", sample_image_bytes, "image/jpeg"))],
+            )
+
+    assert response.status_code == 200
+    mock_ocr_cls.return_value.extract_text.assert_awaited_once_with(
+        sample_image_bytes, ".png"
+    )
+
+
+async def test_ocr_unrecognised_explicit_file_type_falls_back_to_filename(
+    client: AsyncClient, sample_image_bytes: bytes
+) -> None:
+    """Unrecognised MIME type in fileTypes falls back to filename extension."""
+    mock_doc = ExtractedDocument(
+        filename="photo.png",
+        document_type=DocumentType.UNKNOWN,
+        raw_text="",
+        extracted_fields={},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+
+        async with client as c:
+            # fileTypes contains an unrecognised MIME type; the router falls
+            # back to the filename extension ".png".
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                data={"fileTypes": "application/unknown-type"},
+                files=[("files", ("photo.png", sample_image_bytes, "application/octet-stream"))],
+            )
+
+    assert response.status_code == 200
+    mock_ocr_cls.return_value.extract_text.assert_awaited_once_with(
+        sample_image_bytes, ".png"
+    )
+
+
+async def test_ocr_multiple_files_explicit_types(
+    client: AsyncClient, sample_image_bytes: bytes
+) -> None:
+    """fileTypes entries are index-matched to their corresponding files."""
+    mock_doc = ExtractedDocument(
+        filename="doc.bin",
+        document_type=DocumentType.UNKNOWN,
+        raw_text="",
+        extracted_fields={},
+    )
+
+    with (
+        patch("app.routers.documents.OcrService") as mock_ocr_cls,
+        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
+        patch("app.routers.documents.ExcelService") as mock_excel_cls,
+    ):
+        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
+        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
+        mock_excel_cls.return_value.generate = MagicMock(return_value=b"fake-excel")
+
+        async with client as c:
+            # Send fileTypes as a text form field (list of values) alongside
+            # the binary file uploads so Starlette correctly parses them as
+            # strings, not UploadFile objects.
+            response = await c.post(
+                "/api/v1/documents/ocr",
+                data={"fileTypes": ["image/png", "image/jpeg"]},
+                files=[
+                    ("files", ("first.bin", sample_image_bytes, "application/octet-stream")),
+                    ("files", ("second.bin", sample_image_bytes, "application/octet-stream")),
+                ],
+            )
+
+    assert response.status_code == 200
+    calls = mock_ocr_cls.return_value.extract_text.await_args_list
+    assert len(calls) == 2
+    # First file resolved to .png, second to .jpg.
+    assert calls[0].args[1] == ".png"
+    assert calls[1].args[1] == ".jpg"
+

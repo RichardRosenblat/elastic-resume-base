@@ -2,13 +2,13 @@ import io
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from toolbox_py import RateLimitError, get_logger
 
 from app.config import settings
 from app.dependencies import check_api_rate_limit
-from app.document_schema import ALLOWED_FILE_EXTENSIONS
+from app.document_schema import ALLOWED_FILE_EXTENSIONS, MIME_TYPE_TO_EXTENSION
 from app.models.document import ExtractedDocument
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
@@ -52,6 +52,29 @@ The request **must** use `Content-Type: multipart/form-data` and include the
 | `.zip` | ✅ | ❌ (no nested archives) |
 
 ZIP archives are expanded server-side; each entry is validated individually.
+
+---
+
+### Explicit file type
+
+The optional `fileTypes` form field allows callers to declare the MIME type
+of each uploaded file explicitly, bypassing filename-extension inference.
+When provided, `fileTypes` must contain one entry per file in the `files` field
+(in the same order).  Supported MIME types:
+
+| MIME type | Maps to |
+|-----------|---------|
+| `application/pdf` | `.pdf` |
+| `image/jpeg` | `.jpg` |
+| `image/png` | `.png` |
+| `image/tiff` | `.tiff` |
+| `image/bmp` | `.bmp` |
+| `image/webp` | `.webp` |
+| `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | `.docx` |
+| `application/zip` | `.zip` |
+
+The service falls back to the `Content-Type` header of the multipart part and
+then to the filename extension when a `fileTypes` entry is absent or unrecognised.
 
 ---
 
@@ -126,6 +149,25 @@ _BOWLTIE_ERROR_SCHEMA: dict[str, object] = {
     },
     "required": ["success", "error", "meta"],
 }
+
+
+async def _get_file_types(request: Request) -> list[str] | None:
+    """Dependency that extracts all ``fileTypes`` form values from the request.
+
+    Reads the multipart form data and returns the list of explicit MIME types
+    provided by the caller (one per uploaded file, in the same order).  Returns
+    ``None`` when the ``fileTypes`` field is absent.
+
+    Using a :func:`~fastapi.Depends` dependency instead of a plain ``Form``
+    parameter allows collecting *all* repeated form field values via
+    :meth:`~starlette.datastructures.FormData.getlist`, which is necessary when
+    multiple files are uploaded in a single request.
+    """
+    form = await request.form()
+    # FormData.getlist returns list[str | UploadFile]; keep only plain string
+    # values (clients should always send fileTypes as text, not as file parts).
+    values: list[str] = [v for v in form.getlist("fileTypes") if isinstance(v, str)]
+    return values if values else None
 
 
 @router.post(
@@ -208,6 +250,7 @@ async def ocr_documents(
             )
         ),
     ],
+    file_types: Annotated[list[str] | None, Depends(_get_file_types)],
 ) -> StreamingResponse:
     """Process uploaded documents with OCR and return extracted data as Excel file.
 
@@ -215,11 +258,22 @@ async def ocr_documents(
     When a ``.zip`` file is uploaded every supported document it contains is
     extracted and processed — the archive itself is never persisted.
 
+    The file type is resolved with the following priority:
+
+    1. Explicit MIME type from the ``file_types`` form field (index-matched to
+       the corresponding ``files`` entry).
+    2. ``Content-Type`` header of the multipart part (set automatically by
+       browsers when a ``File`` object is appended to ``FormData``).
+    3. Filename extension as a last-resort fallback.
+
     Args:
         files: One or more uploaded files.  Supported direct formats:
             ``.pdf``, ``.jpg``, ``.jpeg``, ``.png``, ``.tiff``, ``.tif``,
             ``.bmp``, ``.webp``, ``.docx``.  ZIP archives (``.zip``) may
             contain any mix of the above formats.
+        file_types: Optional list of MIME type strings, one per file in
+            ``files`` (same order).  Unrecognised MIME types are ignored and
+            the fallback chain is applied.
 
     Returns:
         StreamingResponse containing an Excel file with extracted document data.
@@ -242,9 +296,10 @@ async def ocr_documents(
         extra={"file_count": len(files)},
     )
 
-    for upload_file in files:
+    for index, upload_file in enumerate(files):
         filename = upload_file.filename or "unknown"
-        ext = _get_extension(filename)
+        explicit_mime = file_types[index] if file_types and index < len(file_types) else None
+        ext = _resolve_extension(filename, upload_file.content_type, explicit_mime)
 
         logger.debug(
             "Validating uploaded file",
@@ -360,3 +415,39 @@ def _get_extension(filename: str) -> str:
     """
     _, ext = os.path.splitext(filename)
     return ext.lower()
+
+
+def _resolve_extension(
+    filename: str,
+    content_type: str | None,
+    explicit_mime: str | None,
+) -> str:
+    """Resolve a file's extension using the provided type hints with fallback.
+
+    Resolution priority:
+
+    1. ``explicit_mime`` — caller-supplied MIME type (from the ``fileTypes``
+       form field), if recognised in :data:`~app.document_schema.MIME_TYPE_TO_EXTENSION`.
+    2. ``content_type`` — MIME type from the multipart part ``Content-Type``
+       header (populated automatically by browsers), if recognised.
+    3. Filename extension via :func:`_get_extension` as a last-resort fallback.
+
+    Parameters that are ``None`` or empty, or whose MIME type is not in the
+    mapping, are silently skipped and the next priority level is tried.
+
+    Args:
+        filename: Uploaded file name (used as last-resort fallback).
+        content_type: MIME type from the multipart part ``Content-Type`` header.
+        explicit_mime: Caller-supplied MIME type from the ``fileTypes`` form
+            field.
+
+    Returns:
+        Lowercase file extension including the leading dot (e.g. ``'.pdf'``).
+    """
+    for mime in (explicit_mime, content_type):
+        if mime:
+            normalized = mime.split(";")[0].strip().lower()
+            mapped = MIME_TYPE_TO_EXTENSION.get(normalized)
+            if mapped:
+                return mapped
+    return _get_extension(filename)

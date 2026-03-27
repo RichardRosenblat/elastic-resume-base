@@ -185,7 +185,10 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
         '`multipart/form-data` upload. Each file is processed with Google Cloud Vision OCR ' +
         'and the extracted structured data is returned as an Excel workbook (.xlsx). ' +
         'Supported file types: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.tiff`, `.tif`, `.bmp`, ' +
-        '`.webp`, `.docx`. ZIP archives may contain any mix of the above.',
+        '`.webp`, `.docx`. ZIP archives may contain any mix of the above. ' +
+        'An optional `fileTypes` field (one MIME type string per `files` entry, in the same ' +
+        'order) may be included to declare the file type explicitly, removing the need for ' +
+        'the document reader service to infer it from the filename extension.',
       security: [{ bearerAuth: [] }],
       consumes: ['multipart/form-data'],
       response: {
