@@ -94,6 +94,16 @@ export interface SearchResponseData {
   query: string;
 }
 
+/** Status of a single downstream service as returned by `GET /health/downstream`. */
+export interface DownstreamServiceStatus {
+  status: 'ok' | 'degraded';
+}
+
+/** Response shape of the BFF `GET /health/downstream` endpoint. */
+export interface DownstreamHealthData {
+  downstream: Record<string, DownstreamServiceStatus>;
+}
+
 /**
  * Runtime feature-flag state derived from `VITE_FEATURE_*` environment variables.
  * Access through the {@link useFeatureFlags} hook.

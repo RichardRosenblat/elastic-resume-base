@@ -6,6 +6,7 @@
     "search": "Search",
     "documents": "Documents",
     "account": "Account",
+    "systemStatus": "System Status",
     "logout": "Logout",
     "comingSoon": "Coming Soon"
   },
@@ -136,5 +137,39 @@
   "support": {
     "notWorking": "Something not working as expected?",
     "contactSupport": "Contact support through email"
+  },
+  "systemStatus": {
+    "title": "System Status",
+    "loading": "Checking service health...",
+    "unavailable": "Status Unavailable — could not reach the health endpoint.",
+    "statusOk": "Online",
+    "statusDegraded": "Degraded",
+    "services": {
+      "usersApi": {
+        "name": "User Management",
+        "description": "Manages user accounts, roles, and permissions.",
+        "impact": "User accounts and access management will be unavailable."
+      },
+      "downloader": {
+        "name": "File Downloader",
+        "description": "Delivers generated documents such as resumes for download.",
+        "impact": "Downloading generated resume documents will not be available."
+      },
+      "searchBase": {
+        "name": "Resume Search",
+        "description": "Powers the semantic search over indexed resumes.",
+        "impact": "Searching for resumes will not be available."
+      },
+      "fileGenerator": {
+        "name": "File Generator",
+        "description": "Produces formatted resume documents in various output formats.",
+        "impact": "Generating and exporting resume documents will not be available."
+      },
+      "documentReader": {
+        "name": "Document Reader",
+        "description": "Extracts structured data from uploaded documents using OCR.",
+        "impact": "Uploading and processing documents via OCR will not be available."
+      }
+    }
   }
 }

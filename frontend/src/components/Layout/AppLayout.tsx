@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 import { Box, Toolbar, useTheme, useMediaQuery } from '@mui/material';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar';
 import SupportFooter from '../SupportFooter';
@@ -25,6 +25,7 @@ export default function AppLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
@@ -58,7 +59,17 @@ export default function AppLayout() {
         }}
       >
         <Toolbar />
-        <Outlet />
+        <Box
+          key={location.pathname}
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            animation: 'pageEnter 0.25s ease-out both',
+          }}
+        >
+          <Outlet />
+        </Box>
         <SupportFooter />
       </Box>
     </Box>
