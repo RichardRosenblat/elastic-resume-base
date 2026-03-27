@@ -96,7 +96,6 @@ shared/<library-name>/
 
 - Use **`snake_case`** for all Python package and module names.
 - Install via `pip install -e ../shared/<library-name>` (editable local path).
-- Build and test Python libraries with `build_shared_python.sh` / `build_shared_python.bat`.
 
 ---
 
@@ -230,7 +229,7 @@ The `build_shared.bat` / `build_shared.sh` scripts at the repo root iterate the 
 
 ### Python
 
-Python shared libraries are built and tested separately using `build_shared_python.sh` / `build_shared_python.bat` at the repo root. These scripts iterate `shared/` and process any directory containing a `pyproject.toml`.
+Python libraries have no build step, but they do have to be imported by the consuming services using either `pip install -e ../shared/<library-name>` or by adding the shared library as a local path dependency in the consuming service's `requirements_dev.txt`. But at production, they should be installed as normal dependencies in the consuming service's `requirements_prod.txt` (not editable local paths).
 
 1. **hermes** — no shared-lib dependencies
 

@@ -314,6 +314,43 @@ interface UserProfile { uid: string; email: string; role: string; enable: boolea
 |------|----------------|
 | `UsersPage` | `TableTemplate` (users table, pre-approved table), `FormTemplate` (add pre-approved form) |
 | `AccountPage` | `DataDisplayTemplate` (profile), `FormTemplate` (update email) |
+| `DocumentsPage` | `FileUploadTemplate` (OCR file upload) |
+
+---
+
+## FileUploadTemplate
+
+Renders a complete file-upload UI:
+
+1. An optional description paragraph.
+2. An optional row of accepted-format `<Chip>` badges.
+3. A hidden `<input type="file">` wired to a visible "Select Files" button.
+4. A configurable list of action buttons (e.g. "Process & Download").
+5. An optional "Clear" text button shown when files are selected.
+6. A scrollable list of the currently-selected files (name + size in KB).
+7. An optional success `<Alert>`.
+
+The component is **controlled** — the parent owns the `files` array.
+
+### FileUploadConfig
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `accept` | `string` | ✅ | File extensions / MIME types forwarded to `<input accept>` |
+| `files` | `File[]` | ✅ | Currently selected files |
+| `onFilesChange` | `(files: File[]) => void` | ✅ | Called when the selection changes |
+| `buttons` | `ButtonConfig[]` | ✅ | Action buttons (uses same `ButtonConfig` as `FormTemplate`) |
+| `multiple` | `boolean` | — | Allow multi-file selection (default: `true`) |
+| `maxFiles` | `number` | — | Max selectable files; `onFilesChange` is NOT called if exceeded |
+| `disabled` | `boolean` | — | Disables the entire section |
+| `loading` | `boolean` | — | Shows loading state on action buttons |
+| `description` | `string` | — | Descriptive text below the title |
+| `acceptedFormats` | `string[]` | — | Labels for format chips (e.g. `['PDF', 'DOCX']`) |
+| `showSuccess` | `boolean` | — | Shows the success alert |
+| `successMessage` | `string` | — | Text inside the success alert |
+| `selectFilesLabel` | `string` | — | Label for the "Select Files" button |
+| `clearLabel` | `string` | — | Label for the "Clear" text button |
+| `selectedFilesLabel` | `string` | — | Summary label; `{count}` is replaced with the file count |
 
 ---
 
@@ -325,7 +362,8 @@ Each template has a dedicated test file:
 src/components/templates/
 ├── FormTemplate.test.tsx
 ├── TableTemplate.test.tsx
-└── DataDisplayTemplate.test.tsx
+├── DataDisplayTemplate.test.tsx
+└── FileUploadTemplate.test.tsx
 ```
 
 Run all template tests:

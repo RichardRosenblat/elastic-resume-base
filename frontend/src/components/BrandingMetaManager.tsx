@@ -19,6 +19,7 @@ function resolvePageTitle(pathname: string, t: (key: string) => string): string 
   if (pathname.startsWith('/resumes')) return t('nav.resumes');
   if (pathname.startsWith('/search')) return t('nav.search');
   if (pathname.startsWith('/account')) return t('nav.account');
+  if (pathname.startsWith('/documents')) return t('nav.documents');
   return t('common.notFound');
 }
 

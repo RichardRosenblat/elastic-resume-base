@@ -1,20 +1,20 @@
 [
   {
     "id": "bowltie",
-    "name": "shared/Bowltie",
-    "path": "shared/Bowltie",
+    "name": "shared/Bowltie/bowltie_ts",
+    "path": "shared/Bowltie/bowltie_ts",
     "dependsOn": []
   },
   {
     "id": "bugle",
-    "name": "shared/Bugle",
-    "path": "shared/Bugle",
+    "name": "shared/Bugle/bugle_ts",
+    "path": "shared/Bugle/bugle_ts",
     "dependsOn": []
   },
   {
     "id": "synapse",
-    "name": "shared/Synapse",
-    "path": "shared/Synapse",
+    "name": "shared/Synapse/synapse_ts",
+    "path": "shared/Synapse/synapse_ts",
     "dependsOn": []
   },
   {

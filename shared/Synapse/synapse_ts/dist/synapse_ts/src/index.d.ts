@@ -1,0 +1,29 @@
+/**
+ * @module @elastic-resume-base/synapse
+ *
+ * Synapse is the **sole** persistence layer for Elastic Resume Base
+ * microservices. It owns every aspect of the Firebase / Firestore connection —
+ * from SDK initialisation through to data-access abstractions — so that
+ * consuming services can remain free of any direct `firebase-admin` dependency.
+ *
+ * ## Quick Start
+ *
+ * ```typescript
+ * import {
+ *   initializePersistence,
+ *   FirestoreUserDocumentStore,
+ * } from '@elastic-resume-base/synapse';
+ *
+ * // Call once at application startup, before using any store.
+ * initializePersistence({ projectId: 'my-project' });
+ * ```
+ */
+export type { PersistenceOptions } from './persistence.js';
+export { initializePersistence, terminatePersistence } from './persistence.js';
+export type { UserRepository, CreateUserData, UpdateUserData, UserRecord, ListUsersResult, } from './interfaces/user-repository.js';
+export { FirestoreUserRepository } from './repositories/firestore-user-repository.js';
+export type { IUserDocumentStore, UserDocument, CreateUserDocumentData, UpdateUserDocumentData, UserDocumentFilters, ListUserDocumentsResult, } from './interfaces/user-document-store.js';
+export type { IPreApprovedStore, PreApprovedDocument, CreatePreApprovedData, UpdatePreApprovedData, PreApprovedFilters, } from './interfaces/pre-approved-store.js';
+export { FirestoreUserDocumentStore } from './repositories/firestore-user-document-store.js';
+export { FirestorePreApprovedStore } from './repositories/firestore-pre-approved-store.js';
+//# sourceMappingURL=index.d.ts.map

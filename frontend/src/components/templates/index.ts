@@ -25,6 +25,7 @@
 export { default as FormTemplate } from './FormTemplate';
 export { default as TableTemplate } from './TableTemplate';
 export { default as DataDisplayTemplate } from './DataDisplayTemplate';
+export { default as FileUploadTemplate } from './FileUploadTemplate';
 
 // Types — re-exported so consumers don't need deep imports
 export type {
@@ -44,4 +45,6 @@ export type {
   // Data Display
   DisplayFieldConfig,
   DataDisplayConfig,
+  // File Upload
+  FileUploadConfig,
 } from './types';

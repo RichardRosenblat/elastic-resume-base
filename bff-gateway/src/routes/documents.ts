@@ -1,7 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { readDocumentHandler } from '../controllers/documents.controller.js';
+import { readDocumentHandler, ocrDocumentsHandler } from '../controllers/documents.controller.js';
 
 const documentsPlugin: FastifyPluginAsync = async (app) => {
+  // The `/ocr` endpoint receives raw multipart file uploads and forwards the
+  // stream directly to the document reader service. Registering a no-op parser
+  // for `multipart/form-data` prevents Fastify from attempting to buffer and
+  // JSON-parse the body, leaving `request.raw` as an intact readable stream
+  // that can be piped straight to the upstream service.
+  app.addContentTypeParser('multipart/form-data', (_request, _payload, done) => {
+    done(null);
+  });
+
   app.post('/read', {
     schema: {
       tags: ['Documents'],
@@ -166,6 +175,76 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, readDocumentHandler);
+
+  app.post('/ocr', {
+    schema: {
+      tags: ['Documents'],
+      summary: 'OCR: extract structured data from uploaded documents',
+      description:
+        'Accepts one or more document files (or ZIP archives containing documents) as a ' +
+        '`multipart/form-data` upload. Each file is processed with Google Cloud Vision OCR ' +
+        'and the extracted structured data is returned as an Excel workbook (.xlsx). ' +
+        'Supported file types: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.tiff`, `.tif`, `.bmp`, ' +
+        '`.webp`, `.docx`. ZIP archives may contain any mix of the above.',
+      security: [{ bearerAuth: [] }],
+      consumes: ['multipart/form-data'],
+      response: {
+        200: {
+          description: 'OCR completed. Returns the Excel workbook as a binary download.',
+          content: {
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+              schema: { type: 'string', format: 'binary' },
+            },
+          },
+        },
+        400: {
+          description: 'Unsupported file type or invalid ZIP archive.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', example: 'BAD_REQUEST' },
+                message: { type: 'string', example: 'Unsupported file type' },
+              },
+            },
+            meta: { type: 'object', properties: { timestamp: { type: 'string', format: 'date-time' } } },
+          },
+        },
+        422: {
+          description: 'A file exceeds the maximum allowed size.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', example: 'VALIDATION_ERROR' },
+                message: { type: 'string', example: 'File exceeds maximum size' },
+              },
+            },
+            meta: { type: 'object', properties: { timestamp: { type: 'string', format: 'date-time' } } },
+          },
+        },
+        500: {
+          description: 'An unexpected server-side error occurred.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', example: 'INTERNAL_ERROR' },
+                message: { type: 'string', example: 'An unexpected error occurred' },
+              },
+            },
+            meta: { type: 'object', properties: { timestamp: { type: 'string', format: 'date-time' } } },
+          },
+        },
+      },
+    },
+  }, ocrDocumentsHandler);
 };
 
 export default documentsPlugin;

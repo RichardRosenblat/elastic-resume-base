@@ -20,6 +20,7 @@ import {
   AdminPanelSettings as AdminIcon,
   Description as DescriptionIcon,
   Search as SearchIcon,
+  FindInPage as FindInPageIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -154,6 +155,14 @@ export default function DashboardPage() {
             icon={<SearchIcon color="primary" />}
             available={features.resumeSearch}
             description={t('dashboard.featureNotAvailable')}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <FeatureCard
+            title={t('nav.documents')}
+            icon={<FindInPageIcon color="primary" />}
+            available={features.documentRead}
+            description={t('documents.uploadDescription')}
           />
         </Grid>
       </Grid>

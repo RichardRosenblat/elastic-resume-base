@@ -101,6 +101,7 @@ export interface CreatePreApprovedRequest {
 
 /** Request payload for an admin updating an existing user (role / enabled status). */
 export interface UpdateUserRequest {
+  email?: string;
   role?: string;
   enable?: boolean;
 }

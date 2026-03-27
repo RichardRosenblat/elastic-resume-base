@@ -2,7 +2,7 @@
 
 import pytest
 
-from hermes import _reset_messaging_for_testing
+from hermes_py import _reset_messaging_for_testing
 
 
 @pytest.fixture(autouse=True)

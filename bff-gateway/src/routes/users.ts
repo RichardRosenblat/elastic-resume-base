@@ -406,6 +406,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       body: {
         type: 'object',
         properties: {
+          email: { type: 'string', format: 'email', example: 'jane.doe@example.com', description: 'New email address for the user.' },
           role: { type: 'string', enum: ['admin', 'user'], example: 'admin', description: "Must be 'admin' or 'user'." },
           enable: { type: 'boolean', example: true },
         },

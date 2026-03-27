@@ -40,6 +40,14 @@ systems:
     # Vite derives VITE_FIREBASE_AUTH_DOMAIN from this automatically.
     FIREBASE_AUTH_DOMAIN: ""        # e.g. demo-elastic-resume-base.firebaseapp.com
 
+    # Google Cloud service-account key file for local development.
+    # Set this to the absolute path of a JSON key file whose service account
+    # has the permissions required by every GCP-backed service (Vision API,
+    # Firestore, Pub/Sub, Vertex AI, …).
+    # Leave empty in production — GCP-hosted environments (Cloud Run, GKE, …)
+    # provide Application Default Credentials automatically.
+    GOOGLE_APPLICATION_CREDENTIALS: ""   # e.g. /home/user/keys/my-sa-key.json
+
     # Firebase Local Emulator Suite — point at the docker-compose service name.
     # For local dev without Docker, change these to localhost:<port>.
     FIRESTORE_EMULATOR_HOST: "firebase-emulator:8080"
@@ -136,7 +144,7 @@ systems:
     # Feature flags — set to "true" to enable, "false" to hide/disable
     VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)
     VITE_FEATURE_RESUME_SEARCH: "false"    # Semantic search (search-base not ready)
-    VITE_FEATURE_DOCUMENT_READ: "false"    # Document reader (OCR service not ready)
+    VITE_FEATURE_DOCUMENT_READ: "true"    # Document reader (OCR service ready)
     VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
     VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
 
@@ -189,10 +197,37 @@ systems:
 
   # ---------------------------------------------------------------------------
   # Document Reader / OCR (Python — port 8004)
-  # Extracts text from scanned documents using Cloud Vision API.
+  # Extracts text from scanned documents (images, PDFs, DOCX) using Google
+  # Cloud Vision API and returns structured data as an Excel workbook.
   # ---------------------------------------------------------------------------
   document-reader:
     PORT: "8004"
+
+    # GCP project used for Cloud Vision API calls.
+    # Inherited from systems.shared.GCP_PROJECT_ID — override here only if
+    # the document-reader must target a different project than the rest of
+    # the platform.
+    # GCP_PROJECT_ID: ""
+
+    # Maximum accepted file size for a single uploaded document (in MB).
+    # Files larger than this value are rejected with HTTP 422.
+    MAX_FILE_SIZE_MB: "10"
+
+    # Maximum number of API requests accepted from a single client IP per
+    # minute.  Exceeding this limit returns HTTP 429 with a message asking
+    # the user to try again later.  Increase for trusted high-volume clients.
+    RATE_LIMIT_PER_MINUTE: "60"
+
+    # Maximum number of Google Cloud Vision API calls allowed per minute
+    # across all incoming requests.  This guards against runaway usage of the
+    # Vision API quota.  Exceeding this returns HTTP 429 with a message
+    # directing users to contact support.  Adjust to match your GCP quota.
+    VISION_API_RATE_LIMIT: "60"
+
+    # Logging verbosity (debug | info | warning | error | critical).
+    # Inherited from systems.shared.LOG_LEVEL — override here for more
+    # verbose OCR debugging without flooding the rest of the platform.
+    # LOG_LEVEL: "debug"
 
   # ---------------------------------------------------------------------------
   # DLQ Notifier (Python — Pub/Sub triggered)

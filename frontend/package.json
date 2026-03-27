@@ -13,8 +13,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@elastic-resume-base/aegis": "file:../shared/Aegis",
-    "@elastic-resume-base/bowltie": "file:../shared/Bowltie",
+    "@elastic-resume-base/aegis": "file:../shared/Aegis/aegis_ts",
+    "@elastic-resume-base/bowltie": "file:../shared/Bowltie/bowltie_ts",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.2.2",

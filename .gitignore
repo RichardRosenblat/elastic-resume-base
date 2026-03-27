@@ -68,6 +68,7 @@ __pycache__/
 venv/
 env/
 ENV/
+**_venv/
 .python-version
 
 # Distribution / packaging
@@ -207,9 +208,19 @@ temp/
 # The dist/ directories under shared/* must NOT be ignored so that consuming
 # apps (bff-gateway, users-api) can resolve these packages via their declared
 # "exports" field without requiring a separate build step.
-# All other dist/ directories (apps and services) remain ignored by the dist/
-# rules above.
+# All shared libraries (both dual-language and TypeScript-only) now keep their
+# TypeScript build output inside a _ts/ subdirectory:
+#   shared/<lib>/<lib_lower>_ts/dist/
 !shared/
 !shared/*/
-!shared/*/dist/
-!shared/*/dist/**
+!shared/*/*_ts/
+!shared/*/*_ts/dist/
+!shared/*/*_ts/dist/**
+
+# -----------------------------------------------------------------------------
+# Python shared library virtualenvs
+# -----------------------------------------------------------------------------
+# Each Python shared library creates its venv inside its own _py/ subdirectory:
+#   shared/<lib>/<lib_lower>_py/venv/
+# The global `venv/` rule above already ignores these; this entry documents it.
+shared/*/*_py/venv/

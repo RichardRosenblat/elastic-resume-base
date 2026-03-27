@@ -57,3 +57,14 @@ services:
       - "5173:80"
     depends_on:
       - bff-gateway
+
+  # 5. Document Reader / OCR (Python — port 8004)
+  document-reader:
+    build:
+      context: .
+      dockerfile: document-reader/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+      - LOG_LEVEL=INFO

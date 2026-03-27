@@ -15,7 +15,7 @@ await build({
   // require() calls (e.g. firebase-admin, @fastify/swagger-ui).
   packages: 'external',
   alias: {
-    '@shared/toolbox': resolve(__dirname, '../shared/Toolbox/src/index.ts'),
+    '@shared/toolbox': resolve(__dirname, '../shared/Toolbox/toolbox_ts/src/index.ts'),
   },
   outfile: 'dist/server.js',
   sourcemap: true,

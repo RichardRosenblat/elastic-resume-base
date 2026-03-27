@@ -28,6 +28,7 @@ import {
   People as PeopleIcon,
   Description as DescriptionIcon,
   Search as SearchIcon,
+  FindInPage as FindInPageIcon,
   AccountCircle as AccountCircleIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -70,6 +71,7 @@ export default function Sidebar({ open, variant, onClose }: SidebarProps) {
     { label: t('nav.users'), icon: <PeopleIcon />, path: '/users', adminOnly: true, featureFlag: features.userManagement },
     { label: t('nav.resumes'), icon: <DescriptionIcon />, path: '/resumes', featureFlag: true },
     { label: t('nav.search'), icon: <SearchIcon />, path: '/search', featureFlag: true },
+    { label: t('nav.documents'), icon: <FindInPageIcon />, path: '/documents', featureFlag: features.documentRead },
     { label: t('nav.account'), icon: <AccountCircleIcon />, path: '/account' },
   ];
 

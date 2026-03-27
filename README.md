@@ -6,20 +6,24 @@ A cloud-native, microservices-based resume processing platform built on Google C
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Implementation Status](#implementation-status)
-- [Architecture](#architecture)
-- [Services](#services)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Local Development Setup](#local-development-setup)
-  - [Running with Docker Compose](#running-with-docker-compose)
-- [Repository Structure](#repository-structure)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [Security](#security)
-- [License](#license)
+- [Elastic Resume Base](#elastic-resume-base)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Implementation Status](#implementation-status)
+  - [Architecture](#architecture)
+    - [Current Implementation](#current-implementation)
+    - [Full Target Architecture (Planned)](#full-target-architecture-planned)
+  - [Services](#services)
+  - [Tech Stack](#tech-stack)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Local Development Setup](#local-development-setup)
+    - [Running with Docker Compose](#running-with-docker-compose)
+  - [Repository Structure](#repository-structure)
+  - [Documentation](#documentation)
+  - [Contributing](#contributing)
+  - [Security](#security)
+  - [License](#license)
 
 ---
 
@@ -44,13 +48,13 @@ This repository is under active development. The following table summarizes what
 |---|---|---|
 | **BFF Gateway** | ✅ Implemented | Full auth, RBAC, user management routes |
 | **Users API** | ✅ Implemented | Authorization logic, user CRUD, pre-approval management |
-| **Shared Libraries** (Synapse, Bowltie, Bugle, Toolbox) | ✅ Implemented | Consumed by BFF Gateway and Users API |
+| **Shared Libraries** (Synapse, Bowltie, Bugle, Aegis, Toolbox, Hermes) | ✅ Implemented | TypeScript libs consumed by BFF Gateway and Users API; Hermes also available as Python package |
 | **Frontend SPA** | ✅ Implemented | React + TypeScript SPA with Firebase Auth, i18n, MUI, and feature flags |
 | **Ingestor Service** | 🔄 Planned | Not yet implemented |
 | **AI Worker** | 🔄 Planned | Not yet implemented |
 | **Search Base** | 🔄 Planned | Not yet implemented |
 | **File Generator** | 🔄 Planned | Not yet implemented |
-| **Document Reader** | 🔄 Planned | Not yet implemented |
+| **Document Reader** | ✅ Implemented | OCR and structured data extraction from Brazilian documents using Cloud Vision API |
 | **DLQ Notifier** | 🔄 Planned | Not yet implemented |
 
 ---
@@ -121,7 +125,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 | **AI Worker** | Python | 🔄 Planned | Extracts structured JSON and generates embeddings using Vertex AI |
 | **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
 | **File Generator** | Python | 🔄 Planned | Generates resume documents and handles translation via Cloud Translation |
-| **Document Reader** | Python | 🔄 Planned | OCR processing of scanned documents using Cloud Vision API |
+| **Document Reader** | Python | ✅ Implemented | OCR processing of scanned documents and field extraction using Cloud Vision API |
 | **DLQ Notifier** | Python | 🔄 Planned | Monitors Dead Letter Queue and sends failure alerts |
 
 ---
@@ -235,6 +239,8 @@ The following local endpoints will be available:
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
+| Document Reader | http://localhost:8004 |
+| Document Reader API Docs (Swagger) | http://localhost:8004/docs |
 | BFF Gateway | http://localhost:3000 |
 | BFF Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
@@ -262,11 +268,17 @@ elastic-resume-base/
 │   ├── src/
 │   ├── Dockerfile
 │   └── package.json
-├── shared/                    # ✅ Shared TypeScript libraries
+├── document-reader/               # ✅ Python Document Reader (FastAPI)
+│   ├── app/
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── shared/                    # ✅ Shared libraries (TypeScript + Python)
 │   ├── Synapse/               # Persistence abstraction (Firestore via firebase-admin)
-│   ├── Bowltie/               # Response formatting utilities
+│   ├── Bowltie/               # Response formatting utilities (TypeScript + Python)
 │   ├── Bugle/                 # Google API integration (Auth + Drive)
-│   └── Toolbox/               # Cross-cutting utilities (logger, config loader, middleware)
+│   ├── Aegis/                 # Auth abstraction (Firebase Admin / Firebase Client)
+│   ├── Toolbox/               # Cross-cutting utilities — logger, errors (TypeScript + Python)
+│   └── Hermes/                # Messaging abstraction (SMTP — TypeScript + Python)
 ├── firebase-emulator/         # Local Firebase Emulator setup
 │   ├── Dockerfile
 │   └── firebase.json
@@ -285,8 +297,8 @@ elastic-resume-base/
 │   └── costs and services.md
 ├── config_example.yaml        # Environment configuration template (committed)
 │                              # Copy to config.yaml (git-ignored) and edit
-├── build_shared.sh            # Builds all shared libraries (Linux/macOS)
-├── build_shared.bat           # Builds all shared libraries (Windows)
+├── build_shared.sh            # Builds all TypeScript shared libraries (Linux/macOS)
+├── build_shared.bat           # Builds all TypeScript shared libraries (Windows)
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md

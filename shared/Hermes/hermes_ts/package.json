@@ -25,7 +25,16 @@
     "nodemailer": "8.0.3",
     "zod": "3.23.8"
   },
+  "peerDependencies": {
+    "@google-cloud/pubsub": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@google-cloud/pubsub": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@google-cloud/pubsub": "4.9.0",
     "@types/jest": "29.5.12",
     "@types/nodemailer": "6.4.17",
     "@types/node": "20.12.7",

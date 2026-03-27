@@ -16,8 +16,8 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^js-yaml$': '<rootDir>/node_modules/js-yaml',
     '^firebase-admin(.*)$': '<rootDir>/node_modules/firebase-admin$1',
-    '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
-    '^@elastic-resume-base/aegis$': '<rootDir>/../shared/Aegis/src/index.ts',
-    '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',
+    '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/bowltie_ts/src/index.ts',
+    '^@elastic-resume-base/aegis$': '<rootDir>/../shared/Aegis/aegis_ts/src/index.ts',
+    '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
   },
 };

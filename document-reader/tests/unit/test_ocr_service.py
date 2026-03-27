@@ -1,0 +1,70 @@
+"""Unit tests for the OcrService — text extraction via the Vision API."""
+
+import io
+from unittest.mock import MagicMock, patch
+
+import docx  # type: ignore[import-untyped]
+import pytest
+from google.api_core.exceptions import GoogleAPIError
+
+from app.services.ocr_service import OcrService
+from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError
+
+
+@pytest.fixture
+def ocr_service() -> OcrService:
+    with patch("app.services.ocr_service.vision.ImageAnnotatorClient"):
+        return OcrService()
+
+
+async def test_extract_text_image_success(
+    ocr_service: OcrService, sample_image_bytes: bytes
+) -> None:
+    """Vision API returns text successfully for an image."""
+    mock_response = MagicMock()
+    mock_response.error.message = ""
+    mock_response.full_text_annotation.text = "Sample text"
+    ocr_service._client.document_text_detection.return_value = mock_response
+
+    result = await ocr_service.extract_text(sample_image_bytes, ".png")
+    assert result == "Sample text"
+
+
+async def test_extract_text_image_vision_api_error(
+    ocr_service: OcrService, sample_image_bytes: bytes
+) -> None:
+    """Vision API returns an error message -> OcrServiceError raised."""
+    mock_response = MagicMock()
+    mock_response.error.message = "API quota exceeded"
+    ocr_service._client.document_text_detection.return_value = mock_response
+
+    with pytest.raises(OcrServiceError, match="Vision API error"):
+        await ocr_service.extract_text(sample_image_bytes, ".jpg")
+
+
+async def test_extract_text_docx_success(ocr_service: OcrService) -> None:
+    """Extract text from a real minimal DOCX in memory."""
+    buffer = io.BytesIO()
+    doc = docx.Document()
+    doc.add_paragraph("Hello from DOCX")
+    doc.save(buffer)
+    buffer.seek(0)
+
+    result = await ocr_service.extract_text(buffer.read(), ".docx")
+    assert "Hello from DOCX" in result
+
+
+async def test_extract_text_unsupported_extension(ocr_service: OcrService) -> None:
+    """Unsupported extension raises UnsupportedFileTypeError."""
+    with pytest.raises(UnsupportedFileTypeError):
+        await ocr_service.extract_text(b"data", ".txt")
+
+
+async def test_extract_text_vision_api_exception(
+    ocr_service: OcrService, sample_image_bytes: bytes
+) -> None:
+    """GoogleAPIError from Vision API is wrapped in OcrServiceError."""
+    ocr_service._client.document_text_detection.side_effect = GoogleAPIError("network error")
+
+    with pytest.raises(OcrServiceError, match="Vision API call failed"):
+        await ocr_service.extract_text(sample_image_bytes, ".png")

@@ -288,4 +288,25 @@ export const searchResumes = async (query: string): Promise<SuccessResponse<Sear
   return res.data;
 };
 
+/**
+ * Uploads one or more documents for OCR processing via the BFF.
+ * Returns a Blob containing the generated Excel workbook (.xlsx).
+ * Returns an empty Blob when `config.features.documentRead` is `false`.
+ *
+ * @param files An array of File objects to process with OCR.
+ */
+export const ocrDocuments = async (files: File[]): Promise<Blob> => {
+  if (!config.features.documentRead) {
+    return new Blob([], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('files', file);
+  }
+  const res = await apiClient.post<Blob>('/api/v1/documents/ocr', formData, {
+    responseType: 'blob',
+  });
+  return res.data;
+};
+
 export default apiClient;
