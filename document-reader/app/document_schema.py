@@ -275,9 +275,10 @@ IMAGE_EXTENSIONS: frozenset[str] = frozenset(
 
 #: Maps well-known MIME type strings to their canonical file extension
 #: (lowercase, including the leading dot).  Used by the upload router to resolve
-#: a file's type from an explicit ``fileTypes`` form field or from the
-#: ``Content-Type`` header of a multipart part, before falling back to the
-#: filename extension.
+#: a file's format from the ``Content-Type`` header of a multipart part, before
+#: falling back to the filename extension.  Not exposed as a public API field —
+#: the router uses this mapping internally when determining how to process a file
+#: (e.g. which OCR path to take: PDF, DOCX, or raster image).
 MIME_TYPE_TO_EXTENSION: dict[str, str] = {
     "application/pdf": ".pdf",
     "image/jpeg": ".jpg",
