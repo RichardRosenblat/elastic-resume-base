@@ -30,6 +30,7 @@ import SearchPage from './pages/Search/SearchPage';
 import DocumentsPage from './pages/Documents/DocumentsPage';
 import AccountPage from './pages/Account/AccountPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
+import SystemStatusPage from './pages/SystemStatus/SystemStatusPage';
 import BrandingMetaManager from './components/BrandingMetaManager';
 import { ToastProvider } from './contexts/toast-context';
 import { useRateLimitNotifier } from './hooks/useRateLimitNotifier';
@@ -69,6 +70,7 @@ export default function App() {
               <Route element={<ProtectedRoute adminOnly />}>
                 <Route element={<AppLayout />}>
                   <Route path="/users" element={<UsersPage />} />
+                  <Route path="/system-status" element={<SystemStatusPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />
