@@ -52,14 +52,50 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Document Reader service shutting down")
 
 
+_OPENAPI_TAGS = [
+    {
+        "name": "Documents",
+        "description": (
+            "OCR endpoints for uploading Brazilian documents and extracting "
+            "structured data.  Accepts images (`.jpg`, `.jpeg`, `.png`, "
+            "`.tiff`, `.tif`, `.bmp`, `.webp`), PDF (`.pdf`), Word (`.docx`), "
+            "and ZIP archives (`.zip`) containing any of the above.  "
+            "Recognised document types: **RG**, **Certidão de Nascimento**, "
+            "**Certidão de Casamento**, **CTPS (Carteira de Trabalho)**, "
+            "**PIS/PASEP/NIS**, **Comprovante de Residência**, "
+            "**Diploma / Histórico Escolar**.  "
+            "Results are returned as a downloadable Excel workbook (`.xlsx`)."
+        ),
+    },
+    {
+        "name": "Health",
+        "description": (
+            "Liveness and readiness probes used by container orchestrators "
+            "(Cloud Run, Kubernetes) to monitor service health.  "
+            "These endpoints are excluded from request-timeout enforcement and "
+            "rate limiting."
+        ),
+    },
+]
+
 app = FastAPI(
     title="Document Reader",
     version="1.0.0",
-    description="OCR service for extracting text and structured data from Brazilian documents.",
+    description=(
+        "OCR microservice that extracts structured data from scanned Brazilian "
+        "documents using the **Google Cloud Vision API**.\n\n"
+        "Upload one or more files to `/api/v1/documents/ocr` and receive a "
+        "downloadable Excel workbook (`.xlsx`) whose columns match the fields "
+        "defined for each recognized document type "
+        "(RG, CTPS, PIS, Certidão de Nascimento, Certidão de Casamento, "
+        "Comprovante de Residência, Diploma / Histórico Escolar).\n\n"
+        "All file-upload endpoints require `Content-Type: multipart/form-data`."
+    ),
     lifespan=lifespan,
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/docs/json",
+    openapi_tags=_OPENAPI_TAGS,
 )
 
 app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.http_request_timeout)

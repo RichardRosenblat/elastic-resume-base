@@ -28,10 +28,186 @@ ACCEPTED_UPLOAD_EXTENSIONS: frozenset[str] = ALLOWED_EXTENSIONS | frozenset({".z
 
 MAX_FILE_SIZE_BYTES = settings.max_file_size_mb * 1024 * 1024
 
+_ENDPOINT_DESCRIPTION = f"""
+Process uploaded files with **Google Cloud Vision OCR** and extract structured
+fields from recognized Brazilian document types.
 
-@router.post("/documents/ocr")
+---
+
+### Accepted file formats
+
+Upload individual files or `.zip` archives (or a mix of both).
+The request **must** use `Content-Type: multipart/form-data` and include the
+`files` form field with one or more file parts.
+
+| Format | Accepted directly | Inside a `.zip` |
+|--------|:-----------------:|:---------------:|
+| `.pdf` | ✅ | ✅ |
+| `.docx` | ✅ | ✅ |
+| `.jpg` / `.jpeg` | ✅ | ✅ |
+| `.png` | ✅ | ✅ |
+| `.tiff` / `.tif` | ✅ | ✅ |
+| `.bmp` | ✅ | ✅ |
+| `.webp` | ✅ | ✅ |
+| `.zip` | ✅ | ❌ (no nested archives) |
+
+ZIP archives are expanded server-side; each entry is validated individually.
+
+---
+
+### Recognised document types and extracted fields
+
+| Document type | Portuguese name | Extracted fields |
+|---|---|---|
+| `RG` | Registro Geral (identity card) | `rg_number`, `name` |
+| `BIRTH_CERTIFICATE` | Certidão de Nascimento | `name`, `date_of_birth` |
+| `MARRIAGE_CERTIFICATE` | Certidão de Casamento | `name`, `date_of_marriage`, `spouse_name` |
+| `WORK_CARD` | Carteira de Trabalho (CTPS) | `issue_date`, `work_card_number` |
+| `PIS` | PIS / PASEP / NIS | `pis_number` |
+| `PROOF_OF_ADDRESS` | Comprovante de Residência | `address` (street + CEP) |
+| `PROOF_OF_EDUCATION` | Diploma / Histórico Escolar | `institution_name`, `year_of_completion` |
+| `UNKNOWN` | Unrecognized document | *(no structured fields)* |
+
+---
+
+### Response format
+
+The endpoint returns a streaming **Excel workbook** (`.xlsx`) with one sheet per
+recognized document type.  Each row corresponds to one uploaded file (or ZIP
+entry); columns map to the extracted fields listed above.
+
+> **Note** — the `Content-Disposition` header is set to
+> `attachment; filename=extracted_documents.xlsx` so browsers will offer a
+> download prompt automatically.
+
+---
+
+### Constraints
+
+- **Maximum file size per document**: `{settings.max_file_size_mb} MB`
+  (configurable via `max_file_size_mb`; HTTP 422 when exceeded).
+- **Rate limiting**: at most `{settings.rate_limit_per_minute}` requests per IP per minute;
+  excess requests receive HTTP 429.
+- **Vision API rate limit**: at most `{settings.vision_api_rate_limit}` Vision API calls per
+  minute; exceeded calls also return HTTP 429.
+- **Request timeout**: `{settings.http_request_timeout}` seconds per request; long-running
+  requests return HTTP 504.
+"""
+
+_BOWLTIE_ERROR_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "success": {"type": "boolean", "example": False},
+        "error": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "example": "BAD_REQUEST"},
+                "message": {
+                    "type": "string",
+                    "example": "Human-readable error description",
+                },
+            },
+            "required": ["code", "message"],
+        },
+        "meta": {
+            "type": "object",
+            "properties": {
+                "correlationId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000",
+                },
+                "timestamp": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2024-01-01T00:00:00.000Z",
+                },
+            },
+        },
+    },
+    "required": ["success", "error", "meta"],
+}
+
+
+@router.post(
+    "/documents/ocr",
+    summary="Extract structured data from Brazilian documents via OCR",
+    description=_ENDPOINT_DESCRIPTION,
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": (
+                "Excel workbook (`.xlsx`) with one sheet per document type.  "
+                "Each row represents one processed file; columns correspond to "
+                "the extracted fields for that document type."
+            ),
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "Binary Excel workbook data.",
+                    }
+                }
+            },
+            "headers": {
+                "Content-Disposition": {
+                    "description": (
+                        "Always `attachment; filename=extracted_documents.xlsx`"
+                    ),
+                    "schema": {"type": "string"},
+                }
+            },
+        },
+        400: {
+            "description": (
+                "Unsupported file type uploaded, or a ZIP archive is invalid / "
+                "contains no supported documents."
+            ),
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+        422: {
+            "description": (
+                "A file (or ZIP entry) exceeds the configured maximum size limit "
+                f"(default: {settings.max_file_size_mb} MB), **or** the request "
+                "body is structurally invalid (missing required `files` form field)."
+            ),
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+        429: {
+            "description": (
+                "Rate limit exceeded — either the per-IP API rate limit or the "
+                "Google Cloud Vision API quota has been reached."
+            ),
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+        502: {
+            "description": "The Google Cloud Vision OCR service returned an error.",
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+        504: {
+            "description": (
+                f"Request timed out after {settings.http_request_timeout} seconds "
+                "(configurable via `http_request_timeout`)."
+            ),
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+    },
+)
 async def ocr_documents(
-    files: Annotated[list[UploadFile], File(description="Documents to process with OCR")],
+    files: Annotated[
+        list[UploadFile],
+        File(
+            description=(
+                "One or more documents to process via OCR.  "
+                "**Accepted formats**: `.pdf`, `.docx`, `.jpg`, `.jpeg`, "
+                "`.png`, `.tiff`, `.tif`, `.bmp`, `.webp`.  "
+                "`.zip` archives are also accepted and automatically expanded "
+                "server-side — each entry inside the archive is validated "
+                "individually against the same format list.  "
+                f"Maximum size per file: {settings.max_file_size_mb} MB."
+            )
+        ),
+    ],
 ) -> StreamingResponse:
     """Process uploaded documents with OCR and return extracted data as Excel file.
 
