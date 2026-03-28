@@ -124,13 +124,14 @@ jobs:
         working-directory: ${{ matrix.package.path }}
         env:
           PACKAGE_ID: ${{ matrix.package.id }}
+          COVERAGE_SOURCE: ${{ matrix.package.coverageSource || 'app' }}
         run: |
           set +e
           python -m pytest tests/ \
             --asyncio-mode=auto \
             -v \
             --tb=short \
-            --cov=app \
+            --cov="${COVERAGE_SOURCE}" \
             --cov-report=json:coverage.json \
             --cov-report=term-missing \
             --json-report \

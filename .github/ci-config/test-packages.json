@@ -21,11 +21,26 @@
     "dependsOn": []
   },
   {
+    "id": "harbor",
+    "name": "shared/Harbor/harbor_ts",
+    "path": "shared/Harbor/harbor_ts",
+    "runner": "node",
+    "dependsOn": []
+  },
+  {
+    "id": "harbor-py",
+    "name": "shared/Harbor/harbor_py",
+    "path": "shared/Harbor/harbor_py",
+    "runner": "python",
+    "coverageSource": "harbor_py",
+    "dependsOn": []
+  },
+  {
     "id": "bff-gateway",
     "name": "bff-gateway",
     "path": "bff-gateway",
     "runner": "node",
-    "dependsOn": ["bowltie"]
+    "dependsOn": ["bowltie", "harbor"]
   },
   {
     "id": "users-api",
