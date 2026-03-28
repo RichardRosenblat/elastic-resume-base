@@ -9,7 +9,7 @@ The Users API:
 - Exposes RESTful CRUD endpoints for user management
 - Implements the **BFF Authorization Logic** via `POST /api/v1/users/authorize`
 - Manages a `pre_approved_users` collection for admin-controlled user onboarding
-- Supports auto-onboarding of users from configurable email domains (`ONBOARDABLE_EMAIL_DOMAINS`)
+- Supports auto-onboarding of users from configurable email domains or explicit addresses (`AUTO_USER_CREATION_DOMAINS`, `AUTO_ADMIN_CREATION_DOMAINS`)
 
 > **Architecture note:** All Firebase / Firestore interactions are handled exclusively by the [Synapse](../shared/Synapse/README.md) shared library. The Users API has no direct `firebase-admin` dependency; it delegates persistence initialisation and data access entirely to Synapse.
 
@@ -19,10 +19,11 @@ When `bff-gateway` needs to authorize a user, it calls `POST /api/v1/users/autho
 
 1. **Look up by UID in the `users` collection** — if found, return `{ role, enable }`.
 2. **Look up by email in the `pre_approved_users` collection** — if found, create a new user record (with `enable: true`), remove from pre-approved, and return `{ role, enable: true }`.
-3. **Check `ONBOARDABLE_EMAIL_DOMAINS`** — if the email domain matches, create a new user record (with `enable: false`, role `user`), and return `{ role: 'user', enable: false }`.
-4. **Otherwise** — return `403 Forbidden`.
+3. **Check `AUTO_ADMIN_CREATION_DOMAINS`** — if the email or domain matches, create a new user record (with `role: 'admin'`, `enable: true`) and return immediately.
+4. **Check `AUTO_USER_CREATION_DOMAINS`** — if the email or domain matches, create a new user record (with `role: 'user'`, `enable: false`) and return immediately. Falls back to the legacy `ONBOARDABLE_EMAIL_DOMAINS` value when `AUTO_USER_CREATION_DOMAINS` is not set.
+5. **Otherwise** — return `403 Forbidden`.
 
-> **Note:** Users created via domain onboarding (`enable: false`) require an admin to set `enable: true` (via `PATCH /api/v1/users/:uid`) before they can access protected routes. Users promoted from the pre-approved list are immediately active (`enable: true`).
+> **Note:** Users created via `AUTO_USER_CREATION_DOMAINS` (`enable: false`) require an admin to set `enable: true` (via `PATCH /api/v1/users/:uid`) before they can access protected routes. Users created via `AUTO_ADMIN_CREATION_DOMAINS` or promoted from the pre-approved list are immediately active (`enable: true`).
 
 ---
 
@@ -79,7 +80,9 @@ All configuration is loaded from `config.yaml` (merged from `systems.shared` and
 | `FIREBASE_AUTH_EMULATOR_HOST` | No | — | Set to point Firebase Auth to a local emulator (read automatically by firebase-admin via Synapse) |
 | `FIRESTORE_USERS_COLLECTION` | No | `users` | Firestore collection name for user records |
 | `FIRESTORE_PRE_APPROVED_USERS_COLLECTION` | No | `pre_approved_users` | Firestore collection name for pre-approved users |
-| `ONBOARDABLE_EMAIL_DOMAINS` | No | — | Comma-separated email domains that are auto-onboarded with `enable=false` |
+| `AUTO_ADMIN_CREATION_DOMAINS` | No | — | Comma-separated list of domains and/or explicit emails whose users are automatically created with `role=admin` and `enable=true`. Set to an empty string to disable admin auto-creation entirely. |
+| `AUTO_USER_CREATION_DOMAINS` | No | — | Comma-separated list of domains and/or explicit emails whose users are automatically created with `role=user` and `enable=false`. Set to an empty string to disable user auto-creation entirely. When not set, falls back to `ONBOARDABLE_EMAIL_DOMAINS`. |
+| `ONBOARDABLE_EMAIL_DOMAINS` | No | — | **Deprecated** — use `AUTO_USER_CREATION_DOMAINS` instead. Comma-separated email domains auto-onboarded with `enable=false`. Ignored when `AUTO_USER_CREATION_DOMAINS` is set. |
 | `BOOTSTRAP_ADMIN_USER_EMAIL` | No | — | Email address pre-approved as admin on startup (idempotent) |
 | `LOG_LEVEL` | No | `info` | Pino log level |
 | `GCP_PROJECT_ID` | No | `demo-elastic-resume-base` | GCP project for Cloud Logging |
@@ -165,8 +168,9 @@ The test suite covers the authorization scenarios in `usersService.authorizeUser
 1. **Existing active user** — UID found in `users` collection with `enable: true` → returns `{ role, enable: true }`.
 2. **Existing pending user** — UID found in `users` collection with `enable: false` → returns `{ role, enable: false }`.
 3. **Pre-approved user** — UID not found but email is in `pre_approved_users` → creates user with `enable: true`, removes from pre-approved list, returns `{ role, enable: true }`.
-4. **Onboardable domain** — UID and email not found but domain matches `ONBOARDABLE_EMAIL_DOMAINS` → creates user, returns `{ role: 'user', enable: false }`.
-5. **No access** — UID, email, and domain all unrecognized → throws `ForbiddenError` → HTTP 403.
+4. **Auto-admin creation** — email/domain matches `AUTO_ADMIN_CREATION_DOMAINS` → creates admin user with `role: 'admin', enable: true`.
+5. **Auto-user creation** — email/domain matches `AUTO_USER_CREATION_DOMAINS` (or legacy `ONBOARDABLE_EMAIL_DOMAINS`) → creates user with `role: 'user', enable: false`.
+6. **No access** — UID, email, and domain all unrecognized → throws `ForbiddenError` → HTTP 403.
 
 ---
 
