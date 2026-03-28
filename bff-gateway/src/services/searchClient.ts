@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { isHarborError } from '@elastic-resume-base/harbor';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
@@ -19,7 +19,7 @@ export async function search(payload: SearchRequest): Promise<SearchResponse> {
     logger.debug({ resultCount: response.data.results?.length }, 'search: response received from search service');
     return response.data;
   } catch (err) {
-    if (axios.isAxiosError(err)) {
+    if (isHarborError(err)) {
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn({ query: payload.query }, 'search: search service unavailable');
         throw new UnavailableError('Search service unavailable');

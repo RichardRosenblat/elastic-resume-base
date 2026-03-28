@@ -1,6 +1,6 @@
 # Shared Libraries Coding Standards
 
-This document defines the standards for developing and maintaining the shared libraries (`Synapse`, `Bowltie`, `Bugle`, `Toolbox`, `Hermes` TypeScript, `hermes` Python) under `shared/`.
+This document defines the standards for developing and maintaining the shared libraries (`Synapse`, `Bowltie`, `Bugle`, `Toolbox`, `Hermes` TypeScript, `Harbor` TypeScript/Python, `hermes` Python) under `shared/`.
 
 ---
 
@@ -22,6 +22,7 @@ Shared libraries eliminate code duplication across microservices. They are **int
 | **Bowltie** | `@elastic-resume-base/bowltie` | Uniform API response envelope: `formatSuccess<T>()`, `formatError()`, `SuccessResponse<T>`, `ErrorResponse`, `ApiResponse<T>` |
 | **Bugle** | `@elastic-resume-base/bugle` | Google API authentication (`getGoogleAuthClient`), Google Drive permissions (`DrivePermissionsService.getUsersWithFileAccess`) |
 | **Hermes** | `@elastic-resume-base/hermes` | Messaging abstraction: `IMessagingService`, `SmtpMessagingService`, `initializeMessaging`, `getMessagingService` |
+| **Harbor** | `@elastic-resume-base/harbor` | HTTP request abstraction: `createHarborClient()`, `HarborClientOptions`, `HarborClient`, `isHarborError()` |
 | **Toolbox** | *(plain source, no package name)* | Config loading (`loadConfigYaml`), structured logger factory (`createLogger`), Fastify hooks (`correlationIdHook`, `createRequestLoggerHook`) |
 
 ### Python Libraries (Python services)
@@ -29,6 +30,7 @@ Shared libraries eliminate code duplication across microservices. They are **int
 | Library | Package Name | Responsibility |
 |---|---|---|
 | **hermes** | `elastic-resume-base-hermes` | Messaging abstraction: `IMessagingService` protocol, `SmtpMessagingService`, `initialize_messaging`, `get_messaging_service` |
+| **harbor** | `elastic-resume-base-harbor` | HTTP request abstraction: `create_harbor_client()`, `HarborClient`, `HarborClientOptions`, `is_harbor_error()` |
 
 ---
 

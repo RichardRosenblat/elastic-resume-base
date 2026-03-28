@@ -41,7 +41,7 @@ jest.mock('../../../src/utils/httpClient', () => ({
   }),
 }));
 
-import axios from 'axios';
+import { AxiosError, type AxiosResponse } from 'axios';
 import {
   proxyToUsersApi,
   MAX_PROXY_BODY_SIZE_BYTES,
@@ -67,15 +67,15 @@ function makeAxiosResponse(
 }
 
 /** Creates a minimal axios error (network-level) without a response. */
-function makeAxiosNetworkError(code: string): axios.AxiosError {
-  const err = new axios.AxiosError('Network error', code);
+function makeAxiosNetworkError(code: string): AxiosError {
+  const err = new AxiosError('Network error', code);
   return err;
 }
 
 /** Creates a minimal axios HTTP error (has a response with a status code). */
-function makeAxiosHttpError(status: number): axios.AxiosError {
-  const err = new axios.AxiosError('HTTP error', 'ERR_BAD_RESPONSE');
-  (err as axios.AxiosError).response = { status } as axios.AxiosResponse;
+function makeAxiosHttpError(status: number): AxiosError {
+  const err = new AxiosError('HTTP error', 'ERR_BAD_RESPONSE');
+  (err as AxiosError).response = { status } as AxiosResponse;
   return err;
 }
 

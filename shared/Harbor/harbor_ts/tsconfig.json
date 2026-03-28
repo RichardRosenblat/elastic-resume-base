@@ -5,15 +5,7 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "..",
-    "baseUrl": "..",
-    "ignoreDeprecations": "6.0",
-    "paths": {
-      "@shared/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
-      "axios": ["bff-gateway/node_modules/axios"],
-      "firebase-admin": ["bff-gateway/node_modules/firebase-admin"],
-      "firebase-admin/*": ["bff-gateway/node_modules/firebase-admin/*"]
-    },
+    "rootDir": "./src",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
@@ -22,6 +14,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
     "sourceMap": true
   },
   "include": ["src/**/*"],

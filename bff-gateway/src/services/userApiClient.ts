@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { isHarborError } from '@elastic-resume-base/harbor';
 import { config } from '../config.js';
 import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, RateLimitError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';
@@ -39,7 +39,7 @@ const STATUS_ERROR_MAP: Partial<Record<number, (params: ErrorHandlerParams & { e
  * to the provided default message if the response body cannot be parsed.
  */
 function extractApiMessage(err: unknown, fallback: string): string {
-  if (!axios.isAxiosError(err)) return fallback;
+  if (!isHarborError(err)) return fallback;
   const data = err.response?.data as { error?: { message?: string } } | undefined;
   return typeof data?.error?.message === 'string' ? data.error.message : fallback;
 }
@@ -58,7 +58,7 @@ function handleUserApiError(
   params: ErrorHandlerParams & { unavailableActionMsg: string },
 ): never {
   const { context, operationName } = params;
-  if (axios.isAxiosError(err)) {
+  if (isHarborError(err)) {
     logger.debug(
       { ...context, status: err?.response?.status, data: err?.response?.data as unknown },
       `${operationName}: UserAPI response details`,

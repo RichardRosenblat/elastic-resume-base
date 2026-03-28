@@ -42,20 +42,36 @@ pull_request / workflow_dispatch
 
 Edit `.github/ci-config/test-packages.json`. Each entry has:
 
-| Field       | Type             | Description                                                  |
-|-------------|------------------|--------------------------------------------------------------|
-| `id`        | `string`         | Short identifier used for artifact names (no spaces/slashes) |
-| `name`      | `string`         | Display name shown in the summary table                       |
-| `path`      | `string`         | Path to the package root relative to the repo root           |
-| `dependsOn` | `string[]`       | IDs of packages this one depends on (drives the dep-graph)   |
+| Field            | Type             | Description                                                                |
+|------------------|------------------|----------------------------------------------------------------------------|
+| `id`             | `string`         | Short identifier used for artifact names (no spaces/slashes)               |
+| `name`           | `string`         | Display name shown in the summary table                                    |
+| `path`           | `string`         | Path to the package root relative to the repo root                         |
+| `runner`         | `string`         | `"node"` (default) for Node.js/Jest packages; `"python"` for pytest packages |
+| `coverageSource` | `string`         | *(Python only)* Source directory measured by `--cov`. Defaults to `"app"` |
+| `dependsOn`      | `string[]`       | IDs of packages this one depends on (drives the dep-graph)                 |
 
-**Example — adding a new package:**
+**Example — adding a new Node.js package:**
 
 ```json
 {
   "id": "my-lib",
-  "name": "shared/MyLib",
-  "path": "shared/MyLib",
+  "name": "shared/MyLib/mylib_ts",
+  "path": "shared/MyLib/mylib_ts",
+  "runner": "node",
+  "dependsOn": []
+}
+```
+
+**Example — adding a new Python package:**
+
+```json
+{
+  "id": "my-lib-py",
+  "name": "shared/MyLib/mylib_py",
+  "path": "shared/MyLib/mylib_py",
+  "runner": "python",
+  "coverageSource": "mylib_py",
   "dependsOn": []
 }
 ```
@@ -63,6 +79,10 @@ Edit `.github/ci-config/test-packages.json`. Each entry has:
 **Dependency graph:** if `dependsOn` lists another package's ID, changing that upstream package
 will automatically include this package in the test matrix even if no files in this package
 itself changed. Propagation is transitive.
+
+**Python package requirements:** Python packages must have a `requirements/requirements-dev.txt`
+file at their `path` root. This file should install the package itself (via `-e ..`) plus all
+test-time dependencies (`pytest`, `pytest-cov`, `pytest-asyncio`, `pytest-json-report`, etc.).
 
 ---
 

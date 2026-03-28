@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { isHarborError } from '@elastic-resume-base/harbor';
 import type { IncomingMessage } from 'node:http';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
@@ -20,7 +20,7 @@ export async function readDocument(payload: DocumentReadRequest): Promise<Docume
     logger.debug({ fileReference: payload.fileReference }, 'readDocument: document text extracted successfully');
     return response.data;
   } catch (err) {
-    if (axios.isAxiosError(err)) {
+    if (isHarborError(err)) {
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn({ fileReference: payload.fileReference }, 'readDocument: document reader service unavailable');
         throw new UnavailableError('DocumentReader service unavailable');
@@ -73,7 +73,7 @@ export async function ocrDocuments(
       data: Buffer.from(response.data),
     };
   } catch (err) {
-    if (axios.isAxiosError(err)) {
+    if (isHarborError(err)) {
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn('ocrDocuments: document reader service unavailable');
         throw new UnavailableError('DocumentReader service unavailable');

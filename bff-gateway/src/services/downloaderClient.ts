@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { isHarborError } from '@elastic-resume-base/harbor';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
@@ -19,7 +19,7 @@ export async function triggerIngest(payload: IngestRequest): Promise<IngestRespo
     logger.info({ jobId: response.data.jobId, status: response.data.status }, 'triggerIngest: ingest job accepted');
     return response.data;
   } catch (err) {
-    if (axios.isAxiosError(err)) {
+    if (isHarborError(err)) {
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
         logger.warn({ sheetId: payload.sheetId, batchId: payload.batchId }, 'triggerIngest: downloader service unavailable');
         throw new UnavailableError('Downloader service unavailable');
