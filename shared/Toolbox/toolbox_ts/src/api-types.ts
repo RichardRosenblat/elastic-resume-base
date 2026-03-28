@@ -67,6 +67,28 @@ export interface ListUsersResponse {
   pageToken?: string;
 }
 
+/** Request payload for batch-updating multiple users (role and/or enable status). */
+export interface BatchUpdateUsersRequest {
+  uids: string[];
+  role?: 'admin' | 'user';
+  enable?: boolean;
+}
+
+/** Request payload for batch-deleting multiple users. */
+export interface BatchDeleteUsersRequest {
+  uids: string[];
+}
+
+/** Response from the batch update users endpoint. */
+export interface BatchUpdateUsersResponse {
+  updated: number;
+}
+
+/** Response from the batch delete users endpoint. */
+export interface BatchDeleteUsersResponse {
+  deleted: number;
+}
+
 export type SortDirection = 'asc' | 'desc';
 export type UserSortField = 'uid' | 'email' | 'role' | 'enable';
 export type PreApprovedSortField = 'email' | 'role';

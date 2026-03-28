@@ -6,6 +6,8 @@ import {
   getUserHandler,
   updateUserHandler,
   deleteUserHandler,
+  batchUpdateUsersHandler,
+  batchDeleteUsersHandler,
   getPreApprovedHandler,
   addPreApprovedHandler,
   deletePreApprovedHandler,
@@ -356,6 +358,98 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, updatePreApprovedHandler as RouteHandlerMethod);
+
+  // ── Batch Routes (must be before /:uid to avoid route conflicts) ────────────
+
+  app.patch('/batch', {
+    preHandler: [requireAdminHook],
+    schema: {
+      tags: ['Users'],
+      summary: 'Batch update users (admin only)',
+      description:
+        'Applies the same role and/or enable update to multiple users at once. ' +
+        'Users not found are silently skipped. Rejects the entire request if it would remove all active admins.',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['uids'],
+        properties: {
+          uids: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            example: ['aB3dE5fG7hI9jK1l', 'mN5oP7qR9sT1uV3w'],
+          },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'user', description: "Must be 'admin' or 'user'." },
+          enable: { type: 'boolean', example: true },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch update completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                updated: { type: 'integer', example: 3 },
+              },
+            },
+            meta: successMeta,
+          },
+        },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchUpdateUsersHandler as RouteHandlerMethod);
+
+  app.delete('/batch', {
+    preHandler: [requireAdminHook],
+    schema: {
+      tags: ['Users'],
+      summary: 'Batch delete users (admin only)',
+      description:
+        'Permanently removes multiple users at once. ' +
+        'Users not found are silently skipped. Rejects the entire request if it would delete all active admins.',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['uids'],
+        properties: {
+          uids: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            example: ['aB3dE5fG7hI9jK1l', 'mN5oP7qR9sT1uV3w'],
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch delete completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                deleted: { type: 'integer', example: 2 },
+              },
+            },
+            meta: successMeta,
+          },
+        },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchDeleteUsersHandler as RouteHandlerMethod);
 
   // ── Admin Only Routes ───────────────────────────────────────────────────────
 

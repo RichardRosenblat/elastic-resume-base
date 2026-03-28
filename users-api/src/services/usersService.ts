@@ -9,6 +9,9 @@ import { config } from '../config.js';
 import type {
   AuthorizeRequest,
   AuthorizeResponse,
+  BatchDeleteUsersResponse,
+  BatchUpdateUsersRequest,
+  BatchUpdateUsersResponse,
   ListUsersResponse,
   UpdateUserRequest,
   UserFilters,
@@ -366,6 +369,114 @@ export async function listUsers(
     'listUsers: query complete',
   );
   return { users, pageToken: result.pageToken };
+}
+
+// ---------------------------------------------------------------------------
+// Batch operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Batch-updates multiple users in a single operation.
+ *
+ * Applies the same field update(s) to every UID in the list.
+ * Implements the last-admin guard: if the operation would disable or demote
+ * all remaining enabled admins, the request is rejected.
+ *
+ * @param uids - Array of user UIDs to update.
+ * @param data - Fields to update (role and/or enable).
+ * @returns An object containing the count of successfully updated users.
+ * @throws {ForbiddenError} If the update would remove the last enabled admin.
+ */
+export async function batchUpdateUsers(
+  uids: string[],
+  data: BatchUpdateUsersRequest,
+): Promise<BatchUpdateUsersResponse> {
+  const wouldDisable = data.enable === false;
+  const wouldDemote = data.role !== undefined && data.role !== 'admin';
+
+  if (wouldDisable || wouldDemote) {
+    const { users: allAdmins } = await getUserStore().listUsers(MAX_ADMIN_FETCH, undefined, { role: 'admin', enable: true });
+    const adminCount = allAdmins.length;
+    const targetAdminCount = allAdmins.filter((u: { uid: string }) => uids.includes(u.uid)).length;
+    const remainingAdmins = adminCount - targetAdminCount;
+
+    if (remainingAdmins < 1) {
+      const reason = wouldDisable
+        ? 'You cannot deactivate these users because they include all active admins in the system. Please assign another user as admin before deactivating.'
+        : 'You cannot change the role of these users because they include all active admins in the system. Please assign another user as admin before changing their role.';
+      throw new ForbiddenError(reason);
+    }
+  }
+
+  logger.debug({ count: uids.length }, 'batchUpdateUsers: updating users');
+  const { role, enable } = data;
+  const updateData: UpdateUserRequest = {};
+  if (role !== undefined) updateData.role = role;
+  if (enable !== undefined) updateData.enable = enable;
+
+  const results = await Promise.allSettled(
+    uids.map(async (uid) => {
+      await getUserStore().updateUser(uid, updateData);
+    }),
+  );
+
+  let updated = 0;
+  for (const [i, result] of results.entries()) {
+    if (result.status === 'fulfilled') {
+      updated++;
+    } else if ((result.reason as { code?: string }).code === 'NOT_FOUND') {
+      logger.warn({ uid: uids[i] }, 'batchUpdateUsers: user not found, skipping');
+    } else {
+      throw result.reason;
+    }
+  }
+
+  logger.info({ requested: uids.length, updated, action: 'batchUpdateUsers' }, 'Batch user update complete');
+  return { updated };
+}
+
+/**
+ * Batch-deletes multiple users in a single operation.
+ *
+ * Implements the last-admin guard: if the operation would delete all remaining
+ * enabled admins, the request is rejected.
+ *
+ * @param uids - Array of user UIDs to delete.
+ * @returns An object containing the count of successfully deleted users.
+ * @throws {ForbiddenError} If the operation would remove the last enabled admin.
+ */
+export async function batchDeleteUsers(uids: string[]): Promise<BatchDeleteUsersResponse> {
+  const { users: allAdmins } = await getUserStore().listUsers(MAX_ADMIN_FETCH, undefined, { role: 'admin', enable: true });
+  const adminCount = allAdmins.length;
+  const targetAdminCount = allAdmins.filter((u: { uid: string }) => uids.includes(u.uid)).length;
+  const remainingAdmins = adminCount - targetAdminCount;
+
+  if (remainingAdmins < 1 && targetAdminCount > 0) {
+    throw new ForbiddenError(
+      'You cannot delete these users because they include all active admins in the system. Please assign another user as admin before deleting.',
+    );
+  }
+
+  logger.debug({ count: uids.length }, 'batchDeleteUsers: deleting users');
+  const results = await Promise.allSettled(
+    uids.map(async (uid) => {
+      await getUserStore().deleteUser(uid);
+    }),
+  );
+
+  let deleted = 0;
+  for (const [i, result] of results.entries()) {
+    if (result.status === 'fulfilled') {
+      deleted++;
+    } else if ((result.reason as { code?: string }).code === 'NOT_FOUND') {
+      logger.warn({ uid: uids[i] }, 'batchDeleteUsers: user not found, skipping');
+    } else {
+      throw result.reason;
+    }
+  }
+
+  logger.info({ requested: uids.length, deleted, action: 'batchDeleteUsers' }, 'Batch user delete complete');
+  return { deleted };
 }
 
 // ---------------------------------------------------------------------------

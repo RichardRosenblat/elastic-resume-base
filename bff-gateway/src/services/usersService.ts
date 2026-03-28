@@ -8,6 +8,9 @@ import type {
   UpdateUserRequest,
   UserFilters,
   UserRecord,
+  BatchUpdateUsersRequest,
+  BatchUpdateUsersResponse,
+  BatchDeleteUsersResponse,
 } from '../models/index.js';
 import {
   getUserById,
@@ -19,6 +22,8 @@ import {
   addPreApprovedInApi,
   deletePreApprovedFromApi,
   updatePreApprovedInApi,
+  batchUpdateUsersInApi,
+  batchDeleteUsersFromApi,
 } from './userApiClient.js';
 
 // ---------------------------------------------------------------------------
@@ -157,4 +162,44 @@ export async function updatePreApproved(
   }
   logger.debug({ email }, 'updatePreApproved: updating pre-approved user via UserAPI');
   return updatePreApprovedInApi(email, data);
+}
+
+// ---------------------------------------------------------------------------
+// Batch operations (admin only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Batch-updates multiple users. Requires admin role.
+ *
+ * @param data - Batch update payload (uids + fields to update).
+ * @param requesterRole - Role of the user making the request.
+ * @throws {ForbiddenError} If the requester is not an admin.
+ */
+export async function batchUpdateUsers(
+  data: BatchUpdateUsersRequest,
+  requesterRole: string,
+): Promise<BatchUpdateUsersResponse> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ count: data.uids.length }, 'batchUpdateUsers: batch updating users via UserAPI');
+  return batchUpdateUsersInApi(data);
+}
+
+/**
+ * Batch-deletes multiple users. Requires admin role.
+ *
+ * @param uids - Array of UIDs to delete.
+ * @param requesterRole - Role of the user making the request.
+ * @throws {ForbiddenError} If the requester is not an admin.
+ */
+export async function batchDeleteUsers(
+  uids: string[],
+  requesterRole: string,
+): Promise<BatchDeleteUsersResponse> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ count: uids.length }, 'batchDeleteUsers: batch deleting users via UserAPI');
+  return batchDeleteUsersFromApi(uids);
 }
