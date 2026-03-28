@@ -23,9 +23,9 @@ services:
       - ./firebase-emulator/firebase.json:/srv/firebase/firebase.json
 
   # 2. Node.js Backend-for-Frontend (BFF) Gateway
-  bff-gateway:
+  gateway-api:
     build:
-      context: ./bff-gateway
+      context: ./apps/gateway-api
     ports:
       - "3000:3000"
     volumes:
@@ -38,7 +38,7 @@ services:
   users-api:
     build:
       context: .
-      dockerfile: users-api/Dockerfile
+      dockerfile: apps/users-api/Dockerfile
     ports:
       - "8005:8005"
     volumes:
@@ -49,20 +49,20 @@ services:
   # 4. React Frontend (static bundle served by nginx)
   frontend:
     build:
-      context: ./frontend
+      context: ./apps/frontend
       dockerfile: Dockerfile
       args:
         - VITE_BFF_URL=http://localhost:3000
     ports:
       - "5173:80"
     depends_on:
-      - bff-gateway
+      - gateway-api
 
   # 5. Document Reader / OCR (Python — port 8004)
   document-reader:
     build:
       context: .
-      dockerfile: document-reader/Dockerfile
+      dockerfile: apps/document-reader/Dockerfile
     ports:
       - "8004:8004"
     environment:

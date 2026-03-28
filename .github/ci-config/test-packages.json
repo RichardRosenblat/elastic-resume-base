@@ -36,23 +36,23 @@
     "dependsOn": []
   },
   {
-    "id": "bff-gateway",
-    "name": "bff-gateway",
-    "path": "bff-gateway",
+    "id": "gateway-api",
+    "name": "apps/gateway-api",
+    "path": "apps/gateway-api",
     "runner": "node",
     "dependsOn": ["bowltie", "harbor"]
   },
   {
     "id": "users-api",
-    "name": "users-api",
-    "path": "users-api",
+    "name": "apps/users-api",
+    "path": "apps/users-api",
     "runner": "node",
     "dependsOn": ["bowltie", "bugle", "synapse"]
   },
   {
     "id": "document-reader",
-    "name": "document-reader",
-    "path": "document-reader",
+    "name": "apps/document-reader",
+    "path": "apps/document-reader",
     "runner": "python",
     "dependsOn": []
   }

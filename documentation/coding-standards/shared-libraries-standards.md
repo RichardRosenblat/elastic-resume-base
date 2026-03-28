@@ -69,7 +69,7 @@ shared/Toolbox/
 └── README.md
 ```
 
-Toolbox unit tests live in `bff-gateway/tests/unit/toolbox/` and run as part of the bff-gateway test suite.
+Toolbox unit tests live in `apps/gateway-api/tests/unit/toolbox/` and run as part of the gateway-api test suite.
 
 ### Python Libraries
 
@@ -151,7 +151,7 @@ For **Toolbox**:
 
 1. Implement the feature in `src/<module>.ts`.
 2. Export it from `src/index.ts`.
-3. Add unit tests in `bff-gateway/tests/unit/toolbox/<module>.test.ts`.
+3. Add unit tests in `apps/gateway-api/tests/unit/toolbox/<module>.test.ts`.
 4. Update `shared/Toolbox/README.md` with the new API.
 5. No build step required — consuming services import source directly.
 6. Ensure the consuming service's `package.json` includes any new external dependency used by the module (Toolbox has no `node_modules` of its own).
@@ -164,7 +164,7 @@ For **Toolbox**:
 
 For **Synapse, Bowltie, Bugle, and Hermes**: run `npm test` from within the library directory.
 
-For **Toolbox**: run `npm test` from within the `bff-gateway/` directory (Toolbox tests live in `bff-gateway/tests/unit/toolbox/`).
+For **Toolbox**: run `npm test` from within the `bff-gateway/` directory (Toolbox tests live in `apps/gateway-api/tests/unit/toolbox/`).
 
 ### Python
 
@@ -191,10 +191,10 @@ npm test               # Run unit tests
 npm run test:coverage  # Run tests with coverage report
 ```
 
-**Toolbox** requires no commands — it has no `package.json`. Its tests run as part of `bff-gateway`:
+**Toolbox** requires no commands — it has no `package.json`. Its tests run as part of `apps/gateway-api`:
 
 ```bash
-cd bff-gateway
+cd apps/gateway-api
 npm test
 ```
 

@@ -48,9 +48,9 @@ By contributing to this project, you agree to abide by our [Code of Conduct](COD
 
 ### Running checks locally
 
-**Node.js (BFF Gateway):**
+**Node.js (Gateway API):**
 ```bash
-cd bff-gateway
+cd apps/gateway-api
 npm run lint
 npm run format:check
 npm run typecheck
@@ -114,7 +114,7 @@ This project follows the **[Conventional Commits](https://www.conventionalcommit
 ### Examples
 
 ```
-feat(bff-gateway): add resume search endpoint with pagination
+feat(gateway-api): add resume search endpoint with pagination
 
 fix(ai-worker): handle empty Vertex AI response gracefully
 
