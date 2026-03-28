@@ -11,6 +11,7 @@ import {
   deletePreApprovedHandler,
   updatePreApprovedHandler,
 } from '../controllers/users.controller.js';
+import { usersProxyHandler } from '../controllers/usersProxy.controller.js';
 
 /** Reusable schema for a user record from the users-api. */
 const userRecordSchema = {
@@ -453,6 +454,13 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, deleteUserHandler as RouteHandlerMethod);
+
+  // ── Transparent Proxy (catch-all) ──────────────────────────────────────────
+  // This wildcard route forwards any request that does not match an explicit
+  // route above to the Users API unchanged.  It enables the BFF to remain
+  // compatible with new Users API endpoints without requiring new BFF routes.
+  // Auth is enforced by the parent scope's `authHook` preHandler hook.
+  app.all('/*', usersProxyHandler as RouteHandlerMethod);
 };
 
 export default usersPlugin;
