@@ -1,5 +1,6 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, RouteHandlerMethod } from 'fastify';
 import { readDocumentHandler, ocrDocumentsHandler } from '../controllers/documents.controller.js';
+import { documentsProxyHandler } from '../controllers/documentsProxy.controller.js';
 
 const documentsPlugin: FastifyPluginAsync = async (app) => {
   // The `/ocr` endpoint receives raw multipart file uploads and forwards the
@@ -251,6 +252,13 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, ocrDocumentsHandler);
+
+  // ── Transparent Proxy (catch-all) ──────────────────────────────────────────
+  // This wildcard route forwards any request that does not match an explicit
+  // route above to the Document Reader service unchanged.  It enables the BFF
+  // to remain compatible with new Document Reader endpoints without requiring
+  // new BFF routes.  Auth is enforced by the parent scope's `authHook`.
+  app.all('/*', documentsProxyHandler as RouteHandlerMethod);
 };
 
 export default documentsPlugin;
