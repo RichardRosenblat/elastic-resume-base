@@ -74,13 +74,71 @@ export function _resetStores(): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolves a comma-separated pattern list from config into an array of trimmed,
+ * non-empty strings.  Returns `null` when the config value is `undefined` so the
+ * caller can distinguish "env var never set" from "env var explicitly set to empty".
+ *
+ * - `undefined` → `null`  (env var not set; caller may apply fallback logic)
+ * - `""`        → `[]`    (env var set to empty; feature explicitly disabled)
+ * - `"a,b"`     → `["a","b"]` (feature active with the given patterns)
+ *
+ * @internal
+ */
+function parsePatternList(value: string | undefined): string[] | null {
+  if (value === undefined) return null;
+  return value
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Returns `true` if `email` matches any pattern in `patterns`.
+ *
+ * Pattern formats supported:
+ * - `"example.com"` or `"@example.com"` — matches any address whose domain is `example.com`
+ * - `"user@example.com"` — exact email match (case-insensitive)
+ *
+ * @internal
+ */
+export function matchesEmailOrDomain(email: string, patterns: string[]): boolean {
+  const normalizedEmail = email.toLowerCase();
+  const domain = normalizedEmail.split('@')[1];
+  if (!domain) return false;
+
+  return patterns.some((pattern) => {
+    const p = pattern.toLowerCase();
+
+    // "@example.com" — strip leading "@" and compare as domain
+    if (p.startsWith('@')) {
+      return p.slice(1) === domain;
+    }
+
+    // "example.com" — plain domain match
+    if (!p.includes('@')) {
+      return p === domain;
+    }
+
+    // "user@example.com" — exact email match
+    return p === normalizedEmail;
+  });
+}
+
+/**
  * Implements the BFF Authorization Logic.
  *
  * Resolution order:
  * 1. Check users store by uid — if found, return role and enable status.
  * 2. Check pre-approved store by email — if found, promote to users with enable=true.
- * 3. Check email domain against ONBOARDABLE_EMAIL_DOMAINS — if matched, create with enable=false.
- * 4. Return 403 if no match.
+ * 3. Check AUTO_ADMIN_CREATION_DOMAINS — if matched, create with role=admin, enable=true.
+ * 4. Check AUTO_USER_CREATION_DOMAINS (or legacy ONBOARDABLE_EMAIL_DOMAINS) — if matched,
+ *    create with role=user, enable=false.
+ * 5. Return 403 if no match.
+ *
+ * Auto-creation behaviour per env var state:
+ * - Env var **not set** (undefined): feature uses its default/fallback behaviour.
+ * - Env var **set to empty string**: feature is explicitly disabled (no auto-creation).
+ * - Env var **set to a list**: auto-creation applies only for matching addresses.
  *
  * @param request - Object containing uid and email from the Firebase token.
  * @returns The user's role and enable status.
@@ -143,46 +201,32 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
     return { role, enable: true };
   }
 
-  // Step 3: Check email domain
-  const onboardableDomains = config.onboardableEmailDomains
-    .split(',')
-    .map((d) => d.trim())
-    .filter(Boolean);
-
-  if (onboardableDomains.length > 0) {
-    const domain = email.split('@')[1]?.toLowerCase();
-
-    const isOnboardable =
-      domain &&
-      onboardableDomains.some((pattern) => {
-        const normalizedPattern = pattern.toLowerCase();
-        const normalizedDomain = domain.toLowerCase();
-
-        // 1. Exact domain match (handles "@example.com" or "example.com")
-        if (normalizedPattern.startsWith('@')) {
-          return normalizedPattern.slice(1) === normalizedDomain;
-        }
-
-        // 2. Simple domain match "example.com"
-        if (!normalizedPattern.includes('@')) {
-          return normalizedPattern === normalizedDomain;
-        }
-
-        // 3. Fallback: Full email match "user@example.com"
-        return normalizedPattern === email.toLowerCase();
-      });
-
-    if (isOnboardable) {
-      logger.info(
-        { uid, email, domain },
-        'authorizeUser: email is onboardable, creating user with enable=false',
-      );
-      await userStore.createUser({ uid, email, role: DEFAULT_ROLE, enable: false });
-      return { role: DEFAULT_ROLE, enable: false };
-    }
+  // Step 3: Check AUTO_ADMIN_CREATION_DOMAINS — creates admin users automatically
+  const adminPatterns = parsePatternList(config.autoAdminCreationDomains);
+  if (adminPatterns !== null && adminPatterns.length > 0 && matchesEmailOrDomain(email, adminPatterns)) {
+    logger.info(
+      { uid, email },
+      'authorizeUser: email matches AUTO_ADMIN_CREATION_DOMAINS, creating admin user with enable=true',
+    );
+    await userStore.createUser({ uid, email, role: 'admin', enable: true });
+    return { role: 'admin', enable: true };
   }
 
-  // Step 4: No access
+  // Step 4: Check AUTO_USER_CREATION_DOMAINS (with legacy ONBOARDABLE_EMAIL_DOMAINS fallback)
+  // AUTO_USER_CREATION_DOMAINS takes precedence when set (even to empty, which disables it).
+  // Falls back to ONBOARDABLE_EMAIL_DOMAINS when AUTO_USER_CREATION_DOMAINS is not set.
+  const userPatternsRaw = config.autoUserCreationDomains ?? config.onboardableEmailDomains;
+  const userPatterns = parsePatternList(userPatternsRaw);
+  if (userPatterns !== null && userPatterns.length > 0 && matchesEmailOrDomain(email, userPatterns)) {
+    logger.info(
+      { uid, email },
+      'authorizeUser: email matches user creation domains, creating user with enable=false',
+    );
+    await userStore.createUser({ uid, email, role: DEFAULT_ROLE, enable: false });
+    return { role: DEFAULT_ROLE, enable: false };
+  }
+
+  // Step 5: No access
   logger.info({ uid, email }, 'authorizeUser: user has no access');
   throw new ForbiddenError('User does not have access to this application');
 }

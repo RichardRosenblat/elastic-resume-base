@@ -24,6 +24,8 @@ jest.mock('../../../src/config', () => ({
     firestoreUsersCollection: 'users',
     firestorePreApprovedUsersCollection: 'pre_approved_users',
     onboardableEmailDomains: '',
+    autoUserCreationDomains: undefined as string | undefined,
+    autoAdminCreationDomains: undefined as string | undefined,
     bootstrapAdminUserEmail: undefined as string | undefined,
   },
 }));
@@ -44,6 +46,7 @@ import { FirestoreUserDocumentStore, FirestorePreApprovedStore } from '@elastic-
 import { config } from '../../../src/config.js';
 import { NotFoundError, ForbiddenError } from '../../../src/errors.js';
 import { authorizeUser,
+  matchesEmailOrDomain,
   getUserByUid,
   updateUser,
   deleteUser,
@@ -96,6 +99,8 @@ describe('usersService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (config as Record<string, unknown>)['onboardableEmailDomains'] = '';
+    (config as Record<string, unknown>)['autoUserCreationDomains'] = undefined;
+    (config as Record<string, unknown>)['autoAdminCreationDomains'] = undefined;
     (config as Record<string, unknown>)['bootstrapAdminUserEmail'] = undefined;
   });
 
@@ -128,7 +133,7 @@ describe('usersService', () => {
       expect(preApprovedStore.delete).toHaveBeenCalledWith('alice@example.com');
     });
 
-    it('creates user with enable=false when email domain is onboardable', async () => {
+    it('creates user with enable=false when email domain is onboardable (legacy ONBOARDABLE_EMAIL_DOMAINS)', async () => {
       (config as Record<string, unknown>)['onboardableEmailDomains'] = 'example.com';
       const { userStore, preApprovedStore } = setupMocks();
       userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
@@ -177,6 +182,177 @@ describe('usersService', () => {
 
       expect(result.role).toBe('admin');
       expect(result.enable).toBe(true);
+    });
+
+    // ── AUTO_USER_CREATION_DOMAINS ────────────────────────────────────────────
+
+    it('creates user with role=user, enable=false when email domain matches AUTO_USER_CREATION_DOMAINS', async () => {
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = 'example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('user');
+      expect(result.enable).toBe(false);
+      expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
+    });
+
+    it('creates user with role=user, enable=false when explicit email matches AUTO_USER_CREATION_DOMAINS', async () => {
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = 'alice@example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('user');
+      expect(result.enable).toBe(false);
+    });
+
+    it('does not create user when AUTO_USER_CREATION_DOMAINS is set to empty string (disabled)', async () => {
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = '';
+      (config as Record<string, unknown>)['onboardableEmailDomains'] = 'example.com'; // legacy fallback should be ignored
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+
+      await expect(
+        authorizeUser({ uid: 'uid123', email: 'alice@example.com' }),
+      ).rejects.toThrow(ForbiddenError);
+
+      expect(userStore.createUser).not.toHaveBeenCalled();
+    });
+
+    it('AUTO_USER_CREATION_DOMAINS takes precedence over legacy ONBOARDABLE_EMAIL_DOMAINS', async () => {
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = 'other.com';
+      (config as Record<string, unknown>)['onboardableEmailDomains'] = 'example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+
+      // alice@example.com matches legacy domain but NOT autoUserCreationDomains → 403
+      await expect(
+        authorizeUser({ uid: 'uid123', email: 'alice@example.com' }),
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    // ── AUTO_ADMIN_CREATION_DOMAINS ───────────────────────────────────────────
+
+    it('creates admin user with role=admin, enable=true when email domain matches AUTO_ADMIN_CREATION_DOMAINS', async () => {
+      (config as Record<string, unknown>)['autoAdminCreationDomains'] = 'example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('admin');
+      expect(result.enable).toBe(true);
+      expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+    });
+
+    it('creates admin user with role=admin, enable=true when explicit email matches AUTO_ADMIN_CREATION_DOMAINS', async () => {
+      (config as Record<string, unknown>)['autoAdminCreationDomains'] = 'alice@example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('admin');
+      expect(result.enable).toBe(true);
+    });
+
+    it('does not auto-create admin when AUTO_ADMIN_CREATION_DOMAINS is set to empty string (disabled)', async () => {
+      (config as Record<string, unknown>)['autoAdminCreationDomains'] = '';
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = 'example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      // Falls through to AUTO_USER_CREATION_DOMAINS
+      expect(result.role).toBe('user');
+      expect(result.enable).toBe(false);
+    });
+
+    it('admin creation takes priority over user creation when email matches both domains', async () => {
+      (config as Record<string, unknown>)['autoAdminCreationDomains'] = 'example.com';
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = 'example.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+      userStore.createUser.mockResolvedValue({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('admin');
+      expect(result.enable).toBe(true);
+      expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'admin', enable: true });
+    });
+
+    it('throws 403 when email matches no auto-creation domain', async () => {
+      (config as Record<string, unknown>)['autoAdminCreationDomains'] = 'admin.com';
+      (config as Record<string, unknown>)['autoUserCreationDomains'] = 'user.com';
+      const { userStore, preApprovedStore } = setupMocks();
+      userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
+      preApprovedStore.getByEmail.mockResolvedValue(null);
+
+      await expect(
+        authorizeUser({ uid: 'uid123', email: 'alice@other.com' }),
+      ).rejects.toThrow(ForbiddenError);
+    });
+  });
+
+  // ── matchesEmailOrDomain ──────────────────────────────────────────────────
+
+  describe('matchesEmailOrDomain', () => {
+    it('matches a plain domain pattern', () => {
+      expect(matchesEmailOrDomain('alice@example.com', ['example.com'])).toBe(true);
+    });
+
+    it('matches a @-prefixed domain pattern', () => {
+      expect(matchesEmailOrDomain('alice@example.com', ['@example.com'])).toBe(true);
+    });
+
+    it('matches an exact email pattern', () => {
+      expect(matchesEmailOrDomain('alice@example.com', ['alice@example.com'])).toBe(true);
+    });
+
+    it('does not match a different domain', () => {
+      expect(matchesEmailOrDomain('alice@other.com', ['example.com'])).toBe(false);
+    });
+
+    it('does not match a different email on the same domain', () => {
+      expect(matchesEmailOrDomain('bob@example.com', ['alice@example.com'])).toBe(false);
+    });
+
+    it('is case-insensitive for domains', () => {
+      expect(matchesEmailOrDomain('alice@EXAMPLE.COM', ['example.com'])).toBe(true);
+    });
+
+    it('is case-insensitive for exact email patterns', () => {
+      expect(matchesEmailOrDomain('ALICE@example.com', ['alice@example.com'])).toBe(true);
+    });
+
+    it('returns false for an email without @', () => {
+      expect(matchesEmailOrDomain('notanemail', ['example.com'])).toBe(false);
+    });
+
+    it('matches against multiple patterns', () => {
+      expect(matchesEmailOrDomain('alice@example.com', ['other.com', 'example.com'])).toBe(true);
+    });
+
+    it('returns false for empty patterns array', () => {
+      expect(matchesEmailOrDomain('alice@example.com', [])).toBe(false);
     });
   });
 

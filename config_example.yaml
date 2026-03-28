@@ -112,8 +112,25 @@ systems:
     # with the 'admin' role, unless it already exists in either collection.
     BOOTSTRAP_ADMIN_USER_EMAIL: ""
 
+    # Comma-separated list of domains and/or explicit email addresses whose users are
+    # automatically created with role=admin and enable=true on first login.
+    # Supports domain patterns ("example.com", "@example.com") and full addresses ("user@example.com").
+    # Set to an empty string to disable admin auto-creation entirely.
+    # Leave unset to use default (no auto-admin creation).
+    AUTO_ADMIN_CREATION_DOMAINS: ""
+
+    # Comma-separated list of domains and/or explicit email addresses whose users are
+    # automatically created with role=user and enable=false on first login.
+    # Supports domain patterns ("example.com", "@example.com") and full addresses ("user@example.com").
+    # Users created this way must be approved by an admin before they can access the application.
+    # Set to an empty string to disable user auto-creation entirely.
+    # When not set, falls back to ONBOARDABLE_EMAIL_DOMAINS (deprecated).
+    AUTO_USER_CREATION_DOMAINS: ""
+
+    # Deprecated — use AUTO_USER_CREATION_DOMAINS instead.
     # Comma-separated list of email domains that are automatically onboarded.
     # Users from these domains are registered with enable=false and must be approved by an admin.
+    # Ignored when AUTO_USER_CREATION_DOMAINS is set.
     # Leave empty to disable automatic onboarding (only pre-approved users gain access).
     ONBOARDABLE_EMAIL_DOMAINS: ""
 
