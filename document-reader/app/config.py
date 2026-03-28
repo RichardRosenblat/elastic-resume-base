@@ -136,6 +136,24 @@ class Settings(BaseSettings):
         http_request_timeout: Maximum seconds a single HTTP request to this
             service may take before a 504 Gateway Timeout is returned.
             Defaults to ``60``.  Health endpoints are excluded from this limit.
+        vision_api_max_retries: Maximum number of retry attempts for transient
+            Vision API errors (e.g. ``DeadlineExceeded``, ``ServiceUnavailable``).
+            Retries use exponential backoff starting at ``vision_api_retry_delay``
+            seconds.  Set to ``0`` to disable retries.  Defaults to ``3``.
+        vision_api_retry_delay: Initial backoff delay in seconds before the
+            first retry attempt.  Each subsequent attempt doubles the delay
+            (exponential backoff).  Defaults to ``1.0``.
+        vision_api_image_max_dimension: Maximum width or height in pixels for
+            images sent to the Vision API.  Images larger than this are
+            downscaled proportionally before the API call to reduce payload size
+            and avoid ``504 Deadline Exceeded`` errors.  Set to ``0`` to
+            disable downscaling.  Defaults to ``3000``.
+        vision_api_pdf_dpi: DPI (dots per inch) used when rendering PDF pages
+            to raster images before Vision API processing.  Higher values
+            improve OCR accuracy on small text at the cost of larger payloads
+            and slower Vision API calls.  Lower values reduce payload size but
+            may reduce accuracy on densely-typed documents.  Defaults to
+            ``200``.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -149,6 +167,10 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     vision_api_timeout: float = 30.0
     http_request_timeout: int = 60
+    vision_api_max_retries: int = 3
+    vision_api_retry_delay: float = 1.0
+    vision_api_image_max_dimension: int = 3000
+    vision_api_pdf_dpi: int = 200
 
 
 settings = Settings()
