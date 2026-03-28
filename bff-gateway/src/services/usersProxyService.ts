@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { isHarborError } from '@elastic-resume-base/harbor';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
@@ -176,7 +176,7 @@ export async function proxyToUsersApi(
     };
   } catch (err) {
     // Re-throw any error that WE threw above (i.e. DownstreamError for 5xx).
-    if (!axios.isAxiosError(err)) {
+    if (!isHarborError(err)) {
       throw err;
     }
 
