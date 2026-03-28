@@ -111,8 +111,25 @@ shared/<library-name>/
 
 ## Versioning and Compatibility
 
-- Libraries are not versioned independently — they are always consumed at the current monorepo `HEAD`.
-- Breaking changes must be communicated in the PR description and applied to all consumers in the same PR.
+Every shared library is independently versioned using [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+The version is stored in `package.json` (TypeScript) and `pyproject.toml` (Python).
+
+**Every PR that touches a shared library must:**
+
+1. Bump the version in `package.json` / `pyproject.toml` according to the change type:
+   - `PATCH` — bug fixes and internal refactors with no observable API change.
+   - `MINOR` — new backward-compatible exports or optional parameters.
+   - `MAJOR` — any breaking change (removed/renamed export, changed type signature, changed runtime behaviour).
+2. Add an entry to the library's `CHANGELOG.md` describing what changed.
+
+**MAJOR version bumps additionally require:**
+
+- All consuming services in the monorepo updated in the **same PR**.
+- A `### Breaking Changes` sub-section in the CHANGELOG entry.
+- An explicit list of affected services in the PR description.
+
+For the full step-by-step workflow (for both library authors and consumers), see the
+[Shared Library Versioning Guide](../shared-library-versioning.md).
 
 ---
 
@@ -243,4 +260,6 @@ See [Monorepo Scripts](../monorepo-scripts.md) for details on the build scripts.
 
 - [Node.js Coding Standards](nodejs-coding-standards.md) — Jest configuration for consuming services
 - [Monorepo Scripts](../monorepo-scripts.md) — building all shared libraries with one command
+- [Shared Library Versioning Guide](../shared-library-versioning.md) — how to bump versions and write CHANGELOG entries
 - [ADR-001: Monorepo Structure](../adr/ADR-001-monorepo-structure.md) — rationale for the monorepo approach
+- [ADR-009: Semantic Versioning and CHANGELOG for Shared Libraries](../adr/ADR-009-shared-library-versioning.md) — versioning decision
