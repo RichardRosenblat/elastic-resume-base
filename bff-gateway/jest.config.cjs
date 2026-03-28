@@ -19,6 +19,7 @@ module.exports = {
     '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/bowltie_ts/src/index.ts',
     '^@elastic-resume-base/aegis$': '<rootDir>/../shared/Aegis/aegis_ts/src/index.ts',
     '^@elastic-resume-base/harbor$': '<rootDir>/../shared/Harbor/harbor_ts/src/index.ts',
+    '^axios$': '<rootDir>/node_modules/axios/dist/node/axios.cjs',
     '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
   },
 };
