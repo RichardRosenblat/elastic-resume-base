@@ -12,6 +12,19 @@ Quick start::
     logger = get_logger(__name__)
     logger.info("Service started")
 
+Middleware::
+
+    from toolbox_py import CorrelationIdMiddleware
+
+    # In FastAPI application setup:
+    app.add_middleware(CorrelationIdMiddleware)
+
+Context accessors (usable anywhere in a request context)::
+
+    from toolbox_py import get_correlation_id, get_trace_id, get_span_id
+
+    correlation_id = get_correlation_id()
+
 Error classes::
 
     from toolbox_py import NotFoundError, ValidationError
@@ -64,11 +77,22 @@ from toolbox_py.errors import (
     is_app_error,
 )
 from toolbox_py.logger import get_logger, setup_logging
+from toolbox_py.middleware import (
+    CorrelationIdMiddleware,
+    get_correlation_id,
+    get_span_id,
+    get_trace_id,
+)
 
 __all__ = [
     # Logging
     "setup_logging",
     "get_logger",
+    # Middleware
+    "CorrelationIdMiddleware",
+    "get_correlation_id",
+    "get_trace_id",
+    "get_span_id",
     # Error classes
     "AppError",
     "NotFoundError",

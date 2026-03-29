@@ -9,11 +9,15 @@ function makeRequest(overrides: Record<string, unknown> = {}): {
   method: string;
   url: string;
   correlationId: string;
+  traceId: string;
+  spanId: string;
 } {
   return {
     method: 'GET',
     url: '/api/v1/users',
     correlationId: 'test-correlation-id',
+    traceId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    spanId: '42',
     ...overrides,
   };
 }
@@ -27,7 +31,7 @@ function makeReply(overrides: Record<string, unknown> = {}): { statusCode: numbe
 }
 
 describe('createRequestLoggerHook', () => {
-  it('logs an info entry with request details', () => {
+  it('logs an info entry with request details including traceId and spanId', () => {
     const mockLogger = { info: jest.fn() };
     const hook = createRequestLoggerHook(mockLogger);
     const done = jest.fn();
@@ -41,6 +45,8 @@ describe('createRequestLoggerHook', () => {
         statusCode: 200,
         durationMs: 43,
         correlationId: 'test-correlation-id',
+        traceId: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+        spanId: '42',
       },
       'HTTP request',
     );

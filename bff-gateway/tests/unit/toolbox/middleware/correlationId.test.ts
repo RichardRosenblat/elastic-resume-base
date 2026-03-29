@@ -1,6 +1,6 @@
 /**
  * Unit tests for correlationIdHook.
- * Tests that the hook attaches or generates a correlation ID on every request.
+ * Tests that the hook attaches or generates a correlation ID and Cloud Trace context on every request.
  */
 
 import { correlationIdHook } from '../../../../../shared/Toolbox/toolbox_ts/src/middleware/correlationId.js';
@@ -8,8 +8,10 @@ import { correlationIdHook } from '../../../../../shared/Toolbox/toolbox_ts/src/
 function makeRequest(headers: Record<string, string> = {}): {
   headers: Record<string, string>;
   correlationId: string;
+  traceId: string;
+  spanId: string;
 } {
-  return { headers, correlationId: '' };
+  return { headers, correlationId: '', traceId: '', spanId: '' };
 }
 
 function makeReply(): { _headers: Record<string, string>; header(k: string, v: string): void } {
@@ -57,5 +59,59 @@ describe('correlationIdHook', () => {
     correlationIdHook(request, reply, done);
 
     expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it('parses traceId and spanId from a valid x-cloud-trace-context header', () => {
+    const traceId = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    const spanId = '12345';
+    const request = makeRequest({ 'x-cloud-trace-context': `${traceId}/${spanId};o=1` });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    correlationIdHook(request, reply, done);
+
+    expect(request.traceId).toBe(traceId);
+    expect(request.spanId).toBe(spanId);
+    expect(reply._headers['x-cloud-trace-context']).toBe(`${traceId}/${spanId};o=1`);
+  });
+
+  it('derives traceId from correlationId when x-cloud-trace-context header is absent', () => {
+    const correlationId = '550e8400-e29b-41d4-a716-446655440000';
+    const request = makeRequest({ 'x-correlation-id': correlationId });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    correlationIdHook(request, reply, done);
+
+    expect(request.traceId).toBe('550e8400e29b41d4a716446655440000');
+    expect(request.spanId).toBe('0');
+    expect(reply._headers['x-cloud-trace-context']).toBe(
+      '550e8400e29b41d4a716446655440000/0;o=1',
+    );
+  });
+
+  it('ignores a malformed x-cloud-trace-context header and falls back to derived trace', () => {
+    const correlationId = '550e8400-e29b-41d4-a716-446655440000';
+    const request = makeRequest({
+      'x-correlation-id': correlationId,
+      'x-cloud-trace-context': 'not-valid-trace-header',
+    });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    correlationIdHook(request, reply, done);
+
+    expect(request.traceId).toBe('550e8400e29b41d4a716446655440000');
+    expect(request.spanId).toBe('0');
+  });
+
+  it('sets x-cloud-trace-context response header with o=1 (tracing enabled)', () => {
+    const request = makeRequest({});
+    const reply = makeReply();
+    const done = jest.fn();
+
+    correlationIdHook(request, reply, done);
+
+    expect(reply._headers['x-cloud-trace-context']).toMatch(/^[0-9a-f]{32}\/[0-9]+;o=1$/);
   });
 });

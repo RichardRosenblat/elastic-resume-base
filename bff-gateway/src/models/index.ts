@@ -57,6 +57,8 @@ declare module 'fastify' {
   interface FastifyRequest {
     user: AuthenticatedUser;
     correlationId: string;
+    traceId: string;
+    spanId: string;
   }
 }
 
