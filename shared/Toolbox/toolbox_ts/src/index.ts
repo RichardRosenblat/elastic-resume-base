@@ -23,108 +23,13 @@
  *   toolbox APIs (users, downloader, search, file generator, document reader).
  */
 
-import { randomUUID } from 'node:crypto';
-
 // ─── Correlation ID hook ──────────────────────────────────────────────────────
 
-/**
- * Minimal request interface needed by the correlation ID hook.
- * Structurally compatible with `FastifyRequest`.
- */
-interface CorrelationRequest {
-  readonly headers: Readonly<Record<string, string | string[] | undefined>>;
-  correlationId: string;
-}
-
-/**
- * Minimal reply interface needed by the correlation ID hook.
- * Structurally compatible with `FastifyReply`.
- */
-interface CorrelationReply {
-  header(key: string, value: string): unknown;
-}
-
-/**
- * Fastify `onRequest` hook that attaches a correlation ID to every incoming
- * request for distributed tracing.
- *
- * Resolution order:
- * 1. The value of the incoming `x-correlation-id` header.
- * 2. A freshly generated UUID v4 when no header is present.
- *
- * The resolved ID is stored on `request.correlationId` and echoed back via
- * the `x-correlation-id` response header.
- */
-export function correlationIdHook(
-  request: CorrelationRequest,
-  reply: CorrelationReply,
-  done: () => void,
-): void {
-  const correlationId = (request.headers['x-correlation-id'] as string) || randomUUID();
-  request.correlationId = correlationId;
-  void reply.header('x-correlation-id', correlationId);
-  done();
-}
+export { correlationIdHook } from './middleware/correlationId.js';
 
 // ─── Request logger hook ──────────────────────────────────────────────────────
 
-/**
- * Minimal logger interface required by the request logger hook.
- * Structurally compatible with `pino.Logger`.
- */
-interface MinimalLogger {
-  info(data: Record<string, unknown>, msg: string): void;
-}
-
-/**
- * Minimal request interface needed by the request logger hook.
- * Structurally compatible with `FastifyRequest`.
- */
-interface LoggableRequest {
-  readonly method: string;
-  readonly url: string;
-  readonly correlationId: string;
-}
-
-/**
- * Minimal reply interface needed by the request logger hook.
- * Structurally compatible with `FastifyReply`.
- */
-interface LoggableReply {
-  readonly statusCode: number;
-  readonly elapsedTime: number;
-}
-
-/**
- * Factory that creates a Fastify `onResponse` hook for structured HTTP request
- * logging.  Each entry includes method, path, statusCode, durationMs, and
- * correlationId.
- *
- * @param logger - A Pino logger (or any object with an `info` method).
- */
-export function createRequestLoggerHook(
-  logger: MinimalLogger,
-): (request: LoggableRequest, reply: LoggableReply, done: () => void) => void {
-  return function requestLoggerHook(
-    request: LoggableRequest,
-    reply: LoggableReply,
-    done: () => void,
-  ): void {
-    logger.info(
-      {
-        method: request.method,
-        path: request.url,
-        statusCode: reply.statusCode,
-        durationMs: Math.round(reply.elapsedTime),
-        correlationId: request.correlationId,
-      },
-      'HTTP request',
-    );
-    done();
-  };
-}
-
-// ─── Error classes ────────────────────────────────────────────────────────────
+export { createRequestLoggerHook } from './middleware/requestLogger.js';
 
 /** Base class for application errors with HTTP status code and machine-readable error code. */
 export class AppError extends Error {

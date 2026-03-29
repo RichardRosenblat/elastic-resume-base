@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from bowltie_py import format_error
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from toolbox_py import get_logger, is_app_error, setup_logging
+from toolbox_py import CorrelationIdMiddleware, get_logger, is_app_error, setup_logging
 
 from app.config import settings
 from app.routers import documents, health
@@ -99,6 +99,7 @@ app = FastAPI(
 )
 
 app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.http_request_timeout)
+app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(health.router, prefix="/health")

@@ -34,5 +34,9 @@ declare module 'fastify' {
   interface FastifyRequest {
     /** Correlation ID for distributed tracing, sourced from `x-correlation-id` header or generated. */
     correlationId: string;
+    /** GCP Cloud Trace trace ID, parsed from `x-cloud-trace-context` header or derived from correlation ID. */
+    traceId: string;
+    /** GCP Cloud Trace span ID, parsed from `x-cloud-trace-context` header or defaulting to `"0"`. */
+    spanId: string;
   }
 }

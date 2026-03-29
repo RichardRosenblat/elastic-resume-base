@@ -6,12 +6,37 @@ ensuring consistency across all service logs in Google Cloud Logging.
 The ``setup_logging`` function replaces the Pino ``createLogger`` factory from
 ``@elastic-resume-base/toolbox`` for Python services — call it **once** at
 application startup, then obtain per-module loggers with ``get_logger``.
+
+When :class:`~toolbox_py.middleware.CorrelationIdMiddleware` is registered on
+the ASGI application, every log record will automatically include
+``correlationId``, ``traceId``, and ``spanId`` fields sourced from the
+per-request context variables.
 """
 
 from __future__ import annotations
 
 import logging
 import sys
+
+
+class _ContextFilter(logging.Filter):
+    """Logging filter that injects tracing context into every log record.
+
+    Reads ``correlationId``, ``traceId``, and ``spanId`` from the context
+    variables managed by :mod:`toolbox_py.middleware` and attaches them as
+    attributes on the :class:`logging.LogRecord`.  When called outside of a
+    request context the values default to empty strings.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Import lazily to avoid a circular import; middleware imports nothing
+        # from this module.
+        from toolbox_py.middleware import get_correlation_id, get_span_id, get_trace_id  # noqa: PLC0415
+
+        record.correlation_id = get_correlation_id()
+        record.trace_id = get_trace_id()
+        record.span_id = get_span_id()
+        return True
 
 
 def setup_logging(level: str = "INFO", json_format: bool = True) -> None:
@@ -38,16 +63,23 @@ def setup_logging(level: str = "INFO", json_format: bool = True) -> None:
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(numeric_level)
+    handler.addFilter(_ContextFilter())
 
     if json_format:
         fmt = (
             '{"time": "%(asctime)s", "level": "%(levelname)s",'
-            ' "logger": "%(name)s", "message": "%(message)s"}'
+            ' "logger": "%(name)s", "message": "%(message)s",'
+            ' "correlationId": "%(correlation_id)s",'
+            ' "traceId": "%(trace_id)s",'
+            ' "spanId": "%(span_id)s"}'
         )
         formatter = logging.Formatter(fmt=fmt, datefmt="%Y-%m-%dT%H:%M:%S")
     else:
         formatter = logging.Formatter(
-            fmt="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+            fmt=(
+                "%(asctime)s  %(levelname)-8s  %(name)s"
+                "  [%(correlation_id)s]  %(message)s"
+            ),
             datefmt="%Y-%m-%dT%H:%M:%S",
         )
 
