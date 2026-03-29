@@ -29,7 +29,7 @@ updates:
 
   # 🧩 All sub-packages (repeat pattern cleanly)
   - package-ecosystem: "npm"
-    directory: "/bff-gateway"
+    directory: "/apps/gateway-api"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -39,7 +39,7 @@ updates:
           - "*"
 
   - package-ecosystem: "npm"
-    directory: "/users-api"
+    directory: "/apps/users-api"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

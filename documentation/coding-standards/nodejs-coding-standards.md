@@ -86,7 +86,7 @@ app.get('/resumes/:id',async(request,reply)=>{reply.send(await resumeService.fin
 All Node.js services should follow this structure:
 
 ```
-bff-gateway/               # or users-api/
+apps/gateway-api/          # or apps/users-api/
 ├── src/
 │   ├── app.ts               # Fastify app factory (buildApp function)
 │   ├── server.ts            # HTTP server entrypoint (calls buildApp + app.listen)

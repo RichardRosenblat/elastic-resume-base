@@ -201,14 +201,14 @@ Ensure you have the following tools installed locally:
 
 6. **Install service dependencies:**
    ```bash
-   # BFF Gateway
-   cd bff-gateway && npm install
+   # Gateway API
+   cd apps/gateway-api && npm install
 
    # Users API
-   cd users-api && npm install
+   cd apps/users-api && npm install
 
    # Frontend
-   cd frontend && npm install
+   cd apps/frontend && npm install
    ```
 
 ### Running with Docker Compose
@@ -228,7 +228,7 @@ Then start the environment:
 docker-compose up
 
 # Start a single service
-docker-compose up bff-gateway
+docker-compose up gateway-api
 
 # Rebuild after code changes
 docker-compose up --build
@@ -256,22 +256,23 @@ The following local endpoints will be available:
 
 ```
 elastic-resume-base/
-├── bff-gateway/               # ✅ Node.js BFF Gateway (Fastify v5)
-│   ├── src/
-│   ├── Dockerfile
-│   └── package.json
-├── users-api/                 # ✅ Node.js Users API Microservice
-│   ├── src/
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/                  # ✅ React + TypeScript SPA (Vite)
-│   ├── src/
-│   ├── Dockerfile
-│   └── package.json
-├── document-reader/               # ✅ Python Document Reader (FastAPI)
-│   ├── app/
-│   ├── Dockerfile
-│   └── pyproject.toml
+├── apps/
+│   ├── gateway-api/               # ✅ Node.js Gateway API (Fastify v5)
+│   │   ├── src/
+│   │   ├── Dockerfile
+│   │   └── package.json
+│   ├── users-api/                 # ✅ Node.js Users API Microservice
+│   │   ├── src/
+│   │   ├── Dockerfile
+│   │   └── package.json
+│   ├── frontend/                  # ✅ React + TypeScript SPA (Vite)
+│   │   ├── src/
+│   │   ├── Dockerfile
+│   │   └── package.json
+│   └── document-reader/           # ✅ Python Document Reader (FastAPI)
+│       ├── app/
+│       ├── Dockerfile
+│       └── pyproject.toml
 ├── shared/                    # ✅ Shared libraries (TypeScript + Python)
 │   ├── Synapse/               # Persistence abstraction (Firestore via firebase-admin)
 │   ├── Bowltie/               # Response formatting utilities (TypeScript + Python)
