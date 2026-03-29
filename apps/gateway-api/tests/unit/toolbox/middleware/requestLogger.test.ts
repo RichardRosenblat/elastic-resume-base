@@ -3,7 +3,7 @@
  * Tests that the factory returns a hook that logs HTTP request details.
  */
 
-import { createRequestLoggerHook } from '../../../../../shared/Toolbox/toolbox_ts/src/middleware/requestLogger.js';
+import { createRequestLoggerHook } from '../../../../../../shared/Toolbox/toolbox_ts/src/middleware/requestLogger.js';
 
 function makeRequest(overrides: Record<string, unknown> = {}): {
   method: string;
