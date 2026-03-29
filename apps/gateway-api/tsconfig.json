@@ -9,7 +9,7 @@
     "baseUrl": "../..",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@shared/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
+      "@shared/toolbox": ["shared/Toolbox/v1/toolbox_ts/src/index.ts"],
       "axios": ["apps/gateway-api/node_modules/axios"],
       "firebase-admin": ["apps/gateway-api/node_modules/firebase-admin"],
       "firebase-admin/*": ["apps/gateway-api/node_modules/firebase-admin/*"]

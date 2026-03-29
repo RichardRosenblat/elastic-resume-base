@@ -41,7 +41,7 @@ shared library is accompanied by:
    added, changed, deprecated, removed, fixed, or secured.
 
 Services continue to reference shared libraries through local file paths
-(`file:../shared/X/x_ts` for npm, editable local paths for pip). They receive library
+(`file:../shared/X/v1/x_ts` for npm, editable local paths for pip). They receive library
 updates when the monorepo is rebased or merged — not automatically. The version number
 and CHANGELOG give consumers the information they need to assess the impact of each
 update and prepare their own changes accordingly.

@@ -95,7 +95,7 @@ Use these section headers as appropriate:
 ### 4. Rebuild the library (TypeScript only)
 
 ```bash
-cd shared/<LibraryName>/<lib_lower>_ts
+cd shared/<LibraryName>/v1/<lib_lower>_ts
 npm run build
 ```
 
@@ -176,17 +176,17 @@ dated release entry when you finalise the version bump.
 
 | Library | Language | Package name | CHANGELOG location |
 |---|---|---|---|
-| Aegis | TypeScript | `@elastic-resume-base/aegis` | `shared/Aegis/aegis_ts/CHANGELOG.md` |
-| Bowltie | TypeScript | `@elastic-resume-base/bowltie` | `shared/Bowltie/bowltie_ts/CHANGELOG.md` |
-| Bowltie | Python | `elastic-resume-base-bowltie` | `shared/Bowltie/bowltie_py/CHANGELOG.md` |
-| Bugle | TypeScript | `@elastic-resume-base/bugle` | `shared/Bugle/bugle_ts/CHANGELOG.md` |
-| Harbor | TypeScript | `@elastic-resume-base/harbor` | `shared/Harbor/harbor_ts/CHANGELOG.md` |
-| Harbor | Python | `elastic-resume-base-harbor` | `shared/Harbor/harbor_py/CHANGELOG.md` |
-| Hermes | TypeScript | `@elastic-resume-base/hermes` | `shared/Hermes/hermes_ts/CHANGELOG.md` |
-| Hermes | Python | `elastic-resume-base-hermes` | `shared/Hermes/hermes_py/CHANGELOG.md` |
-| Synapse | TypeScript | `@elastic-resume-base/synapse` | `shared/Synapse/synapse_ts/CHANGELOG.md` |
-| Toolbox | TypeScript | *(plain source, no package name)* | `shared/Toolbox/toolbox_ts/CHANGELOG.md` |
-| Toolbox | Python | `elastic-resume-base-toolbox` | `shared/Toolbox/toolbox_py/CHANGELOG.md` |
+| Aegis | TypeScript | `@elastic-resume-base/aegis` | `shared/Aegis/v1/aegis_ts/CHANGELOG.md` |
+| Bowltie | TypeScript | `@elastic-resume-base/bowltie` | `shared/Bowltie/v1/bowltie_ts/CHANGELOG.md` |
+| Bowltie | Python | `elastic-resume-base-bowltie` | `shared/Bowltie/v1/bowltie_py/CHANGELOG.md` |
+| Bugle | TypeScript | `@elastic-resume-base/bugle` | `shared/Bugle/v1/bugle_ts/CHANGELOG.md` |
+| Harbor | TypeScript | `@elastic-resume-base/harbor` | `shared/Harbor/v1/harbor_ts/CHANGELOG.md` |
+| Harbor | Python | `elastic-resume-base-harbor` | `shared/Harbor/v1/harbor_py/CHANGELOG.md` |
+| Hermes | TypeScript | `@elastic-resume-base/hermes` | `shared/Hermes/v1/hermes_ts/CHANGELOG.md` |
+| Hermes | Python | `elastic-resume-base-hermes` | `shared/Hermes/v1/hermes_py/CHANGELOG.md` |
+| Synapse | TypeScript | `@elastic-resume-base/synapse` | `shared/Synapse/v1/synapse_ts/CHANGELOG.md` |
+| Toolbox | TypeScript | *(plain source, no package name)* | `shared/Toolbox/v1/toolbox_ts/CHANGELOG.md` |
+| Toolbox | Python | `elastic-resume-base-toolbox` | `shared/Toolbox/v1/toolbox_py/CHANGELOG.md` |
 
 ---
 

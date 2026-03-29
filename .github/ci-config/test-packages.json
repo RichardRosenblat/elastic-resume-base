@@ -1,36 +1,36 @@
 [
   {
     "id": "bowltie",
-    "name": "shared/Bowltie/bowltie_ts",
-    "path": "shared/Bowltie/bowltie_ts",
+    "name": "shared/Bowltie/v1/bowltie_ts",
+    "path": "shared/Bowltie/v1/bowltie_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
     "id": "bugle",
-    "name": "shared/Bugle/bugle_ts",
-    "path": "shared/Bugle/bugle_ts",
+    "name": "shared/Bugle/v1/bugle_ts",
+    "path": "shared/Bugle/v1/bugle_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
     "id": "synapse",
-    "name": "shared/Synapse/synapse_ts",
-    "path": "shared/Synapse/synapse_ts",
+    "name": "shared/Synapse/v1/synapse_ts",
+    "path": "shared/Synapse/v1/synapse_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
     "id": "harbor",
-    "name": "shared/Harbor/harbor_ts",
-    "path": "shared/Harbor/harbor_ts",
+    "name": "shared/Harbor/v1/harbor_ts",
+    "path": "shared/Harbor/v1/harbor_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
     "id": "harbor-py",
-    "name": "shared/Harbor/harbor_py",
-    "path": "shared/Harbor/harbor_py",
+    "name": "shared/Harbor/v1/harbor_py",
+    "path": "shared/Harbor/v1/harbor_py",
     "runner": "python",
     "coverageSource": "harbor_py",
     "dependsOn": []
