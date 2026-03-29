@@ -144,8 +144,8 @@ If you plan to run any service **outside Docker** (e.g., for debugging with `npm
 
 **Node.js services:**
 ```bash
-cd bff-gateway && npm install && cd ..
-cd users-api && npm install && cd ..
+cd apps/gateway-api && npm install && cd ../..
+cd apps/users-api && npm install && cd ../..
 ```
 
 **Python services** (example for one service — repeat as needed):
@@ -181,7 +181,7 @@ Docker will build all images on the first run. This may take a few minutes.
 docker compose up
 
 # Start specific services only
-docker compose up bff-gateway users-api firebase-emulator
+docker compose up gateway-api users-api firebase-emulator
 
 # Rebuild images after changing source code
 docker compose up --build
@@ -190,7 +190,7 @@ docker compose up --build
 docker compose down
 
 # Apply config.yaml changes without rebuilding
-docker compose restart bff-gateway users-api
+docker compose restart gateway-api users-api
 ```
 
 ---
@@ -222,7 +222,7 @@ curl http://localhost:3000/api/v1/health
 ### Node.js services
 
 ```bash
-cd bff-gateway
+cd apps/gateway-api
 npm run lint          # ESLint
 npm run format:check  # Prettier
 npm run typecheck     # TypeScript type-checking
@@ -230,7 +230,7 @@ npm test              # Jest (unit + integration)
 ```
 
 ```bash
-cd users-api
+cd apps/users-api
 npm run lint
 npm run format:check
 npm run typecheck
@@ -276,7 +276,7 @@ Now that your environment is running, here are good places to go next:
 | Symptom | Fix |
 |---------|-----|
 | `Cannot find module '@elastic-resume-base/...'` | Run `./build_shared.sh` (or `.bat`) and then `npm install` in the service directory |
-| `ECONNREFUSED firebase-emulator:8080` | Wait for the Firebase Emulator UI at `http://localhost:4000`, then run `docker compose restart bff-gateway users-api` |
+| `ECONNREFUSED firebase-emulator:8080` | Wait for the Firebase Emulator UI at `http://localhost:4000`, then run `docker compose restart gateway-api users-api` |
 | Services don't pick up `config.yaml` changes | Run `docker compose restart <service-name>` |
 | Port already in use | Stop the conflicting process or change the port mapping in `docker-compose.yml` |
 | `config.yaml not found` | Run `cp config_example.yaml config.yaml` and fill in your values |

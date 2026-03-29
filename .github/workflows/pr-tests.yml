@@ -33,7 +33,7 @@ jobs:
       has-packages: ${{ steps.set-matrix.outputs.has-packages }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Full history is needed so git diff can compare against the base branch.
           fetch-depth: 0
@@ -62,12 +62,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # ── Node.js setup (skipped for Python packages) ───────────────────────
       - name: Set up Node.js
         if: matrix.package.runner != 'python'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'npm'
@@ -108,7 +108,7 @@ jobs:
       # ── Python setup (skipped for Node.js packages) ──────────────────────
       - name: Set up Python
         if: matrix.package.runner == 'python'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -149,7 +149,7 @@ jobs:
       - name: Upload test results
         # Always upload so the summarize job can process results even when tests failed.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.package.id }}
           path: |
@@ -170,12 +170,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download test result artifacts
         # continue-on-error so the step doesn't fail when no artifacts exist
         # (e.g., when [skip tests] was used and the test job was skipped entirely).
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           pattern: test-results-*

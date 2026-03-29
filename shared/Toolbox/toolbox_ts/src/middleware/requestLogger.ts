@@ -18,6 +18,8 @@ interface LoggableRequest {
   readonly method: string;
   readonly url: string;
   readonly correlationId: string;
+  readonly traceId: string;
+  readonly spanId: string;
 }
 
 /**
@@ -70,6 +72,8 @@ export function createRequestLoggerHook(
         statusCode: reply.statusCode,
         durationMs: Math.round(reply.elapsedTime),
         correlationId: request.correlationId,
+        traceId: request.traceId,
+        spanId: request.spanId,
       },
       'HTTP request',
     );

@@ -13,17 +13,20 @@ elastic-resume-base/
 ├── firebase-emulator/         # Custom Dockerfile for Firebase Emulators
 │   ├── Dockerfile
 │   └── firebase.json
-├── bff-gateway/               # Node.js BFF Gateway
-│   ├── Dockerfile
-│   ├── esbuild.config.mjs     # esbuild bundle configuration
-│   └── package.json
-├── users-api/                 # Node.js Users API
-│   ├── Dockerfile
-│   ├── esbuild.config.mjs     # esbuild bundle configuration
-│   └── package.json
-├── [service-name]/            # Python microservices
-│   ├── Dockerfile
-│   └── requirements.txt
+├── apps/
+│   ├── gateway-api/           # Node.js Gateway API
+│   │   ├── Dockerfile
+│   │   ├── esbuild.config.mjs     # esbuild bundle configuration
+│   │   └── package.json
+│   ├── users-api/             # Node.js Users API
+│   │   ├── Dockerfile
+│   │   ├── esbuild.config.mjs     # esbuild bundle configuration
+│   │   └── package.json
+│   ├── frontend/              # React frontend
+│   │   └── Dockerfile
+│   └── [service-name]/        # Python microservices
+│       ├── Dockerfile
+│       └── requirements.txt
 ├── config_example.yaml        # ← Committed template (safe defaults, no secrets)
 ├── config.yaml                # ← Your local copy (git-ignored, fill in secrets)
 └── docker-compose.yml         # Master orchestration file
@@ -53,7 +56,7 @@ systems:
     FIRESTORE_EMULATOR_HOST: "firebase-emulator:8080"
     # …
 
-  bff-gateway:                     # BFF Gateway-specific values
+  gateway-api:                     # Gateway API-specific values
     PORT: "3000"
     ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
     USER_API_SERVICE_URL: "http://users-api:8005"
@@ -87,7 +90,7 @@ Each Node.js service reads `config.yaml` **directly at startup** — no preproce
 `docker-compose.yml` mounts `config.yaml` as a read-only file into each container:
 
 ```yaml
-bff-gateway:
+gateway-api:
   volumes:
     - ./config.yaml:/app/config.yaml:ro   # read by loadConfigYaml at startup
 
@@ -115,7 +118,7 @@ systems:
 After editing `config.yaml`, restart the affected containers:
 
 ```bash
-docker compose restart bff-gateway users-api
+docker compose restart gateway-api users-api
 ```
 
 ---
@@ -147,7 +150,7 @@ CMD ["firebase", "emulators:start", "--project", "demo-elastic-resume-base", "--
 
 Each microservice has an independent `Dockerfile` for isolated builds and deployments.
 
-### Node.js Services (`bff-gateway`, `users-api`)
+### Node.js Services (`gateway-api`, `users-api`)
 
 Both Node.js services use a two-stage Docker build. The builder stage runs `npm run build`, which:
 1. **Type-checks** the TypeScript source with `tsc --noEmit`.
@@ -244,7 +247,7 @@ docker compose up
 docker compose up
 
 # Start specific services only
-docker compose up bff-gateway users-api
+docker compose up gateway-api users-api
 
 # Rebuild images after code changes
 docker compose up --build
@@ -253,15 +256,15 @@ docker compose up --build
 docker compose down
 
 # Apply config changes without rebuilding images
-docker compose restart bff-gateway users-api
+docker compose restart gateway-api users-api
 ```
 
 ### Available local endpoints
 
 | Service | URL |
 |---|---|
-| BFF Gateway | http://localhost:3000 |
-| BFF Swagger UI | http://localhost:3000/api/v1/docs |
+| Gateway API | http://localhost:3000 |
+| Gateway API Swagger UI | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
 | Users API Swagger UI | http://localhost:8005/api/v1/docs |
 | Firebase Emulator UI | http://localhost:4000 |

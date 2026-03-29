@@ -42,7 +42,7 @@ try {
 /**
  * Given a set of directly-changed packages, returns those packages PLUS every
  * package in `allPkgs` whose `dependsOn` list (transitively) overlaps the
- * changed set.  This ensures that if `shared/Bowltie` changes, `bff-gateway`
+ * changed set.  This ensures that if `shared/Bowltie` changes, `apps/gateway-api`
  * and `users-api` are automatically included in the test run.
  */
 function expandDependents(changed, allPkgs) {

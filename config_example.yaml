@@ -64,9 +64,9 @@ systems:
     SMTP_FROM: "noreply@elastic-resume-base.local"
 
   # ---------------------------------------------------------------------------
-  # BFF Gateway (Node.js — port 3000)
+  # Gateway API (Node.js — port 3000)
   # ---------------------------------------------------------------------------
-  bff-gateway:
+  gateway-api:
     PORT: "3000"
 
     # Global request rate-limiting for BFF.

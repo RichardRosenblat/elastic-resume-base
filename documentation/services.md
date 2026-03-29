@@ -17,9 +17,9 @@ A React + TypeScript single-page application that serves as the user interface f
 - Supports English, Portuguese (Brazil), and Spanish via i18next
 - Responsive layout built with Material UI (MUI) v7
 
-See [frontend/README.md](../frontend/README.md) for environment variables, setup instructions, and development guide.
+See [apps/frontend/README.md](../apps/frontend/README.md) for environment variables, setup instructions, and development guide.
 
-### BFF Gateway (✅ Implemented)
+### Gateway API (✅ Implemented)
 
 Backend For Frontend service responsible for handling requests from the frontend and communicating with backend services. Hosted on Cloud Run (while at low usage, minimum instances can be set to 0; higher-performance options can be enabled as needed).
 
@@ -28,18 +28,18 @@ Backend For Frontend service responsible for handling requests from the frontend
 - Enforces role-based access control (RBAC) on protected routes
 - Routes requests to downstream microservices
 
-See [bff-gateway/README.md](../bff-gateway/README.md) for API documentation.
+See [apps/gateway-api/README.md](../apps/gateway-api/README.md) for API documentation.
 
 ### Users API (✅ Implemented)
 
-A Node.js/TypeScript microservice that manages user records and implements the BFF Authorization Logic for the platform. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
+A Node.js/TypeScript microservice that manages user records and implements the BFF Authorization Logic for the platform. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
 
 - Stores user records (uid, email, role, enable) in Firestore via Synapse
-- Exposes a `POST /api/v1/users/authorize` endpoint called by the BFF during every login
+- Exposes a `POST /api/v1/users/authorize` endpoint called by the Gateway API during every login
 - Manages a `pre_approved_users` collection for admin-controlled user onboarding
 - Supports auto-onboarding of users from configurable email domains
 
-See [users-api/README.md](../users-api/README.md) for full API documentation.
+See [apps/users-api/README.md](../apps/users-api/README.md) for full API documentation.
 
 ---
 
@@ -79,7 +79,7 @@ A Python service responsible for monitoring the Dead Letter Queue (DLQ) for fail
 
 ## Shared Libraries (Node.js)
 
-The following internal packages live under `shared/` and are consumed by the Node.js microservices (BFF Gateway, Users API):
+The following internal packages live under `shared/` and are consumed by the Node.js microservices (Gateway API, Users API):
 
 | Package | Import | Purpose |
 |---------|--------|---------|
