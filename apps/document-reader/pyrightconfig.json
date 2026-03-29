@@ -3,9 +3,9 @@
   "typeCheckingMode": "strict",
   "pythonVersion": "3.11",
   "extraPaths": [
-    "../../shared/Toolbox/toolbox_py",
-    "../../shared/Bowltie/bowltie_py",
-    "../../shared/Hermes/hermes_py"
+    "../../shared/Toolbox/v1/toolbox_py",
+    "../../shared/Bowltie/v1/bowltie_py",
+    "../../shared/Hermes/v1/hermes_py"
   ],
   "reportMissingModuleSource": "none"
 }

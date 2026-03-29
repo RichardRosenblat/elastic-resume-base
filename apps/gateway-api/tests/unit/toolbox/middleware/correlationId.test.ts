@@ -3,7 +3,7 @@
  * Tests that the hook attaches or generates a correlation ID and Cloud Trace context on every request.
  */
 
-import { correlationIdHook } from '../../../../../../shared/Toolbox/toolbox_ts/src/middleware/correlationId.js';
+import { correlationIdHook } from '../../../../../../shared/Toolbox/v1/toolbox_ts/src/middleware/correlationId.js';
 
 function makeRequest(headers: Record<string, string> = {}): {
   headers: Record<string, string>;

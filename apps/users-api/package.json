@@ -17,9 +17,9 @@
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage"
   },
   "dependencies": {
-    "@elastic-resume-base/bowltie": "file:../../shared/Bowltie/bowltie_ts",
-    "@elastic-resume-base/bugle": "file:../../shared/Bugle/bugle_ts",
-    "@elastic-resume-base/synapse": "file:../../shared/Synapse/synapse_ts",
+    "@elastic-resume-base/bowltie": "file:../../shared/Bowltie/v1/bowltie_ts",
+    "@elastic-resume-base/bugle": "file:../../shared/Bugle/v1/bugle_ts",
+    "@elastic-resume-base/synapse": "file:../../shared/Synapse/v1/synapse_ts",
     "@fastify/cors": "^11.2.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/rate-limit": "^10.3.0",

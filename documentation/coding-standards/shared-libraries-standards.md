@@ -42,31 +42,35 @@ Each TypeScript library (Synapse, Bowltie, Bugle, Hermes) must follow this struc
 
 ```
 shared/<LibraryName>/
-├── src/
-│   ├── index.ts          # Public API: re-exports everything consumers need
-│   └── <module>.ts       # Implementation files
-├── tests/
-│   └── unit/
-│       └── <module>.test.ts
-├── package.json
-├── tsconfig.json
-├── .eslintrc.cjs
-├── .prettierrc
-└── README.md             # API reference with usage examples
+└── v<N>/
+    └── <lib_lower>_ts/
+        ├── src/
+        │   ├── index.ts          # Public API: re-exports everything consumers need
+        │   └── <module>.ts       # Implementation files
+        ├── tests/
+        │   └── unit/
+        │       └── <module>.test.ts
+        ├── package.json
+        ├── tsconfig.json
+        ├── .eslintrc.cjs
+        ├── .prettierrc
+        └── README.md             # API reference with usage examples
 ```
 
 **Toolbox** is an exception — it contains only `src/` and `README.md` with no build infrastructure:
 
 ```
 shared/Toolbox/
-├── src/
-│   ├── index.ts
-│   ├── createLogger.ts
-│   ├── loadConfigYaml.ts
-│   └── middleware/
-│       ├── correlationId.ts
-│       └── requestLogger.ts
-└── README.md
+└── v<N>/
+    └── toolbox_ts/
+        ├── src/
+        │   ├── index.ts
+        │   ├── createLogger.ts
+        │   ├── loadConfigYaml.ts
+        │   └── middleware/
+        │       ├── correlationId.ts
+        │       └── requestLogger.ts
+        └── README.md
 ```
 
 Toolbox unit tests live in `apps/gateway-api/tests/unit/toolbox/` and run as part of the gateway-api test suite.
@@ -77,27 +81,29 @@ Each Python library (e.g. `hermes`) must follow this structure:
 
 ```
 shared/<library-name>/
-├── <package>/
-│   ├── __init__.py       # Public API: re-exports everything consumers need
-│   ├── interfaces/
-│   │   ├── __init__.py
-│   │   └── <interface>.py
-│   ├── services/
-│   │   ├── __init__.py
-│   │   └── <service>.py
-│   └── <module>.py       # Implementation files
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py       # pytest fixtures (including singleton reset)
-│   └── test_<module>.py
-├── pyproject.toml
-├── requirements.txt       # Production dependencies (pinned)
-├── requirements-dev.txt   # Dev/test dependencies
-└── README.md              # API reference with usage examples
+└── v<N>/
+    └── <lib_lower>_py/
+        ├── <package>/
+        │   ├── __init__.py       # Public API: re-exports everything consumers need
+        │   ├── interfaces/
+        │   │   ├── __init__.py
+        │   │   └── <interface>.py
+        │   ├── services/
+        │   │   ├── __init__.py
+        │   │   └── <service>.py
+        │   └── <module>.py       # Implementation files
+        ├── tests/
+        │   ├── __init__.py
+        │   ├── conftest.py       # pytest fixtures (including singleton reset)
+        │   └── test_<module>.py
+        ├── pyproject.toml
+        ├── requirements.txt       # Production dependencies (pinned)
+        ├── requirements-dev.txt   # Dev/test dependencies
+        └── README.md              # API reference with usage examples
 ```
 
 - Use **`snake_case`** for all Python package and module names.
-- Install via `pip install -e ../shared/<library-name>` (editable local path).
+- Install via `pip install -e ../shared/<library-name>/v<N>/<lib_lower>_py` (editable local path).
 
 ---
 
@@ -111,8 +117,25 @@ shared/<library-name>/
 
 ## Versioning and Compatibility
 
-- Libraries are not versioned independently — they are always consumed at the current monorepo `HEAD`.
-- Breaking changes must be communicated in the PR description and applied to all consumers in the same PR.
+Every shared library is independently versioned using [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+The version is stored in `package.json` (TypeScript) and `pyproject.toml` (Python).
+
+**Every PR that touches a shared library must:**
+
+1. Bump the version in `package.json` / `pyproject.toml` according to the change type:
+   - `PATCH` — bug fixes and internal refactors with no observable API change.
+   - `MINOR` — new backward-compatible exports or optional parameters.
+   - `MAJOR` — any breaking change (removed/renamed export, changed type signature, changed runtime behaviour).
+2. Add an entry to the library's `CHANGELOG.md` describing what changed.
+
+**MAJOR version bumps additionally require:**
+
+- All consuming services in the monorepo updated in the **same PR**.
+- A `### Breaking Changes` sub-section in the CHANGELOG entry.
+- An explicit list of affected services in the PR description.
+
+For the full step-by-step workflow (for both library authors and consumers), see the
+[Shared Library Versioning Guide](../shared-library-versioning.md).
 
 ---
 
@@ -168,7 +191,7 @@ For **Toolbox**: run `npm test` from within the `bff-gateway/` directory (Toolbo
 
 ### Python
 
-For **hermes** (Python): run `pytest tests/` from within `shared/hermes/`.
+For **hermes** (Python): run `pytest tests/` from within `shared/Hermes/v1/hermes_py/`.
 
 Aim for **80% coverage minimum** — coverage must include all exported functions.
 Use `jest.mock()` (TypeScript) or `unittest.mock` / `pytest-mock` (Python) to isolate external dependencies.
@@ -180,7 +203,7 @@ Libraries must not have integration tests that call real GCP services.
 
 ### TypeScript
 
-Run these commands from within the library directory (e.g., `cd shared/Synapse`):
+Run these commands from within the library directory (e.g., `cd shared/Synapse/v1/synapse_ts`):
 
 ```bash
 npm install            # Install dependencies
@@ -200,7 +223,7 @@ npm test
 
 ### Python
 
-Run these commands from within the Python library directory (e.g., `cd shared/hermes`):
+Run these commands from within the Python library directory (e.g., `cd shared/Hermes/v1/hermes_py`):
 
 ```bash
 pip install -r requirements-dev.txt   # Install dev + prod dependencies
@@ -231,7 +254,7 @@ The `build_shared.bat` / `build_shared.sh` scripts at the repo root iterate the 
 
 ### Python
 
-Python libraries have no build step, but they do have to be imported by the consuming services using either `pip install -e ../shared/<library-name>` or by adding the shared library as a local path dependency in the consuming service's `requirements_dev.txt`. But at production, they should be installed as normal dependencies in the consuming service's `requirements_prod.txt` (not editable local paths).
+Python libraries have no build step, but they do have to be imported by the consuming services using either `pip install -e ../shared/<library-name>/v<N>/<lib_lower>_py` or by adding the shared library as a local path dependency in the consuming service's `requirements_dev.txt`. But at production, they should be installed as normal dependencies in the consuming service's `requirements_prod.txt` (not editable local paths).
 
 1. **hermes** — no shared-lib dependencies
 
@@ -243,4 +266,6 @@ See [Monorepo Scripts](../monorepo-scripts.md) for details on the build scripts.
 
 - [Node.js Coding Standards](nodejs-coding-standards.md) — Jest configuration for consuming services
 - [Monorepo Scripts](../monorepo-scripts.md) — building all shared libraries with one command
+- [Shared Library Versioning Guide](../shared-library-versioning.md) — how to bump versions and write CHANGELOG entries
 - [ADR-001: Monorepo Structure](../adr/ADR-001-monorepo-structure.md) — rationale for the monorepo approach
+- [ADR-009: Semantic Versioning and CHANGELOG for Shared Libraries](../adr/ADR-009-shared-library-versioning.md) — versioning decision

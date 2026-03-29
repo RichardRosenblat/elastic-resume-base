@@ -29,7 +29,7 @@ async function terminatePersistence() {
 // src/repositories/firestore-user-repository.ts
 import * as admin2 from "firebase-admin";
 
-// ../../Toolbox/toolbox_ts/src/errors.ts
+// ../../../Toolbox/v1/toolbox_ts/src/errors.ts
 var AppError = class extends Error {
   statusCode;
   code;

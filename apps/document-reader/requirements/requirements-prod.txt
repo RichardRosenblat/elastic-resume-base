@@ -1,5 +1,5 @@
 -r base.txt
 
-../../shared/Toolbox/toolbox_py
-../../shared/Hermes/hermes_py
-../../shared/Bowltie/bowltie_py
+../../shared/Toolbox/v1/toolbox_py
+../../shared/Hermes/v1/hermes_py
+../../shared/Bowltie/v1/bowltie_py
