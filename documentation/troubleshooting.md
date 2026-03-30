@@ -18,7 +18,7 @@ This document covers common issues encountered during local development, testing
 ./build_shared.sh         # Linux/macOS
 
 # Then reinstall in the affected service
-cd bff-gateway && npm install
+cd apps/gateway-api && npm install
 ```
 
 ### Problem: TypeScript compilation fails after modifying a shared library
@@ -30,7 +30,7 @@ cd bff-gateway && npm install
 ```bash
 cd shared/Toolbox && npm run build
 # Then restart the service
-cd ../../bff-gateway && npm run dev
+cd ../../apps/gateway-api && npm run dev
 ```
 
 ### Problem: `build_shared.bat` is not available on Linux/macOS
@@ -56,7 +56,7 @@ done
 **Solution:** Wait for the Firebase Emulator UI at `http://localhost:4000` to become accessible, then restart the failing services:
 
 ```bash
-docker compose restart bff-gateway users-api
+docker compose restart gateway-api users-api
 ```
 
 ### Problem: `config.yaml` not found / service fails to read environment variables

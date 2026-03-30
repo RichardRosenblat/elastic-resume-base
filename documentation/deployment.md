@@ -85,14 +85,14 @@ PROJECT_ID=your-gcp-project-id
 REGION=us-central1
 REGISTRY=gcr.io/$PROJECT_ID
 
-# Build and push BFF Gateway
-docker build -t $REGISTRY/bff-gateway:latest \
-  -f bff-gateway/Dockerfile .
-docker push $REGISTRY/bff-gateway:latest
+# Build and push Gateway API
+docker build -t $REGISTRY/gateway-api:latest \
+  -f apps/gateway-api/Dockerfile apps/gateway-api/
+docker push $REGISTRY/gateway-api:latest
 
 # Build and push Users API
 docker build -t $REGISTRY/users-api:latest \
-  -f users-api/Dockerfile .
+  -f apps/users-api/Dockerfile .
 docker push $REGISTRY/users-api:latest
 
 # Build and push Python services (repeat for each)
@@ -108,7 +108,8 @@ docker push $REGISTRY/search-base:latest
 docker build -t $REGISTRY/file-generator:latest file-generator/
 docker push $REGISTRY/file-generator:latest
 
-docker build -t $REGISTRY/document-reader:latest document-reader/
+docker build -t $REGISTRY/document-reader:latest \
+  -f apps/document-reader/Dockerfile .
 docker push $REGISTRY/document-reader:latest
 
 docker build -t $REGISTRY/dlq-notifier:latest dlq-notifier/
@@ -123,9 +124,9 @@ docker push $REGISTRY/dlq-notifier:latest
 REGION=us-central1
 REGISTRY=gcr.io/$PROJECT_ID
 
-# BFF Gateway (public-facing)
-gcloud run deploy bff-gateway \
-  --image=$REGISTRY/bff-gateway:latest \
+# Gateway API (public-facing)
+gcloud run deploy gateway-api \
+  --image=$REGISTRY/gateway-api:latest \
   --region=$REGION \
   --platform=managed \
   --allow-unauthenticated \

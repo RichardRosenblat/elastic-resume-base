@@ -1,43 +1,58 @@
 [
   {
     "id": "bowltie",
-    "name": "shared/Bowltie/bowltie_ts",
-    "path": "shared/Bowltie/bowltie_ts",
+    "name": "shared/Bowltie/v1/bowltie_ts",
+    "path": "shared/Bowltie/v1/bowltie_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
     "id": "bugle",
-    "name": "shared/Bugle/bugle_ts",
-    "path": "shared/Bugle/bugle_ts",
+    "name": "shared/Bugle/v1/bugle_ts",
+    "path": "shared/Bugle/v1/bugle_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
     "id": "synapse",
-    "name": "shared/Synapse/synapse_ts",
-    "path": "shared/Synapse/synapse_ts",
+    "name": "shared/Synapse/v1/synapse_ts",
+    "path": "shared/Synapse/v1/synapse_ts",
     "runner": "node",
     "dependsOn": []
   },
   {
-    "id": "bff-gateway",
-    "name": "bff-gateway",
-    "path": "bff-gateway",
+    "id": "harbor",
+    "name": "shared/Harbor/v1/harbor_ts",
+    "path": "shared/Harbor/v1/harbor_ts",
     "runner": "node",
-    "dependsOn": ["bowltie"]
+    "dependsOn": []
+  },
+  {
+    "id": "harbor-py",
+    "name": "shared/Harbor/v1/harbor_py",
+    "path": "shared/Harbor/v1/harbor_py",
+    "runner": "python",
+    "coverageSource": "harbor_py",
+    "dependsOn": []
+  },
+  {
+    "id": "gateway-api",
+    "name": "apps/gateway-api",
+    "path": "apps/gateway-api",
+    "runner": "node",
+    "dependsOn": ["bowltie", "harbor"]
   },
   {
     "id": "users-api",
-    "name": "users-api",
-    "path": "users-api",
+    "name": "apps/users-api",
+    "path": "apps/users-api",
     "runner": "node",
     "dependsOn": ["bowltie", "bugle", "synapse"]
   },
   {
     "id": "document-reader",
-    "name": "document-reader",
-    "path": "document-reader",
+    "name": "apps/document-reader",
+    "path": "apps/document-reader",
     "runner": "python",
     "dependsOn": []
   }

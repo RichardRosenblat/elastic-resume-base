@@ -66,3 +66,4 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 | [ADR-006](ADR-006-nodejs-for-gateway-python-for-workers.md) | Use Node.js for Gateway Services, Python for AI/Data Workers | Accepted |
 | [ADR-007](ADR-007-no-object-storage-text-only-persistence.md) | No Object Storage — Text-Only File Persistence | Accepted |
 | [ADR-008](ADR-008-auth-and-authorization-flow-overhaul.md) | Overhaul Login & Authorization Flow with Firestore-Native RBAC | Accepted |
+| [ADR-009](ADR-009-shared-library-versioning.md) | Semantic Versioning and CHANGELOG for Shared Libraries | Accepted |

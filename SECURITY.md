@@ -79,7 +79,7 @@ If you discover a security vulnerability in this project, please report it respo
 
 1. **Email the maintainer** directly with a detailed description of the vulnerability. Include:
    - A clear description of the vulnerability and its potential impact.
-   - The affected component(s) (e.g., `bff-gateway`, `ai-worker`).
+   - The affected component(s) (e.g., `gateway-api`, `ai-worker`).
    - Steps to reproduce the issue.
    - Any proof-of-concept code or screenshots (redacting any real PII or production credentials).
 

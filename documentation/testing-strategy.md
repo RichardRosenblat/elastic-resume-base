@@ -70,7 +70,7 @@ moduleNameMapper: {
 ### Node.js Services
 
 ```bash
-cd bff-gateway   # or users-api, shared/Synapse, etc.
+cd apps/gateway-api   # or apps/users-api, shared/Synapse, etc.
 npm test                      # run all tests
 npm run test:coverage         # run with coverage report
 ```
