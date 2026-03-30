@@ -8,7 +8,11 @@
     "account": "Account",
     "systemStatus": "System Status",
     "logout": "Logout",
-    "comingSoon": "Coming Soon"
+    "comingSoon": "Coming Soon",
+    "darkMode": "Switch to Dark Mode",
+    "lightMode": "Switch to Light Mode",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar"
   },
   "auth": {
     "login": "Login",
