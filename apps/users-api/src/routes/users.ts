@@ -11,6 +11,8 @@ import {
   addPreApprovedHandler,
   deletePreApprovedHandler,
   updatePreApprovedHandler,
+  batchDeletePreApprovedHandler,
+  batchUpdatePreApprovedHandler,
 } from '../controllers/users.controller.js';
 
 /** Reusable schema for a user record in the `users` Firestore collection. */
@@ -388,6 +390,98 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, updatePreApprovedHandler);
+
+  app.delete('/pre-approve/batch', {
+    schema: {
+      tags: ['Pre-Approved Users'],
+      summary: 'Batch delete pre-approved users (admin only)',
+      description: 'Removes multiple users from the pre_approved_users collection by email. Entries not found are silently skipped.',
+      body: {
+        type: 'object',
+        required: ['emails'],
+        properties: {
+          emails: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            description: 'Array of email addresses to remove.',
+            example: ['alice@example.com', 'bob@example.com'],
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch delete completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                deleted: {
+                  type: 'integer',
+                  description: 'Number of pre-approved users successfully deleted.',
+                  example: 2,
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchDeletePreApprovedHandler);
+
+  app.patch('/pre-approve/batch', {
+    schema: {
+      tags: ['Pre-Approved Users'],
+      summary: 'Batch update pre-approved users (admin only)',
+      description: 'Applies the same role update to multiple pre-approved users. Entries not found are silently skipped.',
+      body: {
+        type: 'object',
+        required: ['emails', 'role'],
+        properties: {
+          emails: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            description: 'Array of email addresses to update.',
+            example: ['alice@example.com', 'bob@example.com'],
+          },
+          role: {
+            type: 'string',
+            enum: ['admin', 'user'],
+            description: "Updated role to assign. Must be 'admin' or 'user'.",
+            example: 'user',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch update completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                updated: {
+                  type: 'integer',
+                  description: 'Number of pre-approved users successfully updated.',
+                  example: 3,
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchUpdatePreApprovedHandler);
 
 
   // ── Admin & User Routes ─────────────────────────────────────────────────────

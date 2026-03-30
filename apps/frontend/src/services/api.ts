@@ -241,6 +241,24 @@ export const updatePreApprovedUser = async (email: string, role: 'admin' | 'user
   return unwrapSuccessResponse(res.data);
 };
 
+/** Batch-deletes multiple pre-approved users by email. Admin only. */
+export const batchDeletePreApprovedUsers = async (emails: string[]): Promise<{ deleted: number }> => {
+  const res = await apiClient.delete<SuccessResponse<{ deleted: number }>>(
+    '/api/v1/users/pre-approve/batch',
+    { data: { emails } },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/** Batch-updates the role of multiple pre-approved users. Admin only. */
+export const batchUpdatePreApprovedUsers = async (emails: string[], role: 'admin' | 'user'): Promise<{ updated: number }> => {
+  const res = await apiClient.patch<SuccessResponse<{ updated: number }>>(
+    '/api/v1/users/pre-approve/batch',
+    { emails, role },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
 /**
  * Submits a resume ingest job to the BFF.
  * Returns mock data when `config.features.resumeIngest` is `false`.

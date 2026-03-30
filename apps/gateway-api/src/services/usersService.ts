@@ -11,6 +11,9 @@ import type {
   BatchUpdateUsersRequest,
   BatchUpdateUsersResponse,
   BatchDeleteUsersResponse,
+  BatchUpdatePreApprovedRequest,
+  BatchUpdatePreApprovedResponse,
+  BatchDeletePreApprovedResponse,
 } from '../models/index.js';
 import {
   getUserById,
@@ -24,6 +27,8 @@ import {
   updatePreApprovedInApi,
   batchUpdateUsersInApi,
   batchDeleteUsersFromApi,
+  batchDeletePreApprovedFromApi,
+  batchUpdatePreApprovedInApi,
 } from './userApiClient.js';
 
 // ---------------------------------------------------------------------------
@@ -202,4 +207,40 @@ export async function batchDeleteUsers(
   }
   logger.debug({ count: uids.length }, 'batchDeleteUsers: batch deleting users via UserAPI');
   return batchDeleteUsersFromApi(uids);
+}
+
+/**
+ * Batch-deletes multiple pre-approved users. Requires admin role.
+ *
+ * @param emails - Array of email addresses to delete.
+ * @param requesterRole - Role of the user making the request.
+ * @throws {ForbiddenError} If the requester is not an admin.
+ */
+export async function batchDeletePreApproved(
+  emails: string[],
+  requesterRole: string,
+): Promise<BatchDeletePreApprovedResponse> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ count: emails.length }, 'batchDeletePreApproved: batch deleting pre-approved users via UserAPI');
+  return batchDeletePreApprovedFromApi(emails);
+}
+
+/**
+ * Batch-updates the role of multiple pre-approved users. Requires admin role.
+ *
+ * @param data - Batch update payload (emails + role).
+ * @param requesterRole - Role of the user making the request.
+ * @throws {ForbiddenError} If the requester is not an admin.
+ */
+export async function batchUpdatePreApproved(
+  data: BatchUpdatePreApprovedRequest,
+  requesterRole: string,
+): Promise<BatchUpdatePreApprovedResponse> {
+  if (requesterRole !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  logger.debug({ count: data.emails.length }, 'batchUpdatePreApproved: batch updating pre-approved users via UserAPI');
+  return batchUpdatePreApprovedInApi(data);
 }

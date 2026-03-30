@@ -41,7 +41,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
-import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser } from '../../services/api';
+import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser, batchDeletePreApprovedUsers, batchUpdatePreApprovedUsers } from '../../services/api';
 import { useToast } from '../../contexts/use-toast';
 import { useShowApiError } from '../../hooks/useShowApiError';
 import { TableTemplate, FormTemplate } from '../../components/templates';
@@ -87,6 +87,14 @@ export default function UsersPage() {
   // Pre-approved delete confirm state
   const [deleteConfirmPreApproved, setDeleteConfirmPreApproved] = useState<PreApprovedUser | null>(null);
 
+  // Pre-approved bulk selection state
+  const [selectedPreApprovedEmails, setSelectedPreApprovedEmails] = useState<Set<string>>(new Set());
+
+  // Pre-approved bulk action dialog state
+  const [bulkDeletePreApprovedOpen, setBulkDeletePreApprovedOpen] = useState(false);
+  const [bulkRoleChangePreApprovedOpen, setBulkRoleChangePreApprovedOpen] = useState(false);
+  const [bulkPreApprovedRole, setBulkPreApprovedRole] = useState<'admin' | 'user'>('user');
+
   // Sorting / filtering
   const [usersSortBy, setUsersSortBy] = useState<UserSortField>('email');
   const [usersSortDirection, setUsersSortDirection] = useState<SortDirection>('asc');
@@ -103,6 +111,8 @@ export default function UsersPage() {
   const { locked: deletePreApprovedConfirmLocked, wrap: wrapDeletePreApprovedConfirm } = useButtonLock();
   const { locked: bulkDeleteLocked, wrap: wrapBulkDelete } = useButtonLock();
   const { locked: bulkRoleChangeLocked, wrap: wrapBulkRoleChange } = useButtonLock();
+  const { locked: bulkDeletePreApprovedLocked, wrap: wrapBulkDeletePreApproved } = useButtonLock();
+  const { locked: bulkRoleChangePreApprovedLocked, wrap: wrapBulkRoleChangePreApproved } = useButtonLock();
 
   const toggleSortDirection = (current: SortDirection): SortDirection => (current === 'asc' ? 'desc' : 'asc');
 
@@ -204,6 +214,11 @@ export default function UsersPage() {
     void fetchPreApproved();
   }, [fetchPreApproved]);
 
+  // Clear pre-approved selection whenever the visible rows change (filter / sort change)
+  useEffect(() => {
+    setSelectedPreApprovedEmails(new Set());
+  }, [preApprovedRoleFilter, preApprovedSortBy, preApprovedSortDirection]);
+
   // ─── User CRUD handlers ────────────────────────────────────────────────────
 
   const handleEditStart = (user: UserRecord) => {
@@ -302,6 +317,30 @@ export default function UsersPage() {
       await deletePreApprovedUser(deleteConfirmPreApproved.email);
       showToast(t('common.success'), { severity: 'success' });
       setDeleteConfirmPreApproved(null);
+      void fetchPreApproved();
+    } catch (error) {
+      showApiError(error, t('common.error'));
+    }
+  };
+
+  const handleBulkDeletePreApproved = async () => {
+    try {
+      await batchDeletePreApprovedUsers([...selectedPreApprovedEmails]);
+      showToast(t('users.preApprovedBulkDeleteSuccess'), { severity: 'success' });
+      setSelectedPreApprovedEmails(new Set());
+      setBulkDeletePreApprovedOpen(false);
+      void fetchPreApproved();
+    } catch (error) {
+      showApiError(error, t('common.error'));
+    }
+  };
+
+  const handleBulkRoleChangePreApproved = async () => {
+    try {
+      await batchUpdatePreApprovedUsers([...selectedPreApprovedEmails], bulkPreApprovedRole);
+      showToast(t('users.preApprovedBulkRoleChangeSuccess'), { severity: 'success' });
+      setSelectedPreApprovedEmails(new Set());
+      setBulkRoleChangePreApprovedOpen(false);
       void fetchPreApproved();
     } catch (error) {
       showApiError(error, t('common.error'));
@@ -688,6 +727,39 @@ export default function UsersPage() {
       />
 
       {/* Pre-approved table */}
+      {/* ── Pre-approved bulk action toolbar ─────────────────────────────── */}
+      {selectedPreApprovedEmails.size > 0 && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('users.preApprovedSelectedCount', { count: selectedPreApprovedEmails.size })}
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setBulkDeletePreApprovedOpen(true)}
+          >
+            {t('users.preApprovedBulkDelete')}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setBulkRoleChangePreApprovedOpen(true)}
+          >
+            {t('users.preApprovedBulkChangeRole')}
+          </Button>
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => setSelectedPreApprovedEmails(new Set())}
+          >
+            {t('users.clearSelection')}
+          </Button>
+        </Stack>
+      )}
+
       <TableTemplate
         config={{
           columns: preApprovedColumns,
@@ -701,6 +773,10 @@ export default function UsersPage() {
           emptyMessage: t('users.noUsersFound'),
           size: 'small',
           loading: preApprovedLoading,
+          selection: {
+            selectedKeys: selectedPreApprovedEmails,
+            onSelectionChange: setSelectedPreApprovedEmails,
+          },
         }}
       />
 
@@ -760,6 +836,39 @@ export default function UsersPage() {
         <DialogActions>
           <Button onClick={() => setBulkRoleChangeOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={wrapBulkRoleChange(handleBulkRoleChange)} disabled={bulkRoleChangeLocked}>{t('common.confirm')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Pre-approved Bulk Delete Confirm Dialog ───────────────────────── */}
+      <Dialog open={bulkDeletePreApprovedOpen} onClose={() => setBulkDeletePreApprovedOpen(false)}>
+        <DialogTitle>{t('users.preApprovedBulkDelete')}</DialogTitle>
+        <DialogContent>
+          <Typography>{t('users.preApprovedBulkDeleteConfirm', { count: selectedPreApprovedEmails.size })}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeletePreApprovedOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="error" onClick={wrapBulkDeletePreApproved(handleBulkDeletePreApproved)} disabled={bulkDeletePreApprovedLocked}>{t('common.delete')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Pre-approved Bulk Role Change Dialog ─────────────────────────── */}
+      <Dialog open={bulkRoleChangePreApprovedOpen} onClose={() => setBulkRoleChangePreApprovedOpen(false)}>
+        <DialogTitle>{t('users.preApprovedBulkChangeRole')}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>{t('users.preApprovedBulkChangeRoleConfirm', { count: selectedPreApprovedEmails.size, role: bulkPreApprovedRole })}</Typography>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              value={bulkPreApprovedRole}
+              onChange={(e) => setBulkPreApprovedRole(e.target.value as 'admin' | 'user')}
+            >
+              <MenuItem value="user">user</MenuItem>
+              <MenuItem value="admin">admin</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkRoleChangePreApprovedOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" onClick={wrapBulkRoleChangePreApproved(handleBulkRoleChangePreApproved)} disabled={bulkRoleChangePreApprovedLocked}>{t('common.confirm')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

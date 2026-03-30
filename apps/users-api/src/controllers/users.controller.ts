@@ -18,6 +18,8 @@ import {
   addToPreApproved,
   deleteFromPreApproved,
   updatePreApproved,
+  batchDeleteFromPreApproved,
+  batchUpdatePreApproved,
 } from '../services/preApprovedUsersService.js';
 
 /**
@@ -119,6 +121,23 @@ const batchDeleteUsersSchema = z.object({
     z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
     { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
   ).min(1, { message: 'uids must contain at least one user ID' }),
+});
+
+const batchDeletePreApprovedSchema = z.object({
+  emails: z.array(
+    z.string({ invalid_type_error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
+    { required_error: 'emails is required', invalid_type_error: 'emails must be an array' },
+  ).min(1, { message: 'emails must contain at least one email address' }),
+});
+
+const batchUpdatePreApprovedSchema = z.object({
+  emails: z.array(
+    z.string({ invalid_type_error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
+    { required_error: 'emails is required', invalid_type_error: 'emails must be an array' },
+  ).min(1, { message: 'emails must contain at least one email address' }),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }),
 });
 
 type UidParams = { uid: string };
@@ -468,4 +487,70 @@ export async function updatePreApprovedHandler(
   const user = await updatePreApproved(email, parsed.data);
   logger.debug({ correlationId: request.correlationId, email }, 'updatePreApprovedHandler: pre-approved user updated');
   void reply.send(formatSuccess(user, request.correlationId));
+}
+
+// ---------------------------------------------------------------------------
+// Pre-Approve Batch Handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * Handles DELETE /api/v1/users/pre-approve/batch — batch-deletes multiple pre-approved users.
+ */
+export async function batchDeletePreApprovedHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchDeletePreApprovedHandler: validating request body');
+  const parsed = batchDeletePreApprovedSchema.safeParse(request.body);
+  if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'batchDeletePreApprovedHandler: validation failed',
+    );
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
+    );
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.emails.length },
+    'batchDeletePreApprovedHandler: batch deleting pre-approved users',
+  );
+  const result = await batchDeleteFromPreApproved(parsed.data.emails);
+  logger.debug(
+    { correlationId: request.correlationId, deleted: result.deleted },
+    'batchDeletePreApprovedHandler: batch delete complete',
+  );
+  void reply.send(formatSuccess(result, request.correlationId));
+}
+
+/**
+ * Handles PATCH /api/v1/users/pre-approve/batch — batch-updates multiple pre-approved users.
+ */
+export async function batchUpdatePreApprovedHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchUpdatePreApprovedHandler: validating request body');
+  const parsed = batchUpdatePreApprovedSchema.safeParse(request.body);
+  if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'batchUpdatePreApprovedHandler: validation failed',
+    );
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
+    );
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.emails.length },
+    'batchUpdatePreApprovedHandler: batch updating pre-approved users',
+  );
+  const result = await batchUpdatePreApproved(parsed.data.emails, { role: parsed.data.role });
+  logger.debug(
+    { correlationId: request.correlationId, updated: result.updated },
+    'batchUpdatePreApprovedHandler: batch update complete',
+  );
+  void reply.send(formatSuccess(result, request.correlationId));
 }

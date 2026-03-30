@@ -65,7 +65,14 @@
     "bulkDeleteConfirm": "Tem certeza que deseja excluir {{count}} usuário(s) selecionado(s)?",
     "bulkChangeRoleConfirm": "Alterar a função para '{{role}}' de {{count}} usuário(s) selecionado(s)?",
     "bulkDeleteSuccess": "Usuários selecionados excluídos com sucesso",
-    "bulkRoleChangeSuccess": "Função atualizada para os usuários selecionados"
+    "bulkRoleChangeSuccess": "Função atualizada para os usuários selecionados",
+    "preApprovedSelectedCount": "{{count}} pré-aprovado(s) selecionado(s)",
+    "preApprovedBulkDelete": "Excluir selecionados",
+    "preApprovedBulkChangeRole": "Alterar função",
+    "preApprovedBulkDeleteConfirm": "Tem certeza que deseja remover {{count}} usuário(s) pré-aprovado(s) selecionado(s)?",
+    "preApprovedBulkChangeRoleConfirm": "Alterar a função para '{{role}}' de {{count}} usuário(s) pré-aprovado(s) selecionado(s)?",
+    "preApprovedBulkDeleteSuccess": "Usuários pré-aprovados selecionados removidos com sucesso",
+    "preApprovedBulkRoleChangeSuccess": "Função atualizada para os usuários pré-aprovados selecionados"
   },
   "resumes": {
     "title": "Currículos",

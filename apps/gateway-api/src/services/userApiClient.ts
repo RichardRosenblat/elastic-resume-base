@@ -14,6 +14,9 @@ import type {
   BatchUpdateUsersRequest,
   BatchUpdateUsersResponse,
   BatchDeleteUsersResponse,
+  BatchUpdatePreApprovedRequest,
+  BatchUpdatePreApprovedResponse,
+  BatchDeletePreApprovedResponse,
 } from '../models/index.js';
 
 const client = createHttpClient(config.userApiServiceUrl);
@@ -403,6 +406,50 @@ export async function batchDeleteUsersFromApi(uids: string[]): Promise<BatchDele
       forbiddenMsg: 'Batch delete not allowed',
       notFoundMsg: 'Users not found',
       unavailableActionMsg: 'batch delete users',
+    });
+  }
+}
+
+/**
+ * Batch-deletes multiple pre-approved users from the users-api.
+ */
+export async function batchDeletePreApprovedFromApi(emails: string[]): Promise<BatchDeletePreApprovedResponse> {
+  logger.debug({ count: emails.length }, 'batchDeletePreApprovedFromApi: batch deleting pre-approved users from UserAPI');
+  try {
+    const response = await client.delete<{ success: boolean; data: BatchDeletePreApprovedResponse }>(
+      '/api/v1/users/pre-approve/batch',
+      { data: { emails } },
+    );
+    return response.data.data;
+  } catch (err) {
+    handleUserApiError(err, {
+      context: { count: emails.length },
+      operationName: 'batchDeletePreApprovedFromApi',
+      forbiddenMsg: 'Batch delete pre-approved not allowed',
+      notFoundMsg: 'Pre-approved users not found',
+      unavailableActionMsg: 'batch delete pre-approved users',
+    });
+  }
+}
+
+/**
+ * Batch-updates multiple pre-approved users in the users-api.
+ */
+export async function batchUpdatePreApprovedInApi(data: BatchUpdatePreApprovedRequest): Promise<BatchUpdatePreApprovedResponse> {
+  logger.debug({ count: data.emails.length }, 'batchUpdatePreApprovedInApi: batch updating pre-approved users in UserAPI');
+  try {
+    const response = await client.patch<{ success: boolean; data: BatchUpdatePreApprovedResponse }>(
+      '/api/v1/users/pre-approve/batch',
+      data,
+    );
+    return response.data.data;
+  } catch (err) {
+    handleUserApiError(err, {
+      context: { count: data.emails.length },
+      operationName: 'batchUpdatePreApprovedInApi',
+      forbiddenMsg: 'Batch update pre-approved not allowed',
+      notFoundMsg: 'Pre-approved users not found',
+      unavailableActionMsg: 'batch update pre-approved users',
     });
   }
 }

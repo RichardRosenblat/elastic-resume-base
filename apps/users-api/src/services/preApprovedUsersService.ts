@@ -5,7 +5,7 @@ import {
 } from '@elastic-resume-base/synapse';
 import { config } from '../config.js';
 import { getUserByEmail } from './usersService.js';
-import type { AddPreApprovedRequest, PreApprovedFilters, PreApprovedUser, UpdatePreApprovedRequest } from '../models/index.js';
+import type { AddPreApprovedRequest, PreApprovedFilters, PreApprovedUser, UpdatePreApprovedRequest, BatchDeletePreApprovedResponse, BatchUpdatePreApprovedResponse } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 
 function sortPreApprovedUsers(users: PreApprovedUser[], filters?: PreApprovedFilters): PreApprovedUser[] {
@@ -134,4 +134,56 @@ export async function updatePreApproved(
   const updated = await getPreApprovedStore().update(email, data);
   logger.info({ email, action: 'updatePreApproved' }, 'Pre-approved user updated');
   return updated;
+}
+
+/**
+ * Batch-deletes multiple pre-approved users by email.
+ * Entries not found are silently skipped.
+ *
+ * @param emails - Array of email addresses to remove.
+ * @returns The number of entries deleted.
+ */
+export async function batchDeleteFromPreApproved(emails: string[]): Promise<BatchDeletePreApprovedResponse> {
+  logger.debug({ count: emails.length }, 'batchDeleteFromPreApproved: removing pre-approved users');
+  let deleted = 0;
+  await Promise.all(
+    emails.map(async (email) => {
+      try {
+        await getPreApprovedStore().delete(email);
+        deleted++;
+      } catch {
+        // silently skip entries that are not found
+      }
+    }),
+  );
+  logger.info({ deleted, action: 'batchDeleteFromPreApproved' }, 'Batch pre-approved delete complete');
+  return { deleted };
+}
+
+/**
+ * Batch-updates the role of multiple pre-approved users.
+ * Entries not found are silently skipped.
+ *
+ * @param emails - Array of email addresses to update.
+ * @param data - Fields to update (role).
+ * @returns The number of entries updated.
+ */
+export async function batchUpdatePreApproved(
+  emails: string[],
+  data: UpdatePreApprovedRequest,
+): Promise<BatchUpdatePreApprovedResponse> {
+  logger.debug({ count: emails.length }, 'batchUpdatePreApproved: updating pre-approved users');
+  let updated = 0;
+  await Promise.all(
+    emails.map(async (email) => {
+      try {
+        await getPreApprovedStore().update(email, data);
+        updated++;
+      } catch {
+        // silently skip entries that are not found
+      }
+    }),
+  );
+  logger.info({ updated, action: 'batchUpdatePreApproved' }, 'Batch pre-approved update complete');
+  return { updated };
 }
