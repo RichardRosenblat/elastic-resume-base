@@ -78,6 +78,7 @@ async def test_ocr_unsupported_file_type(client: AsyncClient) -> None:
     async with client as c:
         response = await c.post(
             "/api/v1/documents/ocr",
+            data={"documentTypes": "RG"},
             files=[("files", ("document.txt", b"some text content", "text/plain"))],
         )
     assert response.status_code == 400
@@ -108,6 +109,7 @@ async def test_ocr_success(client: AsyncClient, sample_image_bytes: bytes) -> No
         async with client as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("test.png", sample_image_bytes, "image/png"))],
             )
 
@@ -127,6 +129,7 @@ async def test_ocr_file_too_large(client: AsyncClient) -> None:
         async with client as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("big.png", large_content, "image/png"))],
             )
 
@@ -164,6 +167,7 @@ async def test_ocr_zip_success(client: AsyncClient, sample_image_bytes: bytes) -
         async with client as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("documents.zip", zip_bytes, "application/zip"))],
             )
 
@@ -202,6 +206,7 @@ async def test_ocr_zip_multiple_entries(client: AsyncClient, sample_image_bytes:
         async with client as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("docs.zip", zip_bytes, "application/zip"))],
             )
 
@@ -219,6 +224,7 @@ async def test_ocr_zip_no_supported_contents(client: AsyncClient) -> None:
     async with client as c:
         response = await c.post(
             "/api/v1/documents/ocr",
+            data={"documentTypes": "RG"},
             files=[("files", ("docs.zip", zip_bytes, "application/zip"))],
         )
 
@@ -233,6 +239,7 @@ async def test_ocr_zip_invalid_archive(client: AsyncClient) -> None:
     async with client as c:
         response = await c.post(
             "/api/v1/documents/ocr",
+            data={"documentTypes": "RG"},
             files=[("files", ("bad.zip", b"this is not a zip", "application/zip"))],
         )
 
@@ -255,6 +262,7 @@ async def test_ocr_zip_entry_too_large(client: AsyncClient, sample_image_bytes: 
         async with client as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("docs.zip", zip_bytes, "application/zip"))],
             )
 
@@ -287,6 +295,7 @@ async def test_ocr_mixed_direct_and_zip(client: AsyncClient, sample_image_bytes:
         async with client as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": ["RG", "RG"]},
                 files=[
                     ("files", ("direct.png", sample_image_bytes, "image/png")),
                     ("files", ("archive.zip", zip_bytes, "application/zip")),
@@ -353,6 +362,7 @@ async def test_vision_api_rate_limit_returns_429(sample_image_bytes: bytes) -> N
         ) as c:
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("test.png", sample_image_bytes, "image/png"))],
             )
 
@@ -458,37 +468,21 @@ async def test_ocr_explicit_document_type_bypasses_detection(
     )
 
 
-async def test_ocr_empty_string_document_type_uses_auto_detect(
+async def test_ocr_empty_string_document_type_returns_422(
     client: AsyncClient, sample_image_bytes: bytes
 ) -> None:
-    """An empty string in documentTypes falls back to keyword-based detection."""
-    mock_doc = ExtractedDocument(
-        filename="photo.png",
-        document_type=DocumentType.UNKNOWN,
-        raw_text="",
-        extracted_fields={},
-    )
+    """An empty string in documentTypes is rejected with 422 (no auto-detect)."""
+    async with client as c:
+        response = await c.post(
+            "/api/v1/documents/ocr",
+            data={"documentTypes": ""},
+            files=[("files", ("photo.png", sample_image_bytes, "image/png"))],
+        )
 
-    with (
-        patch("app.routers.documents.OcrService") as mock_ocr_cls,
-        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
-    ):
-        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
-        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
-
-        async with client as c:
-            # Empty string means "auto-detect for this file"
-            response = await c.post(
-                "/api/v1/documents/ocr",
-                data={"documentTypes": ""},
-                files=[("files", ("photo.png", sample_image_bytes, "image/png"))],
-            )
-
-    assert response.status_code == 200
-    # forced_type=None → auto-detect via keyword matching
-    mock_extractor_cls.return_value.extract.assert_called_once_with(
-        "photo.png", "", forced_type=None
-    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["success"] is False
+    assert "Invalid document type" in body["error"]["message"]
 
 
 async def test_ocr_multiple_files_explicit_document_types(
@@ -534,35 +528,20 @@ async def test_ocr_multiple_files_explicit_document_types(
     assert calls[1].kwargs["forced_type"] == DocumentType.BIRTH_CERTIFICATE
 
 
-async def test_ocr_without_document_types_uses_auto_detect(
+async def test_ocr_without_document_types_returns_422(
     client: AsyncClient, sample_image_bytes: bytes
 ) -> None:
-    """When no documentTypes are provided, keyword-based detection is used."""
-    mock_doc = ExtractedDocument(
-        filename="photo.png",
-        document_type=DocumentType.UNKNOWN,
-        raw_text="",
-        extracted_fields={},
-    )
+    """When no documentTypes are provided, the request is rejected with 422."""
+    async with client as c:
+        response = await c.post(
+            "/api/v1/documents/ocr",
+            files=[("files", ("photo.png", sample_image_bytes, "image/png"))],
+        )
 
-    with (
-        patch("app.routers.documents.OcrService") as mock_ocr_cls,
-        patch("app.routers.documents.ExtractorService") as mock_extractor_cls,
-    ):
-        mock_ocr_cls.return_value.extract_text = AsyncMock(return_value="")
-        mock_extractor_cls.return_value.extract = MagicMock(return_value=mock_doc)
-
-        async with client as c:
-            response = await c.post(
-                "/api/v1/documents/ocr",
-                files=[("files", ("photo.png", sample_image_bytes, "image/png"))],
-            )
-
-    assert response.status_code == 200
-    # No forced_type when documentTypes is absent
-    mock_extractor_cls.return_value.extract.assert_called_once_with(
-        "photo.png", "", forced_type=None
-    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["success"] is False
+    assert "documentTypes" in body["error"]["message"]
 
 
 async def test_ocr_content_type_header_determines_file_format(
@@ -588,6 +567,7 @@ async def test_ocr_content_type_header_determines_file_format(
             # identifies it as a PNG image — _resolve_extension picks .png.
             response = await c.post(
                 "/api/v1/documents/ocr",
+                data={"documentTypes": "RG"},
                 files=[("files", ("document.bin", sample_image_bytes, "image/png"))],
             )
 

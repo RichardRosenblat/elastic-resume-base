@@ -82,6 +82,7 @@
     "selectedFiles": "{{count}} file(s) selected",
     "downloadReady": "Your Excel file is ready and has been downloaded.",
     "tooManyFiles": "You can upload at most {{max}} files at once.",
+    "removeFile": "Remove file",
     "documentType": {
       "label": "Document Type",
       "selectType": "Select type…",

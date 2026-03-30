@@ -8,7 +8,7 @@
  *
  * Users must specify the document type for each uploaded file from a predefined
  * list of supported Brazilian document types before scanning can begin.  The
- * "Process & Download" button remains disabled until every file has an explicit
+ * "Scan & Download" button remains disabled until every file has an explicit
  * type selected.
  *
  * The upload UI is gated by the `documentRead` feature flag. When the flag is
@@ -22,6 +22,7 @@ import {
   CardContent,
   CircularProgress,
   FormControl,
+  IconButton,
   InputLabel,
   List,
   ListItem,
@@ -30,11 +31,13 @@ import {
   MenuItem,
   Select,
   type SelectChangeEvent,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   AttachFile as AttachFileIcon,
   CloudUpload as CloudUploadIcon,
+  Delete as DeleteIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -93,6 +96,12 @@ export default function DocumentsPage() {
       next[index] = event.target.value;
       return next;
     });
+  };
+
+  const handleDeleteFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setDocumentTypeAssignments((prev) => prev.filter((_, i) => i !== index));
+    setDownloadReady(false);
   };
 
   const handleUpload = async () => {
@@ -200,10 +209,11 @@ export default function DocumentsPage() {
                       sx={{ flexShrink: 1, minWidth: 120, maxWidth: 300 }}
                     />
                     <FormControl size="small" sx={{ minWidth: 220 }} disabled={loading}>
-                      <InputLabel id={`doc-type-label-${index}`}>
+                      <InputLabel shrink id={`doc-type-label-${index}`}>
                         {t('documents.documentType.label')}
                       </InputLabel>
                       <Select
+                        notched
                         labelId={`doc-type-label-${index}`}
                         value={documentTypeAssignments[index] ?? ''}
                         label={t('documents.documentType.label')}
@@ -222,6 +232,19 @@ export default function DocumentsPage() {
                         ))}
                       </Select>
                     </FormControl>
+                    <Tooltip title={t('documents.removeFile')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteFile(index)}
+                          disabled={loading}
+                          aria-label={t('documents.removeFile')}
+                          color="error"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </ListItem>
                 ))}
               </List>

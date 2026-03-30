@@ -81,6 +81,7 @@
     "selectedFiles": "{{count}} arquivo(s) selecionado(s)",
     "downloadReady": "Seu arquivo Excel está pronto e foi baixado.",
     "tooManyFiles": "Você pode enviar no máximo {{max}} arquivos de uma vez.",
+    "removeFile": "Remover arquivo",
     "documentType": {
       "label": "Tipo de Documento",
       "selectType": "Selecione o tipo…",
