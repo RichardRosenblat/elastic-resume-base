@@ -57,7 +57,15 @@
     "editUserTooltip": "Editar usuário",
     "deleteUserTooltip": "Excluir usuário",
     "editPreApprovedTooltip": "Editar usuário pré-aprovado",
-    "deletePreApprovedTooltip": "Remover da lista de pré-aprovados"
+    "deletePreApprovedTooltip": "Remover da lista de pré-aprovados",
+    "selectedCount": "{{count}} selecionado(s)",
+    "clearSelection": "Limpar seleção",
+    "bulkDelete": "Excluir selecionados",
+    "bulkChangeRole": "Alterar função",
+    "bulkDeleteConfirm": "Tem certeza que deseja excluir {{count}} usuário(s) selecionado(s)?",
+    "bulkChangeRoleConfirm": "Alterar a função para '{{role}}' de {{count}} usuário(s) selecionado(s)?",
+    "bulkDeleteSuccess": "Usuários selecionados excluídos com sucesso",
+    "bulkRoleChangeSuccess": "Função atualizada para os usuários selecionados"
   },
   "resumes": {
     "title": "Currículos",

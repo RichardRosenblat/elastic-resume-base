@@ -58,7 +58,15 @@
     "editUserTooltip": "Edit user",
     "deleteUserTooltip": "Delete user",
     "editPreApprovedTooltip": "Edit pre-approved user",
-    "deletePreApprovedTooltip": "Remove from pre-approved list"
+    "deletePreApprovedTooltip": "Remove from pre-approved list",
+    "selectedCount": "{{count}} selected",
+    "clearSelection": "Clear selection",
+    "bulkDelete": "Delete selected",
+    "bulkChangeRole": "Change role",
+    "bulkDeleteConfirm": "Are you sure you want to delete {{count}} selected user(s)?",
+    "bulkChangeRoleConfirm": "Change role to '{{role}}' for {{count}} selected user(s)?",
+    "bulkDeleteSuccess": "Selected users deleted successfully",
+    "bulkRoleChangeSuccess": "Role updated for selected users"
   },
   "resumes": {
     "title": "Resumes",

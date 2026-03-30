@@ -42,6 +42,7 @@
  * ```
  */
 import {
+  Checkbox,
   Paper,
   Skeleton,
   Table,
@@ -85,15 +86,46 @@ export default function TableTemplate<TRow>({ config }: { config: TableConfig<TR
     size = 'medium',
     loading = false,
     skeletonRows = 5,
+    selection,
   } = config;
 
   const sortState: TableSortState = sort ?? NO_SORT;
+
+  const allKeys = rows.map(getRowKey);
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selection?.selectedKeys.has(k));
+  const someSelected = !allSelected && allKeys.some((k) => selection?.selectedKeys.has(k));
+
+  const handleSelectAll = () => {
+    if (!selection) return;
+    selection.onSelectionChange(allSelected ? new Set() : new Set(allKeys));
+  };
+
+  const handleRowSelect = (key: string) => {
+    if (!selection) return;
+    const next = new Set(selection.selectedKeys);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    selection.onSelectionChange(next);
+  };
 
   return (
     <TableContainer component={Paper}>
       <Table size={size}>
         <TableHead>
           <TableRow>
+            {selection && (
+              <TableCell padding="checkbox">
+                <Checkbox
+                  indeterminate={someSelected}
+                  checked={allSelected}
+                  onChange={handleSelectAll}
+                  inputProps={{ 'aria-label': 'select all rows' }}
+                />
+              </TableCell>
+            )}
             {columns.map((col) => (
               <TableCell key={col.id} width={col.width}>
                 {typeof col.header === 'function'
@@ -107,6 +139,11 @@ export default function TableTemplate<TRow>({ config }: { config: TableConfig<TR
           {loading ? (
             Array.from({ length: skeletonRows }).map((_, rowIdx) => (
               <TableRow key={`skeleton-${rowIdx}`}>
+                {selection && (
+                  <TableCell padding="checkbox">
+                    <Skeleton variant="rectangular" width={20} height={20} />
+                  </TableCell>
+                )}
                 {columns.map((col) => (
                   <TableCell key={col.id}>
                     <Skeleton variant="text" sx={{ fontSize: '1rem' }} />
@@ -116,18 +153,31 @@ export default function TableTemplate<TRow>({ config }: { config: TableConfig<TR
             ))
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} align="center">
+              <TableCell colSpan={columns.length + (selection ? 1 : 0)} align="center">
                 {emptyMessage}
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((row) => (
-              <TableRow key={getRowKey(row)}>
-                {columns.map((col) => (
-                  <TableCell key={col.id}>{col.cell(row)}</TableCell>
-                ))}
-              </TableRow>
-            ))
+            rows.map((row) => {
+              const key = getRowKey(row);
+              const isSelected = selection?.selectedKeys.has(key) ?? false;
+              return (
+                <TableRow key={key} selected={isSelected}>
+                  {selection && (
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={() => handleRowSelect(key)}
+                        inputProps={{ 'aria-label': `select row ${key}` }}
+                      />
+                    </TableCell>
+                  )}
+                  {columns.map((col) => (
+                    <TableCell key={col.id}>{col.cell(row)}</TableCell>
+                  ))}
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>

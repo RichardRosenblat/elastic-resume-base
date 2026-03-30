@@ -68,6 +68,14 @@ export default function UsersPage() {
   // User delete dialog state
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserRecord | null>(null);
 
+  // Bulk selection state
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+
+  // Bulk action dialog state
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkRoleChangeOpen, setBulkRoleChangeOpen] = useState(false);
+  const [bulkRole, setBulkRole] = useState<'admin' | 'user'>('user');
+
   // Pre-approved users state
   const [preApproved, setPreApproved] = useState<PreApprovedUser[]>([]);
   const [preApprovedLoading, setPreApprovedLoading] = useState(true);
@@ -95,6 +103,8 @@ export default function UsersPage() {
   const { locked: deleteConfirmLocked, wrap: wrapDeleteConfirm } = useButtonLock();
   const { locked: editPreApprovedSaveLocked, wrap: wrapEditPreApprovedSave } = useButtonLock();
   const { locked: deletePreApprovedConfirmLocked, wrap: wrapDeletePreApprovedConfirm } = useButtonLock();
+  const { locked: bulkDeleteLocked, wrap: wrapBulkDelete } = useButtonLock();
+  const { locked: bulkRoleChangeLocked, wrap: wrapBulkRoleChange } = useButtonLock();
 
   const toggleSortDirection = (current: SortDirection): SortDirection => (current === 'asc' ? 'desc' : 'asc');
 
@@ -187,6 +197,11 @@ export default function UsersPage() {
     void fetchUsers();
   }, [fetchUsers]);
 
+  // Clear selection whenever the visible rows change (page / filter / sort change)
+  useEffect(() => {
+    setSelectedUserIds(new Set());
+  }, [page, rowsPerPage, usersRoleFilter, usersEnabledFilter, usersSortBy, usersSortDirection]);
+
   useEffect(() => {
     void fetchPreApproved();
   }, [fetchPreApproved]);
@@ -225,6 +240,30 @@ export default function UsersPage() {
       await deleteUser(deleteConfirmUser.uid);
       showToast(t('users.deleteSuccess'), { severity: 'success' });
       setDeleteConfirmUser(null);
+      void fetchUsers();
+    } catch (error) {
+      showApiError(error, t('common.error'));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all([...selectedUserIds].map((uid) => deleteUser(uid)));
+      showToast(t('users.bulkDeleteSuccess'), { severity: 'success' });
+      setSelectedUserIds(new Set());
+      setBulkDeleteOpen(false);
+      void fetchUsers();
+    } catch (error) {
+      showApiError(error, t('common.error'));
+    }
+  };
+
+  const handleBulkRoleChange = async () => {
+    try {
+      await Promise.all([...selectedUserIds].map((uid) => updateUser(uid, { role: bulkRole })));
+      showToast(t('users.bulkRoleChangeSuccess'), { severity: 'success' });
+      setSelectedUserIds(new Set());
+      setBulkRoleChangeOpen(false);
       void fetchUsers();
     } catch (error) {
       showApiError(error, t('common.error'));
@@ -564,6 +603,39 @@ export default function UsersPage() {
     <Box>
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('users.title')}</Typography>
 
+      {/* ── Bulk action toolbar (visible when ≥1 user is selected) ──────────── */}
+      {selectedUserIds.size > 0 && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('users.selectedCount', { count: selectedUserIds.size })}
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setBulkDeleteOpen(true)}
+          >
+            {t('users.bulkDelete')}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setBulkRoleChangeOpen(true)}
+          >
+            {t('users.bulkChangeRole')}
+          </Button>
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => setSelectedUserIds(new Set())}
+          >
+            {t('users.clearSelection')}
+          </Button>
+        </Stack>
+      )}
+
       {/* ── Users table ───────────────────────────────────────────────────── */}
       <TableTemplate
         config={{
@@ -585,6 +657,10 @@ export default function UsersPage() {
           },
           emptyMessage: t('users.noUsersFound'),
           loading,
+          selection: {
+            selectedKeys: selectedUserIds,
+            onSelectionChange: setSelectedUserIds,
+          },
         }}
       />
 
@@ -669,6 +745,39 @@ export default function UsersPage() {
         <DialogActions>
           <Button onClick={() => setDeleteConfirmPreApproved(null)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="error" onClick={wrapDeletePreApprovedConfirm(handleDeletePreApprovedConfirm)} disabled={deletePreApprovedConfirmLocked}>{t('common.delete')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Bulk Delete Confirm Dialog ────────────────────────────────────── */}
+      <Dialog open={bulkDeleteOpen} onClose={() => setBulkDeleteOpen(false)}>
+        <DialogTitle>{t('users.bulkDelete')}</DialogTitle>
+        <DialogContent>
+          <Typography>{t('users.bulkDeleteConfirm', { count: selectedUserIds.size })}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="error" onClick={wrapBulkDelete(handleBulkDelete)} disabled={bulkDeleteLocked}>{t('common.delete')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Bulk Role Change Dialog ───────────────────────────────────────── */}
+      <Dialog open={bulkRoleChangeOpen} onClose={() => setBulkRoleChangeOpen(false)}>
+        <DialogTitle>{t('users.bulkChangeRole')}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>{t('users.bulkChangeRoleConfirm', { count: selectedUserIds.size, role: bulkRole })}</Typography>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              value={bulkRole}
+              onChange={(e) => setBulkRole(e.target.value as 'admin' | 'user')}
+            >
+              <MenuItem value="user">user</MenuItem>
+              <MenuItem value="admin">admin</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkRoleChangeOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" onClick={wrapBulkRoleChange(handleBulkRoleChange)} disabled={bulkRoleChangeLocked}>{t('common.confirm')}</Button>
         </DialogActions>
       </Dialog>
     </Box>
