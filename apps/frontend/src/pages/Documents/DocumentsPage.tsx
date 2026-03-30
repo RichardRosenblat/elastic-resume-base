@@ -79,14 +79,33 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(false);
   const [downloadReady, setDownloadReady] = useState(false);
 
-  const handleFilesChange = (files: File[]) => {
-    if (files.length > MAX_FILES) {
+  const handleFilesChange = (newFiles: File[]) => {
+    if (newFiles.length === 0) {
+      // Triggered by the "Cancel" / "Clear" button — reset everything.
+      setSelectedFiles([]);
+      setDocumentTypeAssignments([]);
+      setDownloadReady(false);
+      return;
+    }
+
+    // Merge the newly selected files with the existing ones, skipping duplicates
+    // (matched by name + size) so that re-selecting the same file is a no-op.
+    const merged = [
+      ...selectedFiles,
+      ...newFiles.filter(
+        (f) => !selectedFiles.some((e) => e.name === f.name && e.size === f.size),
+      ),
+    ];
+
+    if (merged.length > MAX_FILES) {
       showToast(t('documents.tooManyFiles', { max: MAX_FILES }), { severity: 'warning' });
       return;
     }
-    setSelectedFiles(files);
-    // Reset type assignments when the file selection changes.
-    setDocumentTypeAssignments(new Array(files.length).fill(''));
+
+    const addedCount = merged.length - selectedFiles.length;
+    setSelectedFiles(merged);
+    // Preserve existing type assignments; append empty slots for the new files.
+    setDocumentTypeAssignments((prev) => [...prev, ...new Array(addedCount).fill('')]);
     setDownloadReady(false);
   };
 
