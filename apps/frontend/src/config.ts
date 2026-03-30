@@ -40,6 +40,11 @@ export const config = {
       ?? 'demo-elastic-resume-base',
     authEmulatorHost: import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST ?? '',
   },
+  /**
+   * Maximum number of files a user may add to a single document upload batch.
+   * Configured via `VITE_DOCUMENT_MAX_FILES` (default: 20).
+   */
+  documentMaxFiles: parseInt(import.meta.env.VITE_DOCUMENT_MAX_FILES ?? '20', 10),
   features: {
     resumeIngest: import.meta.env.VITE_FEATURE_RESUME_INGEST === 'true',
     resumeSearch: import.meta.env.VITE_FEATURE_RESUME_SEARCH === 'true',

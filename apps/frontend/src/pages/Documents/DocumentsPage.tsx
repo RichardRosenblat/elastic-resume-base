@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { config } from '../../config';
 import { ocrDocuments } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import { useToast } from '../../contexts/use-toast';
@@ -52,7 +53,7 @@ import type { FileUploadConfig } from '../../components/templates';
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.docx,.zip';
 
 /** Maximum number of files that can be uploaded in a single request. */
-const MAX_FILES = 20;
+const MAX_FILES = config.documentMaxFiles;
 
 /** Supported format labels shown as chips in the file upload section. */
 const ACCEPTED_FORMATS = ['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX', 'ZIP'];

@@ -104,6 +104,7 @@ For Docker / CI builds, pass these as `--build-arg` flags or inject them via you
 | `VITE_FIREBASE_API_KEY` | Yes | — | Firebase project API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Yes | — | Firebase Auth domain |
 | `FIREBASE_PROJECT_ID` | Yes | `demo-elastic-resume-base` | Shared Firebase project ID; mapped to frontend `VITE_FIREBASE_PROJECT_ID` by Vite config |
+| `VITE_DOCUMENT_MAX_FILES` | No | `20` | Maximum number of files per document upload batch |
 | `VITE_FEATURE_RESUME_INGEST` | No | `false` | Enable resume ingest UI |
 | `VITE_FEATURE_RESUME_SEARCH` | No | `false` | Enable semantic search UI |
 | `VITE_FEATURE_DOCUMENT_READ` | No | `false` | Enable document reader UI |

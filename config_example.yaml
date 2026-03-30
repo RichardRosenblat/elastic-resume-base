@@ -158,6 +158,10 @@ systems:
     # VITE_FIREBASE_AUTH_DOMAIN → derived automatically from systems.shared.FIREBASE_AUTH_DOMAIN
     VITE_FIREBASE_API_KEY: ""           # fill in locally
 
+    # Maximum number of files a user may add to a single upload batch.
+    # The frontend enforces this limit when merging new file selections.
+    VITE_DOCUMENT_MAX_FILES: "20"
+
     # Feature flags — set to "true" to enable, "false" to hide/disable
     VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)
     VITE_FEATURE_RESUME_SEARCH: "false"    # Semantic search (search-base not ready)
