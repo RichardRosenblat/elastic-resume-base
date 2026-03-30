@@ -204,6 +204,24 @@ export const deleteUser = async (uid: string): Promise<void> => {
   await apiClient.delete(`/api/v1/users/${uid}`);
 };
 
+/** Batch-deletes multiple users by UID. Admin only. */
+export const batchDeleteUsers = async (uids: string[]): Promise<{ deleted: number }> => {
+  const res = await apiClient.delete<SuccessResponse<{ deleted: number }>>(
+    '/api/v1/users/batch',
+    { data: { uids } },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/** Batch-updates multiple users (role and/or enabled status). Admin only. */
+export const batchUpdateUsers = async (uids: string[], data: { role?: 'admin' | 'user'; enable?: boolean }): Promise<{ updated: number }> => {
+  const res = await apiClient.patch<SuccessResponse<{ updated: number }>>(
+    '/api/v1/users/batch',
+    { uids, ...data },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
 /** Returns all pre-approved email entries. Admin only. */
 export const listPreApprovedUsers = async (options?: {
   role?: 'admin' | 'user';
@@ -237,6 +255,24 @@ export const updatePreApprovedUser = async (email: string, role: 'admin' | 'user
     '/api/v1/users/pre-approve',
     { role },
     { params: { email } },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/** Batch-deletes multiple pre-approved users by email. Admin only. */
+export const batchDeletePreApprovedUsers = async (emails: string[]): Promise<{ deleted: number }> => {
+  const res = await apiClient.delete<SuccessResponse<{ deleted: number }>>(
+    '/api/v1/users/pre-approve/batch',
+    { data: { emails } },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/** Batch-updates the role of multiple pre-approved users. Admin only. */
+export const batchUpdatePreApprovedUsers = async (emails: string[], role: 'admin' | 'user'): Promise<{ updated: number }> => {
+  const res = await apiClient.patch<SuccessResponse<{ updated: number }>>(
+    '/api/v1/users/pre-approve/batch',
+    { emails, role },
   );
   return unwrapSuccessResponse(res.data);
 };

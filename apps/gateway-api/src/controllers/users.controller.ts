@@ -16,6 +16,8 @@ import {
   addPreApproved,
   deletePreApproved,
   updatePreApproved,
+  batchDeletePreApproved,
+  batchUpdatePreApproved,
 } from '../services/usersService.js';
 
 /**
@@ -108,6 +110,23 @@ const batchDeleteUsersSchema = z.object({
     z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
     { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
   ).min(1, { message: 'uids must contain at least one user ID' }),
+});
+
+const batchDeletePreApprovedSchema = z.object({
+  emails: z.array(
+    z.string({ invalid_type_error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
+    { required_error: 'emails is required', invalid_type_error: 'emails must be an array' },
+  ).min(1, { message: 'emails must contain at least one email address' }),
+});
+
+const batchUpdatePreApprovedSchema = z.object({
+  emails: z.array(
+    z.string({ invalid_type_error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
+    { required_error: 'emails is required', invalid_type_error: 'emails must be an array' },
+  ).min(1, { message: 'emails must contain at least one email address' }),
+  role: z.enum(['admin', 'user'], {
+    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+  }),
 });
 
 type UidParams = { uid: string };
@@ -339,3 +358,44 @@ export async function batchDeleteUsersHandler(
   void reply.send(formatSuccess(result, request.correlationId));
 }
 
+/**
+ * Handles DELETE /api/v1/users/pre-approve/batch — batch-deletes multiple pre-approved users (admin only).
+ */
+export async function batchDeletePreApprovedHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchDeletePreApprovedHandler: validating request body');
+  const parsed = batchDeletePreApprovedSchema.safeParse(request.body);
+  if (!parsed.success) {
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.emails.length, requesterUid: request.user.uid },
+    'batchDeletePreApprovedHandler: batch deleting pre-approved users',
+  );
+  const result = await batchDeletePreApproved(parsed.data.emails, request.user.role ?? 'user');
+  void reply.send(formatSuccess(result, request.correlationId));
+}
+
+/**
+ * Handles PATCH /api/v1/users/pre-approve/batch — batch-updates multiple pre-approved users (admin only).
+ */
+export async function batchUpdatePreApprovedHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchUpdatePreApprovedHandler: validating request body');
+  const parsed = batchUpdatePreApprovedSchema.safeParse(request.body);
+  if (!parsed.success) {
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.emails.length, requesterUid: request.user.uid },
+    'batchUpdatePreApprovedHandler: batch updating pre-approved users',
+  );
+  const result = await batchUpdatePreApproved(parsed.data, request.user.role ?? 'user');
+  void reply.send(formatSuccess(result, request.correlationId));
+}

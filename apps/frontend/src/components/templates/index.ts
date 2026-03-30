@@ -40,6 +40,7 @@ export type {
   // Table
   TableSortState,
   TablePaginationConfig,
+  TableSelectionConfig,
   ColumnConfig,
   TableConfig,
   // Data Display
