@@ -260,6 +260,63 @@ The theme is also injected as CSS custom properties into `<html>` so that plain 
 }
 ```
 
+### Alert Colours
+
+Alert components (`success`, `warning`, `error`, `info`) can be individually styled via the `palette.alerts` section.  Two variants are supported:
+
+- **standard** — used for inline alerts (e.g. `ErrorMessage`, form feedback).  Configure `bg` (background) and `color` (text + icon).
+- **filled** — used for toast notifications.  Configure `filledBg` (background) and `filledColor` (text).
+
+A `default` tone is also available for neutral/unstyled alerts.
+
+```jsonc
+// src/theme/theme.local.json (excerpt)
+{
+  "palette": {
+    "alerts": {
+      "success": {
+        "bg": "#EDF7ED",
+        "color": "#1D5E28",
+        "filledBg": "#198754",
+        "filledColor": "#FFFFFF"
+      },
+      "error": {
+        "bg": "#FDEDED",
+        "color": "#8B1A1A",
+        "filledBg": "#C53030",
+        "filledColor": "#FFFFFF"
+      },
+      "warning": {
+        "bg": "#FFF8E1",
+        "color": "#7A5310",
+        "filledBg": "#B7791F",
+        "filledColor": "#FFFFFF"
+      },
+      "info": {
+        "bg": "#E8F4FD",
+        "color": "#1A4B8C",
+        "filledBg": "#2563EB",
+        "filledColor": "#FFFFFF"
+      },
+      "default": {
+        "bg": "#F3F7FC",
+        "color": "#3E5166",
+        "filledBg": "#3E5166",
+        "filledColor": "#FFFFFF"
+      }
+    }
+  }
+}
+```
+
+When any tone property is omitted, MUI derives the colour automatically from the corresponding semantic palette role (`palette.success`, `palette.error`, etc.).
+
+Alert colours are also exposed as CSS custom properties:
+- `--color-alert-<severity>-bg`
+- `--color-alert-<severity>-color`
+- `--color-alert-<severity>-filled-bg`
+- `--color-alert-<severity>-filled-color`
+
 ---
 
 ## Internationalisation (i18n)

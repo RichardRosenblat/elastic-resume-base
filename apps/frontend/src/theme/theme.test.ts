@@ -75,6 +75,27 @@ describe('toCssVariables', () => {
       expect(vars['--color-ui-border']).toBe(theme.palette.ui.border);
     }
   });
+
+  it('includes alert colour variables when palette.alerts is configured', () => {
+    const theme = loadTheme();
+    const vars = toCssVariables(theme);
+    const severities = ['success', 'warning', 'error', 'info', 'default'] as const;
+    for (const severity of severities) {
+      const tone = theme.palette.alerts?.[severity];
+      if (tone?.bg) {
+        expect(vars[`--color-alert-${severity}-bg`]).toBe(tone.bg);
+      }
+      if (tone?.color) {
+        expect(vars[`--color-alert-${severity}-color`]).toBe(tone.color);
+      }
+      if (tone?.filledBg) {
+        expect(vars[`--color-alert-${severity}-filled-bg`]).toBe(tone.filledBg);
+      }
+      if (tone?.filledColor) {
+        expect(vars[`--color-alert-${severity}-filled-color`]).toBe(tone.filledColor);
+      }
+    }
+  });
 });
 
 describe('resolveLogoUrl', () => {

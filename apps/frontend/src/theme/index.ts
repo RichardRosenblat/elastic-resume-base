@@ -16,7 +16,7 @@ export { useAppTheme } from './app-theme-context';
 export type { AppThemeContextValue } from './app-theme-context';
 
 // Types
-export type { AppTheme, Palette, ColorRole, Branding, Typography, Icons } from './types';
+export type { AppTheme, Palette, ColorRole, Branding, Typography, Icons, AlertTone, AlertPalette } from './types';
 
 // Utilities
 export { loadTheme } from './loadTheme';

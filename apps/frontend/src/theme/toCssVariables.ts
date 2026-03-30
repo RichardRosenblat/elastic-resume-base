@@ -78,6 +78,15 @@ export function toCssVariables(theme: AppTheme): Record<string, string> {
   if (palette.ui?.disabledText) vars['--color-ui-disabled-text'] = palette.ui.disabledText;
   if (palette.ui?.focusRing) vars['--color-ui-focus-ring'] = palette.ui.focusRing;
 
+  const alertSeverities = ['success', 'warning', 'error', 'info', 'default'] as const;
+  for (const severity of alertSeverities) {
+    const tone = palette.alerts?.[severity];
+    if (tone?.bg) vars[`--color-alert-${severity}-bg`] = tone.bg;
+    if (tone?.color) vars[`--color-alert-${severity}-color`] = tone.color;
+    if (tone?.filledBg) vars[`--color-alert-${severity}-filled-bg`] = tone.filledBg;
+    if (tone?.filledColor) vars[`--color-alert-${severity}-filled-color`] = tone.filledColor;
+  }
+
   return vars;
 }
 

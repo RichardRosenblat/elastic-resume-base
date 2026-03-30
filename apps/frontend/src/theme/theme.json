@@ -52,6 +52,38 @@
       "disabledBackground": "#E6ECF4",
       "disabledText": "#8092A6",
       "focusRing": "#3A7BD5"
+    },
+    "alerts": {
+      "success": {
+        "bg": "#EDF7ED",
+        "color": "#1D5E28",
+        "filledBg": "#198754",
+        "filledColor": "#FFFFFF"
+      },
+      "warning": {
+        "bg": "#FFF8E1",
+        "color": "#7A5310",
+        "filledBg": "#B7791F",
+        "filledColor": "#FFFFFF"
+      },
+      "error": {
+        "bg": "#FDEDED",
+        "color": "#8B1A1A",
+        "filledBg": "#C53030",
+        "filledColor": "#FFFFFF"
+      },
+      "info": {
+        "bg": "#E8F4FD",
+        "color": "#1A4B8C",
+        "filledBg": "#2563EB",
+        "filledColor": "#FFFFFF"
+      },
+      "default": {
+        "bg": "#F3F7FC",
+        "color": "#3E5166",
+        "filledBg": "#3E5166",
+        "filledColor": "#FFFFFF"
+      }
     }
   },
   "presets": {
