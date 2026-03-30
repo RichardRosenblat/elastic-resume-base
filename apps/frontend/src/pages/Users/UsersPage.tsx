@@ -41,7 +41,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import type { UserRecord, PreApprovedUser, UserSortField, PreApprovedSortField, SortDirection } from '../../types';
-import { listUsers, updateUser, deleteUser, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser, batchDeletePreApprovedUsers, batchUpdatePreApprovedUsers } from '../../services/api';
+import { listUsers, updateUser, deleteUser, batchDeleteUsers, batchUpdateUsers, listPreApprovedUsers, addPreApprovedUser, deletePreApprovedUser, updatePreApprovedUser, batchDeletePreApprovedUsers, batchUpdatePreApprovedUsers } from '../../services/api';
 import { useToast } from '../../contexts/use-toast';
 import { useShowApiError } from '../../hooks/useShowApiError';
 import { TableTemplate, FormTemplate } from '../../components/templates';
@@ -256,7 +256,7 @@ export default function UsersPage() {
 
   const handleBulkDelete = async () => {
     try {
-      await Promise.all([...selectedUserIds].map((uid) => deleteUser(uid)));
+      await batchDeleteUsers([...selectedUserIds]);
       showToast(t('users.bulkDeleteSuccess'), { severity: 'success' });
       setSelectedUserIds(new Set());
       setBulkDeleteOpen(false);
@@ -268,7 +268,7 @@ export default function UsersPage() {
 
   const handleBulkRoleChange = async () => {
     try {
-      await Promise.all([...selectedUserIds].map((uid) => updateUser(uid, { role: bulkRole })));
+      await batchUpdateUsers([...selectedUserIds], { role: bulkRole });
       showToast(t('users.bulkRoleChangeSuccess'), { severity: 'success' });
       setSelectedUserIds(new Set());
       setBulkRoleChangeOpen(false);
