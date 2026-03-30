@@ -12,6 +12,8 @@ import {
   addPreApprovedHandler,
   deletePreApprovedHandler,
   updatePreApprovedHandler,
+  batchDeletePreApprovedHandler,
+  batchUpdatePreApprovedHandler,
 } from '../controllers/users.controller.js';
 import { usersProxyHandler } from '../controllers/usersProxy.controller.js';
 
@@ -358,6 +360,91 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, updatePreApprovedHandler as RouteHandlerMethod);
+
+  app.delete('/pre-approve/batch', {
+    preHandler: [requireAdminHook],
+    schema: {
+      tags: ['Pre-Approved Users'],
+      summary: 'Batch delete pre-approved users (admin only)',
+      description: 'Removes multiple users from the pre-approved list by email. Entries not found are silently skipped.',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['emails'],
+        properties: {
+          emails: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            example: ['alice@example.com', 'bob@example.com'],
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch delete completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                deleted: { type: 'integer', example: 2 },
+              },
+            },
+            meta: successMeta,
+          },
+        },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchDeletePreApprovedHandler as RouteHandlerMethod);
+
+  app.patch('/pre-approve/batch', {
+    preHandler: [requireAdminHook],
+    schema: {
+      tags: ['Pre-Approved Users'],
+      summary: 'Batch update pre-approved users (admin only)',
+      description: 'Applies the same role update to multiple pre-approved users. Entries not found are silently skipped.',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['emails', 'role'],
+        properties: {
+          emails: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            example: ['alice@example.com', 'bob@example.com'],
+          },
+          role: { type: 'string', enum: ['admin', 'user'], example: 'user', description: "Must be 'admin' or 'user'." },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch update completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                updated: { type: 'integer', example: 3 },
+              },
+            },
+            meta: successMeta,
+          },
+        },
+        400: validationErrorResponse,
+        401: unauthorizedResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchUpdatePreApprovedHandler as RouteHandlerMethod);
 
   // ── Batch Routes (must be before /:uid to avoid route conflicts) ────────────
 

@@ -290,6 +290,34 @@ export interface ColumnConfig<TRow> {
 }
 
 /**
+ * Row-selection configuration for {@link TableConfig}.
+ *
+ * When provided to a {@link TableConfig}, a checkbox column is prepended to the
+ * table.  A "select all" checkbox appears in the header, and individual rows
+ * receive their own checkboxes.
+ *
+ * @example
+ * ```tsx
+ * const [selectedKeys, setSelectedKeys] = useState(new Set<string>());
+ *
+ * const selection: TableSelectionConfig = {
+ *   selectedKeys,
+ *   onSelectionChange: setSelectedKeys,
+ * };
+ * ```
+ */
+export interface TableSelectionConfig {
+  /** Set of currently-selected row keys (must match the keys returned by `getRowKey`). */
+  selectedKeys: Set<string>;
+  /**
+   * Called whenever the selection changes — on individual row toggle or
+   * select-all toggle.
+   * @param keys - The new set of selected row keys.
+   */
+  onSelectionChange: (keys: Set<string>) => void;
+}
+
+/**
  * Configuration object accepted by {@link TableTemplate}.
  *
  * @template TRow - Shape of a single row's data.
@@ -344,6 +372,12 @@ export interface TableConfig<TRow> {
    * Defaults to `5`.
    */
   skeletonRows?: number;
+  /**
+   * Optional row-selection config.
+   * When provided, a checkbox column is prepended to the table, including a
+   * "select all" checkbox in the header row.
+   */
+  selection?: TableSelectionConfig;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

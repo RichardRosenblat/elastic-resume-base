@@ -62,7 +62,22 @@
     "editUserTooltip": "Edit user",
     "deleteUserTooltip": "Delete user",
     "editPreApprovedTooltip": "Edit pre-approved user",
-    "deletePreApprovedTooltip": "Remove from pre-approved list"
+    "deletePreApprovedTooltip": "Remove from pre-approved list",
+    "selectedCount": "{{count}} selected",
+    "clearSelection": "Clear selection",
+    "bulkDelete": "Delete selected",
+    "bulkChangeRole": "Change role",
+    "bulkDeleteConfirm": "Are you sure you want to delete {{count}} selected user(s)?",
+    "bulkChangeRoleConfirm": "Change role to '{{role}}' for {{count}} selected user(s)?",
+    "bulkDeleteSuccess": "Selected users deleted successfully",
+    "bulkRoleChangeSuccess": "Role updated for selected users",
+    "preApprovedSelectedCount": "{{count}} pre-approved selected",
+    "preApprovedBulkDelete": "Delete selected",
+    "preApprovedBulkChangeRole": "Change role",
+    "preApprovedBulkDeleteConfirm": "Are you sure you want to remove {{count}} selected pre-approved user(s)?",
+    "preApprovedBulkChangeRoleConfirm": "Change role to '{{role}}' for {{count}} selected pre-approved user(s)?",
+    "preApprovedBulkDeleteSuccess": "Selected pre-approved users removed successfully",
+    "preApprovedBulkRoleChangeSuccess": "Role updated for selected pre-approved users"
   },
   "resumes": {
     "title": "Resumes",

@@ -89,6 +89,27 @@ export interface BatchDeleteUsersResponse {
   deleted: number;
 }
 
+/** Request payload for batch-updating multiple pre-approved users (role change). */
+export interface BatchUpdatePreApprovedRequest {
+  emails: string[];
+  role: 'admin' | 'user';
+}
+
+/** Request payload for batch-deleting multiple pre-approved users. */
+export interface BatchDeletePreApprovedRequest {
+  emails: string[];
+}
+
+/** Response from the batch update pre-approved users endpoint. */
+export interface BatchUpdatePreApprovedResponse {
+  updated: number;
+}
+
+/** Response from the batch delete pre-approved users endpoint. */
+export interface BatchDeletePreApprovedResponse {
+  deleted: number;
+}
+
 export type SortDirection = 'asc' | 'desc';
 export type UserSortField = 'uid' | 'email' | 'role' | 'enable';
 export type PreApprovedSortField = 'email' | 'role';
