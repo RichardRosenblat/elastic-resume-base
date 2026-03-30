@@ -112,7 +112,7 @@ function buildAlertStyleOverrides(alerts: AlertPalette | undefined): AlertStyleO
  * @param mode  - The active colour-mode to pass to MUI.
  */
 function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
-  const palette = mode === 'dark' && theme.paletteDark ? theme.paletteDark : theme.palette;
+  const palette = mode !== theme.mode && theme.presets?.[mode] ? theme.presets[mode] : theme.palette;
   const { typography } = theme;
   const surfaceBorder = palette.ui?.border ?? (mode === 'dark'
     ? alpha(palette.text.primary, 0.1)

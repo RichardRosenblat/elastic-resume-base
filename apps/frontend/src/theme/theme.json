@@ -99,115 +99,79 @@
       { "path": "/account", "order": 7 }
     ]
   },
-  "paletteDark": {
-    "primary": {
-      "main": "#4B84CE",
-      "light": "#79ABDF",
-      "dark": "#1F5AA6",
-      "contrastText": "#FFFFFF"
-    },
-    "secondary": {
-      "main": "#3AB9AD",
-      "light": "#68CFC5",
-      "dark": "#0D9488",
-      "contrastText": "#FFFFFF"
-    },
-    "tertiary": {
-      "main": "#F59E0B"
-    },
-    "success": { "main": "#4ADE80" },
-    "warning": { "main": "#FBBF24" },
-    "error": { "main": "#F87171" },
-    "info": { "main": "#60A5FA" },
-    "background": {
-      "default": "#0F172A",
-      "paper": "#1E293B",
-      "elevated": "#263449",
-      "sidebar": "#162032",
-      "topbar": "#1A2840",
-      "input": "#263449"
-    },
-    "text": {
-      "primary": "#F1F5F9",
-      "secondary": "#94A3B8",
-      "muted": "#64748B",
-      "inverse": "#0F172A"
-    },
-    "ui": {
-      "border": "#2D3F56",
-      "divider": "#233045",
-      "disabledBackground": "#1E2D3D",
-      "disabledText": "#506275",
-      "focusRing": "#60A5FA"
-    },
-    "alerts": {
-      "success": {
-        "bg": "#0D2B17",
-        "color": "#86EFAC",
-        "filledBg": "#15803D",
-        "filledColor": "#FFFFFF"
-      },
-      "warning": {
-        "bg": "#2B1D0A",
-        "color": "#FCD34D",
-        "filledBg": "#B45309",
-        "filledColor": "#FFFFFF"
-      },
-      "error": {
-        "bg": "#2B0D0D",
-        "color": "#FCA5A5",
-        "filledBg": "#DC2626",
-        "filledColor": "#FFFFFF"
-      },
-      "info": {
-        "bg": "#0D1F3C",
-        "color": "#93C5FD",
-        "filledBg": "#1D4ED8",
-        "filledColor": "#FFFFFF"
-      },
-      "default": {
-        "bg": "#1E293B",
-        "color": "#94A3B8",
-        "filledBg": "#334155",
-        "filledColor": "#F1F5F9"
-      }
-    }
-  },
   "presets": {
-    "Corporate Blue": {
-      "mode": "light",
-      "branding": {
-        "appName": "Elastic Resume Base",
-        "companyName": "Acme Talent",
-        "appLogoUrl": "",
-        "companyLogoUrl": ""
+    "dark": {
+      "primary": {
+        "main": "#4B84CE",
+        "light": "#79ABDF",
+        "dark": "#1F5AA6",
+        "contrastText": "#FFFFFF"
       },
-      "typography": {
-        "fontFamily": "\"Source Sans 3\", \"Segoe UI\", \"Helvetica Neue\", sans-serif"
+      "secondary": {
+        "main": "#3AB9AD",
+        "light": "#68CFC5",
+        "dark": "#0D9488",
+        "contrastText": "#FFFFFF"
       },
-      "palette": {
-        "primary": { "main": "#1F5AA6", "light": "#4B84CE", "dark": "#163F73", "contrastText": "#FFFFFF" },
-        "secondary": { "main": "#0D9488", "light": "#3AB9AD", "dark": "#0A6C63", "contrastText": "#FFFFFF" },
-        "background": { "default": "#F3F7FC", "paper": "#FFFFFF" },
-        "text": { "primary": "#112133", "secondary": "#3E5166" }
-      }
-    },
-    "Warm Neutral": {
-      "mode": "light",
-      "branding": {
-        "appName": "Elastic Resume Base",
-        "companyName": "Acme Talent",
-        "appLogoUrl": "",
-        "companyLogoUrl": ""
+      "tertiary": {
+        "main": "#F59E0B"
       },
-      "typography": {
-        "fontFamily": "\"Nunito Sans\", \"Segoe UI\", sans-serif"
+      "success": { "main": "#4ADE80" },
+      "warning": { "main": "#FBBF24" },
+      "error": { "main": "#F87171" },
+      "info": { "main": "#60A5FA" },
+      "background": {
+        "default": "#0F172A",
+        "paper": "#1E293B",
+        "elevated": "#263449",
+        "sidebar": "#162032",
+        "topbar": "#1A2840",
+        "input": "#263449"
       },
-      "palette": {
-        "primary": { "main": "#7A5C3E", "light": "#9B7A5B", "dark": "#5D462F", "contrastText": "#FFFFFF" },
-        "secondary": { "main": "#A56A43", "light": "#BF865F", "dark": "#7F4E31", "contrastText": "#FFFFFF" },
-        "background": { "default": "#F8F4EF", "paper": "#FFFDF9" },
-        "text": { "primary": "#2F2A24", "secondary": "#5D5247" }
+      "text": {
+        "primary": "#F1F5F9",
+        "secondary": "#94A3B8",
+        "muted": "#64748B",
+        "inverse": "#0F172A"
+      },
+      "ui": {
+        "border": "#2D3F56",
+        "divider": "#233045",
+        "disabledBackground": "#1E2D3D",
+        "disabledText": "#506275",
+        "focusRing": "#60A5FA"
+      },
+      "alerts": {
+        "success": {
+          "bg": "#0D2B17",
+          "color": "#86EFAC",
+          "filledBg": "#15803D",
+          "filledColor": "#FFFFFF"
+        },
+        "warning": {
+          "bg": "#2B1D0A",
+          "color": "#FCD34D",
+          "filledBg": "#B45309",
+          "filledColor": "#FFFFFF"
+        },
+        "error": {
+          "bg": "#2B0D0D",
+          "color": "#FCA5A5",
+          "filledBg": "#DC2626",
+          "filledColor": "#FFFFFF"
+        },
+        "info": {
+          "bg": "#0D1F3C",
+          "color": "#93C5FD",
+          "filledBg": "#1D4ED8",
+          "filledColor": "#FFFFFF"
+        },
+        "default": {
+          "bg": "#1E293B",
+          "color": "#94A3B8",
+          "filledBg": "#334155",
+          "filledColor": "#F1F5F9"
+        }
       }
     }
   }
