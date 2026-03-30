@@ -28,7 +28,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  TextField,
   Divider,
   Tooltip,
   Stack,
@@ -61,7 +60,6 @@ export default function UsersPage() {
 
   // Inline user edit state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
   const [editEnabled, setEditEnabled] = useState(true);
 
@@ -210,7 +208,6 @@ export default function UsersPage() {
 
   const handleEditStart = (user: UserRecord) => {
     setEditingUserId(user.uid);
-    setEditEmail(user.email);
     setEditRole(user.role);
     setEditEnabled(user.enable);
   };
@@ -220,11 +217,7 @@ export default function UsersPage() {
   const handleEditSave = async () => {
     if (!editingUserId) return;
     try {
-      const original = users.find((u) => u.uid === editingUserId);
       const payload: Partial<UserRecord> = { role: editRole, enable: editEnabled };
-      if (original && editEmail !== original.email) {
-        payload.email = editEmail;
-      }
       await updateUser(editingUserId, payload);
       showToast(t('users.updateSuccess'), { severity: 'success' });
       setEditingUserId(null);
@@ -333,18 +326,7 @@ export default function UsersPage() {
           {t('users.email')}
         </TableSortLabel>
       ),
-      cell: (row) =>
-        editingUserId === row.uid ? (
-          <TextField
-            size="small"
-            type="email"
-            value={editEmail}
-            onChange={(e) => setEditEmail(e.target.value)}
-            sx={{ minWidth: 220 }}
-          />
-        ) : (
-          row.email
-        ),
+      cell: (row) => row.email,
     },
     {
       id: 'uid',
