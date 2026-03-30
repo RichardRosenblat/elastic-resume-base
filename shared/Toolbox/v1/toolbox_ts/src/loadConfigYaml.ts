@@ -38,14 +38,18 @@ function resolveYamlLoad(): ((content: string) => unknown) | null {
  *
  * Search order:
  *   1. Path in CONFIG_FILE environment variable.
- *   2. `config.yaml` in current working directory.
- *   3. `config.yaml` one directory above current working directory.
+ *   2. `config.yaml` in parent directories up to the specified depth level.
+ *   3. `config.yaml` in current working directory.
+ *   4. `config.yaml` one directory above current working directory.
  *
  * @param serviceName The key under `systems.<serviceName>` in config.yaml.
+ * @param depthLevel The number of directories to traverse upwards when searching for config.yaml.
  */
-export function loadConfigYaml(serviceName: string): void {
+export function loadConfigYaml(serviceName: string, depthLevel: number = 2): void {
+
   const candidates = [
     process.env['CONFIG_FILE'],
+    resolve(process.cwd(), new Array(depthLevel).fill("..").join("/"), 'config.yaml'),
     resolve(process.cwd(), 'config.yaml'),
     resolve(process.cwd(), '..', 'config.yaml'),
   ].filter((p): p is string => typeof p === 'string');

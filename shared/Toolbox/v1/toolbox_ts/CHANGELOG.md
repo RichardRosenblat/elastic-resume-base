@@ -12,7 +12,14 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [1.0.0] — 2024-01-01
+## [1.0.1] — 2026-03-30
+
+## Added
+
+Added `depthLevel` to the `loadConfigYaml` function to allow for loading Yaml files from deeper directories.
+
+
+## [1.0.0] — 2026-03-28
 
 ### Added
 
