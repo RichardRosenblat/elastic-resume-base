@@ -58,7 +58,22 @@
     "editUserTooltip": "Editar usuario",
     "deleteUserTooltip": "Eliminar usuario",
     "editPreApprovedTooltip": "Editar usuario pre-aprobado",
-    "deletePreApprovedTooltip": "Eliminar de la lista de pre-aprobados"
+    "deletePreApprovedTooltip": "Eliminar de la lista de pre-aprobados",
+    "selectedCount": "{{count}} seleccionado(s)",
+    "clearSelection": "Deseleccionar todo",
+    "bulkDelete": "Eliminar seleccionados",
+    "bulkChangeRole": "Cambiar rol",
+    "bulkDeleteConfirm": "¿Estás seguro de que deseas eliminar {{count}} usuario(s) seleccionado(s)?",
+    "bulkChangeRoleConfirm": "¿Cambiar el rol a '{{role}}' para {{count}} usuario(s) seleccionado(s)?",
+    "bulkDeleteSuccess": "Usuarios seleccionados eliminados correctamente",
+    "bulkRoleChangeSuccess": "Rol actualizado para los usuarios seleccionados",
+    "preApprovedSelectedCount": "{{count}} pre-aprobado(s) seleccionado(s)",
+    "preApprovedBulkDelete": "Eliminar seleccionados",
+    "preApprovedBulkChangeRole": "Cambiar rol",
+    "preApprovedBulkDeleteConfirm": "¿Estás seguro de que deseas eliminar {{count}} usuario(s) pre-aprobado(s) seleccionado(s)?",
+    "preApprovedBulkChangeRoleConfirm": "¿Cambiar el rol a '{{role}}' para {{count}} usuario(s) pre-aprobado(s) seleccionado(s)?",
+    "preApprovedBulkDeleteSuccess": "Usuarios pre-aprobados seleccionados eliminados correctamente",
+    "preApprovedBulkRoleChangeSuccess": "Rol actualizado para los usuarios pre-aprobados seleccionados"
   },
   "resumes": {
     "title": "Currículums",

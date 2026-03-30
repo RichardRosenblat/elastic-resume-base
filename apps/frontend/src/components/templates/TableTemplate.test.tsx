@@ -173,4 +173,110 @@ describe('TableTemplate', () => {
     expect(consoleSpy).not.toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
+
+  // ─── selection feature ───────────────────────────────────────────────────
+
+  it('renders a checkbox column when selection config is provided', () => {
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(),
+        onSelectionChange: vi.fn(),
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    // One header checkbox + two row checkboxes
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(checkboxes.length).toBe(3);
+  });
+
+  it('header checkbox is indeterminate when some (not all) rows are selected', () => {
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(['1']),
+        onSelectionChange: vi.fn(),
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    const headerCheckbox = screen.getByRole('checkbox', { name: 'select all rows' });
+    // MUI sets data-indeterminate on the input when indeterminate=true
+    expect(headerCheckbox).toHaveAttribute('data-indeterminate', 'true');
+  });
+
+  it('header checkbox is checked when all rows are selected', () => {
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(['1', '2']),
+        onSelectionChange: vi.fn(),
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    const headerCheckbox = screen.getByRole('checkbox', { name: 'select all rows' });
+    expect(headerCheckbox).toBeChecked();
+    expect(headerCheckbox).toHaveAttribute('data-indeterminate', 'false');
+  });
+
+  it('calls onSelectionChange with all keys when header checkbox is clicked and none are selected', () => {
+    const onSelectionChange = vi.fn();
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(),
+        onSelectionChange,
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'select all rows' }));
+    expect(onSelectionChange).toHaveBeenCalledWith(new Set(['1', '2']));
+  });
+
+  it('calls onSelectionChange with empty set when header checkbox is clicked and all are selected', () => {
+    const onSelectionChange = vi.fn();
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(['1', '2']),
+        onSelectionChange,
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'select all rows' }));
+    expect(onSelectionChange).toHaveBeenCalledWith(new Set());
+  });
+
+  it('calls onSelectionChange with the toggled key when a row checkbox is clicked', () => {
+    const onSelectionChange = vi.fn();
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(),
+        onSelectionChange,
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'select row 1' }));
+    expect(onSelectionChange).toHaveBeenCalledWith(new Set(['1']));
+  });
+
+  it('removes a key from selection when its checkbox is clicked while already selected', () => {
+    const onSelectionChange = vi.fn();
+    const config = buildConfig({
+      selection: {
+        selectedKeys: new Set(['1', '2']),
+        onSelectionChange,
+      },
+    });
+    render(<TableTemplate config={config} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'select row 1' }));
+    expect(onSelectionChange).toHaveBeenCalledWith(new Set(['2']));
+  });
+
+  it('does not render checkbox column when selection config is absent', () => {
+    render(<TableTemplate config={buildConfig()} />);
+
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
 });
