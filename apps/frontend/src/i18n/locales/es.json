@@ -181,8 +181,8 @@
       },
       "documentReader": {
         "name": "Lector de Documentos",
-        "description": "Extrae datos estructurados de documentos subidos mediante OCR.",
-        "impact": "La carga y el procesamiento de documentos mediante OCR no estarán disponibles."
+        "description": "Extrae datos estructurados de los documentos cargados y devuelve los resultados en formato Excel.",
+        "impact": "La carga y el procesamiento de documentos, así como la generación de resultados en Excel, no estarán disponibles."
       }
     }
   }

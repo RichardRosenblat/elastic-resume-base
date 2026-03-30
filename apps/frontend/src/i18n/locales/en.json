@@ -181,7 +181,7 @@
       },
       "documentReader": {
         "name": "Document Reader",
-        "description": "Extracts structured data from uploaded documents using OCR.",
+        "description": "Extracts structured data ",
         "impact": "Uploading and processing documents via OCR will not be available."
       }
     }
