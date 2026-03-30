@@ -32,6 +32,7 @@ Error classes::
     raise NotFoundError("Resume abc-123 not found")
 """
 
+from toolbox_py.config import load_config_yaml
 from toolbox_py.api_types import (
     AddPreApprovedRequest,
     AuthorizeRequest,
@@ -85,6 +86,8 @@ from toolbox_py.middleware import (
 )
 
 __all__ = [
+    # Config loading
+    "load_config_yaml",
     # Logging
     "setup_logging",
     "get_logger",
