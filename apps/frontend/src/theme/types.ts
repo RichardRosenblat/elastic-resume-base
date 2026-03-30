@@ -73,6 +73,27 @@ export interface BadgePalette {
   default?: BadgeTone;
 }
 
+/** Style values for a single alert severity tone. */
+export interface AlertTone {
+  /** Background colour for the standard (inline) alert variant. */
+  bg?: string;
+  /** Text and icon colour for the standard (inline) alert variant. */
+  color?: string;
+  /** Background colour for the filled alert variant (used in toast notifications). */
+  filledBg?: string;
+  /** Text colour for the filled alert variant (used in toast notifications). */
+  filledColor?: string;
+}
+
+/** Optional custom colour overrides for each alert severity type. */
+export interface AlertPalette {
+  success?: AlertTone;
+  warning?: AlertTone;
+  error?: AlertTone;
+  info?: AlertTone;
+  default?: AlertTone;
+}
+
 /**
  * Full colour palette mirroring the Material Design colour system.
  * All standard roles are supported; `tertiary` is an extension beyond MUI.
@@ -93,6 +114,12 @@ export interface Palette {
   text: TextPalette;
   ui?: UiPalette;
   badge?: BadgePalette;
+  /**
+   * Per-severity colour overrides for MUI `Alert` components.
+   * When omitted, MUI derives alert colours automatically from the semantic
+   * palette roles (`success`, `warning`, `error`, `info`).
+   */
+  alerts?: AlertPalette;
 }
 
 /** Typography settings applied to the MUI theme and CSS variables. */

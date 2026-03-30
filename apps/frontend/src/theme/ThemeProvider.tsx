@@ -34,7 +34,7 @@ import {
   alpha,
 } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import type { AppTheme } from './types';
+import type { AppTheme, AlertPalette } from './types';
 import { AppThemeContext } from './app-theme-context';
 import type { AppThemeContextValue } from './app-theme-context';
 import { loadTheme } from './loadTheme';
@@ -55,6 +55,54 @@ const STORAGE_KEY = 'appThemeMode';
 // ---------------------------------------------------------------------------
 // MUI bridge
 // ---------------------------------------------------------------------------
+
+type AlertStyleOverrides = Record<string, Record<string, string | Record<string, string>>>;
+
+/**
+ * Builds MUI Alert component style overrides from an {@link AlertPalette}.
+ *
+ * Each defined tone property is applied individually so that omitted
+ * properties do not override MUI's automatic derivation.
+ *
+ * @param alerts - The optional alert palette from `theme.json`.
+ * @returns A partial MUI `MuiAlert` style-overrides object.
+ */
+function buildAlertStyleOverrides(alerts: AlertPalette | undefined): AlertStyleOverrides {
+  const overrides: AlertStyleOverrides = {};
+  const severitySlots = {
+    success: { standard: 'standardSuccess', filled: 'filledSuccess' },
+    warning: { standard: 'standardWarning', filled: 'filledWarning' },
+    error: { standard: 'standardError', filled: 'filledError' },
+    info: { standard: 'standardInfo', filled: 'filledInfo' },
+  } as const;
+
+  for (const [severity, slots] of Object.entries(severitySlots) as [
+    keyof typeof severitySlots,
+    { standard: string; filled: string },
+  ][]) {
+    const tone = alerts?.[severity];
+    if (!tone) continue;
+
+    if (tone.bg !== undefined || tone.color !== undefined) {
+      const standardStyle: Record<string, string | Record<string, string>> = {};
+      if (tone.bg !== undefined) standardStyle['backgroundColor'] = tone.bg;
+      if (tone.color !== undefined) {
+        standardStyle['color'] = tone.color;
+        standardStyle['& .MuiAlert-icon'] = { color: tone.color };
+      }
+      overrides[slots.standard] = standardStyle;
+    }
+
+    if (tone.filledBg !== undefined || tone.filledColor !== undefined) {
+      const filledStyle: Record<string, string> = {};
+      if (tone.filledBg !== undefined) filledStyle['backgroundColor'] = tone.filledBg;
+      if (tone.filledColor !== undefined) filledStyle['color'] = tone.filledColor;
+      overrides[slots.filled] = filledStyle;
+    }
+  }
+
+  return overrides;
+}
 
 /**
  * Creates a Material UI theme from the application's {@link AppTheme} and
@@ -356,6 +404,9 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
             },
           },
         },
+      },
+      MuiAlert: {
+        styleOverrides: buildAlertStyleOverrides(palette.alerts),
       },
     },
   });
