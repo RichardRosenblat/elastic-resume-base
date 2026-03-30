@@ -2,101 +2,15 @@
 
 Settings are read from environment variables and optional config files.
 
-At import time, this module attempts to load monorepo YAML configuration
-(``config.yaml`` or ``configs.yaml``), merge ``systems.shared`` with
-``systems.document-reader``, and seed any missing environment variables.
-Variables already present in the process environment always take precedence.
+At import time, this module calls :func:`toolbox_py.load_config_yaml` to load
+monorepo YAML configuration (``config.yaml`` or ``configs.yaml``), merge
+``systems.shared`` with ``systems.document-reader``, and seed any missing
+environment variables.  Variables already present in the process environment
+always take precedence.
 """
 
-import os
-from pathlib import Path
-from typing import Any, cast
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-try:
-    import yaml
-except ImportError:  # pragma: no cover - handled gracefully when dependency missing
-    yaml = None
-
-
-def _config_candidates() -> list[Path]:
-    """Return candidate YAML config paths in search order."""
-    cwd = Path.cwd()
-    repo_root = Path(__file__).resolve().parents[2]
-
-    candidates: list[Path] = []
-    explicit = os.environ.get("CONFIG_FILE")
-    if explicit:
-        candidates.append(Path(explicit))
-
-    candidates.extend(
-        [
-            cwd / "configs.yaml",
-            cwd / "config.yaml",
-            cwd.parent / "configs.yaml",
-            cwd.parent / "config.yaml",
-            repo_root / "configs.yaml",
-            repo_root / "config.yaml",
-        ]
-    )
-
-    # De-duplicate while preserving order.
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for path in candidates:
-        if path not in seen:
-            unique.append(path)
-            seen.add(path)
-    return unique
-
-
-def _load_yaml_config_into_environ(service_name: str = "document-reader") -> None:
-    """Seed os.environ from monorepo YAML config when available.
-
-    Only scalar values are loaded and only when a key does not already exist
-    in ``os.environ``.
-    """
-    if yaml is None:
-        return
-
-    config_path = next((path for path in _config_candidates() if path.exists()), None)
-    if config_path is None:
-        return
-
-    try:
-        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    except Exception:
-        # Preserve current environment values when YAML is malformed/unreadable.
-        return
-
-    if not isinstance(raw, dict):
-        return
-
-    systems = cast("dict[str, Any]", raw).get("systems")
-    if not isinstance(systems, dict):
-        return
-
-    systems_dict = cast("dict[str, Any]", systems)
-    merged: dict[str, Any] = {}
-    shared = systems_dict.get("shared")
-    service = systems_dict.get(service_name)
-
-    if isinstance(shared, dict):
-        merged.update(cast("dict[str, Any]", shared))
-    if isinstance(service, dict):
-        merged.update(cast("dict[str, Any]", service))
-
-    for key, value in merged.items():
-        if value is None:
-            continue
-        if isinstance(value, (int, float, bool)):
-            os.environ.setdefault(key, str(value))
-        elif isinstance(value, str):
-            os.environ.setdefault(key, value)
-
-
-_load_yaml_config_into_environ()
+from toolbox_py import load_config_yaml
 
 
 class Settings(BaseSettings):
@@ -172,5 +86,7 @@ class Settings(BaseSettings):
     vision_api_image_max_dimension: int = 3000
     vision_api_pdf_dpi: int = 200
 
+
+load_config_yaml("document-reader")
 
 settings = Settings()

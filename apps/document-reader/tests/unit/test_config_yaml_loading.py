@@ -1,6 +1,6 @@
 import os
 
-from app.config import _load_yaml_config_into_environ
+from toolbox_py import load_config_yaml
 
 
 def test_loads_systems_shared_and_service_from_configs_yaml(tmp_path, monkeypatch):
@@ -23,7 +23,7 @@ systems:
     monkeypatch.delenv("LOG_LEVEL", raising=False)
     monkeypatch.delenv("PORT", raising=False)
 
-    _load_yaml_config_into_environ("document-reader")
+    load_config_yaml("document-reader")
 
     assert os.environ["GCP_PROJECT_ID"] == "service-project"
     assert os.environ["LOG_LEVEL"] == "warning"
@@ -46,6 +46,6 @@ systems:
     monkeypatch.setenv("CONFIG_FILE", str(config_file))
     monkeypatch.setenv("LOG_LEVEL", "error")
 
-    _load_yaml_config_into_environ("document-reader")
+    load_config_yaml("document-reader")
 
     assert os.environ["LOG_LEVEL"] == "error"
