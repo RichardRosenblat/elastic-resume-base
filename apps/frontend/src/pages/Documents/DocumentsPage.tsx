@@ -1,16 +1,15 @@
 /**
- * @file DocumentsPage.tsx — OCR document processing page.
+ * @file DocumentsPage.tsx — Document scanner page.
  *
  * Allows authenticated users to upload one or more document files (PDF, images,
  * DOCX, or ZIP archives) to the document reader service via the BFF OCR endpoint.
  * After processing, an Excel workbook containing the extracted structured data is
  * automatically downloaded.
  *
- * Users may optionally specify the document type for each uploaded file from a
- * predefined list of supported Brazilian document types.  When a type is selected
- * the server skips keyword-based classification and uses the provided type directly,
- * improving accuracy.  Leaving a file as "Auto-detect" falls back to the server's
- * keyword-based classifier.
+ * Users must specify the document type for each uploaded file from a predefined
+ * list of supported Brazilian document types before scanning can begin.  The
+ * "Scan & Download" button remains disabled until every file has an explicit
+ * type selected.
  *
  * The upload UI is gated by the `documentRead` feature flag. When the flag is
  * disabled an informational banner is shown instead.
@@ -23,6 +22,7 @@ import {
   CardContent,
   CircularProgress,
   FormControl,
+  IconButton,
   InputLabel,
   List,
   ListItem,
@@ -31,15 +31,18 @@ import {
   MenuItem,
   Select,
   type SelectChangeEvent,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   AttachFile as AttachFileIcon,
   CloudUpload as CloudUploadIcon,
+  Delete as DeleteIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { config } from '../../config';
 import { ocrDocuments } from '../../services/api';
 import { toUserFacingErrorMessage } from '../../services/api-error';
 import { useToast } from '../../contexts/use-toast';
@@ -50,17 +53,13 @@ import type { FileUploadConfig } from '../../components/templates';
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.docx,.zip';
 
 /** Maximum number of files that can be uploaded in a single request. */
-const MAX_FILES = 20;
+const MAX_FILES = config.documentMaxFiles;
 
 /** Supported format labels shown as chips in the file upload section. */
 const ACCEPTED_FORMATS = ['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX', 'ZIP'];
 
-/**
- * Ordered list of Brazilian document type enum values the server supports.
- * An empty string represents "auto-detect" (no explicit type).
- */
+/** Ordered list of Brazilian document type enum values the server supports. */
 const DOCUMENT_TYPE_VALUES = [
-  '',
   'RG',
   'BIRTH_CERTIFICATE',
   'MARRIAGE_CERTIFICATE',
@@ -81,14 +80,33 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(false);
   const [downloadReady, setDownloadReady] = useState(false);
 
-  const handleFilesChange = (files: File[]) => {
-    if (files.length > MAX_FILES) {
+  const handleFilesChange = (newFiles: File[]) => {
+    if (newFiles.length === 0) {
+      // Triggered by the "Cancel" / "Clear" button — reset everything.
+      setSelectedFiles([]);
+      setDocumentTypeAssignments([]);
+      setDownloadReady(false);
+      return;
+    }
+
+    // Merge the newly selected files with the existing ones, skipping duplicates
+    // (matched by name + size) so that re-selecting the same file is a no-op.
+    const merged = [
+      ...selectedFiles,
+      ...newFiles.filter(
+        (f) => !selectedFiles.some((e) => e.name === f.name && e.size === f.size),
+      ),
+    ];
+
+    if (merged.length > MAX_FILES) {
       showToast(t('documents.tooManyFiles', { max: MAX_FILES }), { severity: 'warning' });
       return;
     }
-    setSelectedFiles(files);
-    // Reset type assignments when the file selection changes.
-    setDocumentTypeAssignments(new Array(files.length).fill(''));
+
+    const addedCount = merged.length - selectedFiles.length;
+    setSelectedFiles(merged);
+    // Preserve existing type assignments; append empty slots for the new files.
+    setDocumentTypeAssignments((prev) => [...prev, ...new Array(addedCount).fill('')]);
     setDownloadReady(false);
   };
 
@@ -98,6 +116,12 @@ export default function DocumentsPage() {
       next[index] = event.target.value;
       return next;
     });
+  };
+
+  const handleDeleteFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setDocumentTypeAssignments((prev) => prev.filter((_, i) => i !== index));
+    setDownloadReady(false);
   };
 
   const handleUpload = async () => {
@@ -147,7 +171,11 @@ export default function DocumentsPage() {
         label: loading ? t('documents.processing') : t('documents.processAndDownload'),
         onClick: handleUpload,
         variant: 'contained',
-        disabled: !features.documentRead || loading || selectedFiles.length === 0,
+        disabled:
+          !features.documentRead ||
+          loading ||
+          selectedFiles.length === 0 ||
+          documentTypeAssignments.some((t) => !t),
         startIcon: loading ? <CircularProgress size={16} color="inherit" /> : <DescriptionIcon />,
       },
     ],
@@ -201,24 +229,42 @@ export default function DocumentsPage() {
                       sx={{ flexShrink: 1, minWidth: 120, maxWidth: 300 }}
                     />
                     <FormControl size="small" sx={{ minWidth: 220 }} disabled={loading}>
-                      <InputLabel id={`doc-type-label-${index}`}>
+                      <InputLabel shrink id={`doc-type-label-${index}`}>
                         {t('documents.documentType.label')}
                       </InputLabel>
                       <Select
+                        notched
                         labelId={`doc-type-label-${index}`}
                         value={documentTypeAssignments[index] ?? ''}
                         label={t('documents.documentType.label')}
                         onChange={(e) => handleDocumentTypeChange(index, e)}
+                        displayEmpty
+                        renderValue={(selected) =>
+                          selected
+                            ? t(`documents.documentType.${selected}`)
+                            : t('documents.documentType.selectType')
+                        }
                       >
                         {DOCUMENT_TYPE_VALUES.map((value) => (
                           <MenuItem key={value} value={value}>
-                            {value === ''
-                              ? t('documents.documentType.autoDetect')
-                              : t(`documents.documentType.${value}`)}
+                            {t(`documents.documentType.${value}`)}
                           </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
+                    <Tooltip title={t('documents.removeFile')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteFile(index)}
+                          disabled={loading}
+                          aria-label={t('documents.removeFile')}
+                          color="error"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </ListItem>
                 ))}
               </List>

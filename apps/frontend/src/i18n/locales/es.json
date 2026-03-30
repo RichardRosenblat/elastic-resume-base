@@ -93,19 +93,20 @@
   },
   "documents": {
     "title": "Documentos",
-    "uploadDocuments": "Procesamiento OCR de Documentos",
-    "uploadDescription": "Sube uno o más documentos (o archivos ZIP) para extraer datos estructurados mediante OCR. Los datos extraídos se devolverán como un libro de Excel.",
+    "uploadDocuments": "Lector de Documentos",
+    "uploadDescription": "Sube uno o más documentos (o archivos ZIP) para escanear y extraer datos estructurados. La información extraída se descargará como un archivo Excel.",
     "selectFiles": "Seleccionar Archivos",
-    "processAndDownload": "Procesar y Descargar",
-    "processing": "Procesando…",
+    "processAndDownload": "Escanear y Descargar",
+    "processing": "Escaneando…",
     "selectedFiles": "{{count}} archivo(s) seleccionado(s)",
     "downloadReady": "Tu archivo Excel está listo y ha sido descargado.",
     "tooManyFiles": "Puedes subir como máximo {{max}} archivos a la vez.",
+    "removeFile": "Eliminar archivo",
     "documentType": {
       "label": "Tipo de Documento",
-      "autoDetect": "Detectar automáticamente",
-      "assignTitle": "Asignar Tipos de Documento",
-      "assignDescription": "Selecciona opcionalmente el tipo de cada documento. Si no se especifica, el sistema intentará detectarlo automáticamente.",
+      "selectType": "Selecciona el tipo…",
+      "assignTitle": "Definir Tipos de Documento",
+      "assignDescription": "Selecciona el tipo de cada documento. Todos los documentos deben tener un tipo asignado antes de iniciar el escaneo.",
       "RG": "RG — Registro General",
       "BIRTH_CERTIFICATE": "Acta de Nacimiento",
       "MARRIAGE_CERTIFICATE": "Acta de Matrimonio",
@@ -199,8 +200,8 @@
       },
       "documentReader": {
         "name": "Lector de Documentos",
-        "description": "Extrae datos estructurados de documentos subidos mediante OCR.",
-        "impact": "La carga y el procesamiento de documentos mediante OCR no estarán disponibles."
+        "description": "Extrae datos estructurados de los documentos cargados y devuelve los resultados en formato Excel.",
+        "impact": "La carga y el procesamiento de documentos, así como la generación de resultados en Excel, no estarán disponibles."
       }
     }
   }
