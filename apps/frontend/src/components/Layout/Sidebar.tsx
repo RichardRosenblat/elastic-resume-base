@@ -78,6 +78,10 @@ interface SidebarProps {
  * Navigation drawer that lists all application routes the current user can
  * access. Supports both `permanent` (desktop) and `temporary` (mobile)
  * MUI drawer variants, collapsing, and light/dark mode toggling.
+ *
+ * The optional `onCollapsedChange` callback is called whenever the
+ * collapsed state changes so that parent layouts (e.g. `AppLayout`) can
+ * adjust the main content area width accordingly.
  */
 export default function Sidebar({ open, variant, onClose, onCollapsedChange }: SidebarProps) {
   const { t } = useTranslation();

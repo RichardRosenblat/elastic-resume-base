@@ -112,7 +112,8 @@ function buildAlertStyleOverrides(alerts: AlertPalette | undefined): AlertStyleO
  * @param mode  - The active colour-mode to pass to MUI.
  */
 function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
-  const { palette, typography } = theme;
+  const palette = mode === 'dark' && theme.paletteDark ? theme.paletteDark : theme.palette;
+  const { typography } = theme;
   const surfaceBorder = palette.ui?.border ?? (mode === 'dark'
     ? alpha(palette.text.primary, 0.1)
     : alpha(palette.text.primary, 0.08));
@@ -445,7 +446,7 @@ export function AppThemeProvider({ children }: AppThemeProviderProps) {
 
   // Inject CSS variables and data-theme attribute whenever mode changes.
   useEffect(() => {
-    injectCssVariables(appTheme);
+    injectCssVariables(appTheme, mode);
     document.documentElement.setAttribute('data-theme', mode);
   }, [mode]);
 

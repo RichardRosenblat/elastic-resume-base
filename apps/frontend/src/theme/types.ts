@@ -234,7 +234,16 @@ export interface AppTheme {
   branding: Branding;
   typography: Typography;
   icons: Icons;
+  /** Light-mode color palette (also used as the fallback for dark mode). */
   palette: Palette;
+  /**
+   * Optional dark-mode color palette.
+   * When provided, `buildMuiTheme` and `toCssVariables` use these colors
+   * instead of `palette` whenever the active mode is `'dark'`.
+   * When omitted, MUI's built-in dark-mode derivation is used with the
+   * same `palette` values.
+   */
+  paletteDark?: Palette;
   /**
    * Optional sidebar / navigation drawer configuration.
    * When omitted, the sidebar uses its built-in defaults.

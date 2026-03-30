@@ -66,7 +66,7 @@ export default function LoginPage() {
   // We require `userProfile` (not just `currentUser`) so that users who are still in Firebase
   // but lack application access (403 FORBIDDEN) are never forwarded to protected routes.
   if (currentUser && userProfile) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={theme.sidebar?.mainScreen ?? '/'} replace />;
   }
 
   const onSubmit = async (data: LoginFormData) => {

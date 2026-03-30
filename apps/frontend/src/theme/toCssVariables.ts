@@ -45,10 +45,14 @@ function colorRoleToVars(
  * Derives all CSS custom properties from the given theme.
  *
  * @param theme - The application theme to convert.
+ * @param mode  - The active color-mode. When `'dark'` and `theme.paletteDark`
+ *   is defined, dark-mode token values are used instead of the light palette.
+ *   Defaults to `'light'` for backward compatibility.
  * @returns A flat record of `{ '--variable-name': 'value' }` pairs.
  */
-export function toCssVariables(theme: AppTheme): Record<string, string> {
-  const { palette, typography } = theme;
+export function toCssVariables(theme: AppTheme, mode: 'light' | 'dark' = 'light'): Record<string, string> {
+  const palette = mode === 'dark' && theme.paletteDark ? theme.paletteDark : theme.palette;
+  const { typography } = theme;
   const vars: Record<string, string> = {
     ...colorRoleToVars('--color-primary', palette.primary),
     ...colorRoleToVars('--color-secondary', palette.secondary),
@@ -95,10 +99,12 @@ export function toCssVariables(theme: AppTheme): Record<string, string> {
  * `<html>` element's inline style.  Any previously set variables are
  * overwritten so that repeated calls are safe and idempotent.
  *
- * @param theme - The application theme whose colours and fonts to apply.
+ * @param theme - The application theme whose colors and fonts to apply.
+ * @param mode  - The active color-mode. When `'dark'` and `theme.paletteDark`
+ *   is defined, dark-mode token values are injected. Defaults to `'light'`.
  */
-export function injectCssVariables(theme: AppTheme): void {
-  const vars = toCssVariables(theme);
+export function injectCssVariables(theme: AppTheme, mode: 'light' | 'dark' = 'light'): void {
+  const vars = toCssVariables(theme, mode);
   const root = document.documentElement;
   for (const [name, value] of Object.entries(vars)) {
     root.style.setProperty(name, value);
