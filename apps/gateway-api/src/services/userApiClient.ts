@@ -11,6 +11,9 @@ import type {
   UpdatePreApprovedRequest,
   UserFilters,
   PreApprovedFilters,
+  BatchUpdateUsersRequest,
+  BatchUpdateUsersResponse,
+  BatchDeleteUsersResponse,
 } from '../models/index.js';
 
 const client = createHttpClient(config.userApiServiceUrl);
@@ -356,4 +359,51 @@ export async function updatePreApprovedInApi(email: string, data: UpdatePreAppro
   }
 }
 
+// ---------------------------------------------------------------------------
+// Batch operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Batch-updates multiple users in the users-api.
+ */
+export async function batchUpdateUsersInApi(data: BatchUpdateUsersRequest): Promise<BatchUpdateUsersResponse> {
+  logger.debug({ count: data.uids.length }, 'batchUpdateUsersInApi: batch updating users in UserAPI');
+  try {
+    const response = await client.patch<{ success: boolean; data: BatchUpdateUsersResponse }>(
+      '/api/v1/users/batch',
+      data,
+    );
+    return response.data.data;
+  } catch (err) {
+    handleUserApiError(err, {
+      context: { count: data.uids.length },
+      operationName: 'batchUpdateUsersInApi',
+      forbiddenMsg: 'Batch update not allowed',
+      notFoundMsg: 'Users not found',
+      unavailableActionMsg: 'batch update users',
+    });
+  }
+}
+
+/**
+ * Batch-deletes multiple users from the users-api.
+ */
+export async function batchDeleteUsersFromApi(uids: string[]): Promise<BatchDeleteUsersResponse> {
+  logger.debug({ count: uids.length }, 'batchDeleteUsersFromApi: batch deleting users from UserAPI');
+  try {
+    const response = await client.delete<{ success: boolean; data: BatchDeleteUsersResponse }>(
+      '/api/v1/users/batch',
+      { data: { uids } },
+    );
+    return response.data.data;
+  } catch (err) {
+    handleUserApiError(err, {
+      context: { count: uids.length },
+      operationName: 'batchDeleteUsersFromApi',
+      forbiddenMsg: 'Batch delete not allowed',
+      notFoundMsg: 'Users not found',
+      unavailableActionMsg: 'batch delete users',
+    });
+  }
+}
 

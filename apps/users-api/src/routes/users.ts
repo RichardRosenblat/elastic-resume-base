@@ -5,6 +5,8 @@ import {
   updateUserHandler,
   deleteUserHandler,
   listUsersHandler,
+  batchUpdateUsersHandler,
+  batchDeleteUsersHandler,
   getPreApprovedHandler,
   addPreApprovedHandler,
   deletePreApprovedHandler,
@@ -475,6 +477,112 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, listUsersHandler);
+
+
+  // ── Batch Routes (must be registered BEFORE /:uid to avoid route conflicts) ──
+
+  app.patch('/batch', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Batch update users (admin only)',
+      description:
+        'Applies the same role and/or enable update to multiple users at once. ' +
+        'Users not found are silently skipped. Rejects the entire request if it would remove all active admins.',
+      body: {
+        type: 'object',
+        required: ['uids'],
+        properties: {
+          uids: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            description: 'Array of Firebase UIDs to update.',
+            example: ['aB3dE5fG7hI9jK1l', 'mN5oP7qR9sT1uV3w'],
+          },
+          role: {
+            type: 'string',
+            enum: ['admin', 'user'],
+            description: "Updated role. Must be 'admin' or 'user'.",
+            example: 'user',
+          },
+          enable: {
+            type: 'boolean',
+            description: 'Enable or disable the accounts.',
+            example: true,
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch update completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                updated: {
+                  type: 'integer',
+                  description: 'Number of users successfully updated.',
+                  example: 3,
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchUpdateUsersHandler);
+
+  app.delete('/batch', {
+    schema: {
+      tags: ['Users'],
+      summary: 'Batch delete users (admin only)',
+      description:
+        'Permanently removes multiple users at once. ' +
+        'Users not found are silently skipped. Rejects the entire request if it would delete all active admins.',
+      body: {
+        type: 'object',
+        required: ['uids'],
+        properties: {
+          uids: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            description: 'Array of Firebase UIDs to delete.',
+            example: ['aB3dE5fG7hI9jK1l', 'mN5oP7qR9sT1uV3w'],
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Batch delete completed successfully.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                deleted: {
+                  type: 'integer',
+                  description: 'Number of users successfully deleted.',
+                  example: 2,
+                },
+              },
+            },
+            meta: responseMeta,
+          },
+        },
+        400: validationErrorResponse,
+        403: forbiddenResponse,
+        500: internalErrorResponse,
+      },
+    },
+  }, batchDeleteUsersHandler);
 
 
   app.get('/:uid', {

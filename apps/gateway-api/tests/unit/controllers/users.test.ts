@@ -7,6 +7,8 @@ jest.mock('../../../src/services/usersService', () => ({
   updateUser: jest.fn(),
   deleteUser: jest.fn(),
   listUsers: jest.fn(),
+  batchUpdateUsers: jest.fn(),
+  batchDeleteUsers: jest.fn(),
   getPreApproved: jest.fn(),
   listPreApproved: jest.fn(),
   addPreApproved: jest.fn(),
@@ -20,6 +22,8 @@ jest.mock('../../../src/services/userApiClient', () => ({
   listUsersFromApi: jest.fn(),
   updateUserInApi: jest.fn(),
   deleteUserFromApi: jest.fn(),
+  batchUpdateUsersInApi: jest.fn(),
+  batchDeleteUsersFromApi: jest.fn(),
   listPreApprovedFromApi: jest.fn(),
   getPreApprovedFromApi: jest.fn(),
   addPreApprovedInApi: jest.fn(),
@@ -550,6 +554,149 @@ describe('Users Controller', () => {
         orderBy: 'email',
         orderDirection: 'asc',
       });
+    });
+  });
+
+  // ── PATCH /api/v1/users/batch ─────────────────────────────────────────────
+
+  describe('PATCH /api/v1/users/batch', () => {
+    it('returns 200 with updated count on success', async () => {
+      (usersService.batchUpdateUsers as jest.Mock).mockResolvedValue({ updated: 2 });
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: ['uid1', 'uid2'], role: 'user' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.updated).toBe(2);
+    });
+
+    it('returns 400 when uids is missing', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { role: 'admin' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when uids is empty array', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: [], role: 'user' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when no update fields are provided', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: ['uid1'] },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/batch',
+        payload: { uids: ['uid1'], role: 'user' },
+      });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.batchUpdateUsers as jest.Mock).mockRejectedValue(
+        new ForbiddenError('Admin access required'),
+      );
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: ['uid1'], enable: false },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('FORBIDDEN');
+    });
+  });
+
+  // ── DELETE /api/v1/users/batch ────────────────────────────────────────────
+
+  describe('DELETE /api/v1/users/batch', () => {
+    it('returns 200 with deleted count on success', async () => {
+      (usersService.batchDeleteUsers as jest.Mock).mockResolvedValue({ deleted: 3 });
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: ['uid1', 'uid2', 'uid3'] },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.deleted).toBe(3);
+    });
+
+    it('returns 400 when uids is missing', async () => {
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: {},
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when uids is empty array', async () => {
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: [] },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/batch',
+        payload: { uids: ['uid1'] },
+      });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('returns 403 when service throws ForbiddenError', async () => {
+      (usersService.batchDeleteUsers as jest.Mock).mockRejectedValue(
+        new ForbiddenError('Admin access required'),
+      );
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/users/batch',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { uids: ['uid1'] },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('FORBIDDEN');
     });
   });
 });

@@ -9,6 +9,8 @@ import {
   updateUser,
   deleteUser,
   listUsers,
+  batchUpdateUsers,
+  batchDeleteUsers,
 } from '../services/usersService.js';
 import {
   getPreApprovedUser,
@@ -95,6 +97,28 @@ const listPreApprovedQuerySchema = z.object({
   orderDirection: z.enum(['asc', 'desc'], {
     errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
   }).optional(),
+});
+
+const batchUpdateUsersSchema = z
+  .object({
+    uids: z.array(
+      z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
+      { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
+    ).min(1, { message: 'uids must contain at least one user ID' }),
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
+  })
+  .refine((data) => data.role !== undefined || data.enable !== undefined, {
+    message: 'Request body must contain at least one field to update (role or enable)',
+  });
+
+const batchDeleteUsersSchema = z.object({
+  uids: z.array(
+    z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
+    { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
+  ).min(1, { message: 'uids must contain at least one user ID' }),
 });
 
 type UidParams = { uid: string };
@@ -258,6 +282,72 @@ export async function listUsersHandler(
   logger.debug(
     { correlationId: request.correlationId, count: result.users.length, hasNextPage: !!result.pageToken },
     'listUsersHandler: users page retrieved',
+  );
+  void reply.send(formatSuccess(result, request.correlationId));
+}
+
+// ---------------------------------------------------------------------------
+// Batch Handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * Handles PATCH /api/v1/users/batch — batch-updates multiple users (admin only).
+ */
+export async function batchUpdateUsersHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchUpdateUsersHandler: validating request body');
+  const parsed = batchUpdateUsersSchema.safeParse(request.body);
+  if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'batchUpdateUsersHandler: validation failed',
+    );
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
+    );
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.uids.length },
+    'batchUpdateUsersHandler: batch updating users',
+  );
+  const result = await batchUpdateUsers(parsed.data.uids, parsed.data);
+  logger.debug(
+    { correlationId: request.correlationId, updated: result.updated },
+    'batchUpdateUsersHandler: batch update complete',
+  );
+  void reply.send(formatSuccess(result, request.correlationId));
+}
+
+/**
+ * Handles DELETE /api/v1/users/batch — batch-deletes multiple users (admin only).
+ */
+export async function batchDeleteUsersHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchDeleteUsersHandler: validating request body');
+  const parsed = batchDeleteUsersSchema.safeParse(request.body);
+  if (!parsed.success) {
+    logger.warn(
+      { correlationId: request.correlationId, issues: parsed.error.issues },
+      'batchDeleteUsersHandler: validation failed',
+    );
+    void reply.code(400).send(
+      formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues), request.correlationId),
+    );
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.uids.length },
+    'batchDeleteUsersHandler: batch deleting users',
+  );
+  const result = await batchDeleteUsers(parsed.data.uids);
+  logger.debug(
+    { correlationId: request.correlationId, deleted: result.deleted },
+    'batchDeleteUsersHandler: batch delete complete',
   );
   void reply.send(formatSuccess(result, request.correlationId));
 }

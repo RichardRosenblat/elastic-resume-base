@@ -9,6 +9,8 @@ import {
   listUsers,
   updateUser,
   deleteUser,
+  batchUpdateUsers,
+  batchDeleteUsers,
   listPreApproved,
   getPreApproved,
   addPreApproved,
@@ -84,6 +86,28 @@ const getPreApprovedQuerySchema = z.object({
   orderDirection: z.enum(['asc', 'desc'], {
     errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
   }).optional(),
+});
+
+const batchUpdateUsersSchema = z
+  .object({
+    uids: z.array(
+      z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
+      { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
+    ).min(1, { message: 'uids must contain at least one user ID' }),
+    role: z.enum(['admin', 'user'], {
+      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
+    }).optional(),
+    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
+  })
+  .refine((data) => data.role !== undefined || data.enable !== undefined, {
+    message: 'Request body must contain at least one field to update (role or enable)',
+  });
+
+const batchDeleteUsersSchema = z.object({
+  uids: z.array(
+    z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
+    { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
+  ).min(1, { message: 'uids must contain at least one user ID' }),
 });
 
 type UidParams = { uid: string };
@@ -272,3 +296,46 @@ export async function updatePreApprovedHandler(
   const user = await updatePreApproved(email, parsed.data, request.user.role ?? 'user');
   void reply.send(formatSuccess(user, request.correlationId));
 }
+
+/**
+ * Handles PATCH /api/v1/users/batch — batch-updates multiple users (admin only).
+ */
+export async function batchUpdateUsersHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchUpdateUsersHandler: validating request body');
+  const parsed = batchUpdateUsersSchema.safeParse(request.body);
+  if (!parsed.success) {
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.uids.length, requesterUid: request.user.uid },
+    'batchUpdateUsersHandler: batch updating users',
+  );
+  const result = await batchUpdateUsers(parsed.data, request.user.role ?? 'user');
+  void reply.send(formatSuccess(result, request.correlationId));
+}
+
+/**
+ * Handles DELETE /api/v1/users/batch — batch-deletes multiple users (admin only).
+ */
+export async function batchDeleteUsersHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  logger.debug({ correlationId: request.correlationId }, 'batchDeleteUsersHandler: validating request body');
+  const parsed = batchDeleteUsersSchema.safeParse(request.body);
+  if (!parsed.success) {
+    void reply.code(400).send(formatError('VALIDATION_ERROR', formatZodErrors(parsed.error.issues)));
+    return;
+  }
+  logger.info(
+    { correlationId: request.correlationId, count: parsed.data.uids.length, requesterUid: request.user.uid },
+    'batchDeleteUsersHandler: batch deleting users',
+  );
+  const result = await batchDeleteUsers(parsed.data.uids, request.user.role ?? 'user');
+  void reply.send(formatSuccess(result, request.correlationId));
+}
+
