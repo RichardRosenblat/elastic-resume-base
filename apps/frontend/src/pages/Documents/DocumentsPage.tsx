@@ -1,16 +1,15 @@
 /**
- * @file DocumentsPage.tsx — OCR document processing page.
+ * @file DocumentsPage.tsx — Document scanner page.
  *
  * Allows authenticated users to upload one or more document files (PDF, images,
  * DOCX, or ZIP archives) to the document reader service via the BFF OCR endpoint.
  * After processing, an Excel workbook containing the extracted structured data is
  * automatically downloaded.
  *
- * Users may optionally specify the document type for each uploaded file from a
- * predefined list of supported Brazilian document types.  When a type is selected
- * the server skips keyword-based classification and uses the provided type directly,
- * improving accuracy.  Leaving a file as "Auto-detect" falls back to the server's
- * keyword-based classifier.
+ * Users must specify the document type for each uploaded file from a predefined
+ * list of supported Brazilian document types before scanning can begin.  The
+ * "Process & Download" button remains disabled until every file has an explicit
+ * type selected.
  *
  * The upload UI is gated by the `documentRead` feature flag. When the flag is
  * disabled an informational banner is shown instead.
@@ -55,12 +54,8 @@ const MAX_FILES = 20;
 /** Supported format labels shown as chips in the file upload section. */
 const ACCEPTED_FORMATS = ['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX', 'ZIP'];
 
-/**
- * Ordered list of Brazilian document type enum values the server supports.
- * An empty string represents "auto-detect" (no explicit type).
- */
+/** Ordered list of Brazilian document type enum values the server supports. */
 const DOCUMENT_TYPE_VALUES = [
-  '',
   'RG',
   'BIRTH_CERTIFICATE',
   'MARRIAGE_CERTIFICATE',
@@ -147,7 +142,11 @@ export default function DocumentsPage() {
         label: loading ? t('documents.processing') : t('documents.processAndDownload'),
         onClick: handleUpload,
         variant: 'contained',
-        disabled: !features.documentRead || loading || selectedFiles.length === 0,
+        disabled:
+          !features.documentRead ||
+          loading ||
+          selectedFiles.length === 0 ||
+          documentTypeAssignments.some((t) => !t),
         startIcon: loading ? <CircularProgress size={16} color="inherit" /> : <DescriptionIcon />,
       },
     ],
@@ -209,12 +208,16 @@ export default function DocumentsPage() {
                         value={documentTypeAssignments[index] ?? ''}
                         label={t('documents.documentType.label')}
                         onChange={(e) => handleDocumentTypeChange(index, e)}
+                        displayEmpty
+                        renderValue={(selected) =>
+                          selected
+                            ? t(`documents.documentType.${selected}`)
+                            : t('documents.documentType.selectType')
+                        }
                       >
                         {DOCUMENT_TYPE_VALUES.map((value) => (
                           <MenuItem key={value} value={value}>
-                            {value === ''
-                              ? t('documents.documentType.autoDetect')
-                              : t(`documents.documentType.${value}`)}
+                            {t(`documents.documentType.${value}`)}
                           </MenuItem>
                         ))}
                       </Select>
