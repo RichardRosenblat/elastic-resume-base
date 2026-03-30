@@ -175,6 +175,51 @@ export interface Icons {
 }
 
 /**
+ * Configuration for a single sidebar navigation item override.
+ * Allows theme authors to control visibility, access level, and ordering
+ * for each route without touching component code.
+ */
+export interface SidebarItemConfig {
+  /** Route path this config applies to (e.g. `'/'`, `'/users'`). */
+  path: string;
+  /**
+   * Display order for this item.  Items are sorted ascending by this value;
+   * items without an explicit order retain their default order.
+   */
+  order?: number;
+  /** When `true`, the item cannot be reordered relative to other items. */
+  locked?: boolean;
+  /** When `true`, this item is only shown to admin users. */
+  adminOnly?: boolean;
+  /** When `true`, this item is hidden from the sidebar entirely. */
+  hidden?: boolean;
+}
+
+/**
+ * Sidebar-specific configuration block that can be placed inside the theme
+ * JSON files to customise the navigation drawer without changing component
+ * code.
+ */
+export interface SidebarConfig {
+  /**
+   * Route path of the application's main / home screen.
+   * The sidebar item for this path is always shown first (unless another
+   * item has a lower `order` value that overrides it).
+   */
+  mainScreen?: string;
+  /**
+   * Per-item overrides.  Each entry is merged into the corresponding
+   * {@link NavItem} resolved at runtime.
+   */
+  items?: SidebarItemConfig[];
+  /**
+   * When `true`, the sidebar starts in the collapsed (icons-only) state.
+   * Defaults to `false`.
+   */
+  defaultCollapsed?: boolean;
+}
+
+/**
  * The complete, validated application theme read from `theme.json`.
  * This is the object stored in the {@link AppThemeContext} and returned
  * by {@link useAppTheme}.
@@ -190,4 +235,9 @@ export interface AppTheme {
   typography: Typography;
   icons: Icons;
   palette: Palette;
+  /**
+   * Optional sidebar / navigation drawer configuration.
+   * When omitted, the sidebar uses its built-in defaults.
+   */
+  sidebar?: SidebarConfig;
 }

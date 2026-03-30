@@ -86,6 +86,19 @@
       }
     }
   },
+  "sidebar": {
+    "mainScreen": "/",
+    "defaultCollapsed": false,
+    "items": [
+      { "path": "/", "order": 1 },
+      { "path": "/resumes", "order": 2 },
+      { "path": "/search", "order": 3 },
+      { "path": "/documents", "order": 4 },
+      { "path": "/users", "order": 5, "adminOnly": true },
+      { "path": "/system-status", "order": 6, "adminOnly": true },
+      { "path": "/account", "order": 7 }
+    ]
+  },
   "presets": {
     "Corporate Blue": {
       "mode": "light",

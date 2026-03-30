@@ -5,16 +5,15 @@
  * rendered by React Router's `<Outlet />`. Handles the responsive drawer:
  * on small screens (`< sm`) the sidebar is a temporary drawer toggled by
  * the hamburger button in the top bar; on larger screens it is a permanent
- * drawer that always occupies `DRAWER_WIDTH` pixels on the left.
+ * drawer that always occupies `DRAWER_WIDTH` (or `DRAWER_COLLAPSED_WIDTH`
+ * when collapsed) pixels on the left.
  */
 import { useState } from 'react';
 import { Box, Toolbar, useTheme, useMediaQuery } from '@mui/material';
 import { Outlet, useLocation } from 'react-router-dom';
 import Topbar from './Topbar';
-import Sidebar from './Sidebar';
+import Sidebar, { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import SupportFooter from '../SupportFooter';
-
-const DRAWER_WIDTH = 240;
 
 /**
  * Responsive app shell that renders the top bar, navigation sidebar, and
@@ -25,15 +24,22 @@ export default function AppLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
   };
 
+  const currentDrawerWidth = isMobile
+    ? DRAWER_WIDTH
+    : sidebarCollapsed
+      ? DRAWER_COLLAPSED_WIDTH
+      : DRAWER_WIDTH;
+
   return (
     <Box sx={{ display: 'flex' }}>
-      <Topbar onMenuClick={handleDrawerToggle} drawerWidth={DRAWER_WIDTH} />
+      <Topbar onMenuClick={handleDrawerToggle} drawerWidth={currentDrawerWidth} />
       {isMobile ? (
         <Sidebar
           open={mobileOpen}
@@ -45,6 +51,7 @@ export default function AppLayout() {
           open={true}
           variant="permanent"
           onClose={() => {}}
+          onCollapsedChange={setSidebarCollapsed}
         />
       )}
       <Box
@@ -52,10 +59,11 @@ export default function AppLayout() {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
+          transition: 'width 0.2s ease-in-out',
         }}
       >
         <Toolbar />

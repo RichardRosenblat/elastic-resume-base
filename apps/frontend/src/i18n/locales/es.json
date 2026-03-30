@@ -8,7 +8,11 @@
     "account": "Cuenta",
     "systemStatus": "Estado del Sistema",
     "logout": "Cerrar sesión",
-    "comingSoon": "Próximamente"
+    "comingSoon": "Próximamente",
+    "darkMode": "Cambiar a Modo Oscuro",
+    "lightMode": "Cambiar a Modo Claro",
+    "collapseSidebar": "Colapsar Barra Lateral",
+    "expandSidebar": "Expandir Barra Lateral"
   },
   "auth": {
     "login": "Iniciar sesión",
