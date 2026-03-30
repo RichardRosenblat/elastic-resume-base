@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
 function resolveYamlLoad(): ((content: string) => unknown) | null {
-  const require = createRequire(import.meta.url);
+  // Scope require() to process.cwd() so that js-yaml resolves from the
+  // consuming service's node_modules in all contexts (ESM, CJS, and tests).
+  const require = createRequire(resolve(process.cwd(), '__noop__.js'));
   const candidates = [
     resolve(process.cwd(), 'node_modules', 'js-yaml'),
     'js-yaml',

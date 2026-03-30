@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { loadConfigYaml } from './utils/loadConfigYaml.js';
+import { loadConfigYaml } from '../../../shared/Toolbox/v1/toolbox_ts/src/loadConfigYaml.js';
 
 // Populate process.env from config.yaml (systems.shared + systems.gateway-api)
 // before Zod reads process.env below. Keys already set are never overridden.
