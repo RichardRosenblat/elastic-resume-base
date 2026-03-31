@@ -14,6 +14,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Topbar from './Topbar';
 import Sidebar, { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import SupportFooter from '../SupportFooter';
+import AnimatedBackground from './AnimatedBackground';
 
 /**
  * Responsive app shell that renders the top bar, navigation sidebar, and
@@ -57,6 +58,7 @@ export default function AppLayout() {
       <Box
         component="main"
         sx={{
+          position: 'relative',
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
@@ -64,12 +66,16 @@ export default function AppLayout() {
           flexDirection: 'column',
           minHeight: '100vh',
           transition: 'width 0.2s ease-in-out',
+          overflow: 'hidden',
         }}
       >
+        <AnimatedBackground />
         <Toolbar />
         <Box
           key={location.pathname}
           sx={{
+            position: 'relative',
+            zIndex: 1,
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
