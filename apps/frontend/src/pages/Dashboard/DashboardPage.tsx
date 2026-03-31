@@ -57,7 +57,7 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
         {icon}
         <Typography variant="h6">{title}</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary">{description}</Typography>
+      <Typography variant="body2" color="text.secondary">{available? description:t('dashboard.featureNotAvailable')}</Typography>
       {!available && (
         <Chip label={t('dashboard.comingSoon')} size="small" color="default" variant="outlined" sx={{ mt: 1.5 }} />
       )}
@@ -146,8 +146,8 @@ export default function DashboardPage() {
           <FeatureCard
             title={t('nav.resumes')}
             icon={<DescriptionIcon color="primary" />}
-            available={features.resumeIngest || features.resumeGenerate}
-            description={t('dashboard.featureNotAvailable')}
+            available={features.resumeIngest}
+            description={t('dashboard.resumesDescription')}
             path="/resumes"
           />
         </Grid>
@@ -155,8 +155,8 @@ export default function DashboardPage() {
           <FeatureCard
             title={t('nav.search')}
             icon={<SearchIcon color="primary" />}
-            available={features.resumeSearch}
-            description={t('dashboard.featureNotAvailable')}
+            available={features.resumeSearch || features.resumeGenerate}
+            description={t('dashboard.searchDescription')}
             path="/search"
           />
         </Grid>
@@ -165,7 +165,7 @@ export default function DashboardPage() {
             title={t('nav.documents')}
             icon={<FindInPageIcon color="primary" />}
             available={features.documentRead}
-            description={t('documents.uploadDescription')}
+            description={t('dashboard.documentsDescription')}
             path="/documents"
           />
         </Grid>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
             title={t('nav.systemStatus')}
             icon={<HealthAndSafetyIcon color="primary" />}
             available
-            description={t('systemStatus.title')}
+            description={t('dashboard.systemStatusDescription')}
             path="/system-status"
           />
         </Grid>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
               title={t('nav.users')}
               icon={<PeopleIcon color="primary" />}
               available={features.userManagement}
-              description={t('users.title')}
+              description={t('dashboard.usersDescription')}
               path="/users"
             />
           </Grid>

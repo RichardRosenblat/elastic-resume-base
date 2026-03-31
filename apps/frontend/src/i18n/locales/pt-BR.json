@@ -13,7 +13,7 @@
     "lightMode": "Mudar para Modo Claro",
     "collapseSidebar": "Recolher Barra Lateral",
     "expandSidebar": "Expandir Barra Lateral"
-  },
+    },
   "auth": {
     "login": "Entrar",
     "email": "E-mail",
@@ -37,7 +37,13 @@
     "recentActivity": "Atividade Recente",
     "comingSoon": "Em Breve",
     "featureNotAvailable": "Esta funcionalidade ainda não está disponível",
-    "editProfile": "Editar seu perfil"
+    "editProfile": "Editar seu perfil",
+    "resumesDescription": "Importe currículos de uma planilha excel ou suba um arquivo para adicionar novos currículos.",
+    "searchDescription": "Realize buscas no banco de dados de currículos para encontrar os melhores candidatos e exporte os resultados em formatos como DOCX e PDF.",
+    "documentsDescription": "Envie documentos para digitalizar e extrair dados estruturados, que serão baixados como uma planilha Excel.",
+    "systemStatusDescription": "Verifique a integridade dos serviços e quais funcionalidades podem estar afetadas por problemas técnicos.", 
+    "usersDescription": "Gerencie contas de usuário, funções e permissões para controlar o acesso ao sistema."
+
   },
   "users": {
     "addUser": "Adicionar Usuário",
