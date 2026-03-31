@@ -229,6 +229,7 @@ function buildMuiTheme(theme: AppTheme, mode: 'light' | 'dark') {
         styleOverrides: {
           root: {
             backgroundColor: palette.background.topbar ?? palette.background.paper,
+            color: palette.text.primary,
             borderBottom: `1px solid ${dividerColor}`,
           },
         },

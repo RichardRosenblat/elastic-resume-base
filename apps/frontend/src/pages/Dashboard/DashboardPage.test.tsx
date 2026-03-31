@@ -22,6 +22,15 @@ const defaultAuthState = {
   getToken: vi.fn(),
 };
 
+const adminAuthState = {
+  ...defaultAuthState,
+  isAdmin: true,
+  userProfile: {
+    ...defaultAuthState.userProfile,
+    role: 'admin',
+  },
+};
+
 // Use vi.hoisted so the mock factory can reference the mutable spy correctly.
 const { mockUseAuth } = vi.hoisted(() => ({ mockUseAuth: vi.fn() }));
 
@@ -88,5 +97,21 @@ describe('DashboardPage', () => {
     expect(heading.textContent).not.toContain('@');
     // The profile card "Email:" field shows the full email address
     expect(screen.getByText('noname@example.com')).toBeInTheDocument();
+  });
+
+  it('renders the System Status feature card for all users', () => {
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    expect(screen.getByText('nav.systemStatus')).toBeInTheDocument();
+  });
+
+  it('does not render the Users card for non-admin users', () => {
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    expect(screen.queryByText('nav.users')).not.toBeInTheDocument();
+  });
+
+  it('renders the Users card only for admin users', () => {
+    mockUseAuth.mockReturnValue(adminAuthState);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    expect(screen.getByText('nav.users')).toBeInTheDocument();
   });
 });

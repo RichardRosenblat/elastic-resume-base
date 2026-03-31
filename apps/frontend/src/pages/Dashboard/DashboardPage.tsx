@@ -16,12 +16,15 @@ import {
   Chip,
   Tooltip,
   IconButton,
-} from '@mui/material';import {
+} from '@mui/material';
+import {
   Person as PersonIcon,
   Description as DescriptionIcon,
   Search as SearchIcon,
   FindInPage as FindInPageIcon,
   Settings as SettingsIcon,
+  People as PeopleIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -77,7 +80,7 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
 
 export default function DashboardPage() {
   const { t } = useTranslation();
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const features = useFeatureFlags();
 
@@ -138,7 +141,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <FeatureCard
             title={t('nav.resumes')}
@@ -166,6 +169,26 @@ export default function DashboardPage() {
             path="/documents"
           />
         </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <FeatureCard
+            title={t('nav.systemStatus')}
+            icon={<HealthAndSafetyIcon color="primary" />}
+            available
+            description={t('systemStatus.title')}
+            path="/system-status"
+          />
+        </Grid>
+        {isAdmin && (
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <FeatureCard
+              title={t('nav.users')}
+              icon={<PeopleIcon color="primary" />}
+              available={features.userManagement}
+              description={t('users.title')}
+              path="/users"
+            />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );
