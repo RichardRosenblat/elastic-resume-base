@@ -10,6 +10,7 @@ import {
   Box,
   Grid,
   Card,
+  CardActionArea,
   CardContent,
   Typography,
   Chip,
@@ -35,27 +36,42 @@ interface FeatureCardProps {
   icon: ReactNode;
   available: boolean;
   description: string;
+  path?: string;
 }
 
 /**
  * Small summary card used to advertise a platform feature on the dashboard.
  * Renders with reduced opacity and a "coming soon" chip when `available` is
- * `false`.
+ * `false`. When a `path` is provided the card is clickable and navigates to
+ * that route on click.
  */
-function FeatureCard({ title, icon, available, description }: FeatureCardProps) {
+function FeatureCard({ title, icon, available, description, path }: FeatureCardProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const content = (
+    <CardContent>
+      <Box display="flex" alignItems="center" gap={1} mb={1}>
+        {icon}
+        <Typography variant="h6">{title}</Typography>
+      </Box>
+      <Typography variant="body2" color="text.secondary">{description}</Typography>
+      {!available && (
+        <Chip label={t('dashboard.comingSoon')} size="small" color="default" variant="outlined" sx={{ mt: 1.5 }} />
+      )}
+    </CardContent>
+  );
+
   return (
     <Card sx={{ height: '100%', opacity: available ? 1 : 0.82 }}>
-      <CardContent>
-        <Box display="flex" alignItems="center" gap={1} mb={1}>
-          {icon}
-          <Typography variant="h6">{title}</Typography>
-        </Box>
-        <Typography variant="body2" color="text.secondary">{description}</Typography>
-        {!available && (
-          <Chip label={t('dashboard.comingSoon')} size="small" color="default" variant="outlined" sx={{ mt: 1.5 }} />
-        )}
-      </CardContent>
+      {path ? (
+        <CardActionArea
+          sx={{ height: '100%' }}
+          onClick={() => { void navigate(path); }}
+        >
+          {content}
+        </CardActionArea>
+      ) : content}
     </Card>
   );
 }
@@ -147,6 +163,7 @@ export default function DashboardPage() {
             icon={<DescriptionIcon color="primary" />}
             available={features.resumeIngest || features.resumeGenerate}
             description={t('dashboard.featureNotAvailable')}
+            path="/resumes"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -155,6 +172,7 @@ export default function DashboardPage() {
             icon={<SearchIcon color="primary" />}
             available={features.resumeSearch}
             description={t('dashboard.featureNotAvailable')}
+            path="/search"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -163,6 +181,7 @@ export default function DashboardPage() {
             icon={<FindInPageIcon color="primary" />}
             available={features.documentRead}
             description={t('documents.uploadDescription')}
+            path="/documents"
           />
         </Grid>
       </Grid>
