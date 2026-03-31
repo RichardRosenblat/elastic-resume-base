@@ -34,6 +34,16 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     return getFirestore().collection(this._collectionName);
   }
 
+  /**
+   * Adds a new pre-approved entry to the store.
+   *
+   * The email address is normalised to lowercase before being stored as the
+   * document ID, guaranteeing case-insensitive uniqueness.
+   *
+   * @param data - Pre-approval data containing the email and role to assign.
+   * @returns The newly created {@link PreApprovedDocument}.
+   * @throws {ConflictError} If a pre-approved entry for this email already exists.
+   */
   async add(data: CreatePreApprovedData): Promise<PreApprovedDocument> {
     const id = data.email.toLowerCase();
     const docRef = this._collection.doc(id);
@@ -45,6 +55,12 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     return { email: id, role: data.role };
   }
 
+  /**
+   * Retrieves a pre-approved entry by email address.
+   *
+   * @param email - The email address to look up (case-insensitive).
+   * @returns The matching {@link PreApprovedDocument}, or `null` if not found.
+   */
   async getByEmail(email: string): Promise<PreApprovedDocument | null> {
     const snap = await this._collection.doc(email.toLowerCase()).get();
     if (!snap.exists) {
@@ -53,6 +69,14 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     return mapDoc(snap.id, snap.data()!);
   }
 
+  /**
+   * Updates the role of an existing pre-approved entry.
+   *
+   * @param email - The email address of the entry to update (case-insensitive).
+   * @param data - Fields to update.
+   * @returns The updated {@link PreApprovedDocument}.
+   * @throws {NotFoundError} If no pre-approved entry exists for the given email.
+   */
   async update(email: string, data: UpdatePreApprovedData): Promise<PreApprovedDocument> {
     const id = email.toLowerCase();
     const docRef = this._collection.doc(id);
@@ -65,6 +89,12 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     return mapDoc(updated.id, updated.data()!);
   }
 
+  /**
+   * Permanently removes a pre-approved entry.
+   *
+   * @param email - The email address of the entry to delete (case-insensitive).
+   * @throws {NotFoundError} If no pre-approved entry exists for the given email.
+   */
   async delete(email: string): Promise<void> {
     const id = email.toLowerCase();
     const docRef = this._collection.doc(id);
@@ -75,6 +105,12 @@ export class FirestorePreApprovedStore implements IPreApprovedStore {
     await docRef.delete();
   }
 
+  /**
+   * Lists all pre-approved entries, with optional filtering by role.
+   *
+   * @param filters - Optional filters to narrow the result set.
+   * @returns An array of {@link PreApprovedDocument} objects matching the filters.
+   */
   async list(filters?: PreApprovedFilters): Promise<PreApprovedDocument[]> {
     let query: Query = this._collection;
 
