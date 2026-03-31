@@ -36,6 +36,13 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     return getFirestore().collection(this._collectionName);
   }
 
+  /**
+   * Creates a new user document in the Firestore collection.
+   *
+   * @param data - User attributes for the new document.
+   * @returns The newly created {@link UserDocument}.
+   * @throws {ConflictError} If a user document with the same UID already exists.
+   */
   async createUser(data: CreateUserDocumentData): Promise<UserDocument> {
     const docRef = this._collection.doc(data.uid);
     const existing = await docRef.get();
@@ -47,6 +54,13 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     return { uid: data.uid, ...payload };
   }
 
+  /**
+   * Retrieves a user document by UID.
+   *
+   * @param uid - Unique identifier of the user.
+   * @returns The matching {@link UserDocument}.
+   * @throws {NotFoundError} If no user document exists for the given UID.
+   */
   async getUserByUid(uid: string): Promise<UserDocument> {
     const snap = await this._collection.doc(uid).get();
     if (!snap.exists) {
@@ -55,6 +69,15 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     return mapDoc(snap.id, snap.data()!);
   }
 
+  /**
+   * Retrieves a user document by email address.
+   *
+   * Performs a Firestore equality query on the `email` field — only the first
+   * matching document is returned.
+   *
+   * @param email - The email address to look up.
+   * @returns The matching {@link UserDocument}, or `null` if not found.
+   */
   async getUserByEmail(email: string): Promise<UserDocument | null> {
     const snap = await this._collection.where('email', '==', email).limit(1).get();
     const doc = snap.docs[0];
@@ -64,6 +87,14 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     return mapDoc(doc.id, doc.data());
   }
 
+  /**
+   * Updates mutable fields of an existing user document.
+   *
+   * @param uid - Unique identifier of the user to update.
+   * @param data - Fields to update.
+   * @returns The updated {@link UserDocument}.
+   * @throws {NotFoundError} If no user document exists for the given UID.
+   */
   async updateUser(uid: string, data: UpdateUserDocumentData): Promise<UserDocument> {
     const docRef = this._collection.doc(uid);
     const existing = await docRef.get();
@@ -75,6 +106,12 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     return mapDoc(updated.id, updated.data()!);
   }
 
+  /**
+   * Permanently removes a user document.
+   *
+   * @param uid - Unique identifier of the user to delete.
+   * @throws {NotFoundError} If no user document exists for the given UID.
+   */
   async deleteUser(uid: string): Promise<void> {
     const docRef = this._collection.doc(uid);
     const existing = await docRef.get();
@@ -84,6 +121,18 @@ export class FirestoreUserDocumentStore implements IUserDocumentStore {
     await docRef.delete();
   }
 
+  /**
+   * Lists user documents with optional pagination and field filters.
+   *
+   * Results are ordered by document ID and limited to `maxResults` per page.
+   * Pass the `pageToken` from a previous response to retrieve the next page.
+   *
+   * @param maxResults - Maximum number of documents to return (default: 100).
+   * @param pageToken - Opaque pagination cursor from a previous call.
+   * @param filters - Optional filters to narrow the result set (email, role, enable).
+   * @returns A {@link ListUserDocumentsResult} with the current page of documents
+   *   and an optional next-page token.
+   */
   async listUsers(
     maxResults = 100,
     pageToken?: string,

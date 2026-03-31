@@ -2,6 +2,16 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
+/**
+ * Resolves the `load` function from the `js-yaml` package, if available.
+ *
+ * The require call is deliberately scoped to `process.cwd()` so that the
+ * consuming service's own `node_modules/js-yaml` is found regardless of
+ * whether this code runs as ESM, CJS, or in a Jest test environment.
+ *
+ * @returns The `js-yaml` `load` function, or `null` if `js-yaml` is not
+ *   installed in the consuming service's dependency tree.
+ */
 function resolveYamlLoad(): ((content: string) => unknown) | null {
   // Scope require() to process.cwd() so that js-yaml resolves from the
   // consuming service's node_modules in all contexts (ESM, CJS, and tests).
