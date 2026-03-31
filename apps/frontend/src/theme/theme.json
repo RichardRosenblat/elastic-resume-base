@@ -162,6 +162,15 @@
       { "path": "/account", "order": 7 }
     ]
   },
+  "dashboard": {
+    "items": [
+      { "path": "/resumes", "order": 1 },
+      { "path": "/search", "order": 2 },
+      { "path": "/documents", "order": 3 },
+      { "path": "/users", "order": 4 },
+      { "path": "/system-status", "order": 5 }
+    ]
+  },
   "backgroundAnimation": {
     "enabled": true,
     "speed": 20,
