@@ -2,7 +2,7 @@
  * @file DocumentsPage.tsx — Document scanner page.
  *
  * Allows authenticated users to upload one or more document files (PDF, images,
- * DOCX, or ZIP archives) to the document reader service via the BFF OCR endpoint.
+ * or DOCX) to the document reader service via the BFF OCR endpoint.
  * After processing, an Excel workbook containing the extracted structured data is
  * automatically downloaded.
  *
@@ -50,13 +50,13 @@ import { FileUploadTemplate } from '../../components/templates';
 import type { FileUploadConfig } from '../../components/templates';
 
 /** File extensions the document reader service accepts for direct OCR. */
-const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.docx,.zip';
+const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.docx';
 
 /** Maximum number of files that can be uploaded in a single request. */
 const MAX_FILES = config.documentMaxFiles;
 
 /** Supported format labels shown as chips in the file upload section. */
-const ACCEPTED_FORMATS = ['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX', 'ZIP'];
+const ACCEPTED_FORMATS = ['PDF', 'JPEG', 'PNG', 'TIFF', 'BMP', 'WebP', 'DOCX'];
 
 /** Ordered list of Brazilian document type enum values the server supports. */
 const DOCUMENT_TYPE_VALUES = [

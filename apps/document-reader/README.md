@@ -9,7 +9,6 @@ A FastAPI microservice that accepts uploaded documents, extracts text via **Goog
 | Concern | Handled by |
 |---|---|
 | File upload validation | ✅ Document Reader (type, size) |
-| ZIP archive expansion | ✅ Document Reader (`ZipService`) |
 | OCR text extraction | ✅ Document Reader (`OcrService` → Cloud Vision API) |
 | Brazilian document type detection | ✅ Document Reader (`ExtractorService`) |
 | Regex field extraction | ✅ Document Reader (`ExtractorService`) |
@@ -37,9 +36,7 @@ If a document does not match any of the above it is recorded as `UNKNOWN`.
 
 ## Accepted File Formats
 
-Direct upload: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.tiff`, `.tif`, `.bmp`, `.webp`, `.docx`
-
-In addition, **`.zip`** archives may contain any mix of the above formats. Each archive entry is extracted and processed individually.
+`.pdf`, `.jpg`, `.jpeg`, `.png`, `.tiff`, `.tif`, `.bmp`, `.webp`, `.docx`
 
 ---
 
@@ -47,7 +44,7 @@ In addition, **`.zip`** archives may contain any mix of the above formats. Each 
 
 ### `POST /api/v1/documents/ocr`
 
-Upload one or more documents (or ZIP archives) and receive an Excel file with extracted data.
+Upload one or more documents and receive an Excel file with extracted data.
 
 **Request**
 
@@ -67,7 +64,7 @@ Binary `.xlsx` file containing one row per processed document with columns deriv
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `BAD_REQUEST` | Unsupported file type, or invalid / empty ZIP archive |
+| 400 | `BAD_REQUEST` | Unsupported file type |
 | 422 | `VALIDATION_ERROR` | File size exceeds limit (`MAX_FILE_SIZE_MB`, default 10 MB) |
 | 502 | `DOWNSTREAM_ERROR` | Cloud Vision API call failed |
 
@@ -136,7 +133,6 @@ POST /api/v1/documents/ocr
         ▼
   documents router
         │  validate uploads (type, size)
-        │  expand .zip archives (ZipService)
         │
         ▼
   OcrService

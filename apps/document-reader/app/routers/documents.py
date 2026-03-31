@@ -13,8 +13,7 @@ from app.models.document import DocumentType, ExtractedDocument
 from app.services.excel_service import ExcelService
 from app.services.extractor_service import ExtractorService
 from app.services.ocr_service import OcrService
-from app.services.zip_service import ZipService
-from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError, ZipExtractionError
+from app.utils.exceptions import OcrServiceError, UnsupportedFileTypeError
 
 logger = get_logger(__name__)
 
@@ -23,8 +22,8 @@ router = APIRouter(tags=["Documents"], dependencies=[Depends(check_api_rate_limi
 # Extensions that can be processed directly by OCR — sourced from the document schema.
 ALLOWED_EXTENSIONS: frozenset[str] = ALLOWED_FILE_EXTENSIONS
 
-# Extensions accepted at the upload boundary (adds ZIP on top of direct OCR types).
-ACCEPTED_UPLOAD_EXTENSIONS: frozenset[str] = ALLOWED_EXTENSIONS | frozenset({".zip"})
+# Extensions accepted at the upload boundary.
+ACCEPTED_UPLOAD_EXTENSIONS: frozenset[str] = ALLOWED_EXTENSIONS
 
 MAX_FILE_SIZE_BYTES = settings.max_file_size_mb * 1024 * 1024
 
@@ -36,22 +35,18 @@ fields from recognized Brazilian document types.
 
 ### Accepted file formats
 
-Upload individual files or `.zip` archives (or a mix of both).
 The request **must** use `Content-Type: multipart/form-data` and include the
 `files` form field with one or more file parts.
 
-| Format | Accepted directly | Inside a `.zip` |
-|--------|:-----------------:|:---------------:|
-| `.pdf` | ✅ | ✅ |
-| `.docx` | ✅ | ✅ |
-| `.jpg` / `.jpeg` | ✅ | ✅ |
-| `.png` | ✅ | ✅ |
-| `.tiff` / `.tif` | ✅ | ✅ |
-| `.bmp` | ✅ | ✅ |
-| `.webp` | ✅ | ✅ |
-| `.zip` | ✅ | ❌ (no nested archives) |
-
-ZIP archives are expanded server-side; each entry is validated individually.
+| Format | Accepted |
+|--------|:--------:|
+| `.pdf` | ✅ |
+| `.docx` | ✅ |
+| `.jpg` / `.jpeg` | ✅ |
+| `.png` | ✅ |
+| `.tiff` / `.tif` | ✅ |
+| `.bmp` | ✅ |
+| `.webp` | ✅ |
 
 ---
 
@@ -77,9 +72,6 @@ Supported values:
 | `PROOF_OF_ADDRESS` | Comprovante de Residência |
 | `PROOF_OF_EDUCATION` | Diploma / Histórico Escolar |
 | `UNKNOWN` | No structured extraction (treated as unrecognised) |
-
-> **Note** — document type hints are ignored for ZIP archives.  Each entry
-> inside a ZIP is always classified via keyword detection.
 
 ---
 
@@ -235,15 +227,12 @@ async def _get_document_types(request: Request) -> list[DocumentType]:
             },
         },
         400: {
-            "description": (
-                "Unsupported file type uploaded, or a ZIP archive is invalid / "
-                "contains no supported documents."
-            ),
+            "description": "Unsupported file type uploaded.",
             "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
         },
         422: {
             "description": (
-                "A file (or ZIP entry) exceeds the configured maximum size limit "
+                "A file exceeds the configured maximum size limit "
                 f"(default: {settings.max_file_size_mb} MB), **or** the request "
                 "body is structurally invalid (missing required `files` form field)."
             ),
@@ -277,9 +266,6 @@ async def ocr_documents(
                 "One or more documents to process via OCR.  "
                 "**Accepted formats**: `.pdf`, `.docx`, `.jpg`, `.jpeg`, "
                 "`.png`, `.tiff`, `.tif`, `.bmp`, `.webp`.  "
-                "`.zip` archives are also accepted and automatically expanded "
-                "server-side — each entry inside the archive is validated "
-                "individually against the same format list.  "
                 f"Maximum size per file: {settings.max_file_size_mb} MB."
             )
         ),
@@ -288,19 +274,10 @@ async def ocr_documents(
 ) -> StreamingResponse:
     """Process uploaded documents with OCR and return extracted data as Excel file.
 
-    Accepts individual document files **or** ZIP archives (or a mixture of both).
-    When a ``.zip`` file is uploaded every supported document it contains is
-    extracted and processed — the archive itself is never persisted.
-
-    Every non-ZIP file must have a corresponding entry in ``documentTypes``.
-    Document type hints are **ignored** for ZIP archives — ZIP entries always
-    use keyword-based detection.
-
     Args:
-        files: One or more uploaded files.  Supported direct formats:
+        files: One or more uploaded files.  Supported formats:
             ``.pdf``, ``.jpg``, ``.jpeg``, ``.png``, ``.tiff``, ``.tif``,
-            ``.bmp``, ``.webp``, ``.docx``.  ZIP archives (``.zip``) may
-            contain any mix of the above formats.
+            ``.bmp``, ``.webp``, ``.docx``.
         document_types: Required list of :class:`~app.models.document.DocumentType`
             values, one per file in ``files`` (same order).  Invalid or missing
             values produce a 422 response.
@@ -309,16 +286,12 @@ async def ocr_documents(
         StreamingResponse containing an Excel file with extracted document data.
 
     Raises:
-        HTTPException 400: If an unsupported file type is uploaded or a ZIP
-            archive is invalid / contains no supported documents.
-        HTTPException 422: If ``documentTypes`` is absent, contains an empty
-            string, contains an invalid value, a file (or ZIP entry) exceeds
-            the maximum allowed size, or the count of ``documentTypes`` does
-            not match the number of uploaded files.
+        HTTPException 400: If an unsupported file type is uploaded.
+        HTTPException 422: If ``documentTypes`` is absent, contains an invalid
+            value, a file exceeds the maximum allowed size, or the count of
+            ``documentTypes`` does not match the number of uploaded files.
         HTTPException 502: If the OCR service fails to process a file.
     """
-    zip_service = ZipService()
-
     # Validate that documentTypes has exactly one entry per file.
     if len(document_types) != len(files):
         logger.warning(
@@ -333,9 +306,8 @@ async def ocr_documents(
             ),
         )
 
-    # First pass: validate uploads and expand any ZIP archives.
+    # First pass: validate uploads.
     # Each tuple is (filename, extension, content, forced_document_type).
-    # ZIP entries always have forced_document_type=None (auto-detect).
     validated: list[tuple[str, str, bytes, DocumentType | None]] = []
 
     logger.debug(
@@ -379,29 +351,12 @@ async def ocr_documents(
                 detail=f"File '{filename}' exceeds maximum size of {settings.max_file_size_mb} MB",
             )
 
-        if ext == ".zip":
-            logger.info("Expanding ZIP archive", extra={"zip_filename": filename})
-            try:
-                entries = zip_service.extract(
-                    content,
-                    frozenset(ALLOWED_EXTENSIONS),
-                    MAX_FILE_SIZE_BYTES,
-                )
-            except ZipExtractionError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-            # Document type hints do not apply to ZIP entries — they use auto-detect.
-            validated.extend((name, ext_, data, None) for name, ext_, data in entries)
-            logger.info(
-                "ZIP archive expanded",
-                extra={"zip_filename": filename, "entry_count": len(entries)},
-            )
-        else:
-            forced_type = document_types[index]
-            logger.debug(
-                "File accepted for OCR",
-                extra={"doc_filename": filename, "size_bytes": len(content)},
-            )
-            validated.append((filename, ext, content, forced_type))
+        forced_type = document_types[index]
+        logger.debug(
+            "File accepted for OCR",
+            extra={"doc_filename": filename, "size_bytes": len(content)},
+        )
+        validated.append((filename, ext, content, forced_type))
 
     logger.info(
         "Starting OCR processing",
