@@ -69,7 +69,7 @@ export default function AnimatedBackground() {
       }}
     >
       {colors.map((color, index) => {
-        const [left, top] = BLOB_POSITIONS[index % BLOB_POSITIONS.length] as [number, number];
+        const [left, top] = BLOB_POSITIONS[index % BLOB_POSITIONS.length];
         const animName = BLOB_ANIMATIONS[index % BLOB_ANIMATIONS.length];
         // Stagger each blob's start time so they don't all move in sync.
         const delay = -(index * (speed / colors.length));

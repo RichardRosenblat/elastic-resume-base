@@ -89,7 +89,7 @@ export function toCssVariables(theme: AppTheme, mode: 'light' | 'dark' = theme.m
       mode !== theme.mode && anim.presets?.[mode] ? anim.presets[mode] : anim.palette;
     const colors = animPalette?.colors ?? [];
     for (let i = 0; i < colors.length; i++) {
-      vars[`--bg-anim-color-${i}`] = colors[i] as string;
+      vars[`--bg-anim-color-${i}`] = colors[i];
     }
     vars['--bg-anim-color-count'] = String(colors.length);
     if (anim.speed !== undefined) vars['--bg-anim-speed'] = `${anim.speed}s`;
