@@ -310,8 +310,8 @@ class IngestService:
             )
 
         # 2. Download the file from Google Drive.
+        drive = self._get_drive_service()
         try:
-            drive = self._get_drive_service()
             content, mime_type = drive.download_file(file_id)
         except Exception as exc:
             raise DriveDownloadError(
@@ -321,7 +321,6 @@ class IngestService:
         # 3. Resolve extension and extract text.
         # Attempt to get the filename from metadata to help with extension detection.
         try:
-            drive = self._get_drive_service()
             metadata = drive.get_file_metadata(file_id)
             filename: str = metadata.get("name", "")
         except Exception:
