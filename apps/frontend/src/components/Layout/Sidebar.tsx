@@ -130,6 +130,7 @@ export default function Sidebar({ open, variant, onClose, onCollapsedChange }: S
   const visibleItems = navItems
     .filter((item) => {
       if (item.adminOnly && !isAdmin) return false;
+      if (features.hideIfDisabled && item.featureFlag === false) return false;
       return true;
     })
     .sort((a, b) => {

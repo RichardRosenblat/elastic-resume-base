@@ -4,6 +4,13 @@
  * Displays the authenticated user's profile summary (email, role, enabled
  * status) and a feature overview grid that shows which platform features are
  * live and which are coming soon (controlled by {@link useFeatureFlags}).
+ *
+ * Feature card order follows the `dashboard.items` order from the theme JSON.
+ * When no dashboard-specific order is defined, the `sidebar.items` order is
+ * used as a fallback.  Both orders can be overridden in `theme.local.json`.
+ *
+ * Features whose flag is disabled can be hidden entirely by setting
+ * `VITE_FEATURE_HIDE_IF_DISABLED=true` in `config.yaml`.
  */
 import type { ReactNode } from 'react';
 import {
@@ -30,6 +37,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth-context';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useAppTheme } from '../../theme';
 import { DataDisplayTemplate } from '../../components/templates';
 
 /** Props for the {@link FeatureCard} component. */
@@ -78,11 +86,80 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
   );
 }
 
+/** A single feature entry in the dashboard feature grid. */
+interface DashboardFeatureItem {
+  path: string;
+  title: string;
+  icon: ReactNode;
+  available: boolean;
+  description: string;
+  adminOnly?: boolean;
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { userProfile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const features = useFeatureFlags();
+  const { theme } = useAppTheme();
+
+  const featureItems: DashboardFeatureItem[] = [
+    {
+      path: '/resumes',
+      title: t('nav.resumes'),
+      icon: <DescriptionIcon color="primary" />,
+      available: features.resumeIngest,
+      description: t('dashboard.resumesDescription'),
+    },
+    {
+      path: '/search',
+      title: t('nav.search'),
+      icon: <SearchIcon color="primary" />,
+      available: features.resumeSearch || features.resumeGenerate,
+      description: t('dashboard.searchDescription'),
+    },
+    {
+      path: '/documents',
+      title: t('nav.documents'),
+      icon: <FindInPageIcon color="primary" />,
+      available: features.documentRead,
+      description: t('dashboard.documentsDescription'),
+    },
+    {
+      path: '/system-status',
+      title: t('nav.systemStatus'),
+      icon: <HealthAndSafetyIcon color="primary" />,
+      available: true,
+      description: t('dashboard.systemStatusDescription'),
+    },
+    {
+      path: '/users',
+      title: t('nav.users'),
+      icon: <PeopleIcon color="primary" />,
+      available: features.userManagement,
+      description: t('dashboard.usersDescription'),
+      adminOnly: true,
+    },
+  ];
+
+  // Determine which order config to use: dashboard-specific override if present,
+  // otherwise fall back to the sidebar item order from the theme.
+  const orderItems = theme.dashboard?.items ?? theme.sidebar?.items ?? [];
+  const orderMap = new Map<string, number>(
+    orderItems.map((cfg) => [cfg.path, cfg.order ?? Infinity]),
+  );
+
+  const visibleFeatures = featureItems
+    .filter((item) => {
+      if (item.adminOnly && !isAdmin) return false;
+      if (features.hideIfDisabled && !item.available) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const orderA = orderMap.get(a.path) ?? Infinity;
+      const orderB = orderMap.get(b.path) ?? Infinity;
+      return orderA - orderB;
+    });
 
   return (
     <Box>
@@ -142,53 +219,17 @@ export default function DashboardPage() {
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FeatureCard
-            title={t('nav.resumes')}
-            icon={<DescriptionIcon color="primary" />}
-            available={features.resumeIngest}
-            description={t('dashboard.resumesDescription')}
-            path="/resumes"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FeatureCard
-            title={t('nav.search')}
-            icon={<SearchIcon color="primary" />}
-            available={features.resumeSearch || features.resumeGenerate}
-            description={t('dashboard.searchDescription')}
-            path="/search"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FeatureCard
-            title={t('nav.documents')}
-            icon={<FindInPageIcon color="primary" />}
-            available={features.documentRead}
-            description={t('dashboard.documentsDescription')}
-            path="/documents"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FeatureCard
-            title={t('nav.systemStatus')}
-            icon={<HealthAndSafetyIcon color="primary" />}
-            available
-            description={t('dashboard.systemStatusDescription')}
-            path="/system-status"
-          />
-        </Grid>
-        {isAdmin && (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        {visibleFeatures.map((item) => (
+          <Grid key={item.path} size={{ xs: 12, sm: 6, md: 3 }}>
             <FeatureCard
-              title={t('nav.users')}
-              icon={<PeopleIcon color="primary" />}
-              available={features.userManagement}
-              description={t('dashboard.usersDescription')}
-              path="/users"
+              title={item.title}
+              icon={item.icon}
+              available={item.available}
+              description={item.description}
+              path={item.path}
             />
           </Grid>
-        )}
+        ))}
       </Grid>
     </Box>
   );

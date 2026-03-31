@@ -193,6 +193,35 @@ export interface SidebarItemConfig {
 }
 
 /**
+ * Configuration for a single dashboard feature-card override.
+ * Allows theme authors to control the ordering of each feature card without
+ * touching component code.
+ */
+export interface DashboardItemConfig {
+  /** Route path this config applies to (e.g. `'/resumes'`, `'/search'`). */
+  path: string;
+  /**
+   * Display order for this card.  Cards are sorted ascending by this value;
+   * cards without an explicit order retain their default order.
+   */
+  order?: number;
+}
+
+/**
+ * Dashboard-specific configuration block that can be placed inside the theme
+ * JSON files to customise the feature-card grid without changing component
+ * code.  When omitted the dashboard falls back to the `sidebar` item order.
+ */
+export interface DashboardConfig {
+  /**
+   * Per-card order overrides.  Each entry is merged into the corresponding
+   * feature card resolved at runtime.  When this list is absent the
+   * dashboard falls back to the `sidebar.items` order.
+   */
+  items?: DashboardItemConfig[];
+}
+
+/**
  * Sidebar-specific configuration block that can be placed inside the theme
  * JSON files to customise the navigation drawer without changing component
  * code.
@@ -261,6 +290,11 @@ export interface AppTheme {
    * When omitted, the sidebar uses its built-in defaults.
    */
   sidebar?: SidebarConfig;
+  /**
+   * Optional dashboard feature-card configuration.
+   * When omitted, the dashboard uses the same item order as the sidebar.
+   */
+  dashboard?: DashboardConfig;
   /**
    * Optional named variables that can be referenced anywhere in the theme
    * file using the `$varName` syntax.  At load time every `$varName`
