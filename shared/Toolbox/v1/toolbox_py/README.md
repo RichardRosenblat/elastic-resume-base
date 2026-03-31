@@ -2,7 +2,7 @@
 
 Toolbox is a shared collection of **cross-cutting utility functions** for Elastic Resume Base Python microservices. It consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging and a standard HTTP error vocabulary — into a single, well-tested package.
 
-> **TypeScript version:** The TypeScript README can be found at [shared/Toolbox/toolbox_ts/README.md](../toolbox_ts/README.md). Both versions share the same design principles, but the Python version is a separate implementation targeted at FastAPI services.
+> **TypeScript version:** The TypeScript README can be found at [shared/Toolbox/v1/toolbox_ts/README.md](../toolbox_ts/README.md). Both versions share the same design principles, but the Python version is a separate implementation targeted at FastAPI services.
 
 ---
 
@@ -12,8 +12,9 @@ Toolbox is a shared collection of **cross-cutting utility functions** for Elasti
 |---|---|
 | Structured JSON logging initialisation | ✅ Toolbox (`setup_logging`) |
 | Per-module logger factory | ✅ Toolbox (`get_logger`) |
+| Correlation ID & Cloud Trace middleware | ✅ Toolbox (`CorrelationIdMiddleware`) |
 | Standard HTTP error classes | ✅ Toolbox (`AppError` and subclasses) |
-| FastAPI / Starlette middleware | ❌ Not included — use [Bowltie](../../../Bowltie/bowltie_py/README.md) for response formatting |
+| Response formatting | ❌ Use [Bowltie](../../../Bowltie/v1/bowltie_py/README.md) |
 | Business logic | ❌ Consuming service |
 
 ---
@@ -25,19 +26,19 @@ Toolbox is an internal package — not published to PyPI. Install it via a local
 From your service directory:
 
 ```bash
-pip install -e ../shared/Toolbox/toolbox_py
+pip install -e ../shared/Toolbox/v1/toolbox_py
 ```
 
 Or add the local path to your `requirements-dev.txt`:
 
 ```
--e ../shared/Toolbox/toolbox_py
+-e ../shared/Toolbox/v1/toolbox_py
 ```
 
 For production images use a non-editable install in `requirements-prod.txt`:
 
 ```
-../shared/Toolbox/toolbox_py
+../shared/Toolbox/v1/toolbox_py
 ```
 
 ---
@@ -98,7 +99,47 @@ logger.error("OCR failed", extra={"filename": "document.pdf"})
 
 ---
 
-### Error classes
+### `CorrelationIdMiddleware`
+
+Starlette/FastAPI `BaseHTTPMiddleware` that handles correlation ID and GCP Cloud Trace context propagation.
+
+**Attach to your application before any other middleware that needs access to the context variables:**
+
+```python
+from toolbox_py import CorrelationIdMiddleware
+
+app.add_middleware(CorrelationIdMiddleware)
+```
+
+**What it does on every request:**
+
+1. Reads the `x-correlation-id` request header, or generates a new UUID v4 when absent.
+   Logs a `WARNING` when the header is absent.
+2. Reads and parses the `x-cloud-trace-context` request header (`TRACE_ID/SPAN_ID;o=FLAG`).
+   When absent or malformed, derives the trace ID from the correlation ID (UUID without hyphens → 32 hex chars)
+   and sets span ID to `"0"`. Logs a `WARNING` in this case.
+3. Stores all three values in `contextvars` so that loggers configured via `setup_logging` include them automatically.
+4. Echoes `x-correlation-id` and `x-cloud-trace-context` headers back in the response.
+
+---
+
+### `get_correlation_id()` / `get_trace_id()` / `get_span_id()`
+
+Accessor functions that return the current request's tracing context from `contextvars`. Return an empty string when called outside a request context.
+
+```python
+from toolbox_py import get_correlation_id, get_trace_id, get_span_id
+
+# Inside a request handler or service function:
+cid  = get_correlation_id()   # e.g. "550e8400-e29b-41d4-a716-446655440000"
+tid  = get_trace_id()          # e.g. "550e8400e29b41d4a716446655440000"
+sid  = get_span_id()           # e.g. "0"
+```
+
+These values are also injected automatically into every log entry when the root logger is
+configured with `setup_logging`.
+
+---
 
 Canonical application-level error classes shared across all Python microservices. Each class maps a domain error to an HTTP status code and a machine-readable code string — mirroring the TypeScript error classes in `shared/Toolbox/toolbox_ts/src/errors.ts`.
 
@@ -144,12 +185,15 @@ Each error exposes `.message`, `.status_code`, and `.code` attributes.
 **`app/main.py`**
 
 ```python
-from toolbox_py import setup_logging, get_logger
+from toolbox_py import setup_logging, get_logger, CorrelationIdMiddleware
 
 setup_logging(level=settings.log_level)  # call before creating FastAPI app
 logger = get_logger(__name__)
 
 app = FastAPI(...)
+
+# Attach CorrelationIdMiddleware first so tracing context is available everywhere
+app.add_middleware(CorrelationIdMiddleware)
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:

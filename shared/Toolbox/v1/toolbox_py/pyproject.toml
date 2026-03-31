@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "elastic-resume-base-toolbox"
-version = "1.0.0"
+version = "1.1.0"
 description = "Cross-cutting utilities for Elastic Resume Base Python services — structured logging and standard HTTP error classes"
 requires-python = ">=3.11"
 dependencies = []

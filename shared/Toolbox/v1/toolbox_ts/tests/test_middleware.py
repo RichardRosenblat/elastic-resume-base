@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unittest.mock
 import uuid
 
 import pytest
@@ -175,6 +176,69 @@ class TestCorrelationIdMiddleware:
         body_parts = response.text.split("|")
         assert body_parts[1] == expected_trace_id
         assert body_parts[2] == "0"
+
+    @pytest.mark.asyncio
+    async def test_warns_when_correlation_id_header_absent(self) -> None:
+        import logging
+
+        app = _make_app()
+        with unittest.mock.patch.object(
+            logging.getLogger("toolbox_py.middleware"),
+            "warning",
+        ) as mock_warning:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                await client.get("/")
+
+        warning_messages = [call.args[0] for call in mock_warning.call_args_list]
+        assert any("x-correlation-id" in msg for msg in warning_messages), (
+            f"Expected warning about missing x-correlation-id, got: {warning_messages}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_does_not_warn_when_both_headers_present(self) -> None:
+        import logging
+
+        app = _make_app()
+        with unittest.mock.patch.object(
+            logging.getLogger("toolbox_py.middleware"),
+            "warning",
+        ) as mock_warning:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                trace_id = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+                await client.get(
+                    "/",
+                    headers={
+                        "x-correlation-id": "existing-id",
+                        "x-cloud-trace-context": f"{trace_id}/1;o=1",
+                    },
+                )
+
+        assert mock_warning.call_count == 0, (
+            f"Unexpected warnings: {[c.args[0] for c in mock_warning.call_args_list]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_warns_when_cloud_trace_context_header_absent(self) -> None:
+        import logging
+
+        app = _make_app()
+        with unittest.mock.patch.object(
+            logging.getLogger("toolbox_py.middleware"),
+            "warning",
+        ) as mock_warning:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                await client.get("/", headers={"x-correlation-id": "existing-id"})
+
+        warning_messages = [call.args[0] for call in mock_warning.call_args_list]
+        assert any("x-cloud-trace-context" in msg for msg in warning_messages), (
+            f"Expected warning about missing x-cloud-trace-context, got: {warning_messages}"
+        )
 
 
 # ─── Context accessor helpers ─────────────────────────────────────────────────

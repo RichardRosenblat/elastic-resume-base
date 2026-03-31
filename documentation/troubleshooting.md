@@ -28,9 +28,9 @@ cd apps/gateway-api && npm install
 **Solution:** Rebuild the modified library and then re-run the service:
 
 ```bash
-cd shared/Toolbox && npm run build
+cd shared/Toolbox/v1/toolbox_ts && npm run build
 # Then restart the service
-cd ../../apps/gateway-api && npm run dev
+cd ../../../../apps/gateway-api && npm run dev
 ```
 
 ### Problem: `build_shared.bat` is not available on Linux/macOS
@@ -38,8 +38,8 @@ cd ../../apps/gateway-api && npm run dev
 **Solution:** Use `build_shared.sh` instead. If it is missing, run each shared package manually:
 
 ```bash
-for dir in shared/*/; do
-  if [ -f "$dir/package.json" ]; then
+for dir in shared/*/v1/; do
+  if [ -f "${dir}package.json" ]; then
     (cd "$dir" && npm install && npm run build)
   fi
 done
@@ -153,10 +153,11 @@ systems:
 
 ```javascript
 moduleNameMapper: {
-  '^@elastic-resume-base/synapse$': '<rootDir>/../shared/Synapse/src/index.ts',
-  '^@elastic-resume-base/bowltie$': '<rootDir>/../shared/Bowltie/src/index.ts',
-  '^@elastic-resume-base/bugle$':   '<rootDir>/../shared/Bugle/src/index.ts',
-  '^@elastic-resume-base/toolbox$': '<rootDir>/../shared/Toolbox/src/index.ts',
+  '^@elastic-resume-base/synapse$': '<rootDir>/../../shared/Synapse/v1/synapse_ts/src/index.ts',
+  '^@elastic-resume-base/bowltie$': '<rootDir>/../../shared/Bowltie/v1/bowltie_ts/src/index.ts',
+  '^@elastic-resume-base/bugle$':   '<rootDir>/../../shared/Bugle/v1/bugle_ts/src/index.ts',
+  '^@elastic-resume-base/harbor$':  '<rootDir>/../../shared/Harbor/v1/harbor_ts/src/index.ts',
+  '^@shared/toolbox$':              '<rootDir>/../../shared/Toolbox/v1/toolbox_ts/src/index.ts',
 },
 ```
 
@@ -176,6 +177,47 @@ source .venv/bin/activate   # Linux/macOS
 pip install -r requirements.txt
 pytest tests/
 ```
+
+---
+
+## Distributed Tracing Issues
+
+### Problem: Log entries are missing `correlationId`, `traceId`, or `spanId`
+
+**Cause (Node.js):** The `correlationIdHook` is not registered in the Fastify application, or it is registered after the request logger hook.
+
+**Solution:** Ensure `correlationIdHook` (or `createCorrelationIdHook(logger)`) is registered as the **first** `onRequest` hook:
+
+```typescript
+app.addHook('onRequest', correlationIdHook);
+app.addHook('onResponse', createRequestLoggerHook(logger));
+```
+
+**Cause (Python):** `CorrelationIdMiddleware` is not added to the FastAPI application.
+
+**Solution:** Add it before other middleware:
+
+```python
+app.add_middleware(CorrelationIdMiddleware)
+```
+
+---
+
+### Problem: `WARN x-correlation-id header absent` appears in every log entry
+
+**Cause:** The upstream caller is not forwarding the `x-correlation-id` header. This warning should never appear for frontend-originated requests because the frontend Axios client generates a UUID v4 `x-correlation-id` for every request. It should also never appear for service-to-service calls.
+
+**Solution for frontend requests:** Ensure the frontend's Axios interceptor in `apps/frontend/src/services/api.ts` is generating the header. The interceptor sets `reqConfig.headers['x-correlation-id'] = crypto.randomUUID()` before every outbound call. If you are making requests via a different code path (e.g. a raw `fetch` call or a separate Axios instance), add the header there as well.
+
+**Solution for service-to-service calls:** Ensure the calling service propagates tracing headers. In the Gateway API this is handled automatically by the Axios interceptor in `src/utils/httpClient.ts` — all clients created via `createHttpClient()` will forward the current request's tracing headers. Do not bypass `createHttpClient` with a raw Axios instance.
+
+---
+
+### Problem: `WARN x-cloud-trace-context header absent; derived trace context from correlation ID`
+
+**Cause:** The upstream caller is not forwarding the `x-cloud-trace-context` header. This is **expected behavior for frontend-originated requests** — the frontend intentionally does not set this header (it is an internal server-side tracing concern). The Gateway API derives the trace context from the `x-correlation-id` header sent by the frontend instead.
+
+**Note:** If this warning appears for service-to-service calls, the upstream service is not propagating trace headers. In the Gateway API this is handled automatically by the Axios interceptor in `createHttpClient()`. Check that all downstream calls go through `createHttpClient` rather than a raw Axios instance.
 
 ---
 
