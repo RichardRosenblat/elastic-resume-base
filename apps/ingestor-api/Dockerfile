@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Use /app as the root so that the shared/ and ingestor/ sub-trees
+# Use /app as the root so that the shared/ and ingestor-api/ sub-trees
 # sit side-by-side, mirroring the monorepo layout on disk.
 # This lets requirements reference ../shared/<lib>/<lib_lower>_py as relative paths.
 WORKDIR /app
@@ -14,12 +14,12 @@ COPY shared/Synapse/v1/synapse_py/ ./shared/Synapse/v1/synapse_py/
 
 # Switch into the service sub-directory.  From here ../../shared/... resolves
 # to /app/shared/... which was just copied above.
-WORKDIR /app/apps/ingestor
+WORKDIR /app/apps/ingestor-api
 
-COPY apps/ingestor/requirements/ ./requirements/
+COPY apps/ingestor-api/requirements/ ./requirements/
 RUN pip install --no-cache-dir -r requirements/requirements-prod.txt
 
-COPY apps/ingestor/app/ ./app/
+COPY apps/ingestor-api/app/ ./app/
 
 EXPOSE 8001
 
