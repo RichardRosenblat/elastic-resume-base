@@ -37,6 +37,35 @@ body {
   }
 }
 
+/* Background animation blob keyframes */
+@keyframes blobFloat0 {
+  0%   { transform: translate(0%,    0%)    scale(1);    }
+  33%  { transform: translate(8%,   -12%)   scale(1.08); }
+  66%  { transform: translate(-6%,   6%)    scale(0.95); }
+  100% { transform: translate(0%,    0%)    scale(1);    }
+}
+
+@keyframes blobFloat1 {
+  0%   { transform: translate(0%,    0%)    scale(1);    }
+  33%  { transform: translate(-10%,  8%)    scale(1.05); }
+  66%  { transform: translate(7%,  -10%)    scale(0.97); }
+  100% { transform: translate(0%,    0%)    scale(1);    }
+}
+
+@keyframes blobFloat2 {
+  0%   { transform: translate(0%,    0%)    scale(1);    }
+  33%  { transform: translate(6%,    10%)   scale(0.93); }
+  66%  { transform: translate(-8%,  -5%)    scale(1.07); }
+  100% { transform: translate(0%,    0%)    scale(1);    }
+}
+
+@keyframes blobFloat3 {
+  0%   { transform: translate(0%,    0%)    scale(1);    }
+  33%  { transform: translate(-5%,  -8%)    scale(1.06); }
+  66%  { transform: translate(9%,    7%)    scale(0.94); }
+  100% { transform: translate(0%,    0%)    scale(1);    }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

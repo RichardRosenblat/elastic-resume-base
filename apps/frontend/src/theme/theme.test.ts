@@ -15,6 +15,13 @@ describe('loadTheme', () => {
     expect(theme.typography).toBeDefined();
   });
 
+  it('exposes backgroundAnimation when configured', () => {
+    const theme = loadTheme();
+    if (theme.backgroundAnimation) {
+      expect(typeof theme.backgroundAnimation.enabled === 'boolean' || theme.backgroundAnimation.enabled === undefined).toBe(true);
+    }
+  });
+
   it('exposes primary and secondary palette roles', () => {
     const theme = loadTheme();
     expect(typeof theme.palette.primary.main).toBe('string');
@@ -94,6 +101,36 @@ describe('toCssVariables', () => {
       if (tone?.filledColor) {
         expect(vars[`--color-alert-${severity}-filled-color`]).toBe(tone.filledColor);
       }
+    }
+  });
+
+  it('includes background animation CSS variables when configured', () => {
+    const theme = loadTheme();
+    const vars = toCssVariables(theme);
+
+    if (!theme.backgroundAnimation?.enabled) return;
+
+    const anim = theme.backgroundAnimation;
+    const colors = anim.palette?.colors ?? [];
+    for (let i = 0; i < colors.length; i++) {
+      expect(vars[`--bg-anim-color-${i}`]).toBe(colors[i]);
+    }
+    if (anim.speed !== undefined) {
+      expect(vars['--bg-anim-speed']).toBe(`${anim.speed}s`);
+    }
+    if (anim.opacity !== undefined) {
+      expect(vars['--bg-anim-opacity']).toBe(String(anim.opacity));
+    }
+  });
+
+  it('uses the dark preset animation colours when mode is dark', () => {
+    const theme = loadTheme();
+    if (!theme.backgroundAnimation?.presets?.['dark']?.colors) return;
+
+    const vars = toCssVariables(theme, 'dark');
+    const darkColors = theme.backgroundAnimation.presets['dark'].colors;
+    for (let i = 0; i < (darkColors?.length ?? 0); i++) {
+      expect(vars[`--bg-anim-color-${i}`]).toBe(darkColors?.[i]);
     }
   });
 });
