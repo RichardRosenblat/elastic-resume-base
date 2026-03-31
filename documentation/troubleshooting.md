@@ -205,17 +205,17 @@ app.add_middleware(CorrelationIdMiddleware)
 
 ### Problem: `WARN x-correlation-id header absent` appears in every log entry
 
-**Cause:** The upstream caller (frontend or another service) is not forwarding the `x-correlation-id` header. This warning is expected for the very first request in a chain (e.g. the frontend call to the Gateway API) but should never appear in service-to-service calls.
+**Cause:** The upstream caller is not forwarding the `x-correlation-id` header. This warning should never appear for frontend-originated requests because the frontend Axios client generates a UUID v4 `x-correlation-id` for every request. It should also never appear for service-to-service calls.
+
+**Solution for frontend requests:** Ensure the frontend's Axios interceptor in `apps/frontend/src/services/api.ts` is generating the header. The interceptor sets `reqConfig.headers['x-correlation-id'] = crypto.randomUUID()` before every outbound call. If you are making requests via a different code path (e.g. a raw `fetch` call or a separate Axios instance), add the header there as well.
 
 **Solution for service-to-service calls:** Ensure the calling service propagates tracing headers. In the Gateway API this is handled automatically by the Axios interceptor in `src/utils/httpClient.ts` — all clients created via `createHttpClient()` will forward the current request's tracing headers. Do not bypass `createHttpClient` with a raw Axios instance.
-
-**Solution for frontend calls:** The frontend does not need to generate a correlation ID; the Gateway API will generate one and log the warning for the initial request. This is the intended behavior at the edge.
 
 ---
 
 ### Problem: `WARN x-cloud-trace-context header absent; derived trace context from correlation ID`
 
-**Cause:** The upstream caller is not forwarding the `x-cloud-trace-context` header. This is expected at the edge (frontend calls) and the trace context will be derived automatically from the correlation ID.
+**Cause:** The upstream caller is not forwarding the `x-cloud-trace-context` header. This is **expected behavior for frontend-originated requests** — the frontend intentionally does not set this header (it is an internal server-side tracing concern). The Gateway API derives the trace context from the `x-correlation-id` header sent by the frontend instead.
 
 **Note:** If this warning appears for service-to-service calls, the upstream service is not propagating trace headers. In the Gateway API this is handled automatically by the Axios interceptor in `createHttpClient()`. Check that all downstream calls go through `createHttpClient` rather than a raw Axios instance.
 

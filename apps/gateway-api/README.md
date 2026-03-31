@@ -92,11 +92,11 @@ Error responses:
 
 ### Distributed Tracing
 
-Pass an `x-correlation-id` request header to trace requests across services. If omitted, one is generated automatically and returned in the response header.
+The frontend generates a fresh UUID v4 `x-correlation-id` header for every request it sends to the Gateway API. The Gateway API accepts this ID (or generates one if absent) and propagates it through every downstream service call.
 
-The gateway also reads and forwards GCP Cloud Trace headers (`x-cloud-trace-context: TRACE_ID/SPAN_ID;o=1`). If the header is absent, a trace context is derived from the correlation ID and a `WARN`-level log entry is emitted to flag the missing header. The resolved trace ID and span ID are included in every log entry and propagated automatically to all downstream service calls.
+The gateway also resolves GCP Cloud Trace context from the `x-cloud-trace-context` header. The frontend does **not** send this header — it is an internal server-side concern. When absent (as is always the case for frontend-originated requests), the gateway derives a trace context from the correlation ID and emits a `WARN`-level log entry. The resolved trace ID and span ID are included in every log entry and propagated automatically to all downstream service calls via an Axios request interceptor.
 
-All outbound requests to downstream services (Users API, Document Reader, Search, File Generator, Downloader) automatically receive the `x-correlation-id` and `x-cloud-trace-context` headers via an Axios request interceptor, with no manual header threading required.
+All outbound requests to downstream services (Users API, Document Reader, Search, File Generator, Downloader) automatically receive the `x-correlation-id` and `x-cloud-trace-context` headers, with no manual header threading required.
 
 ### Endpoints
 
