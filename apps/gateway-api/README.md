@@ -1,6 +1,6 @@
-# BFF Gateway
+# Gateway API
 
-Backend For Frontend (BFF) gateway service for [Elastic Resume Base](../README.md). Provides a unified API layer that handles authentication, request validation, and orchestration of downstream microservices.
+Backend For Frontend (BFF) gateway service for [Elastic Resume Base](../../README.md). Provides a unified API layer that handles authentication, request validation, and orchestration of downstream microservices.
 
 ## Prerequisites
 
@@ -16,12 +16,12 @@ Backend For Frontend (BFF) gateway service for [Elastic Resume Base](../README.m
 ./build_shared.sh
 
 # Install dependencies
-cd bff-gateway
+cd apps/gateway-api
 npm install
 
 # Copy and configure environment (uses config.yaml, not .env)
 cp ../config_example.yaml ../config.yaml
-# Edit config.yaml and set values under systems.shared and systems.bff-gateway
+# Edit config.yaml and set values under systems.shared and systems.gateway-api
 
 # Start in development mode (hot-reload)
 npm run dev
@@ -31,10 +31,10 @@ npm run dev
 
 ```bash
 # Build the image from the repository root
-docker build -f bff-gateway/Dockerfile -t bff-gateway bff-gateway/
+docker build -f apps/gateway-api/Dockerfile -t gateway-api .
 
 # Run the container (config.yaml is mounted as a volume)
-docker run -p 3000:3000 -v $(pwd)/config.yaml:/app/config.yaml:ro bff-gateway
+docker run -p 3000:3000 -v $(pwd)/config.yaml:/app/config.yaml:ro gateway-api
 ```
 
 ## Running with Firebase Emulators
@@ -43,8 +43,8 @@ docker run -p 3000:3000 -v $(pwd)/config.yaml:/app/config.yaml:ro bff-gateway
 # Start Firebase emulators (Auth + Firestore + Pub/Sub)
 firebase emulators:start
 
-# In a separate terminal, start the BFF Gateway
-cd bff-gateway && npm run dev
+# In a separate terminal, start the Gateway API
+cd apps/gateway-api && npm run dev
 ```
 
 Ensure your `config.yaml` has the emulator hosts set under `systems.shared`:
@@ -90,9 +90,13 @@ Error responses:
 }
 ```
 
-### Correlation IDs
+### Distributed Tracing
 
 Pass an `x-correlation-id` request header to trace requests across services. If omitted, one is generated automatically and returned in the response header.
+
+The gateway also reads and forwards GCP Cloud Trace headers (`x-cloud-trace-context: TRACE_ID/SPAN_ID;o=1`). If the header is absent, a trace context is derived from the correlation ID and a `WARN`-level log entry is emitted to flag the missing header. The resolved trace ID and span ID are included in every log entry and propagated automatically to all downstream service calls.
+
+All outbound requests to downstream services (Users API, Document Reader, Search, File Generator, Downloader) automatically receive the `x-correlation-id` and `x-cloud-trace-context` headers via an Axios request interceptor, with no manual header threading required.
 
 ### Endpoints
 
@@ -106,16 +110,22 @@ Pass an `x-correlation-id` request header to trace requests across services. If 
 | `GET` | `/api/v1/users/:uid` | Yes | No | Get user by UID |
 | `PATCH` | `/api/v1/users/:uid` | Yes | Yes | Update user (`role` and/or `enable`); admin only |
 | `DELETE` | `/api/v1/users/:uid` | Yes | Yes | Delete a user |
+| `PATCH` | `/api/v1/users/batch` | Yes | Yes | Batch-update multiple users |
+| `DELETE` | `/api/v1/users/batch` | Yes | Yes | Batch-delete multiple users |
 | `GET` | `/api/v1/users/pre-approve` | Yes | Yes | List or get pre-approved users |
 | `POST` | `/api/v1/users/pre-approve` | Yes | Yes | Add a pre-approved user |
 | `PATCH` | `/api/v1/users/pre-approve` | Yes | Yes | Update a pre-approved user's role |
 | `DELETE` | `/api/v1/users/pre-approve` | Yes | Yes | Remove a pre-approved user |
+| `PATCH` | `/api/v1/users/pre-approve/batch` | Yes | Yes | Batch-update multiple pre-approved users |
+| `DELETE` | `/api/v1/users/pre-approve/batch` | Yes | Yes | Batch-delete multiple pre-approved users |
+| `POST` | `/api/v1/documents/read` | Yes | No | Extract text from a document via Document Reader |
+| `POST` | `/api/v1/documents/ocr` | Yes | No | OCR-scan uploaded documents, returns Excel workbook |
 | `GET` | `/api/v1/docs` | No | No | Swagger UI |
 | `GET` | `/api/v1/docs.json` | No | No | Swagger JSON spec |
 
 ## Environment Variables
 
-All configuration is loaded from `config.yaml` (merged from `systems.shared` and `systems.bff-gateway`). The following variables are supported:
+All configuration is loaded from `config.yaml` (merged from `systems.shared` and `systems.gateway-api`). The following variables are supported:
 
 | Variable | Default | Description |
 |---|---|---|
@@ -123,6 +133,10 @@ All configuration is loaded from `config.yaml` (merged from `systems.shared` and
 | `NODE_ENV` | `development` | Environment mode (`development`, `production`, `test`) |
 | `FIREBASE_PROJECT_ID` | `demo-elastic-resume-base` | Firebase project ID for token verification |
 | `USER_API_SERVICE_URL` | `http://localhost:8005` | Base URL for the Users API |
+| `DOCUMENT_READER_SERVICE_URL` | `http://localhost:8004` | Base URL for the Document Reader service |
+| `SEARCH_SERVICE_URL` | `http://localhost:8001` | Base URL for the Search service |
+| `FILE_GENERATOR_SERVICE_URL` | `http://localhost:8002` | Base URL for the File Generator service |
+| `DOWNLOADER_SERVICE_URL` | `http://localhost:8003` | Base URL for the Downloader service |
 | `FIRESTORE_EMULATOR_HOST` | — | Firestore emulator host (e.g. `localhost:8080`) |
 | `FIREBASE_AUTH_EMULATOR_HOST` | — | Firebase Auth emulator host (e.g. `localhost:9099`) |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
@@ -140,3 +154,4 @@ npm test
 ```bash
 npm run lint
 ```
+

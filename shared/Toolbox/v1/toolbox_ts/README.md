@@ -2,7 +2,7 @@
 
 A shared collection of **cross-cutting utility functions** for Elastic Resume Base Node.js microservices. Toolbox consolidates infrastructure-level code that would otherwise be duplicated across every service — structured logging, config loading, and Fastify middleware — into a single, well-tested source directory.
 
-> **Python version:** The Python README can be found at [shared/Toolbox/toolbox_py/README.md](../toolbox_py/README.md). Both versions share the same design principles, but the Python version is a separate implementation targeted at FastAPI services.
+> **Python version:** The Python README can be found at [shared/Toolbox/v1/toolbox_py/README.md](../toolbox_py/README.md). Both versions share the same design principles, but the Python version is a separate implementation targeted at FastAPI services.
 
 Toolbox is **not** an npm package. It is a plain set of TypeScript source files that services import via a `@shared/toolbox` path alias configured in `tsconfig.json` and `jest.config.cjs`. No build step or installation is required.
 
@@ -15,7 +15,7 @@ Register the `@shared/toolbox` path alias in your service's `tsconfig.json` (see
 ```typescript
 import { loadConfigYaml } from '@shared/toolbox';
 import { createLogger } from '@shared/toolbox';
-import { correlationIdHook } from '@shared/toolbox';
+import { correlationIdHook, createCorrelationIdHook } from '@shared/toolbox';
 import { createRequestLoggerHook } from '@shared/toolbox';
 ```
 
@@ -33,7 +33,7 @@ The service's `tsconfig.json` and `jest.config.cjs` must also include mapper ent
 ## Quick Start
 
 ```typescript
-import { loadConfigYaml, createLogger, correlationIdHook, createRequestLoggerHook } from '@shared/toolbox';
+import { loadConfigYaml, createLogger, createCorrelationIdHook, createRequestLoggerHook } from '@shared/toolbox';
 
 // 1. Load config.yaml before reading process.env
 loadConfigYaml('my-service');
@@ -46,7 +46,7 @@ const logger = createLogger({
 });
 
 // 3. Register Fastify middleware
-app.addHook('onRequest', correlationIdHook);
+app.addHook('onRequest', createCorrelationIdHook(logger)); // warns when tracing headers are absent
 app.addHook('onResponse', createRequestLoggerHook(logger));
 ```
 
@@ -114,13 +114,19 @@ logger.error({ err }, 'Unhandled exception');
 
 ### `correlationIdHook`
 
-Fastify `onRequest` hook that attaches a correlation ID to every incoming request for distributed tracing.
+Fastify `onRequest` hook that attaches a correlation ID and GCP Cloud Trace context to every incoming request for distributed tracing.
 
-**Resolution order:**
+**Correlation ID resolution order:**
 1. Value of the incoming `x-correlation-id` header (forwarded from an upstream service or client).
 2. Freshly generated UUID v4 (when no header is present).
 
-The resolved ID is stored on `request.correlationId` and echoed back via the `x-correlation-id` response header.
+**Cloud Trace context resolution order:**
+1. Parsed from the incoming `x-cloud-trace-context` header when present and valid (`TRACE_ID/SPAN_ID;o=FLAG` format).
+2. Derived from the correlation ID: `traceId` = UUID without hyphens (32 hex chars), `spanId` = `"0"` (when the header is absent or malformed).
+
+The resolved values are stored on `request.correlationId`, `request.traceId`, and `request.spanId`, and echoed back via the `x-correlation-id` and `x-cloud-trace-context` response headers.
+
+This is a convenience alias for `createCorrelationIdHook()` — no logger is attached, so no warnings are emitted when tracing headers are absent. Use `createCorrelationIdHook(logger)` if you want warnings.
 
 ```typescript
 import { correlationIdHook } from '@shared/toolbox';
@@ -128,7 +134,27 @@ import { correlationIdHook } from '@shared/toolbox';
 app.addHook('onRequest', correlationIdHook);
 
 // Later in a controller or service:
-logger.info({ correlationId: request.correlationId }, 'Processing request');
+logger.info({ correlationId: request.correlationId, traceId: request.traceId }, 'Processing request');
+```
+
+---
+
+### `createCorrelationIdHook(logger?)`
+
+Factory that creates a Fastify `onRequest` hook for correlation-ID and GCP Cloud Trace context propagation. Identical to `correlationIdHook` but accepts an optional `logger` argument.
+
+When a `logger` is provided, the hook emits `warn`-level entries whenever the incoming request is missing the `x-correlation-id` or `x-cloud-trace-context` header. This surfaces missing tracing headers at the source rather than silently ignoring them.
+
+**Recommended:** use `createCorrelationIdHook(logger)` in all services so that tracing gaps are visible in logs.
+
+```typescript
+import { createCorrelationIdHook } from '@shared/toolbox';
+import { logger } from '../utils/logger.js';
+
+// Warns when x-correlation-id or x-cloud-trace-context are absent
+export const correlationIdHook = createCorrelationIdHook(logger);
+
+app.addHook('onRequest', correlationIdHook);
 ```
 
 ---
@@ -145,7 +171,9 @@ Each response emits a single `info`-level log entry containing:
 | `path`          | Request URL (path + query string)            |
 | `statusCode`    | HTTP response status code                    |
 | `durationMs`    | Elapsed time in milliseconds (rounded)       |
-| `correlationId` | Trace ID from `correlationIdHook`            |
+| `correlationId` | Correlation ID from `correlationIdHook`      |
+| `traceId`       | GCP Cloud Trace trace ID                     |
+| `spanId`        | GCP Cloud Trace span ID                      |
 
 ```typescript
 import { createRequestLoggerHook } from '@shared/toolbox';
@@ -212,19 +240,13 @@ export const logger = createLogger({
 });
 ```
 
-**`src/app.ts`** (excerpt)
+**`src/middleware/correlationId.ts`**
 ```typescript
-import { correlationIdHook, createRequestLoggerHook } from '@shared/toolbox';
-import { logger } from './utils/logger.js';
+import { createCorrelationIdHook } from '@shared/toolbox';
+import { logger } from '../utils/logger.js';
 
-// In buildApp():
-app.addHook('onRequest', correlationIdHook);
-app.addHook('onResponse', createRequestLoggerHook(logger));
-```
-
-**`src/middleware/correlationId.ts`** (thin re-export)
-```typescript
-export { correlationIdHook } from '@shared/toolbox';
+// Logs a warning when x-correlation-id or x-cloud-trace-context are absent
+export const correlationIdHook = createCorrelationIdHook(logger);
 ```
 
 **`src/middleware/requestLogger.ts`** (thin wrapper)
@@ -233,6 +255,17 @@ import { createRequestLoggerHook } from '@shared/toolbox';
 import { logger } from '../utils/logger.js';
 
 export const requestLoggerHook = createRequestLoggerHook(logger);
+```
+
+**`src/app.ts`** (excerpt)
+```typescript
+import { createRequestLoggerHook } from '@shared/toolbox';
+import { correlationIdHook } from './middleware/correlationId.js';
+import { logger } from './utils/logger.js';
+
+// In buildApp():
+app.addHook('onRequest', correlationIdHook);
+app.addHook('onResponse', createRequestLoggerHook(logger));
 ```
 
 **`src/errors.ts`** (re-export error classes)
@@ -253,7 +286,7 @@ export {
 **`tsconfig.json`** — add `paths` to resolve the `@shared/toolbox` alias and redirect Toolbox's external deps to this service's `node_modules`:
 ```json
 "paths": {
-  "@shared/toolbox": ["shared/Toolbox/toolbox_ts/src/index.ts"],
+  "@shared/toolbox": ["shared/Toolbox/v1/toolbox_ts/src/index.ts"],
   "pino": ["./node_modules/pino"],
   "js-yaml": ["./node_modules/@types/js-yaml"],
   "@google-cloud/pino-logging-gcp-config": ["./node_modules/@google-cloud/pino-logging-gcp-config"]
@@ -262,14 +295,14 @@ export {
 
 > **Note on `js-yaml`:** the path points to `@types/js-yaml` (not `js-yaml` itself) because js-yaml's `exports` field has no `types` condition, which prevents TypeScript's NodeNext resolution from automatically finding `@types/js-yaml`. This makes TypeScript pick up the declarations directly. At runtime, Node.js and esbuild resolve the actual js-yaml implementation through normal `node_modules` lookup.
 
-> **Note on `rootDir` / `baseUrl`:** the `tsconfig.json` must set `"rootDir": ".."` and `"baseUrl": ".."` (one level above the service root) so that the TypeScript compiler can resolve Toolbox source files located outside the service directory.
+> **Note on `rootDir` / `baseUrl`:** the `tsconfig.json` must set `"rootDir": "../.."` and `"baseUrl": "../.."` (two levels above the service root, from `apps/<service-name>`) so that the TypeScript compiler can resolve Toolbox source files located outside the service directory.
 
 **`jest.config.cjs`** — add `moduleNameMapper` entries so Jest resolves the same packages:
 ```javascript
 moduleNameMapper: {
   '^(\\.{1,2}/.*)\\.js$': '$1',
   '^js-yaml$': '<rootDir>/node_modules/js-yaml',
-  '^@shared/toolbox$': '<rootDir>/../shared/Toolbox/toolbox_ts/src/index.ts',
+  '^@shared/toolbox$': '<rootDir>/../../shared/Toolbox/v1/toolbox_ts/src/index.ts',
 },
 ```
 
@@ -288,10 +321,10 @@ await build({
 
 ## Testing
 
-Toolbox has no test infrastructure of its own. Its unit tests live in `bff-gateway/tests/unit/toolbox/` and run as part of the bff-gateway test suite:
+Toolbox has no test infrastructure of its own. Its unit tests live in `apps/gateway-api/tests/unit/toolbox/` and run as part of the gateway-api test suite:
 
 ```bash
-cd bff-gateway
+cd apps/gateway-api
 npm test
 ```
 
