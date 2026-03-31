@@ -83,7 +83,8 @@ def initialize_persistence(
             credential = fb_credentials.Certificate(key_dict)
         except Exception as exc:
             logger.warning(
-                "Failed to parse service_account_key — falling back to ADC: %s", exc
+                "Failed to parse service_account_key — using Application Default Credentials: %s",
+                exc,
             )
 
     firebase_admin.initialize_app(credential, app_options)
