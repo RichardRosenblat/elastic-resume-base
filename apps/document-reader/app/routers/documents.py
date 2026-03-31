@@ -164,6 +164,13 @@ async def _get_document_types(request: Request) -> list[DocumentType]:
     :meth:`~starlette.datastructures.FormData.getlist`, which is necessary when
     multiple files are uploaded in a single request.
 
+    Args:
+        request: Incoming request containing multipart form data.
+
+    Returns:
+        Ordered list of document types supplied in the ``documentTypes`` form
+        field, aligned with uploaded file order.
+
     Raises:
         HTTPException 422: If the ``documentTypes`` field is absent, if any
             value is an empty string, or if any value is not a valid
@@ -290,6 +297,7 @@ async def ocr_documents(
         HTTPException 422: If ``documentTypes`` is absent, contains an invalid
             value, a file exceeds the maximum allowed size, or the count of
             ``documentTypes`` does not match the number of uploaded files.
+        HTTPException 429: If the Vision API request budget is exceeded.
         HTTPException 502: If the OCR service fails to process a file.
     """
     # Validate that documentTypes has exactly one entry per file.

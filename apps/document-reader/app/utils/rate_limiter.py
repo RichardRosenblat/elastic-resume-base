@@ -24,6 +24,15 @@ class RateLimiter:
     """
 
     def __init__(self, max_calls: int, window_seconds: int = 60) -> None:
+        """Initialise limiter state for a fixed sliding window policy.
+
+        Args:
+            max_calls: Maximum number of calls allowed in one window.
+            window_seconds: Sliding-window duration in seconds.
+
+        Returns:
+            ``None``.
+        """
         self._max_calls = max_calls
         self._window = window_seconds
         self._calls: deque[float] = deque()
@@ -33,6 +42,9 @@ class RateLimiter:
         """Check whether the next call is within the rate limit.
 
         Evicts stale timestamps, then accepts or rejects the new event.
+
+        Args:
+            None.
 
         Returns:
             ``True`` if the call is allowed (and records it), ``False`` if

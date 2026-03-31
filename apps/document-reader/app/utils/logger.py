@@ -18,6 +18,9 @@ def configure_logging(log_level: str = "INFO") -> None:
 
     Args:
         log_level: Logging level string (e.g. "INFO", "DEBUG").
+
+    Returns:
+        ``None``.
     """
     setup_logging(level=log_level)
 

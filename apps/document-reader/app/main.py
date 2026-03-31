@@ -26,7 +26,17 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application lifespan events."""
+    """Manage startup and shutdown lifecycle hooks for the FastAPI app.
+
+    Logs runtime configuration on startup and emits a shutdown log entry when
+    the application is terminating.
+
+    Args:
+        app: The FastAPI application instance provided by the lifespan protocol.
+
+    Returns:
+        Async generator used by FastAPI to delimit startup and shutdown phases.
+    """
     logger.info(
         "Document Reader service starting up",
         extra={

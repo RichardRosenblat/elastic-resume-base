@@ -57,6 +57,9 @@ def check_api_rate_limit(request: Request) -> None:
     Args:
         request: The incoming request (injected by FastAPI).
 
+    Returns:
+        ``None``. Raises when the request exceeds the allowed rate.
+
     Raises:
         HTTPException: 429 if the client has exceeded the allowed request rate.
     """
@@ -78,6 +81,9 @@ def _reset_rate_limiters_for_testing() -> None:
 
     **For use in tests only.**  Resets the shared limiter dictionary so that
     each test starts from a clean state without cross-test contamination.
+
+    Returns:
+        ``None``.
     """
     with _api_rate_limiter_lock:
         _api_rate_limiters.clear()

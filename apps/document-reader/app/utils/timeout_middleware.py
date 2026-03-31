@@ -31,6 +31,15 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
     """
 
     def __init__(self, app: object, timeout_seconds: float) -> None:
+        """Store timeout configuration for request processing.
+
+        Args:
+            app: The ASGI application instance being wrapped.
+            timeout_seconds: Maximum request processing time in seconds.
+
+        Returns:
+            ``None``.
+        """
         super().__init__(app)  # type: ignore[arg-type]
         self._timeout = timeout_seconds
 
@@ -48,6 +57,9 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
         Returns:
             The response from the next handler, or a 504 JSON error if the
             timeout is exceeded.
+
+        Raises:
+            Exception: Re-raises any downstream exception other than timeout.
         """
         # Skip timeout for health probes to avoid interfering with orchestrators.
         if request.url.path.startswith("/health"):
