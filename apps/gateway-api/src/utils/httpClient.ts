@@ -1,5 +1,6 @@
 import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor';
 import { config } from '../config.js';
+import { tracingStorage } from './tracingContext.js';
 
 export type { HarborClient };
 
@@ -13,12 +14,28 @@ export type { HarborClient };
  * DELETE and GET, which would cause Fastify to attempt JSON-parsing an empty body
  * and return a 400 error.
  *
+ * A request interceptor is attached to every client instance so that the
+ * `x-correlation-id` and `x-cloud-trace-context` headers are automatically
+ * forwarded to the downstream service when a tracing context is available.
+ * The context is set by {@link correlationIdHook} via {@link tracingStorage}.
+ *
  * @param baseURL - The base URL of the downstream service.
  * @returns Configured HarborClient instance.
  */
 export function createHttpClient(baseURL: string): HarborClient {
-  return createHarborClient({
+  const client = createHarborClient({
     baseURL,
     timeoutMs: config.requestTimeoutMs,
   });
+
+  client.interceptors.request.use((axiosConfig) => {
+    const ctx = tracingStorage.getStore();
+    if (ctx) {
+      axiosConfig.headers['x-correlation-id'] = ctx.correlationId;
+      axiosConfig.headers['x-cloud-trace-context'] = `${ctx.traceId}/${ctx.spanId};o=1`;
+    }
+    return axiosConfig;
+  });
+
+  return client;
 }

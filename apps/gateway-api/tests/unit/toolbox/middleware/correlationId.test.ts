@@ -1,9 +1,9 @@
 /**
- * Unit tests for correlationIdHook.
+ * Unit tests for correlationIdHook and createCorrelationIdHook.
  * Tests that the hook attaches or generates a correlation ID and Cloud Trace context on every request.
  */
 
-import { correlationIdHook } from '../../../../../../shared/Toolbox/v1/toolbox_ts/src/middleware/correlationId.js';
+import { correlationIdHook, createCorrelationIdHook } from '../../../../../../shared/Toolbox/v1/toolbox_ts/src/middleware/correlationId.js';
 
 function makeRequest(headers: Record<string, string> = {}): {
   headers: Record<string, string>;
@@ -113,5 +113,111 @@ describe('correlationIdHook', () => {
     correlationIdHook(request, reply, done);
 
     expect(reply._headers['x-cloud-trace-context']).toMatch(/^[0-9a-f]{32}\/[0-9]+;o=1$/);
+  });
+});
+
+describe('createCorrelationIdHook', () => {
+  it('logs a warning when x-correlation-id header is absent', () => {
+    const mockLogger = { warn: jest.fn() };
+    const hook = createCorrelationIdHook(mockLogger);
+    const request = makeRequest({});
+    const reply = makeReply();
+    const done = jest.fn();
+
+    hook(request, reply, done);
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ correlationId: expect.any(String) }),
+      'x-correlation-id header absent; generated new correlation ID',
+    );
+  });
+
+  it('does not warn about x-correlation-id when header is present', () => {
+    const mockLogger = { warn: jest.fn() };
+    const hook = createCorrelationIdHook(mockLogger);
+    const request = makeRequest({ 'x-correlation-id': 'existing-id', 'x-cloud-trace-context': 'a1b2c3d4e5f60718293a4b5c6d7e8f90/1;o=1' });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    hook(request, reply, done);
+
+    const correlationWarnCalls = (mockLogger.warn as jest.Mock).mock.calls.filter(
+      ([, msg]: [unknown, string]) => msg.includes('x-correlation-id'),
+    );
+    expect(correlationWarnCalls).toHaveLength(0);
+  });
+
+  it('logs a warning when x-cloud-trace-context header is absent', () => {
+    const mockLogger = { warn: jest.fn() };
+    const hook = createCorrelationIdHook(mockLogger);
+    const request = makeRequest({ 'x-correlation-id': 'some-id' });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    hook(request, reply, done);
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ traceId: expect.any(String), spanId: expect.any(String) }),
+      'x-cloud-trace-context header absent; derived trace context from correlation ID',
+    );
+  });
+
+  it('does not warn about x-cloud-trace-context when a valid header is present', () => {
+    const mockLogger = { warn: jest.fn() };
+    const hook = createCorrelationIdHook(mockLogger);
+    const traceId = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    const request = makeRequest({
+      'x-correlation-id': 'some-id',
+      'x-cloud-trace-context': `${traceId}/1;o=1`,
+    });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    hook(request, reply, done);
+
+    const traceWarnCalls = (mockLogger.warn as jest.Mock).mock.calls.filter(
+      ([, msg]: [unknown, string]) => msg.includes('x-cloud-trace-context'),
+    );
+    expect(traceWarnCalls).toHaveLength(0);
+  });
+
+  it('logs a warning for malformed x-cloud-trace-context header (falls back to derived)', () => {
+    const mockLogger = { warn: jest.fn() };
+    const hook = createCorrelationIdHook(mockLogger);
+    const request = makeRequest({
+      'x-correlation-id': 'some-id',
+      'x-cloud-trace-context': 'not-a-valid-trace-header',
+    });
+    const reply = makeReply();
+    const done = jest.fn();
+
+    hook(request, reply, done);
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ traceId: expect.any(String) }),
+      'x-cloud-trace-context header absent; derived trace context from correlation ID',
+    );
+  });
+
+  it('does not log any warning when no logger is provided (backward compat)', () => {
+    const hook = createCorrelationIdHook();
+    const request = makeRequest({});
+    const reply = makeReply();
+    const done = jest.fn();
+
+    expect(() => hook(request, reply, done)).not.toThrow();
+    expect(done).toHaveBeenCalled();
+  });
+
+  it('still calls done() when both headers are absent', () => {
+    const mockLogger = { warn: jest.fn() };
+    const hook = createCorrelationIdHook(mockLogger);
+    const request = makeRequest({});
+    const reply = makeReply();
+    const done = jest.fn();
+
+    hook(request, reply, done);
+
+    expect(done).toHaveBeenCalledTimes(1);
   });
 });
