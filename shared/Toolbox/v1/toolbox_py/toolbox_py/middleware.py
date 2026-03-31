@@ -12,6 +12,9 @@ This module provides :class:`CorrelationIdMiddleware`, a Starlette/FastAPI
   defaults to ``"0"``.
 * Sets the ``x-cloud-trace-context`` response header so that downstream
   services can continue the same trace.
+* Logs a ``WARNING`` when the ``x-correlation-id`` or ``x-cloud-trace-context``
+  header is absent, so that operators can identify services that are not
+  forwarding tracing headers.
 
 The three context variables are exposed as module-level accessor functions::
 
@@ -25,6 +28,7 @@ configured with :func:`toolbox_py.logger.setup_logging`.
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from collections.abc import Awaitable, Callable
@@ -33,6 +37,8 @@ from contextvars import ContextVar
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+_logger = logging.getLogger(__name__)
 
 # ─── Context variables ────────────────────────────────────────────────────────
 
@@ -109,10 +115,11 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
     The middleware:
 
     1. Reads the ``x-correlation-id`` request header, or generates a new UUID
-       v4 when the header is absent.
+       v4 when the header is absent.  Logs a warning when the header is absent.
     2. Reads and parses the ``x-cloud-trace-context`` request header.  When
        absent or malformed, derives the trace ID from the correlation ID (UUID
-       without hyphens) and sets span ID to ``"0"``.
+       without hyphens) and sets span ID to ``"0"``.  Logs a warning when the
+       header is absent or malformed.
     3. Stores all three values in :mod:`contextvars` so that loggers configured
        via :func:`~toolbox_py.logger.setup_logging` include them automatically.
     4. Adds ``x-correlation-id`` and ``x-cloud-trace-context`` headers to the
@@ -133,9 +140,12 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         Returns:
             The downstream response, augmented with tracing response headers.
         """
+        had_correlation_id = bool(request.headers.get("x-correlation-id"))
         correlation_id = request.headers.get("x-correlation-id") or str(uuid.uuid4())
 
-        parsed = _parse_cloud_trace_context(request.headers.get("x-cloud-trace-context"))
+        raw_trace_header = request.headers.get("x-cloud-trace-context")
+        parsed = _parse_cloud_trace_context(raw_trace_header)
+        had_trace_context = parsed is not None
         if parsed:
             trace_id, span_id = parsed
         else:
@@ -145,6 +155,17 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         _correlation_id_var.set(correlation_id)
         _trace_id_var.set(trace_id)
         _span_id_var.set(span_id)
+
+        if not had_correlation_id:
+            _logger.warning(
+                "x-correlation-id header absent; generated new correlation ID",
+                extra={"correlation_id": correlation_id},
+            )
+        if not had_trace_context:
+            _logger.warning(
+                "x-cloud-trace-context header absent; derived trace context from correlation ID",
+                extra={"trace_id": trace_id, "span_id": span_id},
+            )
 
         response = await call_next(request)
 

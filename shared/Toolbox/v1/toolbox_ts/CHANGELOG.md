@@ -12,6 +12,31 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [1.1.0] — 2026-03-31
+
+### Added
+
+- `createCorrelationIdHook(logger?)` — factory that creates a Fastify `onRequest` hook
+  for correlation-ID and Cloud Trace context propagation. When an optional `logger` is
+  provided the hook emits `warn`-level entries whenever the incoming request is missing
+  the `x-correlation-id` or `x-cloud-trace-context` header. Use this in every service
+  so that missing tracing headers are surfaced at the source rather than silently ignored.
+
+### Changed
+
+- `correlationIdHook` now also resolves and attaches `request.traceId` and
+  `request.spanId` from the incoming `x-cloud-trace-context` header
+  (`TRACE_ID/SPAN_ID;o=FLAG` format).  When the header is absent or malformed the
+  trace ID is derived from the correlation ID (UUID without hyphens → 32 hex chars) and
+  the span ID defaults to `"0"`.
+- The `x-cloud-trace-context` response header is now echoed back on every response
+  (previously only `x-correlation-id` was set).
+- `correlationIdHook` is now a convenience alias for `createCorrelationIdHook()` (no
+  logger, no warnings).  Existing consumers that use `correlationIdHook` directly are
+  unaffected.
+
+---
+
 ## [1.0.1] — 2026-03-30
 
 ## Added

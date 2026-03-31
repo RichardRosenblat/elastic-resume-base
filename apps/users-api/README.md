@@ -41,7 +41,7 @@ users-api/
 │   │   ├── health.controller.ts       # Liveness/readiness probes
 │   │   └── users.controller.ts        # HTTP handler layer
 │   ├── middleware/
-│   │   ├── correlationId.ts           # Attaches x-correlation-id to every request
+│   │   ├── correlationId.ts           # Attaches x-correlation-id and x-cloud-trace-context; warns when absent
 │   │   ├── errorHandler.ts            # Global Fastify error handler
 │   │   └── requestLogger.ts           # Per-request Pino logging
 │   ├── models/

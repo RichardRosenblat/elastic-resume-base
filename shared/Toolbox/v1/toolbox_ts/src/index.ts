@@ -25,7 +25,7 @@
 
 // ─── Correlation ID hook ──────────────────────────────────────────────────────
 
-export { correlationIdHook } from './middleware/correlationId.js';
+export { correlationIdHook, createCorrelationIdHook } from './middleware/correlationId.js';
 
 // ─── Request logger hook ──────────────────────────────────────────────────────
 

@@ -41,6 +41,17 @@ A Node.js/TypeScript microservice that manages user records and implements the B
 
 See [apps/users-api/README.md](../apps/users-api/README.md) for full API documentation.
 
+### Document Reader (✅ Implemented)
+
+A Python/FastAPI service responsible for accepting personal documents and using OCR (Google Cloud Vision API) to extract text from them. No extracted data or documents are persisted after text extraction, ensuring data privacy. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
+
+- Accepts one or more uploaded files (`multipart/form-data`) via `POST /api/v1/documents/ocr`
+- Extracts and classifies Brazilian document types (RG, CTPS, PIS, Birth/Marriage Certificate, Residence Proof, Diploma)
+- Returns structured data as a downloadable Excel workbook (`.xlsx`)
+- Supports optional `documentTypes` field to bypass auto-classification
+
+See [apps/document-reader/README.md](../apps/document-reader/README.md) for full API documentation.
+
 ---
 
 ## Planned Services
@@ -83,8 +94,9 @@ The following internal packages live under `shared/` and are consumed by the Nod
 
 | Package | Import | Purpose |
 |---------|--------|---------|
-| **Toolbox** | `shared/Toolbox/src/` (relative path) | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify middleware hooks (`correlationIdHook`, `createRequestLoggerHook`). Plain TypeScript source — no build step required. |
+| **Toolbox** | `@shared/toolbox` (tsconfig path alias) | Cross-cutting utilities: structured logger factory (`createLogger`), config loader (`loadConfigYaml`), Fastify hooks (`correlationIdHook`, `createCorrelationIdHook(logger)`, `createRequestLoggerHook`). `createCorrelationIdHook(logger)` emits `WARN`-level entries when `x-correlation-id` or `x-cloud-trace-context` headers are absent. Plain TypeScript source — no build step required. |
 | **Bowltie** | `@elastic-resume-base/bowltie` | Uniform JSON response formatting via `formatSuccess` / `formatError`. Produces the standard `{ success, data/error, meta }` envelope used by all API responses. |
+| **Harbor** | `@elastic-resume-base/harbor` | Centralized HTTP client factory (`createHarborClient`, `isHarborError`). All outbound HTTP calls from the Gateway API go through Harbor clients which automatically inject tracing headers via an Axios request interceptor. |
 | **Synapse** | `@elastic-resume-base/synapse` | Persistence abstraction layer for Firebase/Firestore. Owns the `firebase-admin` dependency and exposes `IUserDocumentStore` / `IPreApprovedStore` interfaces with Firestore implementations. Must be initialized via `initializePersistence()` at service startup. |
 | **Bugle** | `@elastic-resume-base/bugle` | Google API integration: `getGoogleAuthClient` and `DrivePermissionsService` for reading Google Drive file permissions. |
 
