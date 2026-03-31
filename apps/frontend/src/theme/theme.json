@@ -7,7 +7,61 @@
     "primaryDark": "#163F73",
     "secondaryMain": "#0D9488",
     "secondaryLight": "#3AB9AD",
-    "secondaryDark": "#0A6C63"
+    "secondaryDark": "#0A6C63",
+    "tertiaryMain": "#F59E0B",
+    "successMain": "#198754",
+    "warningMain": "#B7791F",
+    "errorMain": "#C53030",
+    "infoMain": "#2563EB",
+    "bgDefault": "#F3F7FC",
+    "bgSidebar": "#EAF1FB",
+    "textPrimary": "#112133",
+    "textSecondary": "#3E5166",
+    "textMuted": "#657990",
+    "uiBorder": "#CFDAE8",
+    "uiDivider": "#D8E2EE",
+    "uiDisabledBg": "#E6ECF4",
+    "uiDisabledText": "#8092A6",
+    "uiFocusRing": "#3A7BD5",
+    "alertSuccessBg": "#EDF7ED",
+    "alertSuccessColor": "#1D5E28",
+    "alertWarningBg": "#FFF8E1",
+    "alertWarningColor": "#7A5310",
+    "alertErrorBg": "#FDEDED",
+    "alertErrorColor": "#8B1A1A",
+    "alertInfoBg": "#E8F4FD",
+    "alertInfoColor": "#1A4B8C",
+    "darkPrimaryLight": "#79ABDF",
+    "darkSecondaryLight": "#68CFC5",
+    "darkSuccessMain": "#4ADE80",
+    "darkWarningMain": "#FBBF24",
+    "darkErrorMain": "#F87171",
+    "darkInfoMain": "#60A5FA",
+    "darkBgDefault": "#0F172A",
+    "darkBgPaper": "#1E293B",
+    "darkBgElevated": "#263449",
+    "darkBgSidebar": "#162032",
+    "darkBgTopbar": "#1A2840",
+    "darkTextPrimary": "#F1F5F9",
+    "darkTextSecondary": "#94A3B8",
+    "darkTextMuted": "#64748B",
+    "darkUiBorder": "#2D3F56",
+    "darkUiDivider": "#233045",
+    "darkUiDisabledBg": "#1E2D3D",
+    "darkUiDisabledText": "#506275",
+    "darkAlertSuccessBg": "#0D2B17",
+    "darkAlertSuccessColor": "#86EFAC",
+    "darkAlertSuccessFilledBg": "#15803D",
+    "darkAlertWarningBg": "#2B1D0A",
+    "darkAlertWarningColor": "#FCD34D",
+    "darkAlertWarningFilledBg": "#B45309",
+    "darkAlertErrorBg": "#2B0D0D",
+    "darkAlertErrorColor": "#FCA5A5",
+    "darkAlertErrorFilledBg": "#DC2626",
+    "darkAlertInfoBg": "#0D1F3C",
+    "darkAlertInfoColor": "#93C5FD",
+    "darkAlertInfoFilledBg": "#1D4ED8",
+    "darkAlertDefaultFilledBg": "#334155"
   },
   "branding": {
     "appName": "Elastic Resume Base",
@@ -35,62 +89,62 @@
       "contrastText": "$white"
     },
     "tertiary": {
-      "main": "#F59E0B"
+      "main": "$tertiaryMain"
     },
-    "success": { "main": "#198754" },
-    "warning": { "main": "#B7791F" },
-    "error": { "main": "#C53030" },
-    "info": { "main": "#2563EB" },
+    "success": { "main": "$successMain" },
+    "warning": { "main": "$warningMain" },
+    "error": { "main": "$errorMain" },
+    "info": { "main": "$infoMain" },
     "background": {
-      "default": "#F3F7FC",
+      "default": "$bgDefault",
       "paper": "$white",
       "elevated": "$white",
-      "sidebar": "#EAF1FB",
+      "sidebar": "$bgSidebar",
       "topbar": "$white",
       "input": "$white"
     },
     "text": {
-      "primary": "#112133",
-      "secondary": "#3E5166",
-      "muted": "#657990",
+      "primary": "$textPrimary",
+      "secondary": "$textSecondary",
+      "muted": "$textMuted",
       "inverse": "$white"
     },
     "ui": {
-      "border": "#CFDAE8",
-      "divider": "#D8E2EE",
-      "disabledBackground": "#E6ECF4",
-      "disabledText": "#8092A6",
-      "focusRing": "#3A7BD5"
+      "border": "$uiBorder",
+      "divider": "$uiDivider",
+      "disabledBackground": "$uiDisabledBg",
+      "disabledText": "$uiDisabledText",
+      "focusRing": "$uiFocusRing"
     },
     "alerts": {
       "success": {
-        "bg": "#EDF7ED",
-        "color": "#1D5E28",
-        "filledBg": "#198754",
+        "bg": "$alertSuccessBg",
+        "color": "$alertSuccessColor",
+        "filledBg": "$successMain",
         "filledColor": "$white"
       },
       "warning": {
-        "bg": "#FFF8E1",
-        "color": "#7A5310",
-        "filledBg": "#B7791F",
+        "bg": "$alertWarningBg",
+        "color": "$alertWarningColor",
+        "filledBg": "$warningMain",
         "filledColor": "$white"
       },
       "error": {
-        "bg": "#FDEDED",
-        "color": "#8B1A1A",
-        "filledBg": "#C53030",
+        "bg": "$alertErrorBg",
+        "color": "$alertErrorColor",
+        "filledBg": "$errorMain",
         "filledColor": "$white"
       },
       "info": {
-        "bg": "#E8F4FD",
-        "color": "#1A4B8C",
-        "filledBg": "#2563EB",
+        "bg": "$alertInfoBg",
+        "color": "$alertInfoColor",
+        "filledBg": "$infoMain",
         "filledColor": "$white"
       },
       "default": {
-        "bg": "#F3F7FC",
-        "color": "#3E5166",
-        "filledBg": "#3E5166",
+        "bg": "$bgDefault",
+        "color": "$textSecondary",
+        "filledBg": "$textSecondary",
         "filledColor": "$white"
       }
     }
@@ -112,74 +166,74 @@
     "dark": {
       "primary": {
         "main": "$primaryLight",
-        "light": "#79ABDF",
+        "light": "$darkPrimaryLight",
         "dark": "$primaryMain",
         "contrastText": "$white"
       },
       "secondary": {
         "main": "$secondaryLight",
-        "light": "#68CFC5",
+        "light": "$darkSecondaryLight",
         "dark": "$secondaryMain",
         "contrastText": "$white"
       },
       "tertiary": {
-        "main": "#F59E0B"
+        "main": "$tertiaryMain"
       },
-      "success": { "main": "#4ADE80" },
-      "warning": { "main": "#FBBF24" },
-      "error": { "main": "#F87171" },
-      "info": { "main": "#60A5FA" },
+      "success": { "main": "$darkSuccessMain" },
+      "warning": { "main": "$darkWarningMain" },
+      "error": { "main": "$darkErrorMain" },
+      "info": { "main": "$darkInfoMain" },
       "background": {
-        "default": "#0F172A",
-        "paper": "#1E293B",
-        "elevated": "#263449",
-        "sidebar": "#162032",
-        "topbar": "#1A2840",
-        "input": "#263449"
+        "default": "$darkBgDefault",
+        "paper": "$darkBgPaper",
+        "elevated": "$darkBgElevated",
+        "sidebar": "$darkBgSidebar",
+        "topbar": "$darkBgTopbar",
+        "input": "$darkBgElevated"
       },
       "text": {
-        "primary": "#F1F5F9",
-        "secondary": "#94A3B8",
-        "muted": "#64748B",
-        "inverse": "#0F172A"
+        "primary": "$darkTextPrimary",
+        "secondary": "$darkTextSecondary",
+        "muted": "$darkTextMuted",
+        "inverse": "$darkBgDefault"
       },
       "ui": {
-        "border": "#2D3F56",
-        "divider": "#233045",
-        "disabledBackground": "#1E2D3D",
-        "disabledText": "#506275",
-        "focusRing": "#60A5FA"
+        "border": "$darkUiBorder",
+        "divider": "$darkUiDivider",
+        "disabledBackground": "$darkUiDisabledBg",
+        "disabledText": "$darkUiDisabledText",
+        "focusRing": "$darkInfoMain"
       },
       "alerts": {
         "success": {
-          "bg": "#0D2B17",
-          "color": "#86EFAC",
-          "filledBg": "#15803D",
+          "bg": "$darkAlertSuccessBg",
+          "color": "$darkAlertSuccessColor",
+          "filledBg": "$darkAlertSuccessFilledBg",
           "filledColor": "$white"
         },
         "warning": {
-          "bg": "#2B1D0A",
-          "color": "#FCD34D",
-          "filledBg": "#B45309",
+          "bg": "$darkAlertWarningBg",
+          "color": "$darkAlertWarningColor",
+          "filledBg": "$darkAlertWarningFilledBg",
           "filledColor": "$white"
         },
         "error": {
-          "bg": "#2B0D0D",
-          "color": "#FCA5A5",
-          "filledBg": "#DC2626",
+          "bg": "$darkAlertErrorBg",
+          "color": "$darkAlertErrorColor",
+          "filledBg": "$darkAlertErrorFilledBg",
           "filledColor": "$white"
         },
         "info": {
-          "bg": "#0D1F3C",
-          "color": "#93C5FD",
-          "filledBg": "#1D4ED8",
+          "bg": "$darkAlertInfoBg",
+          "color": "$darkAlertInfoColor",
+          "filledBg": "$darkAlertInfoFilledBg",
           "filledColor": "$white"
         },
         "default": {
-          "bg": "#1E293B",
-          "color": "#94A3B8",
-          "filledBg": "#334155",
-          "filledColor": "#F1F5F9"
+          "bg": "$darkBgPaper",
+          "color": "$darkTextSecondary",
+          "filledBg": "$darkAlertDefaultFilledBg",
+          "filledColor": "$darkTextPrimary"
         }
       }
     }

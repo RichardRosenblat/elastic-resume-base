@@ -115,8 +115,8 @@ export default function Sidebar({ open, variant, onClose, onCollapsedChange }: S
     { label: t('nav.dashboard'), icon: <DashboardIcon />, path: '/' },
     { label: t('nav.users'), icon: <PeopleIcon />, path: '/users', adminOnly: true, featureFlag: features.userManagement },
     { label: t('nav.systemStatus'), icon: <HealthAndSafetyIcon />, path: '/system-status', adminOnly: true },
-    { label: t('nav.resumes'), icon: <DescriptionIcon />, path: '/resumes', featureFlag: true },
-    { label: t('nav.search'), icon: <SearchIcon />, path: '/search', featureFlag: true },
+    { label: t('nav.resumes'), icon: <DescriptionIcon />, path: '/resumes', featureFlag: features.resumeIngest || features.resumeGenerate },
+    { label: t('nav.search'), icon: <SearchIcon />, path: '/search', featureFlag: features.resumeSearch },
     { label: t('nav.documents'), icon: <FindInPageIcon />, path: '/documents', featureFlag: features.documentRead },
     { label: t('nav.account'), icon: <AccountCircleIcon />, path: '/account' },
   ];

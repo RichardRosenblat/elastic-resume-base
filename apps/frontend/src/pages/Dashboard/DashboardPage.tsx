@@ -18,7 +18,6 @@ import {
   IconButton,
 } from '@mui/material';import {
   Person as PersonIcon,
-  AdminPanelSettings as AdminIcon,
   Description as DescriptionIcon,
   Search as SearchIcon,
   FindInPage as FindInPageIcon,
@@ -64,7 +63,7 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
 
   return (
     <Card sx={{ height: '100%', opacity: available ? 1 : 0.82 }}>
-      {path ? (
+      {path && available ? (
         <CardActionArea
           sx={{ height: '100%' }}
           onClick={() => { void navigate(path); }}
@@ -139,24 +138,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <AdminIcon color="primary" />
-                <Typography variant="h6">{t('dashboard.statistics')}</Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">{t('dashboard.recentActivity')}</Typography>
-              <Chip
-                label={t('dashboard.comingSoon')}
-                size="small"
-                color="default"
-                variant="outlined"
-                sx={{ mt: 1.5 }}
-              />
-            </CardContent>
-          </Card>
-        </Grid>
+        
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <FeatureCard
             title={t('nav.resumes')}
