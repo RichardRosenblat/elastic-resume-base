@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadTheme, resolveLogoUrl } from './loadTheme';
+import { loadTheme, resolveLogoUrl, resolveVariables } from './loadTheme';
 import { toCssVariables } from './toCssVariables';
 
 describe('loadTheme', () => {
@@ -140,5 +140,77 @@ describe('resolveLogoUrl', () => {
 
   it('prefixes sub-folder paths without ./ with /', () => {
     expect(resolveLogoUrl('images/logo.png')).toBe('/images/logo.png');
+  });
+});
+
+describe('resolveVariables', () => {
+  it('returns the object unchanged when no variables key is present', () => {
+    const raw = { mode: 'light', palette: { primary: { main: '#000' } } };
+    expect(resolveVariables(raw)).toEqual(raw);
+  });
+
+  it('replaces $varName references with the declared variable value', () => {
+    const raw = {
+      variables: { brand: '#1F5AA6' },
+      palette: { primary: { main: '$brand' } },
+    };
+    const result = resolveVariables(raw) as { palette: { primary: { main: string } } };
+    expect(result.palette.primary.main).toBe('#1F5AA6');
+  });
+
+  it('leaves undeclared $references unchanged', () => {
+    const raw = {
+      variables: { brand: '#1F5AA6' },
+      palette: { primary: { main: '$unknown' } },
+    };
+    const result = resolveVariables(raw) as { palette: { primary: { main: string } } };
+    expect(result.palette.primary.main).toBe('$unknown');
+  });
+
+  it('does not resolve variable references inside the variables block itself', () => {
+    const raw = {
+      variables: { a: '#AAA', b: '$a' },
+      palette: { primary: { main: '$b' } },
+    };
+    const result = resolveVariables(raw) as {
+      variables: { b: string };
+      palette: { primary: { main: string } };
+    };
+    // variables.b stays as '$a' (no self-substitution)
+    expect(result.variables.b).toBe('$a');
+    // palette.primary.main resolves $b → '$a' (raw variable value, not further resolved)
+    expect(result.palette.primary.main).toBe('$a');
+  });
+
+  it('resolves variables inside nested objects and arrays', () => {
+    const raw = {
+      variables: { white: '#FFFFFF' },
+      palette: {
+        alerts: { success: { filledColor: '$white' } },
+        list: ['$white'],
+      },
+    };
+    const result = resolveVariables(raw) as {
+      palette: { alerts: { success: { filledColor: string } }; list: string[] };
+    };
+    expect(result.palette.alerts.success.filledColor).toBe('#FFFFFF');
+    expect(result.palette.list[0]).toBe('#FFFFFF');
+  });
+
+  it('resolves variables in theme.json so loaded palette colours match expected values', () => {
+    const theme = loadTheme();
+    // The template theme.json defines $primaryMain = '#1F5AA6'
+    expect(theme.palette.primary.main).toBe('#1F5AA6');
+    // The template theme.json defines $white = '#FFFFFF'
+    expect(theme.palette.primary.contrastText).toBe('#FFFFFF');
+    expect(theme.palette.background.paper).toBe('#FFFFFF');
+  });
+
+  it('sidebar items in the loaded theme have no adminOnly or hidden properties', () => {
+    const theme = loadTheme();
+    for (const item of theme.sidebar?.items ?? []) {
+      expect(item).not.toHaveProperty('adminOnly');
+      expect(item).not.toHaveProperty('hidden');
+    }
   });
 });

@@ -176,8 +176,9 @@ export interface Icons {
 
 /**
  * Configuration for a single sidebar navigation item override.
- * Allows theme authors to control visibility, access level, and ordering
- * for each route without touching component code.
+ * Allows theme authors to control the ordering of each route without
+ * touching component code.  Visibility and access control are handled
+ * exclusively at the component level.
  */
 export interface SidebarItemConfig {
   /** Route path this config applies to (e.g. `'/'`, `'/users'`). */
@@ -189,10 +190,6 @@ export interface SidebarItemConfig {
   order?: number;
   /** When `true`, the item cannot be reordered relative to other items. */
   locked?: boolean;
-  /** When `true`, this item is only shown to admin users. */
-  adminOnly?: boolean;
-  /** When `true`, this item is hidden from the sidebar entirely. */
-  hidden?: boolean;
 }
 
 /**
@@ -264,4 +261,20 @@ export interface AppTheme {
    * When omitted, the sidebar uses its built-in defaults.
    */
   sidebar?: SidebarConfig;
+  /**
+   * Optional named variables that can be referenced anywhere in the theme
+   * file using the `$varName` syntax.  At load time every `$varName`
+   * occurrence in string values is replaced with the corresponding entry
+   * from this map, keeping the theme file DRY.
+   *
+   * @example
+   * // theme.json
+   * {
+   *   "variables": { "brand": "#1F5AA6" },
+   *   "palette": {
+   *     "primary": { "main": "$brand" }
+   *   }
+   * }
+   */
+  variables?: Record<string, string>;
 }

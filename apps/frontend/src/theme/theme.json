@@ -1,5 +1,14 @@
 {
   "mode": "light",
+  "variables": {
+    "white": "#FFFFFF",
+    "primaryMain": "#1F5AA6",
+    "primaryLight": "#4B84CE",
+    "primaryDark": "#163F73",
+    "secondaryMain": "#0D9488",
+    "secondaryLight": "#3AB9AD",
+    "secondaryDark": "#0A6C63"
+  },
   "branding": {
     "appName": "Elastic Resume Base",
     "companyName": "Acme Talent",
@@ -14,16 +23,16 @@
   },
   "palette": {
     "primary": {
-      "main": "#1F5AA6",
-      "light": "#4B84CE",
-      "dark": "#163F73",
-      "contrastText": "#FFFFFF"
+      "main": "$primaryMain",
+      "light": "$primaryLight",
+      "dark": "$primaryDark",
+      "contrastText": "$white"
     },
     "secondary": {
-      "main": "#0D9488",
-      "light": "#3AB9AD",
-      "dark": "#0A6C63",
-      "contrastText": "#FFFFFF"
+      "main": "$secondaryMain",
+      "light": "$secondaryLight",
+      "dark": "$secondaryDark",
+      "contrastText": "$white"
     },
     "tertiary": {
       "main": "#F59E0B"
@@ -34,17 +43,17 @@
     "info": { "main": "#2563EB" },
     "background": {
       "default": "#F3F7FC",
-      "paper": "#FFFFFF",
-      "elevated": "#FFFFFF",
+      "paper": "$white",
+      "elevated": "$white",
       "sidebar": "#EAF1FB",
-      "topbar": "#FFFFFF",
-      "input": "#FFFFFF"
+      "topbar": "$white",
+      "input": "$white"
     },
     "text": {
       "primary": "#112133",
       "secondary": "#3E5166",
       "muted": "#657990",
-      "inverse": "#FFFFFF"
+      "inverse": "$white"
     },
     "ui": {
       "border": "#CFDAE8",
@@ -58,31 +67,31 @@
         "bg": "#EDF7ED",
         "color": "#1D5E28",
         "filledBg": "#198754",
-        "filledColor": "#FFFFFF"
+        "filledColor": "$white"
       },
       "warning": {
         "bg": "#FFF8E1",
         "color": "#7A5310",
         "filledBg": "#B7791F",
-        "filledColor": "#FFFFFF"
+        "filledColor": "$white"
       },
       "error": {
         "bg": "#FDEDED",
         "color": "#8B1A1A",
         "filledBg": "#C53030",
-        "filledColor": "#FFFFFF"
+        "filledColor": "$white"
       },
       "info": {
         "bg": "#E8F4FD",
         "color": "#1A4B8C",
         "filledBg": "#2563EB",
-        "filledColor": "#FFFFFF"
+        "filledColor": "$white"
       },
       "default": {
         "bg": "#F3F7FC",
         "color": "#3E5166",
         "filledBg": "#3E5166",
-        "filledColor": "#FFFFFF"
+        "filledColor": "$white"
       }
     }
   },
@@ -94,24 +103,24 @@
       { "path": "/resumes", "order": 2 },
       { "path": "/search", "order": 3 },
       { "path": "/documents", "order": 4 },
-      { "path": "/users", "order": 5, "adminOnly": true },
-      { "path": "/system-status", "order": 6, "adminOnly": true },
+      { "path": "/users", "order": 5 },
+      { "path": "/system-status", "order": 6 },
       { "path": "/account", "order": 7 }
     ]
   },
   "presets": {
     "dark": {
       "primary": {
-        "main": "#4B84CE",
+        "main": "$primaryLight",
         "light": "#79ABDF",
-        "dark": "#1F5AA6",
-        "contrastText": "#FFFFFF"
+        "dark": "$primaryMain",
+        "contrastText": "$white"
       },
       "secondary": {
-        "main": "#3AB9AD",
+        "main": "$secondaryLight",
         "light": "#68CFC5",
-        "dark": "#0D9488",
-        "contrastText": "#FFFFFF"
+        "dark": "$secondaryMain",
+        "contrastText": "$white"
       },
       "tertiary": {
         "main": "#F59E0B"
@@ -146,25 +155,25 @@
           "bg": "#0D2B17",
           "color": "#86EFAC",
           "filledBg": "#15803D",
-          "filledColor": "#FFFFFF"
+          "filledColor": "$white"
         },
         "warning": {
           "bg": "#2B1D0A",
           "color": "#FCD34D",
           "filledBg": "#B45309",
-          "filledColor": "#FFFFFF"
+          "filledColor": "$white"
         },
         "error": {
           "bg": "#2B0D0D",
           "color": "#FCA5A5",
           "filledBg": "#DC2626",
-          "filledColor": "#FFFFFF"
+          "filledColor": "$white"
         },
         "info": {
           "bg": "#0D1F3C",
           "color": "#93C5FD",
           "filledBg": "#1D4ED8",
-          "filledColor": "#FFFFFF"
+          "filledColor": "$white"
         },
         "default": {
           "bg": "#1E293B",

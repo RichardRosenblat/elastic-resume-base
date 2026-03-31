@@ -36,6 +36,52 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Resolves `$varName` references throughout a raw theme object.
+ *
+ * Variables must be declared in the top-level `"variables"` key as a flat
+ * `{ name: value }` map.  Every string value in the rest of the theme that
+ * matches the pattern `$<identifier>` is replaced with the corresponding
+ * variable value.  References to undeclared variables are left unchanged.
+ * Variable values themselves are never recursively resolved.
+ *
+ * @param raw - The untyped object read from `theme.json`.
+ * @returns A new object with all variable references substituted.
+ */
+export function resolveVariables(raw: Record<string, unknown>): Record<string, unknown> {
+  const variables = raw['variables'];
+  if (!isObject(variables)) return raw;
+
+  const vars = variables as Record<string, string>;
+
+  function resolveValue(value: unknown): unknown {
+    if (typeof value === 'string') {
+      return value.replace(/\$([A-Za-z][A-Za-z0-9_]*)/g, (match, name: string) => {
+        return typeof vars[name] === 'string' ? (vars[name] as string) : match;
+      });
+    }
+    if (Array.isArray(value)) {
+      return value.map(resolveValue);
+    }
+    if (isObject(value)) {
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) {
+        result[k] = resolveValue(v);
+      }
+      return result;
+    }
+    return value;
+  }
+
+  // Resolve variable references in all top-level fields except 'variables'
+  // itself so that variable definitions are never self-substituted.
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    result[key] = key === 'variables' ? value : resolveValue(value);
+  }
+  return result;
+}
+
+/**
  * Validates the raw parsed JSON and throws a descriptive error when a
  * required section is missing.
  *
@@ -159,6 +205,7 @@ function normalizeTheme(raw: RawTheme): AppTheme {
 export function loadTheme(): AppTheme {
   const localTheme = (localThemeModules['./theme.local.json'] as { default?: unknown } | undefined)?.default;
   const rawTheme = localTheme ?? templateTheme;
-  validateTheme(rawTheme);
-  return normalizeTheme(rawTheme);
+  const resolvedTheme = isObject(rawTheme) ? resolveVariables(rawTheme) : rawTheme;
+  validateTheme(resolvedTheme);
+  return normalizeTheme(resolvedTheme);
 }

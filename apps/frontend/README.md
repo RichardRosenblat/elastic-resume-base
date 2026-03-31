@@ -227,6 +227,57 @@ Branding now supports dual identity in the topbar:
 }
 ```
 
+### Theme Variables
+
+Repeated values (colours, font strings, etc.) can be extracted into a top-level
+`"variables"` map and referenced anywhere else in the theme file using the
+`$varName` syntax.  At load time every `$varName` occurrence in string values is
+substituted with the corresponding variable, keeping the file DRY.
+
+```jsonc
+// src/theme/theme.local.json (excerpt)
+{
+  "variables": {
+    "white": "#FFFFFF",
+    "brand": "#1F5AA6"
+  },
+  "palette": {
+    "primary": {
+      "main": "$brand",
+      "contrastText": "$white"
+    },
+    "background": {
+      "paper": "$white"
+    }
+  }
+}
+```
+
+References to undeclared variables are left as-is so an incomplete override
+file never silently breaks the theme.
+
+### Sidebar Configuration
+
+The `sidebar` section of `theme.json` (or `theme.local.json`) controls the
+navigation drawer's **structure**: item order and which route is the main /
+home screen.  Visibility and access control (e.g. admin-only items) are
+managed exclusively in the `Sidebar` component definition, not in the theme.
+
+```jsonc
+// src/theme/theme.local.json (excerpt)
+{
+  "sidebar": {
+    "mainScreen": "/",
+    "defaultCollapsed": false,
+    "items": [
+      { "path": "/", "order": 1 },
+      { "path": "/resumes", "order": 2 },
+      { "path": "/account", "order": 3 }
+    ]
+  }
+}
+```
+
 ### Dark / Light Mode
 
 The top bar includes a mode toggle button. The user's choice is persisted in `localStorage` under the key `appThemeMode` and takes precedence over the loaded theme file's `mode` field on subsequent visits.

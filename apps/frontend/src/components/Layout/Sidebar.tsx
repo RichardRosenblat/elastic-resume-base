@@ -12,9 +12,10 @@
  *   drawer to show only icons, or expands it to show icons + labels.
  * - **Light / dark mode toggle** — a button at the bottom of the sidebar
  *   switches between the two colour modes using {@link useAppTheme}.
- * - **Theme-driven order / visibility** — the `sidebar` section of
- *   `theme.json` (or `theme.local.json`) controls item order, admin-only
- *   overrides, and which route is the main / home screen.
+ * - **Theme-driven order** — the `sidebar` section of `theme.json`
+ *   (or `theme.local.json`) controls item order and which route is the
+ *   main / home screen.  Visibility and access control are managed
+ *   exclusively in the component definition (see `navItems`).
  *
  * Navigating to a route on a `temporary` variant drawer auto-closes it.
  */
@@ -128,11 +129,7 @@ export default function Sidebar({ open, variant, onClose, onCollapsedChange }: S
   // Merge theme config into each nav item and apply visibility rules.
   const visibleItems = navItems
     .filter((item) => {
-      const cfg = itemConfigMap.get(item.path);
-      if (cfg?.hidden) return false;
-      // adminOnly can be set in the component definition OR the theme config.
-      const isAdminOnly = item.adminOnly || cfg?.adminOnly;
-      if (isAdminOnly && !isAdmin) return false;
+      if (item.adminOnly && !isAdmin) return false;
       return true;
     })
     .sort((a, b) => {
