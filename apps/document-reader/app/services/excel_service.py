@@ -27,6 +27,9 @@ def _build_excel_columns() -> list[tuple[str, list[str]]]:
     Internal-only fields (``FieldSpec.label is None``) are excluded from the
     output.
 
+    Args:
+        None.
+
     Returns:
         Ordered list of ``(label, [field_keys])`` pairs.
     """

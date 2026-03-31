@@ -30,6 +30,14 @@ class OcrService:
     """Service for extracting text from documents using Google Cloud Vision API."""
 
     def __init__(self) -> None:
+        """Create a Vision API client used for OCR requests.
+
+        Args:
+            None.
+
+        Returns:
+            ``None``.
+        """
         self._client = vision.ImageAnnotatorClient()
 
     async def extract_text(self, content: bytes, extension: str) -> str:
