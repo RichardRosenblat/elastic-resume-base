@@ -119,4 +119,10 @@ export interface FeatureFlags {
   resumeGenerate: boolean;
   /** Admin user management (user list, pre-approved list). */
   userManagement: boolean;
+  /**
+   * When `true`, features that are disabled (their flag is `false`) are
+   * hidden entirely from the sidebar and dashboard instead of being shown
+   * in a "coming soon" state.
+   */
+  hideIfDisabled: boolean;
 }

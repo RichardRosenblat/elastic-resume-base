@@ -51,5 +51,6 @@ export const config = {
     documentRead: import.meta.env.VITE_FEATURE_DOCUMENT_READ === 'true',
     resumeGenerate: import.meta.env.VITE_FEATURE_RESUME_GENERATE === 'true',
     userManagement: import.meta.env.VITE_FEATURE_USER_MANAGEMENT !== 'false',
+    hideIfDisabled: import.meta.env.VITE_FEATURE_HIDE_IF_DISABLED === 'true',
   },
 } as const;

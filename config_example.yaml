@@ -169,6 +169,10 @@ systems:
     VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
     VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
 
+    # When set to "true", features that are disabled (flag = "false") are hidden
+    # entirely from the sidebar and dashboard instead of being shown as "Coming Soon".
+    VITE_FEATURE_HIDE_IF_DISABLED: "false"
+
   # ---------------------------------------------------------------------------
   # Ingestor Service (Python — port 8001)
   # Downloads resumes from Google Sheets/Drive and publishes to Pub/Sub.
