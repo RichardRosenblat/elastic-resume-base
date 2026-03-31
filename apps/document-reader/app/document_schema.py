@@ -287,8 +287,4 @@ MIME_TYPE_TO_EXTENSION: dict[str, str] = {
     "image/bmp": ".bmp",
     "image/webp": ".webp",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-    "application/zip": ".zip",
-    "application/x-zip-compressed": ".zip",
-    "application/x-zip": ".zip",
-    "multipart/x-zip": ".zip",
 }
