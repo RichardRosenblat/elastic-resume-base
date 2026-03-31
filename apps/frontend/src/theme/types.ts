@@ -193,6 +193,66 @@ export interface SidebarItemConfig {
 }
 
 /**
+ * Colour palette for the background gradient animation blobs.
+ * Each entry is a valid CSS colour value (hex, rgb, hsl, etc.).
+ */
+export interface BackgroundAnimationPalette {
+  /**
+   * Up to four CSS colour values used as the gradient blob colours.
+   * When omitted the animation falls back to the palette's primary,
+   * secondary, and tertiary colours.
+   */
+  colors?: string[];
+}
+
+/**
+ * Configuration for the moving colour-gradient background animation that
+ * appears behind the main content area.
+ *
+ * @example
+ * // theme.json
+ * {
+ *   "backgroundAnimation": {
+ *     "enabled": true,
+ *     "speed": 20,
+ *     "opacity": 0.07,
+ *     "palette": { "colors": ["#4B84CE", "#0D9488", "#F59E0B"] },
+ *     "presets": { "dark": { "colors": ["#79ABDF", "#68CFC5", "#F59E0B"] } }
+ *   }
+ * }
+ */
+export interface BackgroundAnimationConfig {
+  /**
+   * Set to `false` to disable the animation entirely and render a plain
+   * static background.  Defaults to `true` when the key is present.
+   */
+  enabled?: boolean;
+  /**
+   * Duration in seconds for one full animation cycle.
+   * Lower values = faster movement.  Defaults to `20`.
+   */
+  speed?: number;
+  /**
+   * Overall opacity of the gradient blobs (0–1).
+   * Keep this low (e.g. `0.06`–`0.10`) for a subtle effect.
+   * Defaults to `0.07`.
+   */
+  opacity?: number;
+  /**
+   * Blob colours used when the active colour-mode matches `theme.mode`.
+   * Falls back to the palette's primary/secondary/tertiary colours when
+   * omitted.
+   */
+  palette?: BackgroundAnimationPalette;
+  /**
+   * Per-mode colour overrides keyed by mode name (`'light'` or `'dark'`).
+   * Only the entry for the **alternate** mode needs to be provided —
+   * the same rule as `AppTheme.presets`.
+   */
+  presets?: Record<string, BackgroundAnimationPalette>;
+}
+
+/**
  * Sidebar-specific configuration block that can be placed inside the theme
  * JSON files to customise the navigation drawer without changing component
  * code.
@@ -277,4 +337,10 @@ export interface AppTheme {
    * }
    */
   variables?: Record<string, string>;
+  /**
+   * Optional configuration for the moving colour-gradient background
+   * animation rendered behind the main content area.
+   * When omitted, the animation is disabled.
+   */
+  backgroundAnimation?: BackgroundAnimationConfig;
 }

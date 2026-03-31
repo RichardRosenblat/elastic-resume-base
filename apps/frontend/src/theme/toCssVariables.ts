@@ -82,6 +82,20 @@ export function toCssVariables(theme: AppTheme, mode: 'light' | 'dark' = theme.m
   if (palette.ui?.disabledText) vars['--color-ui-disabled-text'] = palette.ui.disabledText;
   if (palette.ui?.focusRing) vars['--color-ui-focus-ring'] = palette.ui.focusRing;
 
+  // Background animation colour variables
+  const anim = theme.backgroundAnimation;
+  if (anim) {
+    const animPalette =
+      mode !== theme.mode && anim.presets?.[mode] ? anim.presets[mode] : anim.palette;
+    const colors = animPalette?.colors ?? [];
+    for (let i = 0; i < colors.length; i++) {
+      vars[`--bg-anim-color-${i}`] = colors[i];
+    }
+    vars['--bg-anim-color-count'] = String(colors.length);
+    if (anim.speed !== undefined) vars['--bg-anim-speed'] = `${anim.speed}s`;
+    if (anim.opacity !== undefined) vars['--bg-anim-opacity'] = String(anim.opacity);
+  }
+
   const alertSeverities = ['success', 'warning', 'error', 'info', 'default'] as const;
   for (const severity of alertSeverities) {
     const tone = palette.alerts?.[severity];
