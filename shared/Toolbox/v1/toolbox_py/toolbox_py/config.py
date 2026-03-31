@@ -22,15 +22,18 @@ except ImportError:  # pragma: no cover - handled gracefully when dependency mis
     _yaml = None  # type: ignore[assignment]
 
 
-def _config_file_candidates() -> list[Path]:
+def _config_file_candidates(depth: int = 2) -> list[Path]:
     """Return candidate YAML config paths in priority order.
 
     Search order:
     1. Path in the ``CONFIG_FILE`` environment variable (explicit override).
-    2. ``configs.yaml`` in the current working directory.
-    3. ``config.yaml`` in the current working directory.
-    4. ``configs.yaml`` one directory above the current working directory.
-    5. ``config.yaml`` one directory above the current working directory.
+    2. ``configs.yaml`` / ``config.yaml`` in the current working directory.
+    3. ``configs.yaml`` / ``config.yaml`` in each parent directory up to
+       ``depth`` levels above the current working directory.
+
+    Args:
+        depth: Number of parent directories to traverse upwards when searching
+            for a config file (default ``2``).
     """
     cwd = Path.cwd()
 
@@ -39,14 +42,12 @@ def _config_file_candidates() -> list[Path]:
     if explicit:
         candidates.append(Path(explicit))
 
-    candidates.extend(
-        [
-            cwd / "configs.yaml",
-            cwd / "config.yaml",
-            cwd.parent / "configs.yaml",
-            cwd.parent / "config.yaml",
-        ]
-    )
+    candidates.extend([cwd / "configs.yaml", cwd / "config.yaml"])
+
+    current = cwd
+    for _ in range(depth):
+        current = current.parent
+        candidates.extend([current / "configs.yaml", current / "config.yaml"])
 
     # De-duplicate while preserving order.
     seen: set[Path] = set()
@@ -58,7 +59,7 @@ def _config_file_candidates() -> list[Path]:
     return unique
 
 
-def load_config_yaml(service_name: str) -> None:
+def load_config_yaml(service_name: str, depth: int = 2) -> None:
     """Seed ``os.environ`` from the monorepo YAML config file.
 
     Loads the first config file found in the candidate search order and merges
@@ -75,14 +76,15 @@ def load_config_yaml(service_name: str) -> None:
     Search order:
 
     1. Path in the ``CONFIG_FILE`` environment variable (explicit override).
-    2. ``configs.yaml`` in the current working directory.
-    3. ``config.yaml`` in the current working directory.
-    4. ``configs.yaml`` one directory above the current working directory.
-    5. ``config.yaml`` one directory above the current working directory.
+    2. ``configs.yaml`` / ``config.yaml`` in the current working directory.
+    3. ``configs.yaml`` / ``config.yaml`` in each parent directory up to
+       ``depth`` levels above the current working directory.
 
     Args:
         service_name: Key under ``systems.<service_name>`` in the YAML config
             (e.g. ``"document-reader"``).
+        depth: Number of parent directories to traverse upwards when searching
+            for a config file (default ``2``).
 
     Example::
 
@@ -94,7 +96,7 @@ def load_config_yaml(service_name: str) -> None:
     if _yaml is None:
         return
 
-    config_path = next((p for p in _config_file_candidates() if p.exists()), None)
+    config_path = next((p for p in _config_file_candidates(depth) if p.exists()), None)
     if config_path is None:
         return
 
