@@ -16,13 +16,15 @@ import {
   Chip,
   Tooltip,
   IconButton,
-} from '@mui/material';import {
+} from '@mui/material';
+import {
   Person as PersonIcon,
-  AdminPanelSettings as AdminIcon,
   Description as DescriptionIcon,
   Search as SearchIcon,
   FindInPage as FindInPageIcon,
   Settings as SettingsIcon,
+  People as PeopleIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -55,7 +57,7 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
         {icon}
         <Typography variant="h6">{title}</Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary">{description}</Typography>
+      <Typography variant="body2" color="text.secondary">{available? description:t('dashboard.featureNotAvailable')}</Typography>
       {!available && (
         <Chip label={t('dashboard.comingSoon')} size="small" color="default" variant="outlined" sx={{ mt: 1.5 }} />
       )}
@@ -64,7 +66,7 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
 
   return (
     <Card sx={{ height: '100%', opacity: available ? 1 : 0.82 }}>
-      {path ? (
+      {path && available ? (
         <CardActionArea
           sx={{ height: '100%' }}
           onClick={() => { void navigate(path); }}
@@ -78,7 +80,7 @@ function FeatureCard({ title, icon, available, description, path }: FeatureCardP
 
 export default function DashboardPage() {
   const { t } = useTranslation();
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const features = useFeatureFlags();
 
@@ -139,30 +141,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <AdminIcon color="primary" />
-                <Typography variant="h6">{t('dashboard.statistics')}</Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">{t('dashboard.recentActivity')}</Typography>
-              <Chip
-                label={t('dashboard.comingSoon')}
-                size="small"
-                color="default"
-                variant="outlined"
-                sx={{ mt: 1.5 }}
-              />
-            </CardContent>
-          </Card>
-        </Grid>
+
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <FeatureCard
             title={t('nav.resumes')}
             icon={<DescriptionIcon color="primary" />}
-            available={features.resumeIngest || features.resumeGenerate}
-            description={t('dashboard.featureNotAvailable')}
+            available={features.resumeIngest}
+            description={t('dashboard.resumesDescription')}
             path="/resumes"
           />
         </Grid>
@@ -170,8 +155,8 @@ export default function DashboardPage() {
           <FeatureCard
             title={t('nav.search')}
             icon={<SearchIcon color="primary" />}
-            available={features.resumeSearch}
-            description={t('dashboard.featureNotAvailable')}
+            available={features.resumeSearch || features.resumeGenerate}
+            description={t('dashboard.searchDescription')}
             path="/search"
           />
         </Grid>
@@ -180,10 +165,30 @@ export default function DashboardPage() {
             title={t('nav.documents')}
             icon={<FindInPageIcon color="primary" />}
             available={features.documentRead}
-            description={t('documents.uploadDescription')}
+            description={t('dashboard.documentsDescription')}
             path="/documents"
           />
         </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <FeatureCard
+            title={t('nav.systemStatus')}
+            icon={<HealthAndSafetyIcon color="primary" />}
+            available
+            description={t('dashboard.systemStatusDescription')}
+            path="/system-status"
+          />
+        </Grid>
+        {isAdmin && (
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <FeatureCard
+              title={t('nav.users')}
+              icon={<PeopleIcon color="primary" />}
+              available={features.userManagement}
+              description={t('dashboard.usersDescription')}
+              path="/users"
+            />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );
