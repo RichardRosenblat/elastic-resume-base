@@ -1,4 +1,4 @@
-import { isHarborError } from '@elastic-resume-base/harbor';
+import { isHarborError } from '@elastic-resume-base/harbor/server';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
@@ -22,7 +22,7 @@ const EXCLUDED_REQUEST_HEADERS = new Set([
   'connection',
   'content-length',    // will be recalculated by axios
   'transfer-encoding', // chunked encoding is handled by the HTTP client
-  'authorization',     // BFF authorises via authHook; downstream trusts the internal network
+  'authorization',     // Gateway authorises via authHook; downstream trusts the internal network
   'keep-alive',
 ]);
 
@@ -80,7 +80,7 @@ function buildForwardResponseHeaders(
  * - Validates request body size from `Content-Length` header.
  * - Forwards only safe headers (strips Authorization, host, connection, etc.).
  * - Logs the proxied request and response without sensitive data.
- * - Maps downstream server errors to BFF error types:
+ * - Maps downstream server errors to Gateway error types:
  *   - 5xx response   → {@link DownstreamError} (HTTP 502)
  *   - timeout        → {@link DownstreamError} with statusCode 504
  *   - conn refused   → {@link UnavailableError} (HTTP 503)

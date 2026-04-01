@@ -36,13 +36,13 @@ To minimize cloud costs and accelerate development cycles, the architecture shou
 
 A backend-first development approach is recommended to ensure robust data flow and infrastructure stability prior to user interface implementation.
 
-### Phase 1: Core Foundation (BFF, Database, Authentication)
-* **Component:** Backend For Frontend (BFF) Gateway.
+### Phase 1: Core Foundation (Gateway, Database, Authentication)
+* **Component:** Backend For Frontend Gateway.
 * **Recommended Stack:** Node.js (Express or Fastify) for optimal handling of asynchronous I/O and seamless Firebase Admin SDK integration.
 * **Implementation Steps:**
   1. Initialize the Node.js service.
   2. Boot the Firebase Local Emulator Suite (Auth and Firestore).
-  3. Implement token verification in the BFF and execute a test write operation to the emulated Firestore instance.
+  3. Implement token verification in the Gateway and execute a test write operation to the emulated Firestore instance.
 
 ### Phase 2: Data Ingestion & AI Pipeline
 * **Components:** Google Sheets Downloader & AI Processing Worker.
@@ -55,7 +55,7 @@ A backend-first development approach is recommended to ensure robust data flow a
 ### Phase 3: Search and Retrieval Engine
 * **Component:** Vector Search Base.
 * **Recommended Stack:** Python, leveraging the FAISS library (which is natively optimized for C++ and Python environments).
-* **Implementation Steps:** * Develop a service to ingest embeddings from Firestore, compile them into a local FAISS index, and expose an API endpoint for the BFF to execute similarity searches.
+* **Implementation Steps:** * Develop a service to ingest embeddings from Firestore, compile them into a local FAISS index, and expose an API endpoint for the Gateway to execute similarity searches.
 
 ### Phase 4: Ancillary Microservices
 * **Components:** File Generator, Document Reader (OCR), and Dead Letter Queue (DLQ) Notifier.
@@ -65,4 +65,4 @@ A backend-first development approach is recommended to ensure robust data flow a
 ### Phase 5: User Interface
 * **Component:** Frontend Single Page Application (SPA).
 * **Recommended Stack:** React, Vue, or Angular.
-* **Implementation Steps:** * Construct the client-side application, integrate the Firebase Auth Client SDK for Google SSO, and establish routing to the BFF Gateway.
+* **Implementation Steps:** * Construct the client-side application, integrate the Firebase Auth Client SDK for Google SSO, and establish routing to the Gateway.

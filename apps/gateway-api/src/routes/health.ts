@@ -7,7 +7,7 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Health'],
       summary: 'Liveness probe',
       description:
-        'Returns HTTP 200 when the BFF Gateway process is running. ' +
+        'Returns HTTP 200 when the Gateway process is running. ' +
         'Used by orchestrators (Kubernetes, Cloud Run) to decide whether to restart the container.',
       response: {
         200: {
@@ -30,7 +30,7 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Health'],
       summary: 'Readiness probe',
       description:
-        'Returns HTTP 200 when the BFF Gateway is ready to accept traffic. ' +
+        'Returns HTTP 200 when the Gateway is ready to accept traffic. ' +
         'Used by orchestrators to gate traffic until the service has fully initialised.',
       response: {
         200: {

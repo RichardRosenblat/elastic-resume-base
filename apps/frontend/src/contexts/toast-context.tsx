@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Snackbar } from '@mui/material';
+import { Alert, Box, Collapse, Snackbar } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { ExpandLess as ExpandLessIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
+import { useTranslation } from 'react-i18next';
 import { ToastContext } from './toast-context-store.ts';
 import type { ToastContextType } from './toast-context-store.ts';
 
@@ -30,6 +33,7 @@ interface ToastItem {
   message: string;
   severity: 'error' | 'warning' | 'info' | 'success';
   durationMs: number;
+  detail?: string;
 }
 
 interface ToastItemViewProps {
@@ -43,9 +47,18 @@ interface ToastItemViewProps {
  *
  * Manages its own countdown timer so that hovering over the toast pauses the
  * timer (and the progress-bar animation) and resumes it when the pointer leaves.
+ * When a `detail` string is provided a collapsible section is shown beneath the
+ * message so the user can inspect technical specifics without the main message
+ * becoming cluttered.
  */
 function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
   const [isHovered, setIsHovered] = useState(false);
+  // Auto-expand when the detail text is short enough to read at a glance;
+  // keep collapsed so the user can opt-in when there is more text.
+  const [detailExpanded, setDetailExpanded] = useState(
+    () => typeof toast.detail === 'string' && toast.detail.length < 50,
+  );
+  const { t } = useTranslation();
 
   // Keep onClose in a ref so the timer callback always calls the latest version
   // without needing to be restarted when the parent re-renders.
@@ -105,6 +118,10 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
     startTimer(remainingMsRef.current);
   }, [startTimer]);
 
+  const handleToggleDetail = useCallback(() => {
+    setDetailExpanded((prev) => !prev);
+  }, []);
+
   return (
     <Snackbar
       open
@@ -137,6 +154,57 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
         }}
       >
         {toast.message}
+        {toast.detail && (
+          <Box
+            sx={{
+              mt: 1,
+              borderRadius: 1,
+              overflow: 'hidden',
+              backgroundColor: (theme) => alpha(theme.palette.common.black, 0.2),
+            }}
+          >
+            <Box
+              component="button"
+              type="button"
+              onClick={handleToggleDetail}
+              sx={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                px: 1.5,
+                py: 0.75,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                textAlign: 'left',
+              }}
+            >
+              {detailExpanded
+                ? (<ExpandLessIcon fontSize="small" />)
+                : (<ExpandMoreIcon fontSize="small" />)}
+              {detailExpanded ? t('common.hideDetails') : t('common.showDetails')}
+            </Box>
+            <Collapse in={detailExpanded}>
+              <Box
+                sx={{
+                  px: 1.5,
+                  pb: 1,
+                  pt: 0.5,
+                  fontSize: '0.875rem',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  borderTop: (theme) => `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+                }}
+              >
+                {toast.detail}
+              </Box>
+            </Collapse>
+          </Box>
+        )}
       </Alert>
     </Snackbar>
   );
@@ -160,6 +228,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
       message,
       severity: options?.severity ?? 'error',
       durationMs,
+      detail: options?.detail,
     }));
   }, []);
 

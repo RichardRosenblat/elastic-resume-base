@@ -1,21 +1,21 @@
 # Users API
 
-A Node.js/TypeScript microservice that manages user records and implements the BFF Authorization Logic for the Elastic Resume Base platform.
+A Node.js/TypeScript microservice that manages user records and implements the Gateway API Authorization Logic for the Elastic Resume Base platform.
 
 ## Overview
 
 The Users API:
 - Stores user records (uid, email, role, enable) in **Firestore** (via [Synapse](../shared/Synapse/README.md))
 - Exposes RESTful CRUD endpoints for user management
-- Implements the **BFF Authorization Logic** via `POST /api/v1/users/authorize`
+- Implements the **Gateway API Authorization Logic** via `POST /api/v1/users/authorize`
 - Manages a `pre_approved_users` collection for admin-controlled user onboarding
 - Supports auto-onboarding of users from configurable email domains or explicit addresses (`AUTO_USER_CREATION_DOMAINS`, `AUTO_ADMIN_CREATION_DOMAINS`)
 
 > **Architecture note:** All Firebase / Firestore interactions are handled exclusively by the [Synapse](../shared/Synapse/README.md) shared library. The Users API has no direct `firebase-admin` dependency; it delegates persistence initialisation and data access entirely to Synapse.
 
-### BFF Authorization Logic
+### Gateway API Authorization Logic
 
-When `bff-gateway` needs to authorize a user, it calls `POST /api/v1/users/authorize` with `{ uid, email }`. The service resolves authorization as follows:
+When `gateway-api` needs to authorize a user, it calls `POST /api/v1/users/authorize` with `{ uid, email }`. The service resolves authorization as follows:
 
 1. **Look up by UID in the `users` collection** — if found, return `{ role, enable }`.
 2. **Look up by email in the `pre_approved_users` collection** — if found, create a new user record (with `enable: true`), remove from pre-approved, and return `{ role, enable: true }`.
@@ -98,7 +98,7 @@ All configuration is loaded from `config.yaml` (merged from `systems.shared` and
 |--------|------|-------------|
 | `GET` | `/health/live` | Liveness probe |
 | `GET` | `/health/ready` | Readiness probe |
-| `POST` | `/api/v1/users/authorize` | BFF authorization check — returns `{ role, enable }` or 403 |
+| `POST` | `/api/v1/users/authorize` | Gateway API authorization check — returns `{ role, enable }` or 403 |
 | `GET` | `/api/v1/users` | List users (paginated, supports `role`/`enable` filters) |
 | `GET` | `/api/v1/users/:uid` | Get user by UID |
 | `PATCH` | `/api/v1/users/:uid` | Update user by UID (email, role, enable) |
@@ -174,13 +174,13 @@ The test suite covers the authorization scenarios in `usersService.authorizeUser
 
 ---
 
-## Integration with bff-gateway
+## Integration with gateway-api
 
-The `bff-gateway` calls this service via `userApiClient.ts`:
+The `gateway-api` calls this service via `userApiClient.ts`:
 
 - `POST /api/v1/users/authorize` — called on every authenticated request to verify access and obtain `{ role, enable }`
 
-Set the `USER_API_SERVICE_URL` environment variable in `bff-gateway` to point to this service (default: `http://localhost:8005`).
+Set the `USER_API_SERVICE_URL` environment variable in `gateway-api` to point to this service (default: `http://localhost:8005`).
 
 ---
 

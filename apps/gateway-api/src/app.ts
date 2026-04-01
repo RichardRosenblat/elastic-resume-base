@@ -45,7 +45,13 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Security / cross-cutting plugins
   await app.register(helmet);
-  await app.register(cors, { origin: config.allowedOrigins.split(',') });
+  await app.register(cors, {
+    origin: config.allowedOrigins.split(',').map(o => o.trim()),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'x-correlation-id'],
+    exposedHeaders: ['x-correlation-id'],
+    credentials: true,
+  });
 
   // Correlation ID hook must run before rate-limit so that rate-limited
   // responses include the same correlationId as all other responses.

@@ -2,12 +2,12 @@
  * Unit tests for the documentsProxy controller handler.
  *
  * Tests verify:
- * - Transparent forwarding for routes not matched by explicit BFF routes.
+ * - Transparent forwarding for routes not matched by explicit routes.
  * - Error propagation (errors thrown by proxyToDocumentReaderApi bubble up to
  *   the Fastify error handler).
  * - Authentication is required (handled by the parent authHook).
  *
- * NOTE: Explicit BFF routes are POST /read and POST /ocr.  The catch-all
+ * NOTE: Explicit Gateway routes are POST /read and POST /ocr.  The catch-all
  * wildcard fires for any other method/path combination.  Tests use:
  *   - GET requests (no explicit GET route exists under /documents)
  *   - Multi-segment POST paths that don't match /read or /ocr

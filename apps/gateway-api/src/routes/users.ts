@@ -638,8 +638,8 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
 
   // ── Transparent Proxy (catch-all) ──────────────────────────────────────────
   // This wildcard route forwards any request that does not match an explicit
-  // route above to the Users API unchanged.  It enables the BFF to remain
-  // compatible with new Users API endpoints without requiring new BFF routes.
+  // route above to the Users API unchanged.  It enables the Gateway to remain
+  // compatible with new Users API endpoints without requiring new Gateway routes.
   // Auth is enforced by the parent scope's `authHook` preHandler hook.
   app.all('/*', usersProxyHandler as RouteHandlerMethod);
 };

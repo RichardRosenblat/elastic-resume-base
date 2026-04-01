@@ -21,10 +21,10 @@
  *
  * @example
  * import { config } from './config';
- * const baseUrl = config.bffUrl; // 'http://localhost:3000'
+ * const baseUrl = config.gatewayApiUrl; // 'http://localhost:3000'
  */
 export const config = {
-  bffUrl: import.meta.env.VITE_BFF_URL ?? 'http://localhost:3000',
+  gatewayApiUrl: import.meta.env.VITE_GATEWAY_URL ?? 'http://localhost:3000',
   /**
    * Support contact email shown in the footer of every page.
    * Set `VITE_SUPPORT_EMAIL` to a non-empty string to enable the footer link.

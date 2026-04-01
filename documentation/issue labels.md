@@ -51,7 +51,7 @@ Describe **which part of the codebase** is affected. Every issue must have one o
 | Label | Description |
 |-------|-------------|
 | `area:web` | Frontend (React) |
-| `area:api` | Backend API (NestJS / BFF) |
+| `area:api` | Backend API (NestJS / Gateway) |
 | `area:worker` | Python services |
 | `area:shared` | Shared packages |
 | `area:infra` | Infrastructure / CI / config |
@@ -134,7 +134,7 @@ A user reports that the resume preview page crashes on mobile.
 
 ### Example 2: API Refactor
 
-The team wants to clean up the user authentication module in the BFF without changing behavior.
+The team wants to clean up the user authentication module in the Gateway without changing behavior.
 
 **Labels:**
 - `task`

@@ -175,10 +175,10 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   app.post('/authorize', {
     schema: {
       tags: ['Users'],
-      summary: 'Authorize a user (BFF login flow)',
+      summary: 'Authorize a user (Gateway API login flow)',
       description:
-        'Implements the BFF Authorization Logic. ' +
-        'Called by the BFF during the login flow to determine if a user is authorized ' +
+        'Implements the Gateway API Authorization Logic. ' +
+        'Called by the Gateway API during the login flow to determine if a user is authorized ' +
         'and to obtain their role and enable status. ' +
         'Checks the users collection, pre_approved_users collection, and allowed email domains in that order.',
       body: {
@@ -493,7 +493,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
       summary: 'List users',
       description:
         'Returns a paginated list of user documents from the users collection. ' +
-        'Called internally by the BFF gateway.',
+        'Called internally by the Gateway API.',
       querystring: {
         type: 'object',
         properties: {

@@ -6,12 +6,19 @@ This document describes the security posture of the Elastic Resume Base project 
 
 ## Table of Contents
 
-- [Supported Versions](#supported-versions)
-- [Security Architecture](#security-architecture)
-- [Data Privacy](#data-privacy)
-- [Reporting a Vulnerability](#reporting-a-vulnerability)
-- [Responsible Disclosure](#responsible-disclosure)
-- [Security Best Practices for Contributors](#security-best-practices-for-contributors)
+- [Security Policy](#security-policy)
+  - [Table of Contents](#table-of-contents)
+  - [Supported Versions](#supported-versions)
+  - [Security Architecture](#security-architecture)
+    - [Authentication and Authorization](#authentication-and-authorization)
+    - [Data Encryption](#data-encryption)
+    - [Secrets Management](#secrets-management)
+    - [Dependency Security](#dependency-security)
+    - [Container Security](#container-security)
+  - [Data Privacy](#data-privacy)
+  - [Reporting a Vulnerability](#reporting-a-vulnerability)
+  - [Responsible Disclosure](#responsible-disclosure)
+  - [Security Best Practices for Contributors](#security-best-practices-for-contributors)
 
 ---
 
@@ -33,12 +40,12 @@ The Elastic Resume Base platform is designed with security as a first-class conc
 ### Authentication and Authorization
 
 - All user authentication is handled via **Firebase Auth with Google SSO**. No custom credential storage is implemented.
-- Every request to the BFF Gateway is authenticated by verifying a **Firebase ID Token** using the Firebase Admin SDK.
+- Every request to the Gateway is authenticated by verifying a **Firebase ID Token** using the Firebase Admin SDK.
 - Services communicate internally via authenticated service-to-service calls within the Cloud Run environment.
 
 ### Data Encryption
 
-- **In transit:** All traffic between clients and the BFF Gateway, and between services, is encrypted using **TLS 1.2+**.
+- **In transit:** All traffic between clients and the Gateway, and between services, is encrypted using **TLS 1.2+**.
 - **At rest:** All Personally Identifiable Information (PII) stored in Firestore is encrypted before persistence using **Google Cloud KMS**.
 
 ### Secrets Management

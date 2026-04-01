@@ -1,4 +1,4 @@
-# ADR-002: Use a Backend-for-Frontend (BFF) Gateway
+# ADR-002: Use a Gateway
 
 **Date:** 2024-01-01  
 **Status:** Accepted
@@ -16,7 +16,7 @@ The frontend SPA needs to communicate with several independent microservices (In
 
 ## Decision
 
-All client requests go through a single Node.js BFF Gateway (Fastify v5) that authenticates the caller and routes requests to the appropriate downstream microservice. The gateway is the only service directly reachable from the public internet.
+All client requests go through a single Node.js Gateway (Fastify v5) that authenticates the caller and routes requests to the appropriate downstream microservice. The gateway is the only service directly reachable from the public internet.
 
 ## Alternatives Considered
 

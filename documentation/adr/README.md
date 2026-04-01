@@ -59,7 +59,7 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 | ADR | Title | Status |
 |---|---|---|
 | [ADR-001](ADR-001-monorepo-structure.md) | Use a Monorepo Structure | Accepted |
-| [ADR-002](ADR-002-bff-gateway-pattern.md) | Use a Backend-for-Frontend (BFF) Gateway | Accepted |
+| [ADR-002](ADR-002-gateway-pattern.md) | Use a Gateway Pattern | Accepted |
 | [ADR-003](ADR-003-pubsub-async-messaging.md) | Use Cloud Pub/Sub for Inter-Service Messaging | Accepted |
 | [ADR-004](ADR-004-firestore-database.md) | Use Firestore as the Primary Database | Accepted |
 | [ADR-005](ADR-005-faiss-vector-search.md) | Use FAISS for Vector Similarity Search | Accepted |
@@ -67,3 +67,4 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 | [ADR-007](ADR-007-no-object-storage-text-only-persistence.md) | No Object Storage — Text-Only File Persistence | Accepted |
 | [ADR-008](ADR-008-auth-and-authorization-flow-overhaul.md) | Overhaul Login & Authorization Flow with Firestore-Native RBAC | Accepted |
 | [ADR-009](ADR-009-shared-library-versioning.md) | Semantic Versioning and CHANGELOG for Shared Libraries | Accepted |
+| [ADR-010](ADR-010-shared-library-directory-architecture.md) | Folder-Based Major-Version Directory Structure for Shared Libraries | Accepted |

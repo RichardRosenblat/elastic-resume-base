@@ -2,7 +2,7 @@
  * @file DocumentsPage.tsx — Document scanner page.
  *
  * Allows authenticated users to upload one or more document files (PDF, images,
- * or DOCX) to the document reader service via the BFF OCR endpoint.
+ * or DOCX) to the document reader service via the Gateway API OCR endpoint.
  * After processing, an Excel workbook containing the extracted structured data is
  * automatically downloaded.
  *
@@ -44,7 +44,7 @@ import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { config } from '../../config';
 import { ocrDocuments } from '../../services/api';
-import { toUserFacingErrorMessage } from '../../services/api-error';
+import { useShowApiError } from '../../hooks/useShowApiError';
 import { useToast } from '../../contexts/use-toast';
 import { FileUploadTemplate } from '../../components/templates';
 import type { FileUploadConfig } from '../../components/templates';
@@ -72,6 +72,7 @@ const DOCUMENT_TYPE_VALUES = [
 export default function DocumentsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const showApiError = useShowApiError();
   const features = useFeatureFlags();
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -142,8 +143,7 @@ export default function DocumentsPage() {
       setDownloadReady(true);
       showToast(t('documents.downloadReady'), { severity: 'success' });
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
-      showToast(errorMessage, { severity: 'error' });
+      showApiError(error);
     } finally {
       setLoading(false);
     }

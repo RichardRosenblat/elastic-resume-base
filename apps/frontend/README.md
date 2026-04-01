@@ -12,7 +12,7 @@ React + TypeScript single-page application (SPA) for [Elastic Resume Base](../RE
 - **Internationalisation (i18n):** i18next with locale files for English (`en`), Portuguese (`pt-BR`), and Spanish (`es`)
 - **Testing:** Vitest + React Testing Library
 
-All API calls go through the BFF Gateway (`VITE_BFF_URL`). The frontend never communicates directly with the Users API or any other microservice.
+All API calls go through the Gateway API (`VITE_GATEWAY_URL`). The frontend never communicates directly with the Users API or any other microservice.
 
 ---
 
@@ -34,7 +34,7 @@ frontend/
 │   │       ├── Sidebar.tsx        # Navigation drawer
 │   │       └── Topbar.tsx         # App bar with language switcher & user menu
 │   ├── contexts/
-│   │   └── AuthContext.tsx        # Firebase Auth state + BFF profile context
+│   │   └── AuthContext.tsx        # Firebase Auth state + Gateway API profile context
 │   ├── hooks/
 │   │   └── useFeatureFlags.ts     # Returns feature-flag config from VITE_ env vars
 │   ├── i18n/
@@ -53,7 +53,7 @@ frontend/
 │   │   ├── Search/                # Semantic search (feature-flagged)
 │   │   └── Users/                 # Admin-only user management
 │   ├── services/
-│   │   └── api.ts                 # Axios client + all BFF API call functions
+│   │   └── api.ts                 # Axios client + all Gateway API call functions
 │   ├── test/
 │   │   └── setup.ts               # Vitest / @testing-library/jest-dom setup
 │   ├── theme/
@@ -99,7 +99,7 @@ For Docker / CI builds, pass these as `--build-arg` flags or inject them via you
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `VITE_BFF_URL` | Yes | `http://localhost:3000` | Base URL of the BFF Gateway |
+| `VITE_GATEWAY_URL` | Yes | `http://localhost:3000` | Base URL of the Gateway API |
 | `VITE_SUPPORT_EMAIL` | No | *(empty)* | Support contact email shown in the page footer — leave empty to hide the footer |
 | `VITE_FIREBASE_API_KEY` | Yes | — | Firebase project API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Yes | — | Firebase Auth domain |
@@ -120,7 +120,7 @@ For Docker / CI builds, pass these as `--build-arg` flags or inject them via you
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) v22+
-- A running BFF Gateway (see [`../bff-gateway/README.md`](../bff-gateway/README.md)) **or** the full Docker Compose stack
+- A running Gateway API (see [`../gateway-api/README.md`](../gateway-api/README.md)) **or** the full Docker Compose stack
 - Firebase project credentials (or the local Firebase Emulator)
 
 ### Steps
@@ -177,7 +177,7 @@ npm run test:watch
 npm run test:coverage
 ```
 
-Tests use **Vitest** with **React Testing Library** and **jsdom**. All Firebase and BFF API calls are mocked in test files so no running backend is required.
+Tests use **Vitest** with **React Testing Library** and **jsdom**. All Firebase and Gateway API calls are mocked in test files so no running backend is required.
 
 ---
 
@@ -389,13 +389,52 @@ To add a new locale:
 2. Register it in `src/i18n/index.ts`.
 3. Add a `<MenuItem>` for it in the `LANGUAGES` array in `src/components/Layout/Topbar.tsx`.
 
+### Gateway API Error Translations
+
+Gateway API errors are translated into the user's language using the `errors` section of each locale file. Every error code returned in the Bowltie `error.code` field is mapped to a human-readable string.
+
+**Current error code → locale key mappings** (`errors.<CODE>`):
+
+| Error code | HTTP status | Locale key |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `errors.VALIDATION_ERROR` |
+| `UNAUTHORIZED` | 401 | `errors.UNAUTHORIZED` |
+| `FORBIDDEN` | 403 | `errors.FORBIDDEN` |
+| `NOT_FOUND` | 404 | `errors.NOT_FOUND` |
+| `CONFLICT` | 409 | `errors.CONFLICT` |
+| `RATE_LIMIT_EXCEEDED` | 429 | `errors.RATE_LIMIT_EXCEEDED` |
+| `DOWNSTREAM_ERROR` | 502 | `errors.DOWNSTREAM_ERROR` |
+| `SERVICE_UNAVAILABLE` | 503 | `errors.SERVICE_UNAVAILABLE` |
+| `INTERNAL_ERROR` | 500 | `errors.INTERNAL_ERROR` |
+| *(unknown code)* | — | *(falls back to raw API message)* |
+
+**How it works:**
+
+The `toUserFacingErrorMessage(error, fallback, t)` function in `src/services/api-error.ts` accepts an optional i18next `t` function as its third argument. When provided:
+
+1. It checks whether a translation exists for `errors.<code>` in the current locale.
+2. If a translation is found, that localised message is shown to the user.
+3. If no translation is found (i.e. i18next returns the key itself), it falls back to the raw API message.
+4. If a `correlationId` is present in the error response, it is appended as `(ref: <id>)` for support purposes.
+
+**Adding a new error code:**
+
+1. Add a new key to the `errors` object in **all three locale files** (`en.json`, `es.json`, `pt-BR.json`):
+   ```json
+   "errors": {
+     "MY_NEW_CODE": "A clear, user-friendly description of this error."
+   }
+   ```
+2. Verify that the gateway-api `errorHandler.ts` returns this code in the `error.code` field of the Bowltie envelope.
+3. Add a corresponding test case in `src/services/api-error.test.ts`.
+
 ---
 
 ## Authentication Flow
 
 1. The user signs in via email/password or Google OAuth (Firebase Auth).
-2. On `onAuthStateChanged`, the app fetches `GET /api/v1/users/me` from the BFF Gateway, passing the Firebase ID token as a Bearer token.
-3. The BFF verifies the token, resolves the user's `role` and `enable` status from the Users API, and returns the user profile.
+2. On `onAuthStateChanged`, the app fetches `GET /api/v1/users/me` from the Gateway, passing the Firebase ID token as a Bearer token.
+3. The Gateway verifies the token, resolves the user's `role` and `enable` status from the Users API, and returns the user profile.
 4. If `enable = false`, the user is shown the Pending Approval screen and cannot access any protected pages.
 5. Admin-only pages (e.g., `/users`) are guarded by `<ProtectedRoute adminOnly />` which checks `userProfile.role === 'admin'`.
 

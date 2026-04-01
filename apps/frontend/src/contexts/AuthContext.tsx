@@ -1,5 +1,5 @@
 /**
- * @file AuthContext — Aegis client auth state and BFF user-profile context.
+ * @file AuthContext — Aegis client auth state and Gateway user-profile context.
  *
  * Wraps the entire application so that any component can call
  * {@link useAuth} to read the current user and trigger auth actions.
@@ -7,7 +7,7 @@
  * Auth flow:
  * 1. Aegis `onAuthStateChanged` fires whenever the session changes.
  * 2. On sign-in, the ID token is exchanged for a full user profile via
- *    `GET /api/v1/users/me` on the BFF Gateway. `loading` is set to `true`
+ *    `GET /api/v1/users/me` on the Gateway API. `loading` is set to `true`
  *    for the duration of this fetch so that LoginPage shows a spinner and
  *    does not redirect or flash the form prematurely.
  * 3. If the profile fetch returns 403 FORBIDDEN with "pending approval", the
@@ -22,6 +22,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import type { IAuthUser } from '@elastic-resume-base/aegis/client';
 import { auth } from '../firebase';
 import type { UserProfile, SuccessResponse } from '../types';
@@ -33,7 +34,7 @@ import { ensureApiRequestError, isRateLimitError, toUserFacingErrorMessage } fro
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await axios.get<SuccessResponse<UserProfile>>(
-    `${config.bffUrl}/api/v1/users/me`,
+    `${config.gatewayApiUrl}/api/v1/users/me`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data.data;
@@ -44,12 +45,13 @@ interface AuthProviderProps {
 }
 
 /**
- * Provides Aegis client auth state and BFF user-profile data to the component
+ * Provides Aegis client auth state and Gateway API user-profile data to the component
  * tree. Place this near the root of the application (inside `ThemeProvider`
  * and `BrowserRouter` so that hooks and routing work correctly).
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<IAuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUserProfile(profile);
         } catch (error) {
           const normalizedError = ensureApiRequestError(error, 'Failed to fetch profile');
+
+          // Log for developer debugging.
+          console.error('[AuthContext ApiRequestError]', {
+            code: normalizedError.code,
+            status: normalizedError.status,
+            message: normalizedError.message,
+            correlationId: normalizedError.correlationId,
+          });
+
           const isPendingApproval = normalizedError.status === 403
             && normalizedError.code === 'FORBIDDEN'
             && normalizedError.message.toLowerCase().includes('pending approval');
@@ -96,7 +107,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // login page rather than being redirected to the dashboard.
             await auth.signOut();
             setUserProfile(null);
-            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
+            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile', t), { severity: 'error' });
           }
         }
       } else {
@@ -105,7 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
     });
     return unsubscribe;
-  }, [showToast]);
+  }, [showToast, t]);
 
   const login = async (email: string, password: string): Promise<void> => {
     await auth.signInWithEmailAndPassword(email, password);

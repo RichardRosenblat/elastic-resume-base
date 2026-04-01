@@ -1,4 +1,5 @@
-import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor';
+import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor/server';
+import type { InternalAxiosRequestConfig } from 'axios';
 import { config } from '../config.js';
 import { tracingStorage } from './tracingContext.js';
 
@@ -28,7 +29,7 @@ export function createHttpClient(baseURL: string): HarborClient {
     timeoutMs: config.requestTimeoutMs,
   });
 
-  client.interceptors.request.use((axiosConfig) => {
+  client.interceptors.request.use((axiosConfig: InternalAxiosRequestConfig) => {
     const ctx = tracingStorage.getStore();
     if (ctx) {
       axiosConfig.headers['x-correlation-id'] = ctx.correlationId;

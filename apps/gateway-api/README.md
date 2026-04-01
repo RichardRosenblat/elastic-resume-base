@@ -1,6 +1,6 @@
 # Gateway API
 
-Backend For Frontend (BFF) gateway service for [Elastic Resume Base](../../README.md). Provides a unified API layer that handles authentication, request validation, and orchestration of downstream microservices.
+Gateway API service for [Elastic Resume Base](../../README.md). Provides a unified API layer that handles authentication, request validation, and orchestration of downstream microservices.
 
 ## Prerequisites
 
@@ -57,7 +57,7 @@ systems:
 
 ## API Overview
 
-All `/api/v1/*` routes require a valid Firebase ID token in the `Authorization: Bearer <token>` header. On each request the BFF verifies the token and calls the Users API to resolve the user's role and enabled status.
+All `/api/v1/*` routes require a valid Firebase ID token in the `Authorization: Bearer <token>` header. On each request the Gateway API verifies the token and calls the Users API to resolve the user's role and enabled status.
 
 ### Request & Response Format
 

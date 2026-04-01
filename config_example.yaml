@@ -69,7 +69,7 @@ systems:
   gateway-api:
     PORT: "3000"
 
-    # Global request rate-limiting for BFF.
+    # Global request rate-limiting for Gateway API.
     RATE_LIMIT_MAX: "1000"
     RATE_LIMIT_TIME_WINDOW: "15 minutes"
 
@@ -146,8 +146,8 @@ systems:
   #   - Appearance (colours, fonts, branding, dark-mode) → frontend/src/theme/theme.json
   # ---------------------------------------------------------------------------
   frontend:
-    # Base URL for the BFF Gateway API
-    VITE_BFF_URL: "http://localhost:3000"
+    # Base URL for the Gateway API
+    VITE_GATEWAY_URL: "http://localhost:3000"
 
     # Support contact email shown in the footer of every page.
     # Leave empty ("") to hide the support footer entirely.

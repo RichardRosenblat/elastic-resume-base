@@ -2,14 +2,14 @@
  * Unit tests for the usersProxy controller handler.
  *
  * Tests verify:
- * - Transparent forwarding for routes not matched by explicit BFF routes.
+ * - Transparent forwarding for routes not matched by explicit Gateway routes.
  * - Error propagation (errors thrown by proxyToUsersApi bubble up to the
  *   Fastify error handler).
  * - Authentication is required (handled by the parent authHook).
  *
- * NOTE: Explicit BFF routes (e.g. GET /:uid, DELETE /:uid) take priority over
+ * NOTE: Explicit Gateway routes (e.g. GET /:uid, DELETE /:uid) take priority over
  * the catch-all wildcard.  To exercise the proxy, the tests use multi-segment
- * paths (e.g. /stats/overview) that do NOT match any parameterised BFF route.
+ * paths (e.g. /stats/overview) that do NOT match any parameterised Gateway route.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -56,7 +56,7 @@ describe('usersProxy controller — transparent proxy', () => {
 
   describe('unmatched routes are proxied transparently', () => {
     // Use multi-segment paths (e.g. /stats/overview) so they do not match
-    // the existing BFF parameterised routes (which only match one segment).
+    // the existing Gateway parameterised routes (which only match one segment).
 
     it('proxies GET request for an unknown multi-segment Users API endpoint', async () => {
       const responseBody = { success: true, data: { stat: 42 } };
@@ -84,7 +84,7 @@ describe('usersProxy controller — transparent proxy', () => {
       );
     });
 
-    it('proxies PUT request (no explicit BFF PUT route exists)', async () => {
+    it('proxies PUT request (no explicit Gateway PUT route exists)', async () => {
       const requestPayload = { data: 'custom' };
       const responseBody = { success: true, data: { created: true } };
       (usersProxyService.proxyToUsersApi as jest.Mock).mockResolvedValue({

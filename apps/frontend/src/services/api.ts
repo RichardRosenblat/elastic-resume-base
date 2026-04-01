@@ -1,5 +1,5 @@
 /**
- * @file api.ts — Axios client and BFF Gateway API call functions.
+ * @file api.ts — Axios client and Gateway API call functions.
  *
  * All HTTP requests from the frontend flow through this module. The Axios
  * instance automatically attaches the Firebase ID token as a `Bearer` header
@@ -13,7 +13,7 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { auth } from '../firebase';
 import { config } from '../config';
-import { ensureApiRequestError } from './api-error';
+import { ensureApiRequestError, ApiRequestError, DUPLICATE_REQUEST_BLOCKED_CODE } from './api-error';
 import type {
   UserRecord,
   PreApprovedUser,
@@ -29,7 +29,7 @@ import type {
 } from '../types';
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: config.bffUrl,
+  baseURL: config.gatewayApiUrl,
 });
 
 const REQUEST_WINDOW_MS = 10_000;
@@ -119,7 +119,7 @@ apiClient.interceptors.request.use(async (reqConfig) => {
 
   const blockReason = getRequestBlockReason(reqConfig);
   if (blockReason) {
-    return Promise.reject(ensureApiRequestError(new Error(blockReason), blockReason));
+    return Promise.reject(new ApiRequestError(blockReason, { code: DUPLICATE_REQUEST_BLOCKED_CODE }));
   }
 
   return reqConfig;
@@ -154,7 +154,7 @@ function unwrapSuccessResponse<T>(payload: SuccessResponse<T> | T): T {
   return payload as T;
 }
 
-/** Fetches the authenticated user's full record from the Users API via BFF (`GET /api/v1/users/me`). */
+/** Fetches the authenticated user's full record from the Users API via Gateway API (`GET /api/v1/users/me`). */
 export const getMyUserRecord = async (): Promise<UserRecord> => {
   const res = await apiClient.get<SuccessResponse<UserRecord>>('/api/v1/users/me');
   return unwrapSuccessResponse(res.data);
@@ -284,7 +284,7 @@ export const batchUpdatePreApprovedUsers = async (emails: string[], role: 'admin
 };
 
 /**
- * Submits a resume ingest job to the BFF.
+ * Submits a resume ingest job to the Gateway API.
  * Returns mock data when `config.features.resumeIngest` is `false`.
  */
 export const triggerResumeIngest = async (data: { sheetId?: string; batchId?: string }): Promise<ResumeIngestJob> => {
@@ -332,7 +332,7 @@ export const searchResumes = async (query: string): Promise<SuccessResponse<Sear
 };
 
 /**
- * Uploads one or more documents for OCR processing via the BFF.
+ * Uploads one or more documents for OCR processing via the Gateway API.
  * Returns a Blob containing the generated Excel workbook (.xlsx).
  * Returns an empty Blob when `config.features.documentRead` is `false`.
  *
@@ -367,11 +367,11 @@ export const ocrDocuments = async (files: File[], documentTypes?: string[]): Pro
 };
 
 /**
- * Fetches the health status of all downstream services from the BFF.
+ * Fetches the health status of all downstream services from the Gateway API.
  * Uses a plain axios call without auth since the `/health/downstream` endpoint is public.
  */
 export const getDownstreamHealth = async (): Promise<DownstreamHealthData> => {
-  const res = await axios.get<DownstreamHealthData>(`${config.bffUrl}/health/downstream`);
+  const res = await axios.get<DownstreamHealthData>(`${config.gatewayApiUrl}/health/downstream`);
   return res.data;
 };
 

@@ -172,7 +172,7 @@ export function useFeatureFlags(): FeatureFlags {
 
 ## API Calls
 
-- All BFF API calls must go through `src/services/api.ts`.
+- All Gateway API calls must go through `src/services/api.ts`.
 - Never call `fetch` or Axios directly in a component.
 - API functions must return typed promises; never use `any` as a return type.
 - Handle loading and error states explicitly in components using local state.

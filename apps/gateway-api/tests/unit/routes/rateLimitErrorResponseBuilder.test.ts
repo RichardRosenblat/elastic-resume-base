@@ -2,7 +2,7 @@
  * Tests for the Bowltie-formatted HTTP 429 response produced by
  * `@fastify/rate-limit` when the global or per-route limiter is exceeded.
  *
- * The test builds a minimal Fastify instance that mirrors the actual BFF
+ * The test builds a minimal Fastify instance that mirrors the actual Gateway
  * app setup (correlation ID hook → rate-limit plugin → error handler) so
  * we can assert the full Bowltie envelope shape + TTL-based retry message
  * without relying on real time windows.
