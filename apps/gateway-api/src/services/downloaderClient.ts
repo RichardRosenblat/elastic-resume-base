@@ -1,4 +1,4 @@
-import { isHarborError } from '@elastic-resume-base/harbor';
+import { isHarborError } from '@elastic-resume-base/harbor/server';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';

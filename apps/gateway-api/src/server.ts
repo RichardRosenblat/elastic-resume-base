@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import { buildApp } from './app.js';
-import { initializeAuth } from '@elastic-resume-base/aegis';
+import { initializeAuth } from '@elastic-resume-base/aegis/server';
 
 // Initialize authentication on startup
 initializeAuth({ projectId: config.projectId });

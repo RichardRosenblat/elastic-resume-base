@@ -1,0 +1,49 @@
+{
+  "name": "@elastic-resume-base/aegis",
+  "version": "2.0.0",
+  "description": "Shared authentication abstraction library for Elastic Resume Base microservices (client/server split)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:js && npm run build:types",
+    "build:js": "node esbuild.config.mjs",
+    "build:types": "tsc",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "prettier --write src/ tests/",
+    "format:check": "prettier --check src/ tests/",
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --runInBand --forceExit",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0",
+    "firebase-admin": "12.1.0"
+  },
+  "devDependencies": {
+    "@types/jest": "29.5.12",
+    "@types/node": "20.12.7",
+    "@typescript-eslint/eslint-plugin": "7.8.0",
+    "@typescript-eslint/parser": "7.8.0",
+    "esbuild": "0.25.12",
+    "eslint": "8.57.0",
+    "jest": "29.7.0",
+    "prettier": "3.2.5",
+    "ts-jest": "29.1.4",
+    "tsx": "4.19.3",
+    "typescript": "5.4.5"
+  }
+}

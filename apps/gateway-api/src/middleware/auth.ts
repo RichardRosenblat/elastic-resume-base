@@ -1,11 +1,11 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { getTokenVerifier, _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aegis';
+import { getTokenVerifier, _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aegis/server';
 import { formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
 import { authorizeUser } from '../services/userApiClient.js';
 
 // Re-export testing helpers so that test files can import them from this module.
-export { _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aegis';
+export { _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aegis/server';
 
 /**
  * Fastify onRequest hook that verifies an ID token from the Authorization header.

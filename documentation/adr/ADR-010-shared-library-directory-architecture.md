@@ -121,10 +121,10 @@ and production dependencies using:
 
 | Library | TypeScript | Python | Current version directory |
 |---------|-----------|--------|--------------------------|
-| Aegis | ✅ | — | `shared/Aegis/v1/aegis_ts` |
+| Aegis | ✅ | — | `shared/Aegis/v1/aegis_ts` (v1), `shared/Aegis/v2/aegis_ts` (v2, active) |
 | Bowltie | ✅ | ✅ | `shared/Bowltie/v1/bowltie_ts`, `shared/Bowltie/v1/bowltie_py` |
 | Bugle | ✅ | ✅ | `shared/Bugle/v1/bugle_ts`, `shared/Bugle/v1/bugle_py` |
-| Harbor | ✅ | ✅ | `shared/Harbor/v1/harbor_ts`, `shared/Harbor/v1/harbor_py` |
+| Harbor | ✅ | ✅ | `shared/Harbor/v1/harbor_ts`, `shared/Harbor/v1/harbor_py` (v1), `shared/Harbor/v2/harbor_ts` (v2, active) |
 | Hermes | ✅ | ✅ | `shared/Hermes/v1/hermes_ts`, `shared/Hermes/v1/hermes_py` |
 | Synapse | ✅ | ✅ | `shared/Synapse/v1/synapse_ts`, `shared/Synapse/v1/synapse_py` |
 | Toolbox | ✅ | ✅ | `shared/Toolbox/v1/toolbox_ts`, `shared/Toolbox/v1/toolbox_py` |
