@@ -48,6 +48,15 @@ export interface FirebaseClientAuthOptions {
  */
 export declare class FirebaseClientAuth implements IClientAuth {
     private readonly auth;
+    /**
+     * Creates a new {@link FirebaseClientAuth} instance.
+     *
+     * If a Firebase app has already been initialised it is reused; otherwise a
+     * new app is created from the provided `options`.  When `authEmulatorHost`
+     * is supplied, the Firebase Auth emulator is connected automatically.
+     *
+     * @param options - Firebase project and auth configuration.
+     */
     constructor(options: FirebaseClientAuthOptions);
     onAuthStateChanged(listener: AuthStateListener): () => void;
     signInWithEmailAndPassword(email: string, password: string): Promise<void>;
