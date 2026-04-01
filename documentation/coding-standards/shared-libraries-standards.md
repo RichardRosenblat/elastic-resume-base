@@ -215,7 +215,7 @@ For **Toolbox**:
 
 For **Synapse, Bowltie, Bugle, and Hermes**: run `npm test` from within the library directory.
 
-For **Toolbox**: run `npm test` from within the `bff-gateway/` directory (Toolbox tests live in `apps/gateway-api/tests/unit/toolbox/`).
+For **Toolbox**: run `npm test` from within the `apps/gateway-api/` directory (Toolbox tests live in `apps/gateway-api/tests/unit/toolbox/`).
 
 ### Python
 

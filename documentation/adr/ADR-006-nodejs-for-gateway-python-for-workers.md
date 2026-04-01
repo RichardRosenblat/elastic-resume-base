@@ -9,14 +9,14 @@
 
 The system has two distinct workload categories:
 
-1. **I/O-bound request routing** — authenticating and forwarding HTTP requests between the frontend and downstream services (BFF Gateway, Users API).
+1. **I/O-bound request routing** — authenticating and forwarding HTTP requests between the frontend and downstream services (Gateway, Users API).
 2. **CPU/AI-bound data processing** — calling Vertex AI, running FAISS, performing OCR, generating documents, and processing Pub/Sub messages (Ingestor, AI Worker, Search Base, File Generator, Document Reader, DLQ Notifier).
 
 These two categories have different runtime requirements and library ecosystems.
 
 ## Decision
 
-- **BFF Gateway** and **Users API** are Node.js (TypeScript, Fastify v5).
+- **Gateway** and **Users API** are Node.js (TypeScript, Fastify v5).
 - **All AI/data processing microservices** (Ingestor, AI Worker, Search Base, File Generator, Document Reader, DLQ Notifier) are Python 3.11.
 
 ## Alternatives Considered

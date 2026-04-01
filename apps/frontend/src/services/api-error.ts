@@ -84,7 +84,7 @@ export function ensureApiRequestError(error: unknown, fallbackMessage = 'Request
 
 /**
  * Returns true when the given error represents an HTTP 429 rate-limit response.
- * Works for both BFF-level rate limits and downstream rate-limit propagation.
+ * Works for both Gateway API-level rate limits and downstream rate-limit propagation.
  */
 export function isRateLimitError(error: unknown): boolean {
   const normalized = ensureApiRequestError(error, '');

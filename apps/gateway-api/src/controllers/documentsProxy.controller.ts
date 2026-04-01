@@ -16,7 +16,7 @@ import { proxyToDocumentReaderApi } from '../services/documentsProxyService.js';
  * - **Error mapping** — 5xx responses become 502, timeouts become 504, and
  *   unreachable upstream becomes 503.
  *
- * Explicit BFF routes registered before this handler always take priority.
+ * Explicit Gateway routes registered before this handler always take priority.
  * This handler only fires when no other route matches the incoming request.
  */
 export async function documentsProxyHandler(

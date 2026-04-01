@@ -20,7 +20,7 @@ Closes #<!-- issue number -->
 
 ## Affected Services / Scope
 
-- **Services affected:** (e.g., `bff-gateway`, `ai-worker`, `users-api`, `shared/Toolbox`)
+- **Services affected:** (e.g., `gateway-api`, `ai-worker`, `users-api`, `shared/Toolbox`)
 - **Breaking changes:** (yes / no — describe if yes)
 
 ## Checklist

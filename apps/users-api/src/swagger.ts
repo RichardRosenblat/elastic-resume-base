@@ -15,13 +15,13 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
         version: '1.0.0',
         description:
           'User management microservice. Provides CRUD operations for user records stored in ' +
-          'Firestore and implements the BFF Authorization Logic (Google Drive + Firestore). ' +
+          'Firestore and implements the Gateway API Authorization Logic (Google Drive + Firestore). ' +
           'All routes under /api/v1 require a valid Firebase ID token passed as a Bearer token.',
       },
       servers: [{ url: '/', description: 'Current server' }],
       tags: [
         { name: 'Health', description: 'Liveness and readiness probes for the Users API service.' },
-        { name: 'Users', description: 'CRUD operations for Firestore user documents and BFF authorization logic.' },
+        { name: 'Users', description: 'CRUD operations for Firestore user documents and Gateway API authorization logic.' },
         { name: 'Pre-Approved Users', description: 'Management of the pre-approved users list used during the onboarding flow.' },
       ],
       components: {
@@ -84,7 +84,7 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
           },
           AuthorizeRequest: {
             type: 'object',
-            description: 'Request payload for the BFF authorization endpoint.',
+            description: 'Request payload for the Gateway API authorization endpoint.',
             required: ['uid', 'email'],
             properties: {
               uid: {
@@ -102,7 +102,7 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
           },
           AuthorizeResponse: {
             type: 'object',
-            description: 'Authorization result returned to the BFF during the login flow.',
+            description: 'Authorization result returned to the Gateway API during the login flow.',
             properties: {
               role: {
                 type: 'string',

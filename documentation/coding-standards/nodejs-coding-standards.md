@@ -1,6 +1,6 @@
 # Node.js Coding Standards
 
-This document defines the coding standards and best practices for the Node.js services (BFF Gateway and Users API) in the Elastic Resume Base project. All contributors must follow these guidelines to ensure consistency, maintainability, and security across the codebase.
+This document defines the coding standards and best practices for the Node.js services (Gateway and Users API) in the Elastic Resume Base project. All contributors must follow these guidelines to ensure consistency, maintainability, and security across the codebase.
 
 ---
 

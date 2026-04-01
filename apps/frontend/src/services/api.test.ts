@@ -15,7 +15,7 @@ vi.mock('../firebase', () => ({
 
 vi.mock('../config', () => ({
   config: {
-    bffUrl: 'http://localhost:3000',
+    gatewayApiUrl: 'http://localhost:3000',
     features: {
       resumeIngest: false,
       resumeSearch: false,

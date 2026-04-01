@@ -157,7 +157,7 @@ type ListPreApprovedQuery = { email?: string; role?: string; orderBy?: string; o
 // ---------------------------------------------------------------------------
 
 /**
- * Handles POST /api/v1/users/authorize — BFF login flow endpoint.
+ * Handles POST /api/v1/users/authorize — Gateway API login flow endpoint.
  * Returns the user's role and enable status based on the authorization logic.
  */
 export async function authorizeHandler(

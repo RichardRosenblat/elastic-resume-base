@@ -14,7 +14,7 @@ For our initial rollout or standard internal usage (processing approximately 1,0
 | --- | --- | --- | --- |
 | **Frontend SPA** | Firebase Hosting | 10 GB storage, 10 GB bandwidth/month | **$0.00** |
 | **Authentication** | Firebase Auth (Google SSO) | 50,000 MAUs / Unlimited SSO | **$0.00** |
-| **BFF (Gateway)** | Cloud Run | 2M requests & 180k vCPU sec/month | **$0.00** |
+| **Gateway** | Cloud Run | 2M requests & 180k vCPU sec/month | **$0.00** |
 | **Ingestion Worker** | Cloud Run + Workspace APIs | Fits comfortably in Cloud Run free tier | **$0.00** |
 | **A.I. Worker (Extractor)** | Vertex AI (Gemini 1.5 Flash) | N/A (Priced per 1M tokens) | **~$0.15** (Text-only) |
 | **A.I. Worker (Embedder)** | Vertex AI (Text-Multilingual) | N/A (Priced per 1k tokens) | **~$0.10** |

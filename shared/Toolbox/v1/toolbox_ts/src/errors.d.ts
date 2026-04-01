@@ -44,7 +44,7 @@ export declare class UnavailableError extends AppError {
 /**
  * Error representing a rate limit imposed by a downstream service or by this
  * gateway itself (HTTP 429). Thrown when a downstream API returns 429 so the
- * BFF can propagate the rate-limit signal to the caller with an appropriate
+ * Gateway can propagate the rate-limit signal to the caller with an appropriate
  * status code and error code.
  */
 export declare class RateLimitError extends AppError {

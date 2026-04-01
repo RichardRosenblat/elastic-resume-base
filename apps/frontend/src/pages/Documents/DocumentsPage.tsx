@@ -2,7 +2,7 @@
  * @file DocumentsPage.tsx — Document scanner page.
  *
  * Allows authenticated users to upload one or more document files (PDF, images,
- * or DOCX) to the document reader service via the BFF OCR endpoint.
+ * or DOCX) to the document reader service via the Gateway API OCR endpoint.
  * After processing, an Excel workbook containing the extracted structured data is
  * automatically downloaded.
  *

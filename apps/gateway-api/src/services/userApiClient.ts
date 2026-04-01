@@ -155,7 +155,7 @@ export async function authorizeUser(uid: string, email: string): Promise<{ role:
 }
 
 // ---------------------------------------------------------------------------
-// User management (proxied from BFF to users-api)
+// User management (proxied from Gateway to users-api)
 // ---------------------------------------------------------------------------
 
 /**

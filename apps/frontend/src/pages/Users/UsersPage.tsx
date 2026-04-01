@@ -5,7 +5,7 @@
  *
  * **Users table** — paginated list of all platform users with inline
  * edit (role, email, enabled status) and delete actions. Changes are persisted
- * through the BFF Gateway and the table is refreshed automatically.
+ * through the Gateway API and the table is refreshed automatically.
  * Rendered via {@link TableTemplate}.
  *
  * **Pre-approved users table** — manages the list of email addresses that
