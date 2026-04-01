@@ -83,12 +83,24 @@ export function ensureApiRequestError(error: unknown, fallbackMessage = 'Request
 }
 
 /**
- * Returns true when the given error represents an HTTP 429 rate-limit response.
+ * Error code set on client-side duplicate-request errors so they can be
+ * identified and silently suppressed by {@link isRateLimitError} without
+ * showing a toast to the user.
+ */
+export const DUPLICATE_REQUEST_BLOCKED_CODE = 'DUPLICATE_REQUEST_BLOCKED';
+
+/**
+ * Returns true when the given error represents an HTTP 429 rate-limit response
+ * or a client-side duplicate-request block.
  * Works for both Gateway API-level rate limits and downstream rate-limit propagation.
  */
 export function isRateLimitError(error: unknown): boolean {
   const normalized = ensureApiRequestError(error, '');
-  return normalized.status === 429 || normalized.code === 'RATE_LIMIT_EXCEEDED';
+  return (
+    normalized.status === 429
+    || normalized.code === 'RATE_LIMIT_EXCEEDED'
+    || normalized.code === DUPLICATE_REQUEST_BLOCKED_CODE
+  );
 }
 
 export function toUserFacingErrorMessage(error: unknown, fallbackMessage: string): string {
