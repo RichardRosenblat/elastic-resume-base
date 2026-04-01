@@ -36,6 +36,15 @@ export interface FirebaseAuthOptions {
  */
 export declare class FirebaseTokenVerifier implements ITokenVerifier {
     private readonly app;
+    /**
+     * Creates a new {@link FirebaseTokenVerifier} instance.
+     *
+     * If a Firebase Admin app has already been initialised (e.g. by the Synapse
+     * library), it is reused.  Otherwise, a new app is initialised using the
+     * provided `projectId` and, when supplied, the `serviceAccountKey`.
+     *
+     * @param options - Firebase project and credentials configuration.
+     */
     constructor(options: FirebaseAuthOptions);
     /**
      * Verifies a Firebase ID token and returns the decoded claims.

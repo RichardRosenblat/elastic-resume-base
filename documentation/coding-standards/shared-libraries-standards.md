@@ -31,7 +31,9 @@ Shared libraries eliminate code duplication across microservices. They are **int
 | Library | Package Name | Responsibility |
 |---|---|---|
 | **hermes** | `elastic-resume-base-hermes` | Messaging abstraction: `IMessagingService` protocol, `SmtpMessagingService`, `initialize_messaging`, `get_messaging_service` |
-| **harbor** | `elastic-resume-base-harbor` | HTTP request abstraction: `create_harbor_client()`, `HarborClient`, `HarborClientOptions`, `is_harbor_error()` |
+| **harbor v1** | `elastic-resume-base-harbor` | HTTP request abstraction: `create_harbor_client()`, `HarborClient`, `HarborClientOptions`, `is_harbor_error()` |
+| **harbor v2** | `elastic-resume-base-harbor` | v1 exports unchanged + `create_iam_harbor_client()`, `IamHarborClient`, `IamHarborClientOptions` (IAM/OIDC service-to-service auth) |
+| **aegis v2** | `elastic-resume-base-aegis` | Server-only token verification: `initialize_auth()`, `get_token_verifier()`, `FirebaseTokenVerifier`, `RequestContext`, `ITokenVerifier` |
 
 ---
 

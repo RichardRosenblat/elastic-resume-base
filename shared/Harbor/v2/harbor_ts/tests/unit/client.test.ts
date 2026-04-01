@@ -5,7 +5,7 @@
  * and not any server-side exports (like createIamHarborClient).
  */
 
-import axios from 'axios';
+import axios, { type AxiosError, type AxiosResponse } from 'axios';
 import { createHarborClient, isHarborError } from '../../src/client.js';
 
 describe('client module — createHarborClient', () => {
@@ -55,7 +55,7 @@ describe('client module — createHarborClient', () => {
 describe('client module — isHarborError', () => {
   it('returns true for axios errors (with response)', () => {
     const err = new axios.AxiosError('HTTP error', 'ERR_BAD_RESPONSE');
-    (err as axios.AxiosError).response = { status: 500 } as axios.AxiosResponse;
+    (err as AxiosError).response = { status: 500 } as AxiosResponse;
     expect(isHarborError(err)).toBe(true);
   });
 
