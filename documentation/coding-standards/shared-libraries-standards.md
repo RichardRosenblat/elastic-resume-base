@@ -269,3 +269,4 @@ See [Monorepo Scripts](../monorepo-scripts.md) for details on the build scripts.
 - [Shared Library Versioning Guide](../shared-library-versioning.md) — how to bump versions and write CHANGELOG entries
 - [ADR-001: Monorepo Structure](../adr/ADR-001-monorepo-structure.md) — rationale for the monorepo approach
 - [ADR-009: Semantic Versioning and CHANGELOG for Shared Libraries](../adr/ADR-009-shared-library-versioning.md) — versioning decision
+- [ADR-010: Folder-Based Major-Version Directory Structure for Shared Libraries](../adr/ADR-010-shared-library-directory-architecture.md) — directory layout and `v<N>/` rationale

@@ -193,5 +193,6 @@ dated release entry when you finalise the version bump.
 ## Related Documents
 
 - [ADR-009: Semantic Versioning and CHANGELOG for Shared Libraries](adr/ADR-009-shared-library-versioning.md)
+- [ADR-010: Folder-Based Major-Version Directory Structure for Shared Libraries](adr/ADR-010-shared-library-directory-architecture.md)
 - [Shared Libraries Coding Standards](coding-standards/shared-libraries-standards.md)
 - [Monorepo Scripts](monorepo-scripts.md)
