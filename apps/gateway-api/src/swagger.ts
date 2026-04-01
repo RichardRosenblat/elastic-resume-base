@@ -12,7 +12,7 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: 'Elastic Resume Base BFF Gateway',
+        title: 'Elastic Resume Base Gateway',
         version: '1.0.0',
         description:
           'Backend For Frontend gateway that coordinates Firebase Auth, user management, ' +
@@ -21,7 +21,7 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
       },
       servers: [{ url: '/', description: 'Current server' }],
       tags: [
-        { name: 'Health', description: 'Liveness and readiness probes for the BFF Gateway service.' },
+        { name: 'Health', description: 'Liveness and readiness probes for the Gateway service.' },
         { name: 'Me', description: 'Authenticated user self-service endpoints.' },
         { name: 'Users', description: 'User management — CRUD operations on user accounts.' },
         { name: 'Pre-Approved Users', description: 'Management of the pre-approved users list (admin only).' },

@@ -1,15 +1,15 @@
 /**
  * Shared TypeScript interfaces used across the frontend.
  *
- * These types mirror the response shapes of the BFF Gateway API so that
+ * These types mirror the response shapes of the Gateway API so that
  * API call functions and UI components share a single source of truth.
  *
- * BFF API envelope types are imported directly from the shared Bowltie
+ * Gateway API envelope types are imported directly from the shared Bowltie
  * library so the frontend always uses the canonical definitions produced
  * by the same library that formats the responses on the server side.
  */
 
-// Re-export the canonical BFF API response envelope types from the shared
+// Re-export the canonical Gateway API response envelope types from the shared
 // Bowltie library.  These replace the previously local ApiResponse / ApiMeta
 // definitions and ensure the frontend stays in sync with server-side formatting.
 export type {
@@ -34,7 +34,7 @@ export interface UserProfile {
 }
 
 /**
- * A platform user record as returned by the Users API (via BFF).
+ * A platform user record as returned by the Users API (via Gateway API).
  * Used in admin user-management views.
  */
 export interface UserRecord {
@@ -64,7 +64,7 @@ export interface PreApprovedUser {
 }
 
 /**
- * Represents a background resume-ingest job submitted to the BFF Gateway.
+ * Represents a background resume-ingest job submitted to the Gateway API.
  */
 export interface ResumeIngestJob {
   jobId: string;
@@ -72,7 +72,7 @@ export interface ResumeIngestJob {
   acceptedAt: string;
 }
 
-/** Async generation job returned by the BFF generate endpoint. */
+/** Async generation job returned by the Gateway API generate endpoint. */
 export interface ResumeGenerateJob {
   jobId: string;
   status: string;
@@ -80,14 +80,14 @@ export interface ResumeGenerateJob {
   driveLink?: string;
 }
 
-/** Search result item returned by the BFF search endpoint. */
+/** Search result item returned by the Gateway API search endpoint. */
 export interface SearchResult {
   id: string;
   score: number;
   data: Record<string, unknown>;
 }
 
-/** Payload returned by the BFF search endpoint. */
+/** Payload returned by the Gateway API search endpoint. */
 export interface SearchResponseData {
   results: SearchResult[];
   total: number;
@@ -99,7 +99,7 @@ export interface DownstreamServiceStatus {
   status: 'ok' | 'degraded';
 }
 
-/** Response shape of the BFF `GET /health/downstream` endpoint. */
+/** Response shape of the Gateway API `GET /health/downstream` endpoint. */
 export interface DownstreamHealthData {
   downstream: Record<string, DownstreamServiceStatus>;
 }

@@ -11,7 +11,7 @@ This document describes each service and component in the Elastic Resume Base pl
 A React + TypeScript single-page application that serves as the user interface for the platform. Hosted on Firebase Hosting (or served via the Docker Compose stack during local development).
 
 - Authenticates users with Firebase Auth (email/password and Google SSO)
-- Calls the BFF Gateway for all API interactions; never communicates directly with microservices
+- Calls the Gateway for all API interactions; never communicates directly with microservices
 - Enforces role-based access: admin-only pages (`/users`) are guarded at the routing level
 - Feature flags driven by `VITE_FEATURE_*` environment variables allow progressive rollout of backend features
 - Supports English, Portuguese (Brazil), and Spanish via i18next
@@ -32,7 +32,7 @@ See [apps/gateway-api/README.md](../apps/gateway-api/README.md) for API document
 
 ### Users API (✅ Implemented)
 
-A Node.js/TypeScript microservice that manages user records and implements the BFF Authorization Logic for the platform. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
+A Node.js/TypeScript microservice that manages user records and implements the Gateway Authorization Logic for the platform. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
 
 - Stores user records (uid, email, role, enable) in Firestore via Synapse
 - Exposes a `POST /api/v1/users/authorize` endpoint called by the Gateway API during every login
@@ -64,7 +64,7 @@ See [apps/document-reader/README.md](../apps/document-reader/README.md) for full
 
 ### Ingestor Service (🔄 Planned)
 
-A Python service responsible for downloading resumes from Google Sheets and Google Drive, extracting text from the resumes, and storing the extracted data in Firestore. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF. Publishes to a Pub/Sub queue for the AI Worker to process.
+A Python service responsible for downloading resumes from Google Sheets and Google Drive, extracting text from the resumes, and storing the extracted data in Firestore. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API. Publishes to a Pub/Sub queue for the AI Worker to process.
 
 ### AI Worker (🔄 Planned)
 
@@ -72,15 +72,14 @@ A Python service responsible for processing resume data. Handles both the extrac
 
 ### Search Base (🔄 Planned)
 
-A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF (for search queries) and through Pub/Sub (when new embeddings are indexed).
+A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API (for search queries) and through Pub/Sub (when new embeddings are indexed).
 
 ### File Generator (🔄 Planned)
 
-A Python service responsible for generating resume documents and handling translations. Downloads and processes data from Firestore to render the final resume documents. Handles translation via Google Cloud Translation API, caching results in Firestore to reduce API calls. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
-
+A Python service responsible for generating resume documents and handling translations. Downloads and processes data from Firestore to render the final resume documents. Handles translation via Google Cloud Translation API, caching results in Firestore to reduce API calls. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
 ### Document Reader (🔄 Planned)
 
-A Python service responsible for accepting personal documents and using OCR (Google Cloud Vision API) to extract text from them. No extracted data or documents are persisted after text extraction, ensuring data privacy. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the BFF.
+A Python service responsible for accepting personal documents and using OCR (Google Cloud Vision API) to extract text from them. No extracted data or documents are persisted after text extraction, ensuring data privacy. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
 
 ### DLQ Notifier (🔄 Planned)
 
@@ -110,6 +109,6 @@ Each package ships with a `README.md`, full JSDoc on all exports, and its own te
 |-----------|------------|-------|
 | **NoSQL Database** | Firestore | User data, resume data, embeddings. Accessed via Synapse abstraction. PII encrypted with Cloud KMS before storage. |
 | **Async Messaging** | Cloud Pub/Sub | Decouples ingestion, AI processing, and indexing pipelines. Only identifiers (e.g., `resumeId`) are passed in messages. |
-| **Authentication** | Firebase Auth (Google SSO) | Token verification by BFF Gateway. No custom auth service needed. |
+| **Authentication** | Firebase Auth (Google SSO) | Token verification by Gateway. No custom auth service needed. |
 | **Transport Security** | TLS 1.2+ | All client-to-service and inter-service communication. |
 | **Observability** | Google Cloud Logging | Centralized structured logging from all services via Pino. |

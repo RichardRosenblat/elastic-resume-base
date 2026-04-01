@@ -1,7 +1,7 @@
 /**
  * @file SystemStatusPage.tsx — System health status page.
  *
- * Fetches downstream service health from the BFF `GET /health/downstream`
+ * Fetches downstream service health from the Gateway API `GET /health/downstream`
  * endpoint and renders a status card for each service. Handles loading,
  * success, and error states according to the acceptance criteria.
  */
@@ -23,7 +23,7 @@ import { getDownstreamHealth } from '../../services/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import type { DownstreamHealthData } from '../../types';
 
-/** Maps the BFF service key to its canonical technical service name. */
+/** Maps the Gateway API service key to its canonical technical service name. */
 const SERVICE_TECHNICAL_NAMES: Record<string, string> = {
   usersApi: 'users-api',
   downloader: 'downloader',
@@ -87,7 +87,7 @@ function ServiceStatusCard({ name, status }: { name: string; status: 'ok' | 'deg
 
 /**
  * Page that fetches and renders the health status of all downstream services
- * registered in the BFF. Accessible via `/system-status`.
+ * registered in the Gateway API. Accessible via `/system-status`.
  */
 export default function SystemStatusPage() {
   const { t } = useTranslation();

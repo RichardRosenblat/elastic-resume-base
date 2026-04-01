@@ -22,7 +22,7 @@ services:
     volumes:
       - ./firebase-emulator/firebase.json:/srv/firebase/firebase.json
 
-  # 2. Node.js Backend-for-Frontend (BFF) Gateway
+  # 2. Node.js Gateway API
   gateway-api:
     build:
       context: ./apps/gateway-api
@@ -52,7 +52,7 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
-        - VITE_BFF_URL=http://localhost:3000
+        - VITE_GATEWAY_URL=http://localhost:3000
     ports:
       - "5173:80"
     depends_on:

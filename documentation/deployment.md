@@ -24,7 +24,7 @@ This document covers provisioning GCP resources and deploying Elastic Resume Bas
 
 | Service | GCP Resource | Notes |
 |---|---|---|
-| BFF Gateway | Cloud Run | `--min-instances=0`, `--max-instances=10` |
+| Gateway | Cloud Run | `--min-instances=0`, `--max-instances=10` |
 | Users API | Cloud Run | `--min-instances=0` |
 | Ingestor Service | Cloud Run | `--min-instances=0`, triggered via HTTP |
 | AI Worker | Cloud Run | `--min-instances=0`, triggered via Pub/Sub push |
@@ -134,7 +134,7 @@ gcloud run deploy gateway-api \
   --max-instances=10 \
   --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID"
 
-# Users API (internal — invoked by BFF Gateway only)
+# Users API (internal — invoked by Gateway only)
 gcloud run deploy users-api \
   --image=$REGISTRY/users-api:latest \
   --region=$REGION \
@@ -169,7 +169,7 @@ Grant the following IAM roles to the Cloud Run service accounts:
 | File Generator | `roles/datastore.user`, `roles/cloudtranslate.user`, `roles/cloudkms.cryptoKeyDecrypter` |
 | Document Reader | `roles/cloudvision.user` |
 | DLQ Notifier | `roles/pubsub.subscriber` |
-| BFF Gateway | `roles/firebase.sdkAdminServiceAgent` |
+| Gateway | `roles/firebase.sdkAdminServiceAgent` |
 | Users API | `roles/datastore.user`, `roles/drive.readonly` (via service account key) |
 
 ```bash
@@ -211,5 +211,5 @@ PUBSUB_EMULATOR_HOST=
 - [Initial Setup](initial-setup.md) — GCP and Firebase project initialization
 - [Docker Orchestration](docker-orchestration.md) — local development with Docker Compose
 - [Troubleshooting](troubleshooting.md) — common deployment and runtime issues
-- [ADR-002: BFF Gateway](adr/ADR-002-bff-gateway-pattern.md) — rationale for the gateway pattern
+- [ADR-002: Gateway](adr/ADR-002-gateway-pattern.md) — rationale for the gateway pattern
 - [ADR-003: Cloud Pub/Sub](adr/ADR-003-pubsub-async-messaging.md) — Pub/Sub design decisions

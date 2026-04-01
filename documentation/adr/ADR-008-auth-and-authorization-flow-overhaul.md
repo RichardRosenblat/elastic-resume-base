@@ -12,7 +12,7 @@ The previous authentication and authorization system had several shortcomings:
 - **Fragmented user identity**: User roles were backed by Google Drive permissions (via the Bugle library), making them dependent on a Google Drive file and a service account. This created an external dependency that was costly to manage, hard to test, and tightly coupled to Google Workspace.
 - **No enable/disable control**: There was no first-class way to disable a user's access without removing them from the underlying identity provider. Administrators could not put accounts on hold pending approval.
 - **Opaque onboarding**: New users who logged in for the first time with a valid Firebase token would receive access or denial based solely on Drive file membership — there was no structured onboarding flow for bringing new users into the system.
-- **Logic scattered across services**: Authorization checks were partially performed in the BFF and partially in the Users API, creating inconsistencies and making the system harder to reason about.
+- **Logic scattered across services**: Authorization checks were partially performed in the Gateway and partially in the Users API, creating inconsistencies and making the system harder to reason about.
 - **No admin bootstrapping**: There was no automated mechanism to ensure an initial admin existed, requiring manual intervention to configure the first administrator.
 
 ## Decision
@@ -48,14 +48,14 @@ uid + email
 
 All Users API routes interact exclusively with the `users` and `pre_approved_users` collections, ensuring a single point of truth for user data.
 
-### 3. BFF as the sole authentication gateway
+### 3. Gateway as the sole authentication gateway
 
-The BFF validates Firebase ID tokens and calls the Users API's `/authorize` endpoint. All authorization decisions flow through this path:
+The Gateway validates Firebase ID tokens and calls the Users API's `/authorize` endpoint. All authorization decisions flow through this path:
 
-1. **Token validation**: BFF verifies the Firebase JWT and extracts `uid` and `email`.
-2. **Authorization query**: BFF calls `POST /api/v1/users/authorize` with `{uid, email}`.
-3. **Enable check**: If `enable=false`, BFF returns `403` with a "pending approval" message.
-4. **RBAC enforcement**: BFF checks `role` against the required permissions for the route.
+1. **Token validation**: Gateway verifies the Firebase JWT and extracts `uid` and `email`.
+2. **Authorization query**: Gateway calls `POST /api/v1/users/authorize` with `{uid, email}`.
+3. **Enable check**: If `enable=false`, Gateway returns `403` with a "pending approval" message.
+4. **RBAC enforcement**: Gateway checks `role` against the required permissions for the route.
 
 ### 4. Role-based access control
 
@@ -66,7 +66,7 @@ Two roles are defined:
 | `admin` | All routes, including user management and pre-approval management |
 | `user` | All routes except admin-only routes |
 
-Admin-only operations in the BFF are guarded by the `requireAdminHook` pre-handler.
+Admin-only operations in the Gateway are guarded by the `requireAdminHook` pre-handler.
 
 ### 5. Admin bootstrapping
 
@@ -95,7 +95,7 @@ Both `/api/v1/users` and `/api/v1/users/pre-approve` list endpoints support quer
 
 **Use Firebase Auth custom claims for roles:** Rejected because custom claims require the Firebase Admin SDK to be called on every role change, have a propagation delay (JWT caching), and are opaque to the Firestore data model. Storing roles in Firestore is simpler, immediately consistent, and more auditable.
 
-**Embed authorization logic in the BFF:** Rejected because it would duplicate Firestore access in a service that should be a routing layer, not a data layer. Centralizing in the Users API maintains the principle of single responsibility and ensures the BFF is not directly coupled to persistence.
+**Embed authorization logic in the Gateway:** Rejected because it would duplicate Firestore access in a service that should be a routing layer, not a data layer. Centralizing in the Users API maintains the principle of single responsibility and ensures the Gateway is not directly coupled to persistence.
 
 ## Consequences
 
