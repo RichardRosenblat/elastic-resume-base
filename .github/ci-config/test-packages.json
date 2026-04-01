@@ -55,5 +55,12 @@
     "path": "apps/document-reader",
     "runner": "python",
     "dependsOn": []
+  },
+  {
+    "id": "ingestor-api",
+    "name": "apps/ingestor-api",
+    "path": "apps/ingestor-api",
+    "runner": "python",
+    "dependsOn": []
   }
 ]
