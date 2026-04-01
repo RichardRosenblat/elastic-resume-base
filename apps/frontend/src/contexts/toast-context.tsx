@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Box, Collapse, Snackbar } from '@mui/material';
+import { ExpandLess as ExpandLessIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 import { ToastContext } from './toast-context-store.ts';
@@ -149,33 +150,49 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
       >
         {toast.message}
         {toast.detail && (
-          <Box sx={{ mt: 0.5 }}>
+          <Box
+            sx={{
+              mt: 1,
+              borderRadius: 1,
+              overflow: 'hidden',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            }}
+          >
             <Box
               component="button"
               type="button"
               onClick={handleToggleDetail}
               sx={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
                 background: 'none',
                 border: 'none',
                 color: 'inherit',
                 cursor: 'pointer',
-                fontSize: '0.75em',
-                opacity: 0.85,
-                p: 0,
-                textDecoration: 'underline',
-                display: 'block',
+                px: 1.5,
+                py: 0.75,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                textAlign: 'left',
               }}
             >
+              {detailExpanded
+                ? (<ExpandLessIcon fontSize="small" />)
+                : (<ExpandMoreIcon fontSize="small" />)}
               {detailExpanded ? t('common.hideDetails') : t('common.showDetails')}
             </Box>
             <Collapse in={detailExpanded}>
               <Box
                 sx={{
-                  mt: 0.5,
-                  fontSize: '0.8em',
-                  opacity: 0.9,
+                  px: 1.5,
+                  pb: 1,
+                  pt: 0.5,
+                  fontSize: '0.875rem',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.2)',
                 }}
               >
                 {toast.detail}
