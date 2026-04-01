@@ -19,7 +19,7 @@ const mockClient = {
   },
 };
 
-jest.mock('@elastic-resume-base/harbor', () => ({
+jest.mock('@elastic-resume-base/harbor/server', () => ({
   createHarborClient: jest.fn(() => mockClient),
 }));
 

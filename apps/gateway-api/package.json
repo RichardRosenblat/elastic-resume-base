@@ -17,9 +17,9 @@
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage"
   },
   "dependencies": {
-    "@elastic-resume-base/aegis": "file:../../shared/Aegis/v1/aegis_ts",
+    "@elastic-resume-base/aegis": "file:../../shared/Aegis/v2/aegis_ts",
     "@elastic-resume-base/bowltie": "file:../../shared/Bowltie/v1/bowltie_ts",
-    "@elastic-resume-base/harbor": "file:../../shared/Harbor/v1/harbor_ts",
+    "@elastic-resume-base/harbor": "file:../../shared/Harbor/v2/harbor_ts",
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^12.0.1",
     "@fastify/rate-limit": "^10.2.1",

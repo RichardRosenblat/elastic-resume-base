@@ -1,4 +1,4 @@
-import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor';
+import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor/server';
 import type { InternalAxiosRequestConfig } from 'axios';
 import { config } from '../config.js';
 import { tracingStorage } from './tracingContext.js';

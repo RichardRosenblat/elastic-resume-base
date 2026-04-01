@@ -1,4 +1,4 @@
-import { isHarborError } from '@elastic-resume-base/harbor';
+import { isHarborError } from '@elastic-resume-base/harbor/server';
 import { config } from '../config.js';
 import { ConflictError, DownstreamError, ForbiddenError, NotFoundError, RateLimitError, UnavailableError, ValidationError } from '../errors.js';
 import { createHttpClient } from '../utils/httpClient.js';

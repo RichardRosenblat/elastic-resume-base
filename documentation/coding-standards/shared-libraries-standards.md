@@ -22,7 +22,8 @@ Shared libraries eliminate code duplication across microservices. They are **int
 | **Bowltie** | `@elastic-resume-base/bowltie` | Uniform API response envelope: `formatSuccess<T>()`, `formatError()`, `SuccessResponse<T>`, `ErrorResponse`, `ApiResponse<T>` |
 | **Bugle** | `@elastic-resume-base/bugle` | Google API authentication (`getGoogleAuthClient`), Google Drive permissions (`DrivePermissionsService.getUsersWithFileAccess`) |
 | **Hermes** | `@elastic-resume-base/hermes` | Messaging abstraction: `IMessagingService`, `SmtpMessagingService`, `initializeMessaging`, `getMessagingService` |
-| **Harbor** | `@elastic-resume-base/harbor` | HTTP request abstraction: `createHarborClient()`, `HarborClientOptions`, `HarborClient`, `isHarborError()` |
+| **Aegis** | `@elastic-resume-base/aegis` | Authentication abstraction: `./server` — `initializeAuth()`, `getTokenVerifier()`, `RequestContext`; `./client` — `initializeClientAuth()`, `getClientAuth()`, `IClientAuth` |
+| **Harbor** | `@elastic-resume-base/harbor` | HTTP request abstraction: `./server` — `createHarborClient()`, `createIamHarborClient()`, `isHarborError()`; `./client` — `createHarborClient()`, `isHarborError()` |
 | **Toolbox** | *(plain source, no package name)* | Config loading (`loadConfigYaml`), structured logger factory (`createLogger`), Fastify hooks (`correlationIdHook`, `createRequestLoggerHook`) |
 
 ### Python Libraries (Python services)
@@ -30,7 +31,9 @@ Shared libraries eliminate code duplication across microservices. They are **int
 | Library | Package Name | Responsibility |
 |---|---|---|
 | **hermes** | `elastic-resume-base-hermes` | Messaging abstraction: `IMessagingService` protocol, `SmtpMessagingService`, `initialize_messaging`, `get_messaging_service` |
-| **harbor** | `elastic-resume-base-harbor` | HTTP request abstraction: `create_harbor_client()`, `HarborClient`, `HarborClientOptions`, `is_harbor_error()` |
+| **harbor v1** | `elastic-resume-base-harbor` | HTTP request abstraction: `create_harbor_client()`, `HarborClient`, `HarborClientOptions`, `is_harbor_error()` |
+| **harbor v2** | `elastic-resume-base-harbor` | v1 exports unchanged + `create_iam_harbor_client()`, `IamHarborClient`, `IamHarborClientOptions` (IAM/OIDC service-to-service auth) |
+| **aegis v2** | `elastic-resume-base-aegis` | Server-only token verification: `initialize_auth()`, `get_token_verifier()`, `FirebaseTokenVerifier`, `RequestContext`, `ITokenVerifier` |
 
 ---
 
@@ -136,6 +139,31 @@ The version is stored in `package.json` (TypeScript) and `pyproject.toml` (Pytho
 
 For the full step-by-step workflow (for both library authors and consumers), see the
 [Shared Library Versioning Guide](../shared-library-versioning.md).
+
+---
+
+## Client/Server Module Split (Aegis & Harbor)
+
+Aegis (v2+) and Harbor (v2+) enforce a strict trust boundary between browser code and
+server-side Node.js code by exposing separate sub-path exports.
+
+**Import rules:**
+
+| Context | Aegis | Harbor |
+|---|---|---|
+| Node.js backend service (gateway-api, etc.) | `@elastic-resume-base/aegis/server` | `@elastic-resume-base/harbor/server` |
+| React frontend / browser code | `@elastic-resume-base/aegis/client` | `@elastic-resume-base/harbor/client` |
+
+- **`./server`** may depend on Node.js-only packages (`firebase-admin`,
+  `google-auth-library`). Never import it in browser code.
+- **`./client`** contains only browser-safe code (`firebase/auth`, `axios`). Never import
+  server-side symbols from it.
+- Harbor v2 has **no root `.` export** — always use `./server` or `./client` explicitly.
+- Aegis v2's root `.` is an alias for `./server` (kept for convenience); prefer the
+  explicit `./server` path.
+
+For the architectural rationale see
+[ADR-011](../adr/ADR-011-aegis-harbor-client-server-split.md).
 
 ---
 
