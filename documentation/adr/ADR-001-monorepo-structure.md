@@ -7,7 +7,7 @@
 
 ## Context
 
-The project is composed of multiple Node.js and Python microservices (BFF Gateway, Users API, Ingestor, AI Worker, Search Base, File Generator, Document Reader, DLQ Notifier) that share:
+The project is composed of multiple Node.js and Python microservices (Gateway, Users API, Ingestor, AI Worker, Search Base, File Generator, Document Reader, DLQ Notifier) that share:
 
 - A common configuration file (`config.yaml`)
 - Internal TypeScript packages (`Synapse`, `Bowltie`, `Bugle`, `Toolbox`) under `shared/`

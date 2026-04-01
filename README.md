@@ -46,9 +46,9 @@ This repository is under active development. The following table summarizes what
 
 | Service | Status | Notes |
 |---|---|---|
-| **BFF Gateway** | ✅ Implemented | Full auth, RBAC, user management routes |
+| **Gateway** | ✅ Implemented | Full auth, RBAC, user management routes |
 | **Users API** | ✅ Implemented | Authorization logic, user CRUD, pre-approval management |
-| **Shared Libraries** (Synapse, Bowltie, Bugle, Aegis, Toolbox, Hermes) | ✅ Implemented | TypeScript libs consumed by BFF Gateway and Users API; Hermes also available as Python package |
+| **Shared Libraries** (Synapse, Bowltie, Bugle, Aegis, Toolbox, Hermes) | ✅ Implemented | TypeScript libs consumed by Gateway and Users API; Hermes also available as Python package |
 | **Frontend SPA** | ✅ Implemented | React + TypeScript SPA with Firebase Auth, i18n, MUI, and feature flags |
 | **Ingestor Service** | 🔄 Planned | Not yet implemented |
 | **AI Worker** | 🔄 Planned | Not yet implemented |
@@ -69,7 +69,7 @@ This repository is under active development. The following table summarizes what
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTPS / Firebase ID Token
 ┌────────────────────────▼────────────────────────────────────┐
-│              BFF Gateway (Node.js – Cloud Run)              │
+│              Gateway (Node.js – Cloud Run)                  │
 │          Verifies token · Calls Users API · RBAC            │
 └────────────────────────┬────────────────────────────────────┘
                          │ Internal HTTP
@@ -93,7 +93,7 @@ This repository is under active development. The following table summarizes what
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTPS / TLS
 ┌────────────────────────▼────────────────────────────────────┐
-│              BFF Gateway (Node.js – Cloud Run)              │
+│              Gateway (Node.js – Cloud Run)                  │
 └──┬─────────┬──────────┬──────────┬──────────┬──────────────┘
    │         │          │          │          │
    ▼         ▼          ▼          ▼          ▼
@@ -118,9 +118,9 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 
 | Service | Language | Status | Description |
 |---|---|---|---|
-| **BFF Gateway** | Node.js | ✅ Implemented | Backend-for-Frontend: handles authentication, RBAC, and routes client requests to microservices |
+| **Gateway** | Node.js | ✅ Implemented | Handles authentication, RBAC, and routes client requests to microservices |
 | **Users API** | Node.js | ✅ Implemented | Manages user records, authorization logic, and pre-approval workflows |
-| **Frontend SPA** | React + TypeScript | ✅ Implemented | User interface hosted on Firebase Hosting; integrates with BFF Gateway |
+| **Frontend SPA** | React + TypeScript | ✅ Implemented | User interface hosted on Firebase Hosting; integrates with Gateway |
 | **Ingestor Service** | Python | 🔄 Planned | Downloads resumes from Google Sheets/Drive, publishes to Pub/Sub |
 | **AI Worker** | Python | 🔄 Planned | Extracts structured JSON and generates embeddings using Vertex AI |
 | **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
@@ -146,7 +146,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 | **Secrets** | Google Cloud KMS |
 | **Logging** | Google Cloud Logging |
 | **Containerization** | Docker + Docker Compose |
-| **BFF Language** | Node.js (Fastify v5) |
+| **Gateway Language** | Node.js (Fastify v5) |
 | **Worker Language** | Python 3.11 (FastAPI / Flask) |
 
 ---
@@ -158,7 +158,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 Ensure you have the following tools installed locally:
 
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
-- [Node.js](https://nodejs.org/) v22+ (for the BFF Gateway and Users API)
+- [Node.js](https://nodejs.org/) v22+ (for the Gateway and Users API)
 - [Python](https://www.python.org/downloads/) v3.11+ (for future Python microservices)
 - [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
@@ -241,8 +241,8 @@ The following local endpoints will be available:
 | Frontend | http://localhost:5173 |
 | Document Reader | http://localhost:8004 |
 | Document Reader API Docs (Swagger) | http://localhost:8004/docs |
-| BFF Gateway | http://localhost:3000 |
-| BFF Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
+| Gateway | http://localhost:3000 |
+| Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
 | Users API Docs (Swagger) | http://localhost:8005/api/v1/docs |
 | Firebase Emulator UI | http://localhost:4000 |

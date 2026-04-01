@@ -255,9 +255,9 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
 
   // ── Transparent Proxy (catch-all) ──────────────────────────────────────────
   // This wildcard route forwards any request that does not match an explicit
-  // route above to the Document Reader service unchanged.  It enables the BFF
+  // route above to the Document Reader service unchanged.  It enables the Gateway
   // to remain compatible with new Document Reader endpoints without requiring
-  // new BFF routes.  Auth is enforced by the parent scope's `authHook`.
+  // new Gateway routes.  Auth is enforced by the parent scope's `authHook`.
   app.all('/*', documentsProxyHandler as RouteHandlerMethod);
 };
 

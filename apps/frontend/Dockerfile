@@ -14,7 +14,7 @@ COPY . .
 # Build args for VITE_ env vars (passed at build time)
 # Note: branding (company name, logos, colours, fonts) is configured in
 # src/theme/theme.json (template) and optional src/theme/theme.local.json.
-ARG VITE_BFF_URL="http://localhost:3000"
+ARG VITE_GATEWAY_URL="http://localhost:3000"
 ARG VITE_SUPPORT_EMAIL=""
 ARG VITE_FIREBASE_API_KEY=""
 ARG VITE_FIREBASE_AUTH_DOMAIN=""
@@ -26,7 +26,7 @@ ARG VITE_FEATURE_RESUME_GENERATE="false"
 ARG VITE_FEATURE_USER_MANAGEMENT="true"
 
 # Set build env vars
-ENV VITE_BFF_URL=$VITE_BFF_URL
+ENV VITE_GATEWAY_URL=$VITE_GATEWAY_URL
 ENV VITE_SUPPORT_EMAIL=$VITE_SUPPORT_EMAIL
 ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
 ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN

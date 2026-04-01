@@ -8,16 +8,27 @@ For a high-level overview of the project's architecture and services, see the [R
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [Clone the Repository](#2-clone-the-repository)
-3. [Configure GCP and Firebase](#3-configure-gcp-and-firebase)
-4. [Set Up Environment Variables](#4-set-up-environment-variables)
-5. [Build Shared Libraries](#5-build-shared-libraries)
-6. [Install Service Dependencies](#6-install-service-dependencies)
-7. [Run the Stack with Docker Compose](#7-run-the-stack-with-docker-compose)
-8. [Verify Everything Is Working](#8-verify-everything-is-working)
-9. [Run Tests Locally](#9-run-tests-locally)
-10. [Next Steps](#10-next-steps)
+- [Getting Started](#getting-started)
+  - [Table of Contents](#table-of-contents)
+  - [1. Prerequisites](#1-prerequisites)
+  - [2. Clone the Repository](#2-clone-the-repository)
+  - [3. Configure GCP and Firebase](#3-configure-gcp-and-firebase)
+    - [3.1 Create a GCP Project](#31-create-a-gcp-project)
+    - [3.2 Link to Firebase](#32-link-to-firebase)
+    - [3.3 Enable Required GCP APIs](#33-enable-required-gcp-apis)
+    - [3.4 Set Up Application Default Credentials (ADC)](#34-set-up-application-default-credentials-adc)
+  - [4. Set Up Environment Variables](#4-set-up-environment-variables)
+  - [5. Build Shared Libraries](#5-build-shared-libraries)
+  - [6. Install Service Dependencies](#6-install-service-dependencies)
+  - [7. Run the Stack with Docker Compose](#7-run-the-stack-with-docker-compose)
+    - [First-time run](#first-time-run)
+    - [Day-to-day](#day-to-day)
+  - [8. Verify Everything Is Working](#8-verify-everything-is-working)
+  - [9. Run Tests Locally](#9-run-tests-locally)
+    - [Node.js services](#nodejs-services)
+    - [Python services](#python-services)
+  - [10. Next Steps](#10-next-steps)
+  - [Troubleshooting Quick Reference](#troubleshooting-quick-reference)
 
 ---
 
@@ -29,7 +40,7 @@ Install the following tools before you begin:
 |------|---------|---------|
 | [Git](https://git-scm.com/) | Any recent | Source control |
 | [Docker](https://docs.docker.com/get-docker/) + [Docker Compose](https://docs.docker.com/compose/install/) | Compose v2+ | Running all services locally |
-| [Node.js](https://nodejs.org/) | v22+ | BFF Gateway and Users API |
+| [Node.js](https://nodejs.org/) | v22+ | Gateway and Users API |
 | [Python](https://www.python.org/downloads/) | v3.11+ | All Python microservices |
 | [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install) | Latest | Application Default Credentials and GCP access |
 | [Firebase CLI](https://firebase.google.com/docs/cli) | Latest | Local Firebase Emulator Suite |
@@ -201,14 +212,14 @@ Once the stack is up, open these URLs in your browser:
 
 | Service | URL | What to check |
 |---------|-----|---------------|
-| BFF Gateway | http://localhost:3000/api/v1/docs | Swagger UI — all routes visible |
+| Gateway | http://localhost:3000/api/v1/docs | Swagger UI — all routes visible |
 | Users API | http://localhost:8005/api/v1/docs | Swagger UI — all routes visible |
 | Firebase Emulator UI | http://localhost:4000 | Firestore / Auth / Pub/Sub tabs visible |
 | Firestore Emulator | http://localhost:8080 | Used internally by services |
 | Firebase Auth Emulator | http://localhost:9099 | Used internally by services |
 | Pub/Sub Emulator | http://localhost:8085 | Used internally by services |
 
-A quick health-check for the BFF Gateway:
+A quick health-check for the Gateway:
 
 ```bash
 curl http://localhost:3000/api/v1/health

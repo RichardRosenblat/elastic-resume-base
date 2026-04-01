@@ -92,12 +92,12 @@ type HarborError = AxiosError;
 
 ## Usage in Services
 
-### Integration with BFF Gateway
+### Integration with the Gateway
 
-The BFF Gateway wraps `createHarborClient` in `src/utils/httpClient.ts` to apply the application-level timeout from config:
+The Gateway wraps `createHarborClient` in `src/utils/httpClient.ts` to apply the application-level timeout from config:
 
 ```typescript
-// bff-gateway/src/utils/httpClient.ts
+// gateway/src/utils/httpClient.ts
 import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor';
 import { config } from '../config.js';
 
@@ -112,7 +112,7 @@ export function createHttpClient(baseURL: string): HarborClient {
 Service clients then call `createHttpClient` for the service-specific base URL:
 
 ```typescript
-// bff-gateway/src/services/documentReaderClient.ts
+// gateway/src/services/documentReaderClient.ts
 import { isHarborError } from '@elastic-resume-base/harbor';
 import { createHttpClient } from '../utils/httpClient.js';
 

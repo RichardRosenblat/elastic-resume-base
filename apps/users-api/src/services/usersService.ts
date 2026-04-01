@@ -128,7 +128,7 @@ export function matchesEmailOrDomain(email: string, patterns: string[]): boolean
 }
 
 /**
- * Implements the BFF Authorization Logic.
+ * Implements the Gateway API Authorization Logic.
  *
  * Resolution order:
  * 1. Check users store by uid — if found, return role and enable status.

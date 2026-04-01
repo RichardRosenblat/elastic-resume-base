@@ -1,5 +1,5 @@
 /**
- * @file AuthContext — Aegis client auth state and BFF user-profile context.
+ * @file AuthContext — Aegis client auth state and Gateway user-profile context.
  *
  * Wraps the entire application so that any component can call
  * {@link useAuth} to read the current user and trigger auth actions.
@@ -7,7 +7,7 @@
  * Auth flow:
  * 1. Aegis `onAuthStateChanged` fires whenever the session changes.
  * 2. On sign-in, the ID token is exchanged for a full user profile via
- *    `GET /api/v1/users/me` on the BFF Gateway. `loading` is set to `true`
+ *    `GET /api/v1/users/me` on the Gateway API. `loading` is set to `true`
  *    for the duration of this fetch so that LoginPage shows a spinner and
  *    does not redirect or flash the form prematurely.
  * 3. If the profile fetch returns 403 FORBIDDEN with "pending approval", the
@@ -33,7 +33,7 @@ import { ensureApiRequestError, isRateLimitError, toUserFacingErrorMessage } fro
 
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await axios.get<SuccessResponse<UserProfile>>(
-    `${config.bffUrl}/api/v1/users/me`,
+    `${config.gatewayApiUrl}/api/v1/users/me`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data.data;
@@ -44,7 +44,7 @@ interface AuthProviderProps {
 }
 
 /**
- * Provides Aegis client auth state and BFF user-profile data to the component
+ * Provides Aegis client auth state and Gateway API user-profile data to the component
  * tree. Place this near the root of the application (inside `ThemeProvider`
  * and `BrowserRouter` so that hooks and routing work correctly).
  */
