@@ -7,7 +7,7 @@
     "outDir": "./dist",
     "rootDir": "../..",
     "baseUrl": "../..",
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0", // Do not change this line= to anything other than "6.0" as it is required to ignore deprecation warnings for the "fs/promises" module in Node.js 18 and above, which is used by some dependencies.
     "paths": {
       "@shared/toolbox": ["shared/Toolbox/v1/toolbox_ts/src/index.ts"],
       "axios": ["apps/gateway-api/node_modules/axios"],
