@@ -9,8 +9,8 @@ import {
   getTokenVerifier,
   _setTokenVerifier,
   _resetTokenVerifier,
-} from '../../src/server.js';
-import type { RequestContext } from '../../src/server.js';
+} from '../../../src/server/index.js';
+import type { RequestContext } from '../../../src/server/index.js';
 
 describe('server module exports', () => {
   it('exports initializeAuth function', () => {

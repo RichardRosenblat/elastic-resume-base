@@ -34,7 +34,7 @@ jest.mock('firebase/auth', () => ({
 // ── Imports (after mock declarations) ──
 
 import { getApps, initializeApp } from 'firebase/app';
-import { FirebaseClientAuth } from '../../src/firebase-client-auth.js';
+import { FirebaseClientAuth } from '../../../src/client/firebase-client-auth.js';
 
 // ── Helpers ──
 

@@ -21,7 +21,7 @@ jest.mock('firebase-admin', () => ({
 // ── Imports (after mock declarations) ──
 
 import admin from 'firebase-admin';
-import { FirebaseTokenVerifier } from '../../src/firebase-token-verifier.js';
+import { FirebaseTokenVerifier } from '../../../src/server/firebase-token-verifier.js';
 
 // ── Helpers ──
 

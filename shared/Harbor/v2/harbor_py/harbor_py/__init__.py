@@ -27,20 +27,20 @@ Quick start (IAM-authenticated client — new in v2)::
         response = await c.get("/api/v1/users")
 """
 
-# ─── v1 re-exports (unchanged) ────────────────────────────────────────────────
+# ─── Client exports ────────────────────────────────────────────────────────────
 from harbor_py.client import HarborClient, HarborClientOptions, create_harbor_client
-from harbor_py.errors import is_harbor_error
+from harbor_py.client import is_harbor_error
 
-# ─── v2 additions — IAM-authenticated client ──────────────────────────────────
-from harbor_py.iam import IamHarborClient, IamHarborClientOptions, create_iam_harbor_client
+# ─── Server exports — IAM-authenticated client ────────────────────────────────
+from harbor_py.server.iam import IamHarborClient, IamHarborClientOptions, create_iam_harbor_client
 
 __all__ = [
-    # v1 exports
+    # client exports
     "HarborClient",
     "HarborClientOptions",
     "create_harbor_client",
     "is_harbor_error",
-    # v2 additions
+    # server exports
     "IamHarborClient",
     "IamHarborClientOptions",
     "create_iam_harbor_client",

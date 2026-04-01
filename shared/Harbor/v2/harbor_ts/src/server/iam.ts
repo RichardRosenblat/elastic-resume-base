@@ -9,8 +9,8 @@
 
 import { GoogleAuth } from 'google-auth-library';
 import type { InternalAxiosRequestConfig } from 'axios';
-import { createHarborClient } from './shared.js';
-import type { HarborClient, HarborClientOptions } from './shared.js';
+import { createHarborClient } from '../client/index.js';
+import type { HarborClient, HarborClientOptions } from '../client/index.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

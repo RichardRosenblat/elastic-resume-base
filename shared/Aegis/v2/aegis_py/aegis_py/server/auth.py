@@ -13,8 +13,8 @@ from typing import Any
 import firebase_admin
 from firebase_admin import credentials
 
-from aegis_py.firebase_token_verifier import FirebaseTokenVerifier
-from aegis_py.interfaces.token_verifier import ITokenVerifier
+from aegis_py.server.firebase_token_verifier import FirebaseTokenVerifier
+from aegis_py.server.interfaces.token_verifier import ITokenVerifier
 
 
 @dataclass

@@ -27,7 +27,7 @@ Quick start::
     )
 """
 
-from aegis_py.auth import (
+from aegis_py.server.auth import (
     AuthOptions,
     initialize_auth,
     terminate_auth,
@@ -35,9 +35,9 @@ from aegis_py.auth import (
     _set_token_verifier,
     _reset_token_verifier,
 )
-from aegis_py.firebase_token_verifier import FirebaseTokenVerifier, DecodedFirebaseToken
+from aegis_py.server.firebase_token_verifier import FirebaseTokenVerifier, DecodedFirebaseToken
 from aegis_py.models import RequestContext
-from aegis_py.interfaces.token_verifier import ITokenVerifier
+from aegis_py.server.interfaces.token_verifier import ITokenVerifier
 
 __all__ = [
     "AuthOptions",

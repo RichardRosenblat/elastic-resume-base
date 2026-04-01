@@ -6,7 +6,7 @@
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-jest.mock('../../src/firebase-token-verifier', () => ({
+jest.mock('../../../src/server/firebase-token-verifier', () => ({
   FirebaseTokenVerifier: jest.fn().mockImplementation(() => ({
     verifyToken: jest.fn().mockResolvedValue({ uid: 'mock-uid' }),
   })),
@@ -14,14 +14,14 @@ jest.mock('../../src/firebase-token-verifier', () => ({
 
 // ── Imports ────────────────────────────────────────────────────────────────
 
-import { FirebaseTokenVerifier } from '../../src/firebase-token-verifier.js';
+import { FirebaseTokenVerifier } from '../../../src/server/firebase-token-verifier.js';
 import {
   initializeAuth,
   terminateAuth,
   getTokenVerifier,
   _setTokenVerifier,
   _resetTokenVerifier,
-} from '../../src/auth.js';
+} from '../../../src/server/auth.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

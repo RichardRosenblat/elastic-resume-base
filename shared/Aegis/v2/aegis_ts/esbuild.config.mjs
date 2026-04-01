@@ -2,8 +2,8 @@ import { build } from 'esbuild';
 
 // Server-side bundle (firebase-admin, Node.js)
 await build({
-  entryPoints: ['src/server.ts'],
-  outfile: 'dist/server.js',
+  entryPoints: ['src/server/index.ts'],
+  outfile: 'dist/server/index.js',
   bundle: true,
   platform: 'node',
   target: 'node20',
@@ -14,8 +14,8 @@ await build({
 
 // Client-side bundle (firebase browser SDK)
 await build({
-  entryPoints: ['src/client.ts'],
-  outfile: 'dist/client.js',
+  entryPoints: ['src/client/index.ts'],
+  outfile: 'dist/client/index.js',
   bundle: true,
   platform: 'browser',
   target: 'es2022',

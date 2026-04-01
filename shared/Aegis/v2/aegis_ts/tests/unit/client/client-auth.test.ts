@@ -7,7 +7,7 @@
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-jest.mock('../../src/firebase-client-auth', () => ({
+jest.mock('../../../src/client/firebase-client-auth', () => ({
   FirebaseClientAuth: jest.fn().mockImplementation(() => ({
     onAuthStateChanged: jest.fn().mockReturnValue(() => {}),
     signInWithEmailAndPassword: jest.fn().mockResolvedValue(undefined),
@@ -19,14 +19,14 @@ jest.mock('../../src/firebase-client-auth', () => ({
 
 // ── Imports ────────────────────────────────────────────────────────────────
 
-import { FirebaseClientAuth } from '../../src/firebase-client-auth.js';
+import { FirebaseClientAuth } from '../../../src/client/firebase-client-auth.js';
 import {
   initializeClientAuth,
   terminateClientAuth,
   getClientAuth,
   _setClientAuth,
   _resetClientAuth,
-} from '../../src/client-auth.js';
+} from '../../../src/client/client-auth.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -9,7 +9,7 @@ import {
   getClientAuth,
   _setClientAuth,
   _resetClientAuth,
-} from '../../src/client.js';
+} from '../../../src/client/index.js';
 
 describe('client module re-exports from v1', () => {
   it('exports initializeClientAuth function', () => {

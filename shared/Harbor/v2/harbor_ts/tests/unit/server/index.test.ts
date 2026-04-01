@@ -26,7 +26,7 @@ import {
   createHarborClient,
   createIamHarborClient,
   isHarborError,
-} from '../../src/server.js';
+} from '../../../src/server/index.js';
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 

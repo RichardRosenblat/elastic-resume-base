@@ -45,10 +45,10 @@ export type {
   AxiosRequestConfig,
   AxiosResponse,
   HarborError,
-} from './shared.js';
+} from '../client/index.js';
 
-export type { HarborClientOptions, HarborClient } from './shared.js';
-export { createHarborClient, isHarborError } from './shared.js';
+export type { HarborClientOptions, HarborClient } from '../client/index.js';
+export { createHarborClient, isHarborError } from '../client/index.js';
 
 // ─── Server-only: IAM-authenticated factory ───────────────────────────────────
 export type { IamHarborClientOptions } from './iam.js';

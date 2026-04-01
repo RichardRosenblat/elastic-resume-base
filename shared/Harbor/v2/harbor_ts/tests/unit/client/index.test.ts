@@ -6,7 +6,7 @@
  */
 
 import axios, { type AxiosError, type AxiosResponse } from 'axios';
-import { createHarborClient, isHarborError } from '../../src/client.js';
+import { createHarborClient, isHarborError } from '../../../src/client/index.js';
 
 describe('client module — createHarborClient', () => {
   it('returns an object with standard HTTP method functions', () => {
@@ -84,12 +84,12 @@ describe('client module — isHarborError', () => {
 
 describe('client module — no server-only exports', () => {
   it('does not export createIamHarborClient from the client module', async () => {
-    const clientModule = await import('../../src/client.js');
+    const clientModule = await import('../../../src/client/index.js');
     expect('createIamHarborClient' in clientModule).toBe(false);
   });
 
   it('does not export IamHarborClientOptions from the client module', async () => {
-    const clientModule = await import('../../src/client.js');
+    const clientModule = await import('../../../src/client/index.js');
     expect('IamHarborClientOptions' in clientModule).toBe(false);
   });
 });

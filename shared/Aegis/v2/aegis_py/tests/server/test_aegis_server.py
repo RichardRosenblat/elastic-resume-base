@@ -18,7 +18,7 @@ from aegis_py import (
     _reset_token_verifier,
     _set_token_verifier,
 )
-from aegis_py.interfaces.token_verifier import ITokenVerifier
+from aegis_py.server.interfaces.token_verifier import ITokenVerifier
 
 
 # ---------------------------------------------------------------------------
