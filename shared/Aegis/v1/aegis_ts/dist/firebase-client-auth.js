@@ -52,6 +52,15 @@ class FirebaseAuthUser {
  */
 export class FirebaseClientAuth {
     auth;
+    /**
+     * Creates a new {@link FirebaseClientAuth} instance.
+     *
+     * If a Firebase app has already been initialised it is reused; otherwise a
+     * new app is created from the provided `options`.  When `authEmulatorHost`
+     * is supplied, the Firebase Auth emulator is connected automatically.
+     *
+     * @param options - Firebase project and auth configuration.
+     */
     constructor(options) {
         const app = getApps().length > 0 ? getApp() : initializeApp(options);
         this.auth = getAuth(app);
