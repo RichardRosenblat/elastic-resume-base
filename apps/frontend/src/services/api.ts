@@ -13,7 +13,7 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { auth } from '../firebase';
 import { config } from '../config';
-import { ensureApiRequestError } from './api-error';
+import { ensureApiRequestError, ApiRequestError, DUPLICATE_REQUEST_BLOCKED_CODE } from './api-error';
 import type {
   UserRecord,
   PreApprovedUser,
@@ -119,7 +119,7 @@ apiClient.interceptors.request.use(async (reqConfig) => {
 
   const blockReason = getRequestBlockReason(reqConfig);
   if (blockReason) {
-    return Promise.reject(ensureApiRequestError(new Error(blockReason), blockReason));
+    return Promise.reject(new ApiRequestError(blockReason, { code: DUPLICATE_REQUEST_BLOCKED_CODE }));
   }
 
   return reqConfig;

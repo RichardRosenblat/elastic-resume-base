@@ -83,22 +83,50 @@ export function ensureApiRequestError(error: unknown, fallbackMessage = 'Request
 }
 
 /**
- * Returns true when the given error represents an HTTP 429 rate-limit response.
+ * Error code set on client-side duplicate-request errors so they can be
+ * identified and silently suppressed by {@link isRateLimitError} without
+ * showing a toast to the user.
+ */
+export const DUPLICATE_REQUEST_BLOCKED_CODE = 'DUPLICATE_REQUEST_BLOCKED';
+
+/**
+ * Returns true when the given error represents an HTTP 429 rate-limit response
+ * or a client-side duplicate-request block.
  * Works for both Gateway API-level rate limits and downstream rate-limit propagation.
  */
 export function isRateLimitError(error: unknown): boolean {
   const normalized = ensureApiRequestError(error, '');
-  return normalized.status === 429 || normalized.code === 'RATE_LIMIT_EXCEEDED';
+  return (
+    normalized.status === 429
+    || normalized.code === 'RATE_LIMIT_EXCEEDED'
+    || normalized.code === DUPLICATE_REQUEST_BLOCKED_CODE
+  );
 }
 
-export function toUserFacingErrorMessage(error: unknown, fallbackMessage: string): string {
+export function toUserFacingErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+  t?: (key: string) => string,
+): string {
   const normalized = ensureApiRequestError(error, fallbackMessage);
 
-  if (normalized.correlationId) {
-    return `${normalized.message} (ref: ${normalized.correlationId})`;
+  let message = normalized.message || fallbackMessage;
+
+  if (t && normalized.code) {
+    const translationKey = `errors.${normalized.code}`;
+    const translated = t(translationKey);
+    // i18next returns the key itself when no translation is found; only
+    // replace the message when an actual translation exists.
+    if (translated !== translationKey) {
+      message = translated;
+    }
   }
 
-  return normalized.message;
+  if (normalized.correlationId) {
+    return `${message} (ref: ${normalized.correlationId})`;
+  }
+
+  return message;
 }
 
 export async function throwOnFailedResponse(response: Response, fallbackMessage: string): Promise<void> {
