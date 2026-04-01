@@ -91,14 +91,30 @@ export function isRateLimitError(error: unknown): boolean {
   return normalized.status === 429 || normalized.code === 'RATE_LIMIT_EXCEEDED';
 }
 
-export function toUserFacingErrorMessage(error: unknown, fallbackMessage: string): string {
+export function toUserFacingErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+  t?: (key: string) => string,
+): string {
   const normalized = ensureApiRequestError(error, fallbackMessage);
 
-  if (normalized.correlationId) {
-    return `${normalized.message} (ref: ${normalized.correlationId})`;
+  let message = normalized.message || fallbackMessage;
+
+  if (t && normalized.code) {
+    const translationKey = `errors.${normalized.code}`;
+    const translated = t(translationKey);
+    // i18next returns the key itself when no translation is found; only
+    // replace the message when an actual translation exists.
+    if (translated !== translationKey) {
+      message = translated;
+    }
   }
 
-  return normalized.message;
+  if (normalized.correlationId) {
+    return `${message} (ref: ${normalized.correlationId})`;
+  }
+
+  return message;
 }
 
 export async function throwOnFailedResponse(response: Response, fallbackMessage: string): Promise<void> {
