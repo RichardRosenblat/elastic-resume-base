@@ -22,6 +22,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import type { IAuthUser } from '@elastic-resume-base/aegis/client';
 import { auth } from '../firebase';
 import type { UserProfile, SuccessResponse } from '../types';
@@ -50,6 +51,7 @@ interface AuthProviderProps {
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<IAuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // login page rather than being redirected to the dashboard.
             await auth.signOut();
             setUserProfile(null);
-            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile'), { severity: 'error' });
+            showToast(toUserFacingErrorMessage(normalizedError, 'Failed to fetch profile', t), { severity: 'error' });
           }
         }
       } else {
@@ -105,7 +107,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
     });
     return unsubscribe;
-  }, [showToast]);
+  }, [showToast, t]);
 
   const login = async (email: string, password: string): Promise<void> => {
     await auth.signInWithEmailAndPassword(email, password);

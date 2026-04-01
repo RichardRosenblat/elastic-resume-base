@@ -142,7 +142,7 @@ export default function DocumentsPage() {
       setDownloadReady(true);
       showToast(t('documents.downloadReady'), { severity: 'success' });
     } catch (error) {
-      const errorMessage = toUserFacingErrorMessage(error, t('common.error'));
+      const errorMessage = toUserFacingErrorMessage(error, t('common.error'), t);
       showToast(errorMessage, { severity: 'error' });
     } finally {
       setLoading(false);

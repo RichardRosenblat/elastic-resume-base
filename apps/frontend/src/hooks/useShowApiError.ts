@@ -27,7 +27,7 @@ export function useShowApiError(): (error: unknown, fallbackMessage?: string) =>
       // Rate-limit errors are displayed by the global RateLimitNotifier;
       // skip showing a duplicate toast here.
       if (isRateLimitError(error)) return;
-      const message = toUserFacingErrorMessage(error, fallbackMessage ?? t('common.error'));
+      const message = toUserFacingErrorMessage(error, fallbackMessage ?? t('common.error'), t);
       showToast(message, { severity: 'error' });
     },
     [showToast, t],

@@ -389,6 +389,45 @@ To add a new locale:
 2. Register it in `src/i18n/index.ts`.
 3. Add a `<MenuItem>` for it in the `LANGUAGES` array in `src/components/Layout/Topbar.tsx`.
 
+### Gateway API Error Translations
+
+Gateway API errors are translated into the user's language using the `errors` section of each locale file. Every error code returned in the Bowltie `error.code` field is mapped to a human-readable string.
+
+**Current error code → locale key mappings** (`errors.<CODE>`):
+
+| Error code | HTTP status | Locale key |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `errors.VALIDATION_ERROR` |
+| `UNAUTHORIZED` | 401 | `errors.UNAUTHORIZED` |
+| `FORBIDDEN` | 403 | `errors.FORBIDDEN` |
+| `NOT_FOUND` | 404 | `errors.NOT_FOUND` |
+| `CONFLICT` | 409 | `errors.CONFLICT` |
+| `RATE_LIMIT_EXCEEDED` | 429 | `errors.RATE_LIMIT_EXCEEDED` |
+| `DOWNSTREAM_ERROR` | 502 | `errors.DOWNSTREAM_ERROR` |
+| `SERVICE_UNAVAILABLE` | 503 | `errors.SERVICE_UNAVAILABLE` |
+| `INTERNAL_ERROR` | 500 | `errors.INTERNAL_ERROR` |
+| *(unknown code)* | — | *(falls back to raw API message)* |
+
+**How it works:**
+
+The `toUserFacingErrorMessage(error, fallback, t)` function in `src/services/api-error.ts` accepts an optional i18next `t` function as its third argument. When provided:
+
+1. It checks whether a translation exists for `errors.<code>` in the current locale.
+2. If a translation is found, that localised message is shown to the user.
+3. If no translation is found (i.e. i18next returns the key itself), it falls back to the raw API message.
+4. If a `correlationId` is present in the error response, it is appended as `(ref: <id>)` for support purposes.
+
+**Adding a new error code:**
+
+1. Add a new key to the `errors` object in **all three locale files** (`en.json`, `es.json`, `pt-BR.json`):
+   ```json
+   "errors": {
+     "MY_NEW_CODE": "A clear, user-friendly description of this error."
+   }
+   ```
+2. Verify that the gateway-api `errorHandler.ts` returns this code in the `error.code` field of the Bowltie envelope.
+3. Add a corresponding test case in `src/services/api-error.test.ts`.
+
 ---
 
 ## Authentication Flow

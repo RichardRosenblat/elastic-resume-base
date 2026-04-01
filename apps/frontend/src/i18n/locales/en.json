@@ -168,6 +168,18 @@
 		"rateLimitExceeded": "Too many requests. Please wait a moment and try again.",
 		"or": "or"
 	},
+	"errors": {
+		"VALIDATION_ERROR": "The provided data is invalid. Please check your input and try again.",
+		"UNAUTHORIZED": "Authentication is required. Please sign in and try again.",
+		"FORBIDDEN": "You do not have permission to perform this action.",
+		"NOT_FOUND": "The requested resource was not found.",
+		"CONFLICT": "A conflict occurred. The resource may already exist.",
+		"RATE_LIMIT_EXCEEDED": "Too many requests. Please wait a moment and try again.",
+		"DOWNSTREAM_ERROR": "A downstream service returned an unexpected response. Please try again later.",
+		"SERVICE_UNAVAILABLE": "The service is currently unavailable. Please try again later.",
+		"INTERNAL_ERROR": "An unexpected error occurred. Please try again later.",
+		"unknown": "An error occurred. Please try again."
+	},
 	"theme": {
 		"switchToLight": "Switch to light mode",
 		"switchToDark": "Switch to dark mode"
