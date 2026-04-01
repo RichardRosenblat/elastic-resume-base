@@ -11,9 +11,9 @@
 jest.mock('google-auth-library', () => ({
   GoogleAuth: jest.fn().mockImplementation(() => ({
     getIdTokenClient: jest.fn().mockResolvedValue({
-      getRequestHeaders: jest.fn().mockResolvedValue({
-        get: jest.fn().mockReturnValue('Bearer mock-oidc-token'),
-      }),
+      idTokenProvider: {
+        fetchIdToken: jest.fn().mockResolvedValue('mock-oidc-token'),
+      },
     }),
   })),
 }));

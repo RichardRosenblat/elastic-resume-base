@@ -70,11 +70,8 @@ export function createIamHarborClient(options: IamHarborClientOptions): HarborCl
   client.interceptors.request.use(async (axiosConfig: InternalAxiosRequestConfig) => {
     try {
       const idTokenClient = await auth.getIdTokenClient(options.audience);
-      const headers = await idTokenClient.getRequestHeaders();
-      const token = headers.get('Authorization');
-      if (token) {
-        axiosConfig.headers['Authorization'] = token;
-      }
+      const token = await idTokenClient.idTokenProvider.fetchIdToken(options.audience);
+      axiosConfig.headers['Authorization'] = `Bearer ${token}`;
     } catch {
       // If IAM token acquisition fails, let the request proceed without the
       // token — the downstream service will return 401/403, which surfaces

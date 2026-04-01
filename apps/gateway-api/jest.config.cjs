@@ -27,7 +27,7 @@ module.exports = {
     '^@elastic-resume-base/harbor$': '<rootDir>/../../shared/Harbor/v2/harbor_ts/src/server/index.ts',
     '^@elastic-resume-base/harbor-v1$': '<rootDir>/../../shared/Harbor/v1/harbor_ts/src/index.ts',
     '^axios$': '<rootDir>/node_modules/axios/dist/node/axios.cjs',
-    '^google-auth-library(.*)$': '<rootDir>/../../shared/Harbor/v2/harbor_ts/node_modules/google-auth-library$1',
+    '^google-auth-library(.*)$': '<rootDir>/node_modules/google-auth-library$1',
     '^@shared/toolbox$': '<rootDir>/../../shared/Toolbox/v1/toolbox_ts/src/index.ts',
   },
 };
