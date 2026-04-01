@@ -182,7 +182,8 @@
 		"INTERNAL_ERROR": "Ocurrió un error inesperado. Por favor, inténtalo más tarde.",
 		"unknown": "Ocurrió un error. Por favor, inténtalo de nuevo.",
 		"serverSupportContact": "Por favor, contacta al soporte técnico y proporciona el código de referencia: {{ref}}",
-		"referenceCode": "Referencia: {{ref}}"
+		"referenceCode": "Referencia: {{ref}}",
+		"contactSupport": "Por favor, contacta al soporte técnico para obtener asistencia."
 	},
 	"theme": {
 		"switchToLight": "Cambiar a modo claro",

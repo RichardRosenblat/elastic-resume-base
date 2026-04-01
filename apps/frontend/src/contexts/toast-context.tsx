@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Box, Collapse, Snackbar } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { ExpandLess as ExpandLessIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -52,7 +53,11 @@ interface ToastItemViewProps {
  */
 function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [detailExpanded, setDetailExpanded] = useState(false);
+  // Auto-expand when the detail text is short enough to read at a glance;
+  // keep collapsed so the user can opt-in when there is more text.
+  const [detailExpanded, setDetailExpanded] = useState(
+    () => typeof toast.detail === 'string' && toast.detail.length < 50,
+  );
   const { t } = useTranslation();
 
   // Keep onClose in a ref so the timer callback always calls the latest version
@@ -155,7 +160,7 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
               mt: 1,
               borderRadius: 1,
               overflow: 'hidden',
-              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              backgroundColor: (theme) => alpha(theme.palette.common.black, 0.2),
             }}
           >
             <Box
@@ -192,7 +197,7 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
                   fontSize: '0.875rem',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderTop: (theme) => `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
                 }}
               >
                 {toast.detail}

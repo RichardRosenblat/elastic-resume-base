@@ -182,7 +182,8 @@
 		"INTERNAL_ERROR": "An unexpected error occurred. Please try again later.",
 		"unknown": "An error occurred. Please try again.",
 		"serverSupportContact": "Please contact support and provide reference code: {{ref}}",
-		"referenceCode": "Reference: {{ref}}"
+		"referenceCode": "Reference: {{ref}}",
+		"contactSupport": "Please contact support for assistance."
 	},
 	"theme": {
 		"switchToLight": "Switch to light mode",

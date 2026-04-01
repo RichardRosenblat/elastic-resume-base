@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { ensureApiRequestError, isRateLimitError } from '../services/api-error';
 import { useToast } from '../contexts/use-toast';
 
-/** Error codes that indicate a server-side failure requiring support contact. */
-const SERVER_ERROR_CODES = new Set(['INTERNAL_ERROR', 'DOWNSTREAM_ERROR', 'SERVICE_UNAVAILABLE']);
+/** Error code for user-input (misinput) validation failures. */
+const MISINPUT_ERROR_CODE = 'VALIDATION_ERROR';
 
 /**
  * Returns a stable `showApiError` function that shows an error toast for the
@@ -12,16 +12,17 @@ const SERVER_ERROR_CODES = new Set(['INTERNAL_ERROR', 'DOWNSTREAM_ERROR', 'SERVI
  * they are already handled globally by {@link useRateLimitNotifier}.
  *
  * For each error:
- * - The error is logged to the browser console to aid developer debugging.
+ * - The error is logged to the browser console to aid developer debugging,
+ *   including the correlationId for tracing in server logs.
  * - The toast summary is a localized translation of the error code (when
  *   available), falling back to the raw API message and then to the
  *   `fallbackMessage`.
  * - When the error contains additional details (a raw server message that
  *   differs from the translated summary, or a correlationId), a collapsible
  *   "Show details" section is attached to the toast.
- * - For server-side errors (5xx / INTERNAL_ERROR / DOWNSTREAM_ERROR /
- *   SERVICE_UNAVAILABLE), the detail section instructs the user to contact
- *   support and includes the correlationId as a reference code.
+ * - For all errors except user-input (VALIDATION_ERROR) errors, the detail
+ *   section always instructs the user to contact support.  When a correlationId
+ *   is available it is included as a reference code for the support team.
  *
  * @example
  * ```typescript
@@ -46,7 +47,8 @@ export function useShowApiError(): (error: unknown, fallbackMessage?: string) =>
       const fallback = fallbackMessage ?? t('common.error');
       const normalized = ensureApiRequestError(error, fallback);
 
-      // Always log the full error details for developer debugging.
+      // Always log the full error details for developer debugging, including
+      // the correlationId so it can be matched against server-side logs.
       console.error('[ApiRequestError]', {
         code: normalized.code,
         status: normalized.status,
@@ -77,17 +79,20 @@ export function useShowApiError(): (error: unknown, fallbackMessage?: string) =>
         detailParts.push(normalized.message);
       }
 
-      // For server-side errors instruct the user to contact support and include
-      // the correlationId so that support teams can trace the request.
-      const isServerError =
-        (normalized.status !== undefined && normalized.status >= 500) ||
-        SERVER_ERROR_CODES.has(normalized.code ?? '');
+      // For all errors except user-input (misinput) validation errors, always
+      // instruct the user to contact support.  When a correlationId is present,
+      // include it so the support team can trace the request in server logs.
+      const isMisinputError = normalized.code === MISINPUT_ERROR_CODE;
 
-      if (normalized.correlationId) {
-        const refText = isServerError
-          ? t('errors.serverSupportContact', { ref: normalized.correlationId })
-          : t('errors.referenceCode', { ref: normalized.correlationId });
-        detailParts.push(refText);
+      if (!isMisinputError) {
+        if (normalized.correlationId) {
+          detailParts.push(t('errors.serverSupportContact', { ref: normalized.correlationId }));
+        } else {
+          detailParts.push(t('errors.contactSupport'));
+        }
+      } else if (normalized.correlationId) {
+        // Validation errors: only show the reference code, not a full support message.
+        detailParts.push(t('errors.referenceCode', { ref: normalized.correlationId }));
       }
 
       const detail = detailParts.length > 0 ? detailParts.join('\n\n') : undefined;
