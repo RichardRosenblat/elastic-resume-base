@@ -25,12 +25,30 @@ vi.mock('../config', () => ({
   },
 }));
 
-vi.mock('./api-error', () => ({
-  ensureApiRequestError: (e: unknown, msg?: string) => {
-    const err = e instanceof Error ? e : new Error(String(e));
-    return Object.assign(new Error(msg ?? err.message), { status: undefined, code: undefined });
-  },
-}));
+vi.mock('./api-error', () => {
+  class ApiRequestError extends Error {
+    status?: number;
+    code?: string;
+    correlationId?: string;
+    constructor(message: string, options?: { status?: number; code?: string; correlationId?: string }) {
+      super(message);
+      this.name = 'ApiRequestError';
+      this.status = options?.status;
+      this.code = options?.code;
+      this.correlationId = options?.correlationId;
+    }
+  }
+  return {
+    ApiRequestError,
+    DUPLICATE_REQUEST_BLOCKED_CODE: 'DUPLICATE_REQUEST_BLOCKED',
+    ensureApiRequestError: (e: unknown, msg?: string) => {
+      // Pass through existing ApiRequestError instances to preserve their code/status.
+      if (e instanceof ApiRequestError) return e;
+      const err = e instanceof Error ? e : new Error(String(e));
+      return Object.assign(new Error(msg ?? err.message), { status: undefined, code: undefined });
+    },
+  };
+});
 
 // ─── Import after mocks ──────────────────────────────────────────────────────
 
@@ -60,8 +78,6 @@ function captureRequestConfig(url = '/test'): Promise<InternalAxiosRequestConfig
     })
     .then((res) => res.config);
 }
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('apiClient — x-correlation-id header', () => {
   beforeEach(() => {
@@ -97,5 +113,34 @@ describe('apiClient — x-correlation-id header', () => {
     const config = await captureRequestConfig('/api/v1/users/me');
 
     expect(config.headers['x-cloud-trace-context']).toBeUndefined();
+  });
+});
+
+describe('apiClient — duplicate GET request blocking', () => {
+  const ADAPTER = (config: InternalAxiosRequestConfig) =>
+    Promise.resolve({ data: {}, status: 200, statusText: 'OK', headers: {}, config });
+
+  beforeEach(() => {
+    // Advance time so previous test requests fall outside the tracking window.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 15_000);
+    vi.useRealTimers();
+  });
+
+  it('allows the first two identical GET requests within the window', async () => {
+    await expect(apiClient.get('/api/v1/unique-block-test', { adapter: ADAPTER })).resolves.toBeDefined();
+    await expect(apiClient.get('/api/v1/unique-block-test', { adapter: ADAPTER })).resolves.toBeDefined();
+  });
+
+  it('blocks the third identical GET request within the window and sets DUPLICATE_REQUEST_BLOCKED code', async () => {
+    await apiClient.get('/api/v1/block-code-test', { adapter: ADAPTER }).catch(() => {});
+    await apiClient.get('/api/v1/block-code-test', { adapter: ADAPTER }).catch(() => {});
+
+    const error = await apiClient
+      .get('/api/v1/block-code-test', { adapter: ADAPTER })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as { code?: string }).code).toBe('DUPLICATE_REQUEST_BLOCKED');
   });
 });

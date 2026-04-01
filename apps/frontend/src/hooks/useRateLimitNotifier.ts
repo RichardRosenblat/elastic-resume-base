@@ -22,9 +22,10 @@ export function useRateLimitNotifier(): void {
   useEffect(() => {
     const handler = (event: Event) => {
       const apiError = (event as CustomEvent<ApiRequestError>).detail;
+      const localizedMessage = t('common.rateLimitExceeded');
       const message = apiError?.correlationId
-        ? `${apiError.message} (ref: ${apiError.correlationId})`
-        : (apiError?.message ?? t('common.error'));
+        ? `${localizedMessage} (ref: ${apiError.correlationId})`
+        : localizedMessage;
       showToast(message, { severity: 'warning', durationMs: RATE_LIMIT_TOAST_DURATION_MS });
     };
 
