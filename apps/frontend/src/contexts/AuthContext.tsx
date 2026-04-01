@@ -74,6 +74,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUserProfile(profile);
         } catch (error) {
           const normalizedError = ensureApiRequestError(error, 'Failed to fetch profile');
+
+          // Log for developer debugging.
+          console.error('[AuthContext ApiRequestError]', {
+            code: normalizedError.code,
+            status: normalizedError.status,
+            message: normalizedError.message,
+            correlationId: normalizedError.correlationId,
+          });
+
           const isPendingApproval = normalizedError.status === 403
             && normalizedError.code === 'FORBIDDEN'
             && normalizedError.message.toLowerCase().includes('pending approval');

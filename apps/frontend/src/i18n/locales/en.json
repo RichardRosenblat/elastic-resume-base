@@ -166,7 +166,9 @@
 		"featureNotAvailable": "This feature is not yet available",
 		"contactAdministrator": "Please contact your administrator for access",
 		"rateLimitExceeded": "Too many requests. Please wait a moment and try again.",
-		"or": "or"
+		"or": "or",
+		"showDetails": "Show details",
+		"hideDetails": "Hide details"
 	},
 	"errors": {
 		"VALIDATION_ERROR": "The provided data is invalid. Please check your input and try again.",
@@ -178,7 +180,9 @@
 		"DOWNSTREAM_ERROR": "A downstream service returned an unexpected response. Please try again later.",
 		"SERVICE_UNAVAILABLE": "The service is currently unavailable. Please try again later.",
 		"INTERNAL_ERROR": "An unexpected error occurred. Please try again later.",
-		"unknown": "An error occurred. Please try again."
+		"unknown": "An error occurred. Please try again.",
+		"serverSupportContact": "Please contact support and provide reference code: {{ref}}",
+		"referenceCode": "Reference: {{ref}}"
 	},
 	"theme": {
 		"switchToLight": "Switch to light mode",

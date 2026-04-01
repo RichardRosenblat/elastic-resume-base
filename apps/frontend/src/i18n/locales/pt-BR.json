@@ -166,7 +166,9 @@
     "featureNotAvailable": "Esta funcionalidade ainda não está disponível",
     "contactAdministrator": "Entre em contato com seu administrador para obter acesso",
     "rateLimitExceeded": "Muitas requisições. Aguarde um momento e tente novamente.",
-    "or": "ou"
+    "or": "ou",
+    "showDetails": "Mostrar detalhes",
+    "hideDetails": "Ocultar detalhes"
   },
   "errors": {
     "VALIDATION_ERROR": "Os dados fornecidos são inválidos. Por favor, verifique as informações e tente novamente.",
@@ -178,7 +180,9 @@
     "DOWNSTREAM_ERROR": "Um serviço dependente retornou uma resposta inesperada. Por favor, tente novamente mais tarde.",
     "SERVICE_UNAVAILABLE": "O serviço está indisponível no momento. Por favor, tente novamente mais tarde.",
     "INTERNAL_ERROR": "Ocorreu um erro inesperado. Por favor, tente novamente mais tarde.",
-    "unknown": "Ocorreu um erro. Por favor, tente novamente."
+    "unknown": "Ocorreu um erro. Por favor, tente novamente.",
+    "serverSupportContact": "Entre em contato com o suporte técnico e forneça o código de referência: {{ref}}",
+    "referenceCode": "Referência: {{ref}}"
   },
   "theme": {
     "switchToLight": "Alternar para modo claro",

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Snackbar } from '@mui/material';
+import { Alert, Box, Collapse, Snackbar } from '@mui/material';
 import { keyframes } from '@emotion/react';
+import { useTranslation } from 'react-i18next';
 import { ToastContext } from './toast-context-store.ts';
 import type { ToastContextType } from './toast-context-store.ts';
 
@@ -30,6 +31,7 @@ interface ToastItem {
   message: string;
   severity: 'error' | 'warning' | 'info' | 'success';
   durationMs: number;
+  detail?: string;
 }
 
 interface ToastItemViewProps {
@@ -43,9 +45,14 @@ interface ToastItemViewProps {
  *
  * Manages its own countdown timer so that hovering over the toast pauses the
  * timer (and the progress-bar animation) and resumes it when the pointer leaves.
+ * When a `detail` string is provided a collapsible section is shown beneath the
+ * message so the user can inspect technical specifics without the main message
+ * becoming cluttered.
  */
 function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [detailExpanded, setDetailExpanded] = useState(false);
+  const { t } = useTranslation();
 
   // Keep onClose in a ref so the timer callback always calls the latest version
   // without needing to be restarted when the parent re-renders.
@@ -105,6 +112,10 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
     startTimer(remainingMsRef.current);
   }, [startTimer]);
 
+  const handleToggleDetail = useCallback(() => {
+    setDetailExpanded((prev) => !prev);
+  }, []);
+
   return (
     <Snackbar
       open
@@ -137,6 +148,41 @@ function ToastItemView({ toast, index, onClose }: ToastItemViewProps) {
         }}
       >
         {toast.message}
+        {toast.detail && (
+          <Box sx={{ mt: 0.5 }}>
+            <Box
+              component="button"
+              type="button"
+              onClick={handleToggleDetail}
+              sx={{
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                fontSize: '0.75em',
+                opacity: 0.85,
+                p: 0,
+                textDecoration: 'underline',
+                display: 'block',
+              }}
+            >
+              {detailExpanded ? t('common.hideDetails') : t('common.showDetails')}
+            </Box>
+            <Collapse in={detailExpanded}>
+              <Box
+                sx={{
+                  mt: 0.5,
+                  fontSize: '0.8em',
+                  opacity: 0.9,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {toast.detail}
+              </Box>
+            </Collapse>
+          </Box>
+        )}
       </Alert>
     </Snackbar>
   );
@@ -160,6 +206,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
       message,
       severity: options?.severity ?? 'error',
       durationMs,
+      detail: options?.detail,
     }));
   }, []);
 
