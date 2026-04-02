@@ -217,6 +217,11 @@ temp/
 !shared/*/*_ts/
 !shared/*/*_ts/dist/
 !shared/*/*_ts/dist/**
+!shared/*/*_ts/dist/server/
+!shared/*/*_ts/dist/client/
+!shared/*/*_ts/dist/server/**
+!shared/*/*_ts/dist/client/**
+
 
 # -----------------------------------------------------------------------------
 # Python shared library virtualenvs
