@@ -17,6 +17,8 @@ Orchestrates the full resume ingestion pipeline:
 
 from __future__ import annotations
 
+import csv
+import io
 import os
 import re
 from typing import Any
@@ -26,7 +28,7 @@ from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore
 from toolbox_py import get_logger
 
 from app.config import settings
-from app.models.ingest import IngestRequest, IngestResponse, IngestRowError
+from app.models.ingest import FileIngestRequest, IngestRequest, IngestResponse, IngestRowError
 from app.services.text_extractor import SUPPORTED_EXTENSIONS, extract_text
 from app.utils.exceptions import DriveDownloadError, SheetReadError, TextExtractionError
 
@@ -44,6 +46,11 @@ _MIME_TO_EXT: dict[str, str] = {
     "application/vnd.google-apps.document": ".docx",  # exported as DOCX
     "application/msword": ".docx",
 }
+
+#: Accepted MIME types / extensions for uploaded spreadsheet files.
+_EXCEL_EXTENSIONS = frozenset({".xlsx", ".xls", ".xlsm"})
+_CSV_EXTENSIONS = frozenset({".csv"})
+_UPLOAD_EXTENSIONS = _EXCEL_EXTENSIONS | _CSV_EXTENSIONS
 
 
 def _extract_sheet_id(sheet_id: str | None, sheet_url: str | None) -> str:
@@ -93,6 +100,156 @@ def _resolve_extension(mime_type: str, filename: str) -> str:
         return ext
     _, file_ext = os.path.splitext(filename)
     return file_ext.lower()
+
+
+def _read_links_from_excel(
+    file_bytes: bytes,
+    sheet_name: str | None,
+    has_header_row: bool,
+    link_column: str | None,
+    link_column_index: int | None,
+) -> list[tuple[int, str]]:
+    """Parse an Excel workbook and return ``(row_number, url)`` pairs.
+
+    Embedded cell hyperlinks (badge-style links) are preferred over plain cell
+    text when present, enabling Drive links that are hidden behind user-friendly
+    display text to be discovered automatically.
+
+    Args:
+        file_bytes: Raw bytes of the ``.xlsx`` / ``.xls`` / ``.xlsm`` file.
+        sheet_name: Worksheet tab name.  Uses the active sheet when ``None``.
+        has_header_row: Whether the first row contains column headers.
+        link_column: Header label of the column containing Drive links.  Used
+            when ``has_header_row`` is ``True``.
+        link_column_index: 1-based column number.  Used when ``has_header_row``
+            is ``False``.
+
+    Returns:
+        A list of ``(row_number, url)`` tuples for non-empty cells in the
+        target column.  Row numbers are 1-based.
+
+    Raises:
+        ValueError: If the column cannot be located or required args are missing.
+        Exception: If the file cannot be parsed.
+    """
+    import openpyxl  # type: ignore[import-untyped]
+
+    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+    ws = wb[sheet_name] if sheet_name else wb.active
+    if ws is None:
+        raise ValueError("Could not open the specified worksheet.")
+
+    all_rows = list(ws.iter_rows())
+    if not all_rows:
+        return []
+
+    def _cell_url(cell: Any) -> str:
+        """Return the hyperlink target if present, else the cell value as str."""
+        if cell.hyperlink and cell.hyperlink.target:
+            return str(cell.hyperlink.target).strip()
+        return str(cell.value or "").strip()
+
+    if has_header_row:
+        if link_column is None:
+            raise ValueError(
+                "'link_column' is required when 'has_header_row' is True for file uploads."
+            )
+        header_cells = all_rows[0]
+        header_labels = [str(c.value or "").strip().lower() for c in header_cells]
+        target = link_column.strip().lower()
+        if target not in header_labels:
+            raise ValueError(
+                f"Column '{link_column}' not found in the uploaded file. "
+                f"Available columns: {[str(c.value or '') for c in header_cells]}"
+            )
+        col_idx = header_labels.index(target)
+        data_rows = all_rows[1:]
+        start_row = 2
+    else:
+        if link_column_index is None:
+            raise ValueError(
+                "'link_column_index' is required when 'has_header_row' is False."
+            )
+        col_idx = link_column_index - 1
+        data_rows = all_rows
+        start_row = 1
+
+    result: list[tuple[int, str]] = []
+    for row_offset, row in enumerate(data_rows):
+        row_number = start_row + row_offset
+        if col_idx >= len(row):
+            continue
+        value = _cell_url(row[col_idx])
+        if value:
+            result.append((row_number, value))
+
+    return result
+
+
+def _read_links_from_csv(
+    file_bytes: bytes,
+    has_header_row: bool,
+    link_column: str | None,
+    link_column_index: int | None,
+) -> list[tuple[int, str]]:
+    """Parse a CSV file and return ``(row_number, url)`` pairs.
+
+    Args:
+        file_bytes: Raw bytes of the ``.csv`` file.
+        has_header_row: Whether the first row contains column headers.
+        link_column: Header label of the column containing Drive links.  Used
+            when ``has_header_row`` is ``True``.
+        link_column_index: 1-based column number.  Used when ``has_header_row``
+            is ``False``.
+
+    Returns:
+        A list of ``(row_number, url)`` tuples for non-empty cells in the
+        target column.  Row numbers are 1-based.
+
+    Raises:
+        ValueError: If the column cannot be located or required args are missing.
+    """
+    text = file_bytes.decode("utf-8-sig")  # handle BOM if present
+    reader = csv.reader(io.StringIO(text))
+    all_rows = list(reader)
+
+    if not all_rows:
+        return []
+
+    if has_header_row:
+        if link_column is None:
+            raise ValueError(
+                "'link_column' is required when 'has_header_row' is True for file uploads."
+            )
+        header_labels = [cell.strip().lower() for cell in all_rows[0]]
+        target = link_column.strip().lower()
+        if target not in header_labels:
+            raise ValueError(
+                f"Column '{link_column}' not found in the uploaded CSV file. "
+                f"Available columns: {all_rows[0]}"
+            )
+        col_idx = header_labels.index(target)
+        data_rows = all_rows[1:]
+        start_row = 2
+    else:
+        if link_column_index is None:
+            raise ValueError(
+                "'link_column_index' is required when 'has_header_row' is False."
+            )
+        col_idx = link_column_index - 1
+        data_rows = all_rows
+        start_row = 1
+
+    result: list[tuple[int, str]] = []
+    for row_offset, row in enumerate(data_rows):
+        row_number = start_row + row_offset
+        if col_idx >= len(row):
+            continue
+        value = row[col_idx].strip()
+        if value:
+            result.append((row_number, value))
+
+    return result
 
 
 class IngestService:
@@ -195,7 +352,8 @@ class IngestService:
 
         1. Resolve the spreadsheet ID from ``request.sheet_id`` or
            ``request.sheet_url``.
-        2. Read the Drive-link column from the sheet using Bugle.
+        2. Read the Drive-link column from the sheet using Bugle, extracting
+           embedded hyperlinks (badges) in addition to plain text values.
         3. For each row, download the resume from Drive and extract text.
         4. Persist the raw text to Firestore via Synapse.
         5. Publish ``{ resumeId }`` to the configured Pub/Sub topic.
@@ -216,16 +374,32 @@ class IngestService:
 
         logger.info(
             "Starting ingestion",
-            extra={"spreadsheet_id": spreadsheet_id, "link_column": link_column},
+            extra={
+                "spreadsheet_id": spreadsheet_id,
+                "link_column": link_column,
+                "sheet_name": request.sheet_name,
+                "has_header_row": request.has_header_row,
+            },
         )
 
         # 1. Read the Google Sheet to get (row_number, drive_link) pairs.
         try:
             sheets = self._get_sheets_service()
-            row_links: list[tuple[int, str]] = sheets.get_column_values(
-                spreadsheet_id=spreadsheet_id,
-                column_header=link_column,
-            )
+            if request.has_header_row:
+                row_links: list[tuple[int, str]] = sheets.get_column_values(
+                    spreadsheet_id=spreadsheet_id,
+                    column_header=link_column,
+                    sheet_name=request.sheet_name,
+                    extract_hyperlinks=True,
+                )
+            else:
+                row_links = sheets.get_column_values(
+                    spreadsheet_id=spreadsheet_id,
+                    sheet_name=request.sheet_name,
+                    column_index=request.link_column_index,
+                    has_header_row=False,
+                    extract_hyperlinks=True,
+                )
         except Exception as exc:
             logger.error("Failed to read Google Sheet: %s", exc)
             raise SheetReadError(f"Failed to read Google Sheet: {exc}") from exc
@@ -235,6 +409,112 @@ class IngestService:
             extra={"spreadsheet_id": spreadsheet_id, "link_count": len(row_links)},
         )
 
+        return await self._ingest_links(
+            row_links=row_links,
+            source_context={"spreadsheetId": spreadsheet_id},
+            request_metadata=request.metadata,
+        )
+
+    async def ingest_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        request: FileIngestRequest,
+    ) -> IngestResponse:
+        """Execute the resume ingestion pipeline for an uploaded file.
+
+        Supports ``.xlsx``, ``.xls``, ``.xlsm`` (Excel) and ``.csv`` files.
+        Embedded cell hyperlinks in Excel files are extracted automatically,
+        enabling badge-style Drive links to be discovered.
+
+        Steps:
+
+        1. Parse the uploaded file to extract ``(row_number, drive_link)`` pairs.
+        2. For each row, download the resume from Drive and extract text.
+        3. Persist the raw text to Firestore via Synapse.
+        4. Publish ``{ resumeId }`` to the configured Pub/Sub topic.
+        5. Collect per-row errors and publish them to the DLQ.
+
+        Args:
+            file_bytes: Raw bytes of the uploaded file.
+            filename: Original filename (used to detect the file format).
+            request: Validated parameters describing the file structure.
+
+        Returns:
+            :class:`~app.models.ingest.IngestResponse` with the count of
+            successfully ingested resumes and any per-row errors.
+
+        Raises:
+            ValueError: If the file format is unsupported or the column cannot
+                be located.
+        """
+        _, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        logger.info(
+            "Starting file ingestion",
+            extra={
+                "upload_filename": filename,
+                "extension": ext,
+                "sheet_name": request.sheet_name,
+                "has_header_row": request.has_header_row,
+            },
+        )
+
+        if ext in _EXCEL_EXTENSIONS:
+            effective_link_column = request.link_column or (
+                settings.sheets_link_column if request.has_header_row else None
+            )
+            row_links = _read_links_from_excel(
+                file_bytes=file_bytes,
+                sheet_name=request.sheet_name,
+                has_header_row=request.has_header_row,
+                link_column=effective_link_column,
+                link_column_index=request.link_column_index,
+            )
+        elif ext in _CSV_EXTENSIONS:
+            effective_link_column = request.link_column or (
+                settings.sheets_link_column if request.has_header_row else None
+            )
+            row_links = _read_links_from_csv(
+                file_bytes=file_bytes,
+                has_header_row=request.has_header_row,
+                link_column=effective_link_column,
+                link_column_index=request.link_column_index,
+            )
+        else:
+            raise ValueError(
+                f"Unsupported upload format '{ext}'. "
+                f"Accepted extensions: {sorted(_UPLOAD_EXTENSIONS)}"
+            )
+
+        logger.info(
+            "Parsed uploaded file",
+            extra={"upload_filename": filename, "link_count": len(row_links)},
+        )
+
+        return await self._ingest_links(
+            row_links=row_links,
+            source_context={"uploadedFile": filename},
+            request_metadata=request.metadata,
+        )
+
+    async def _ingest_links(
+        self,
+        row_links: list[tuple[int, str]],
+        source_context: dict[str, Any],
+        request_metadata: dict[str, Any],
+    ) -> IngestResponse:
+        """Process a list of ``(row_number, drive_link)`` pairs.
+
+        Args:
+            row_links: Pairs of 1-based row number and Google Drive link.
+            source_context: Provenance data to attach to each Firestore document.
+            request_metadata: Caller-supplied metadata to attach to each document.
+
+        Returns:
+            :class:`~app.models.ingest.IngestResponse` with counts and errors.
+        """
         ingested_count = 0
         row_errors: list[IngestRowError] = []
 
@@ -243,8 +523,8 @@ class IngestService:
                 resume_id = await self._ingest_one(
                     row_number=row_number,
                     drive_link=drive_link,
-                    spreadsheet_id=spreadsheet_id,
-                    request_metadata=request.metadata,
+                    source_context=source_context,
+                    request_metadata=request_metadata,
                 )
                 ingested_count += 1
                 logger.info(
@@ -264,14 +544,14 @@ class IngestService:
                     context={
                         "row": row_number,
                         "driveLink": drive_link,
-                        "spreadsheetId": spreadsheet_id,
+                        **source_context,
                     },
                 )
 
         logger.info(
             "Ingestion complete",
             extra={
-                "spreadsheet_id": spreadsheet_id,
+                **source_context,
                 "ingested": ingested_count,
                 "errors": len(row_errors),
             },
@@ -282,7 +562,7 @@ class IngestService:
         self,
         row_number: int,
         drive_link: str,
-        spreadsheet_id: str,
+        source_context: dict[str, Any],
         request_metadata: dict[str, Any],
     ) -> str:
         """Ingest a single resume from a Google Drive link.
@@ -290,7 +570,7 @@ class IngestService:
         Args:
             row_number: The 1-based row number in the source spreadsheet.
             drive_link: Google Drive file URL or file ID.
-            spreadsheet_id: The source spreadsheet ID (stored as provenance).
+            source_context: Provenance data (e.g. spreadsheetId or uploadedFile).
             request_metadata: Caller-supplied metadata to attach to the document.
 
         Returns:
@@ -337,7 +617,7 @@ class IngestService:
 
         # 4. Persist to Firestore via Synapse.
         source: dict[str, Any] = {
-            "spreadsheetId": spreadsheet_id,
+            **source_context,
             "driveFileId": file_id,
             "driveLink": drive_link,
             "row": row_number,

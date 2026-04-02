@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import io
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.models.ingest import IngestRequest, IngestResponse
-from app.services.ingest_service import IngestService, _extract_sheet_id, _resolve_extension
+from app.models.ingest import FileIngestRequest, IngestRequest, IngestResponse
+from app.services.ingest_service import (
+    IngestService,
+    _extract_sheet_id,
+    _read_links_from_csv,
+    _read_links_from_excel,
+    _resolve_extension,
+)
 from app.utils.exceptions import DriveDownloadError, SheetReadError
 
 
@@ -77,6 +84,157 @@ def test_resolve_extension_unknown_mime_and_filename() -> None:
 
 
 # ---------------------------------------------------------------------------
+# _read_links_from_csv
+# ---------------------------------------------------------------------------
+
+
+def test_read_links_from_csv_with_header() -> None:
+    """CSV with header row: reads links from the named column."""
+    csv_bytes = b"name,resume_link,email\nAlice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view,a@b.c\n"
+    result = _read_links_from_csv(
+        file_bytes=csv_bytes,
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert len(result) == 1
+    row_num, url = result[0]
+    assert row_num == 2
+    assert url.startswith("https://drive.google.com/")
+
+
+def test_read_links_from_csv_without_header() -> None:
+    """CSV without header row: reads links from the specified column index."""
+    csv_bytes = b"Alice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view\nBob,https://drive.google.com/file/d/2CyiNWt1YSB6oGNeL/view\n"
+    result = _read_links_from_csv(
+        file_bytes=csv_bytes,
+        has_header_row=False,
+        link_column=None,
+        link_column_index=2,
+    )
+    assert len(result) == 2
+    assert result[0] == (1, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view")
+    assert result[1] == (2, "https://drive.google.com/file/d/2CyiNWt1YSB6oGNeL/view")
+
+
+def test_read_links_from_csv_missing_column_raises() -> None:
+    """CSV with header: missing column header raises ValueError."""
+    csv_bytes = b"name,email\nAlice,a@b.c\n"
+    with pytest.raises(ValueError, match="resume_link"):
+        _read_links_from_csv(
+            file_bytes=csv_bytes,
+            has_header_row=True,
+            link_column="resume_link",
+            link_column_index=None,
+        )
+
+
+def test_read_links_from_csv_empty_returns_empty() -> None:
+    """Empty CSV returns an empty list."""
+    result = _read_links_from_csv(
+        file_bytes=b"",
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _read_links_from_excel
+# ---------------------------------------------------------------------------
+
+
+def _make_xlsx(rows: list[list[Any]]) -> bytes:
+    """Create a minimal xlsx file with the given rows."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_read_links_from_excel_with_header() -> None:
+    """Excel with header row: reads links from the named column."""
+    xlsx_bytes = _make_xlsx([
+        ["name", "resume_link", "email"],
+        ["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view", "a@b.c"],
+    ])
+    result = _read_links_from_excel(
+        file_bytes=xlsx_bytes,
+        sheet_name=None,
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert len(result) == 1
+    row_num, url = result[0]
+    assert row_num == 2
+    assert url.startswith("https://drive.google.com/")
+
+
+def test_read_links_from_excel_without_header() -> None:
+    """Excel without header row: reads links from the specified column index."""
+    xlsx_bytes = _make_xlsx([
+        ["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view"],
+        ["Bob", "https://drive.google.com/file/d/2CyiNWt1YSB6oGNeL/view"],
+    ])
+    result = _read_links_from_excel(
+        file_bytes=xlsx_bytes,
+        sheet_name=None,
+        has_header_row=False,
+        link_column=None,
+        link_column_index=2,
+    )
+    assert len(result) == 2
+    assert result[0] == (1, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view")
+
+
+def test_read_links_from_excel_hyperlink_preferred() -> None:
+    """Excel with embedded hyperlink: hyperlink URL is returned instead of cell text."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["name", "resume_link"])
+    ws.append(["Alice", "View Resume"])
+    # Set hyperlink on the cell in the resume_link column
+    cell = ws.cell(row=2, column=2)
+    cell.hyperlink = "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view"
+    buf = io.BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    result = _read_links_from_excel(
+        file_bytes=xlsx_bytes,
+        sheet_name=None,
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert len(result) == 1
+    _, url = result[0]
+    assert url == "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view"
+
+
+def test_read_links_from_excel_missing_column_raises() -> None:
+    """Excel with header: missing column header raises ValueError."""
+    xlsx_bytes = _make_xlsx([["name", "email"], ["Alice", "a@b.c"]])
+    with pytest.raises(ValueError, match="resume_link"):
+        _read_links_from_excel(
+            file_bytes=xlsx_bytes,
+            sheet_name=None,
+            has_header_row=True,
+            link_column="resume_link",
+            link_column_index=None,
+        )
+
+
+# ---------------------------------------------------------------------------
 # IngestService.ingest
 # ---------------------------------------------------------------------------
 
@@ -113,8 +271,6 @@ def _make_mock_resume_store(resume_id: str = "resume-doc-abc123") -> MagicMock:
 @pytest.mark.asyncio
 async def test_ingest_success_single_resume() -> None:
     """A single valid row is ingested successfully."""
-    import io
-
     import docx  # type: ignore[import-untyped]
 
     buf = io.BytesIO()
@@ -222,8 +378,6 @@ async def test_ingest_invalid_drive_link_recorded_as_row_error() -> None:
 @pytest.mark.asyncio
 async def test_ingest_partial_success() -> None:
     """Multiple rows: some succeed, some fail."""
-    import io
-
     import docx  # type: ignore[import-untyped]
 
     buf = io.BytesIO()
@@ -280,6 +434,62 @@ async def test_ingest_uses_request_link_column() -> None:
     mock_sheets.get_column_values.assert_called_once_with(
         spreadsheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
         column_header="cv_url",
+        sheet_name=None,
+        extract_hyperlinks=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_passes_sheet_name() -> None:
+    """sheet_name is forwarded to get_column_values."""
+    mock_sheets = _make_mock_sheets([])
+
+    service = IngestService(
+        resume_store=_make_mock_resume_store(),
+        publisher=_make_mock_publisher(),
+        sheets_service=mock_sheets,
+        drive_service=_make_mock_drive(),
+    )
+
+    request = IngestRequest(
+        sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        sheet_name="Candidates",
+    )
+    await service.ingest(request)
+
+    mock_sheets.get_column_values.assert_called_once_with(
+        spreadsheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        column_header=mock_sheets.get_column_values.call_args.kwargs["column_header"],
+        sheet_name="Candidates",
+        extract_hyperlinks=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_no_header_row_uses_column_index() -> None:
+    """When has_header_row=False, get_column_values is called with column_index."""
+    mock_sheets = _make_mock_sheets([])
+
+    service = IngestService(
+        resume_store=_make_mock_resume_store(),
+        publisher=_make_mock_publisher(),
+        sheets_service=mock_sheets,
+        drive_service=_make_mock_drive(),
+    )
+
+    request = IngestRequest(
+        sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        has_header_row=False,
+        link_column_index=3,
+    )
+    await service.ingest(request)
+
+    mock_sheets.get_column_values.assert_called_once_with(
+        spreadsheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        sheet_name=None,
+        column_index=3,
+        has_header_row=False,
+        extract_hyperlinks=True,
     )
 
 
@@ -299,4 +509,142 @@ async def test_ingest_empty_sheet_returns_zero() -> None:
     result = await service.ingest(request)
 
     assert result.ingested == 0
+    assert result.errors == []
+
+
+# ---------------------------------------------------------------------------
+# IngestService.ingest_file
+# ---------------------------------------------------------------------------
+
+
+def _make_docx_bytes() -> bytes:
+    """Return minimal valid DOCX bytes with some text."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_excel_success() -> None:
+    """ingest_file processes an uploaded Excel file and ingests all rows."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["name", "resume_link"])
+    ws.append(["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    docx_bytes = _make_docx_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("resume-file-abc")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    file_request = FileIngestRequest(link_column="resume_link")
+    result = await service.ingest_file(
+        file_bytes=xlsx_bytes,
+        filename="candidates.xlsx",
+        request=file_request,
+    )
+
+    assert result.ingested == 1
+    assert result.errors == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_csv_success() -> None:
+    """ingest_file processes an uploaded CSV file and ingests all rows."""
+    csv_bytes = b"name,resume_link\nAlice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view\n"
+
+    docx_bytes = _make_docx_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("resume-csv-abc")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    file_request = FileIngestRequest(link_column="resume_link")
+    result = await service.ingest_file(
+        file_bytes=csv_bytes,
+        filename="candidates.csv",
+        request=file_request,
+    )
+
+    assert result.ingested == 1
+    assert result.errors == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_unsupported_format_raises() -> None:
+    """ingest_file raises ValueError for unsupported file extensions."""
+    service = IngestService(
+        resume_store=_make_mock_resume_store(),
+        publisher=_make_mock_publisher(),
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    file_request = FileIngestRequest(link_column="resume_link")
+    with pytest.raises(ValueError, match="Unsupported upload format"):
+        await service.ingest_file(
+            file_bytes=b"data",
+            filename="candidates.txt",
+            request=file_request,
+        )
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_no_header_row() -> None:
+    """ingest_file with has_header_row=False reads links by column index."""
+    csv_bytes = b"Alice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view\n"
+
+    docx_bytes = _make_docx_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_store = _make_mock_resume_store("resume-noheader")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=_make_mock_publisher(),
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    file_request = FileIngestRequest(has_header_row=False, link_column_index=2)
+    result = await service.ingest_file(
+        file_bytes=csv_bytes,
+        filename="candidates.csv",
+        request=file_request,
+    )
+
+    assert result.ingested == 1
     assert result.errors == []
