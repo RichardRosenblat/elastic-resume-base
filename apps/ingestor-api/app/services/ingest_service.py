@@ -462,18 +462,24 @@ class IngestService:
         )
 
         if ext in _EXCEL_EXTENSIONS:
+            effective_link_column = request.link_column or (
+                settings.sheets_link_column if request.has_header_row else None
+            )
             row_links = _read_links_from_excel(
                 file_bytes=file_bytes,
                 sheet_name=request.sheet_name,
                 has_header_row=request.has_header_row,
-                link_column=request.link_column or (settings.sheets_link_column if request.has_header_row else None),
+                link_column=effective_link_column,
                 link_column_index=request.link_column_index,
             )
         elif ext in _CSV_EXTENSIONS:
+            effective_link_column = request.link_column or (
+                settings.sheets_link_column if request.has_header_row else None
+            )
             row_links = _read_links_from_csv(
                 file_bytes=file_bytes,
                 has_header_row=request.has_header_row,
-                link_column=request.link_column or (settings.sheets_link_column if request.has_header_row else None),
+                link_column=effective_link_column,
                 link_column_index=request.link_column_index,
             )
         else:

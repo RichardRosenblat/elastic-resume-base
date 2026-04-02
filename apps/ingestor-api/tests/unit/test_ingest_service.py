@@ -100,7 +100,7 @@ def test_read_links_from_csv_with_header() -> None:
     assert len(result) == 1
     row_num, url = result[0]
     assert row_num == 2
-    assert "drive.google.com" in url
+    assert url.startswith("https://drive.google.com/")
 
 
 def test_read_links_from_csv_without_header() -> None:
@@ -174,7 +174,7 @@ def test_read_links_from_excel_with_header() -> None:
     assert len(result) == 1
     row_num, url = result[0]
     assert row_num == 2
-    assert "drive.google.com" in url
+    assert url.startswith("https://drive.google.com/")
 
 
 def test_read_links_from_excel_without_header() -> None:
