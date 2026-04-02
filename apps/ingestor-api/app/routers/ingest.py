@@ -98,7 +98,6 @@ def _get_ingest_service() -> IngestService:
 
     initialize_persistence(
         project_id=settings.gcp_project_id or "demo-project",
-        service_account_key=settings.google_service_account_key or None,
     )
     return IngestService(resume_store=FirestoreResumeStore(settings.firestore_collection_resumes))
 

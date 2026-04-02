@@ -32,9 +32,6 @@ class Settings(BaseSettings):
             variable before any GCP client is created.  Leave empty in
             production where Application Default Credentials are provided by
             the hosting environment (Cloud Run).
-        google_service_account_key: Raw or Base64-encoded service-account JSON
-            key used by Bugle to authenticate with the Google Sheets and Drive
-            APIs.  Passed via ``GOOGLE_SERVICE_ACCOUNT_KEY``.
         firestore_collection_resumes: Firestore collection name for resume
             documents.  Defaults to ``"resumes"``.
         pubsub_topic_resume_ingested: Pub/Sub topic name to publish to after
@@ -57,7 +54,6 @@ class Settings(BaseSettings):
     port: int = 8001
     log_level: str = "INFO"
     google_application_credentials: str = ""
-    google_service_account_key: str = ""
     firestore_collection_resumes: str = "resumes"
     pubsub_topic_resume_ingested: str = "resume-ingested"
     pubsub_topic_dlq: str = "dead-letter-queue"
