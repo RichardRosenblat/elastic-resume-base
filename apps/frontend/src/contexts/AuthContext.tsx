@@ -35,7 +35,7 @@ import { ensureApiRequestError, isRateLimitError, toUserFacingErrorMessage } fro
 async function fetchUserProfile(token: string): Promise<UserProfile> {
   const response = await axios.get<SuccessResponse<UserProfile>>(
     `${config.gatewayApiUrl}/api/v1/users/me`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: { Authorization: `Bearer ${token}`, 'x-correlation-id': crypto.randomUUID() } },
   );
   return response.data.data;
 }

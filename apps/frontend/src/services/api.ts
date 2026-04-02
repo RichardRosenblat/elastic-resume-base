@@ -368,10 +368,11 @@ export const ocrDocuments = async (files: File[], documentTypes?: string[]): Pro
 
 /**
  * Fetches the health status of all downstream services from the Gateway API.
- * Uses a plain axios call without auth since the `/health/downstream` endpoint is public.
+ * Uses the shared apiClient so that a correlation ID is automatically attached
+ * to the request via the request interceptor.
  */
 export const getDownstreamHealth = async (): Promise<DownstreamHealthData> => {
-  const res = await axios.get<DownstreamHealthData>(`${config.gatewayApiUrl}/health/downstream`);
+  const res = await apiClient.get<DownstreamHealthData>('/health/downstream');
   return res.data;
 };
 
