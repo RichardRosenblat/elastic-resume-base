@@ -27,12 +27,6 @@ if settings.google_application_credentials:
         "GOOGLE_APPLICATION_CREDENTIALS", settings.google_application_credentials
     )
 
-# Seed the Bugle env var from settings (if not already set externally).
-if settings.google_service_account_key:
-    os.environ.setdefault(
-        "GOOGLE_SERVICE_ACCOUNT_KEY", settings.google_service_account_key
-    )
-
 setup_logging(level=settings.log_level)
 logger = get_logger(__name__)
 

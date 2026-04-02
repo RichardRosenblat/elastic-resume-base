@@ -130,7 +130,6 @@ Configuration is read from environment variables (or a `.env` file in the servic
 | `PORT` | `8001` | Port the service listens on |
 | `LOG_LEVEL` | `"INFO"` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `""` | Path to a GCP service-account JSON key (local dev only; leave empty in production to use ADC) |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | `""` | Raw or Base64-encoded service-account JSON used by Bugle to authenticate with Sheets and Drive APIs |
 | `FIRESTORE_COLLECTION_RESUMES` | `"resumes"` | Firestore collection name for resume documents |
 | `PUBSUB_TOPIC_RESUME_INGESTED` | `"resume-ingested"` | Pub/Sub topic published to after each successful ingestion |
 | `PUBSUB_TOPIC_DLQ` | `"dead-letter-queue"` | Dead-letter Pub/Sub topic for row-level errors |
@@ -186,7 +185,7 @@ POST /api/v1/ingest
 
 - Python 3.11 | 3.12
 - A Google Cloud project with Firestore and Cloud Pub/Sub enabled, **or** the Firebase emulators running locally
-- A Google Cloud service account with read access to the target Sheets and Drive files (set `GOOGLE_SERVICE_ACCOUNT_KEY`)
+- A Google Cloud service account with read access to the target Sheets and Drive files (configure via `GOOGLE_APPLICATION_CREDENTIALS` for local dev, or use ADC in production)
 
 ### Install dependencies
 
@@ -194,7 +193,7 @@ POST /api/v1/ingest
 pip install -r requirements/requirements-dev.txt
 ```
 
-This installs all runtime dependencies plus the shared Python libraries ([Toolbox](../../shared/Toolbox/v1/toolbox_py/README.md), [Bowltie](../../shared/Bowltie/v1/bowltie_py/README.md), [Hermes](../../shared/Hermes/v1/hermes_py/README.md), [Bugle](../../shared/Bugle/v1/bugle_py/README.md), [Synapse](../../shared/Synapse/v1/synapse_py/README.md)) in editable mode.
+This installs all runtime dependencies plus the shared Python libraries ([Toolbox](../../shared/Toolbox/v1/toolbox_py/README.md), [Bowltie](../../shared/Bowltie/v1/bowltie_py/README.md), [Hermes](../../shared/Hermes/v1/hermes_py/README.md), [Bugle](../../shared/Bugle/v2/bugle_py/README.md), [Synapse](../../shared/Synapse/v1/synapse_py/README.md)) in editable mode.
 
 ### Run locally
 
