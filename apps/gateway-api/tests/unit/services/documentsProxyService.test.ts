@@ -15,7 +15,7 @@ jest.mock('../../../src/config', () => ({
     logLevel: 'silent',
     projectId: 'demo',
     allowedOrigins: 'http://localhost:3000',
-    downloaderServiceUrl: 'http://localhost:8001',
+    ingestorServiceUrl: 'http://localhost:8001',
     searchBaseServiceUrl: 'http://localhost:8002',
     fileGeneratorServiceUrl: 'http://localhost:8003',
     userApiServiceUrl: 'http://localhost:8005',

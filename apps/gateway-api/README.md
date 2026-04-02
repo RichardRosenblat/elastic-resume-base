@@ -136,7 +136,7 @@ All configuration is loaded from `config.yaml` (merged from `systems.shared` and
 | `DOCUMENT_READER_SERVICE_URL` | `http://localhost:8004` | Base URL for the Document Reader service |
 | `SEARCH_SERVICE_URL` | `http://localhost:8001` | Base URL for the Search service |
 | `FILE_GENERATOR_SERVICE_URL` | `http://localhost:8002` | Base URL for the File Generator service |
-| `DOWNLOADER_SERVICE_URL` | `http://localhost:8003` | Base URL for the Downloader service |
+| `INGESTOR_SERVICE_URL` | `http://localhost:8003` | Base URL for the Downloader service |
 | `FIRESTORE_EMULATOR_HOST` | — | Firestore emulator host (e.g. `localhost:8080`) |
 | `FIREBASE_AUTH_EMULATOR_HOST` | — | Firebase Auth emulator host (e.g. `localhost:9099`) |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |

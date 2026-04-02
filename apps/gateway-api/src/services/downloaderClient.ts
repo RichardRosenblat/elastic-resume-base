@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js';
 import { IngestRequest, IngestResponse } from '../models/index.js';
 import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
-const client = createHttpClient(config.downloaderServiceUrl);
+const client = createHttpClient(config.ingestorServiceUrl);
 
 /**
  * Triggers a resume ingest job via the downloader service.

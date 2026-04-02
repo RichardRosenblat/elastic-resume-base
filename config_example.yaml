@@ -84,7 +84,7 @@ systems:
     REQUEST_TIMEOUT_MS: "30000"
 
     # Downstream microservice base URLs (Docker Compose service names)
-    DOWNLOADER_SERVICE_URL: "http://ingestor-service:8001"
+    INGESTOR_SERVICE_URL: "http://ingestor-service:8001"
     SEARCH_BASE_SERVICE_URL: "http://search-base:8002"
     FILE_GENERATOR_SERVICE_URL: "http://file-generator:8003"
     DOCUMENT_READER_SERVICE_URL: "http://document-reader:8004"
@@ -179,10 +179,24 @@ systems:
   # ---------------------------------------------------------------------------
   ingestor-service:
     PORT: "8001"
-    FIRESTORE_RESUMES_COLLECTION: resumes
-    FIRESTORE_USERS_COLLECTION: users
-    PUBSUB_INGESTOR_TOPIC: resume-ingested
-    PUBSUB_AI_WORKER_TOPIC: resume-extracted
+    
+    # Name of the Firestore collection where ingested resume raw data is stored.
+    FIRESTORE_COLLECTION_RESUMES: resumes
+
+    # Google Cloud service-account key file for local development.
+    GOOGLE_SERVICE_ACCOUNT_KEY: ""   # fill in locally — never commit real credentials
+
+    # Pub/Sub topic names
+    PUBSUB_TOPIC_RESUME_INGESTED: resume-ingested
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+
+    # Name of the default column in the Google Sheet containing the resume links.
+    SHEETS_LINK_COLUMN: resume_link
+
+    # Timeout (seconds) applied to every HTTP request made by the ingestor service
+    HTTP_REQUEST_TIMEOUT: 120
+    # Maximum number of API requests accepted from a single client IP per minute.
+    RATE_LIMIT_PER_MINUTE: 60
 
   # ---------------------------------------------------------------------------
   # AI Worker (Python — Pub/Sub triggered)
