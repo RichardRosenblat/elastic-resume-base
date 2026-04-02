@@ -54,15 +54,6 @@ systems:
     FIREBASE_AUTH_EMULATOR_HOST: "firebase-emulator:9099"
     PUBSUB_EMULATOR_HOST: "firebase-emulator:8085"
 
-    # SMTP — outbound email notifications via the Hermes shared library.
-    # Used by any service that calls initializeMessagingFromEnv() at startup.
-    SMTP_HOST: "localhost"
-    SMTP_PORT: "1025"
-    SMTP_SECURE: "false"       # set to "true" for SMTPS (port 465)
-    SMTP_USER: ""              # fill in locally — never commit real credentials
-    SMTP_PASSWORD: ""          # fill in locally — never commit real credentials
-    SMTP_FROM: "noreply@elastic-resume-base.local"
-
   # ---------------------------------------------------------------------------
   # Gateway API (Node.js — port 3000)
   # ---------------------------------------------------------------------------
