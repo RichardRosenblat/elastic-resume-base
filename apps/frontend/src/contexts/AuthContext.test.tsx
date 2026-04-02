@@ -161,4 +161,3 @@ describe('AuthProvider — fetchUserProfile correlation ID', () => {
     expect(requestConfig.headers['x-cloud-trace-context']).toBeUndefined();
   });
 });
-
