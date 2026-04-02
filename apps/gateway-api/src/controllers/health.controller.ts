@@ -16,7 +16,7 @@ export function getReady(_request: FastifyRequest, reply: FastifyReply): void {
 export async function getDownstream(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const services: Record<string, string> = {
     usersApi: config.userApiServiceUrl,
-    downloader: config.downloaderServiceUrl,
+    downloader: config.ingestorServiceUrl,
     searchBase: config.searchBaseServiceUrl,
     fileGenerator: config.fileGeneratorServiceUrl,
     documentReader: config.documentReaderServiceUrl,

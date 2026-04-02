@@ -5,7 +5,7 @@
 
 jest.mock('../../../src/config', () => ({
   config: {
-    downloaderServiceUrl: 'http://localhost:8001',
+    ingestorServiceUrl: 'http://localhost:8001',
     requestTimeoutMs: 30000,
     nodeEnv: 'test',
     gcpProjectId: 'demo-project',
