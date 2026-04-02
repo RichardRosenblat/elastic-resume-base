@@ -163,3 +163,210 @@ async def test_ingest_with_partial_errors(app_client: AsyncClient) -> None:
     assert body["data"]["ingested"] == 2
     assert len(body["data"]["errors"]) == 1
     assert body["data"]["errors"][0]["row"] == 4
+
+
+# ---------------------------------------------------------------------------
+# /api/v1/ingest/upload endpoint
+# ---------------------------------------------------------------------------
+
+
+def _make_xlsx_bytes(rows: list[list[str]]) -> bytes:
+    """Create minimal xlsx bytes with the given rows."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_xlsx_success(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/upload with a valid xlsx file returns 200."""
+    import docx  # type: ignore[import-untyped]
+
+    docx_buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(docx_buf)
+    docx_bytes = docx_buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    xlsx_bytes = _make_xlsx_bytes([
+        ["name", "resume_link"],
+        ["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view"],
+    ])
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.id = "resume-upload-001"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = mock_doc
+
+    from app.services.ingest_service import IngestService
+
+    mock_service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=MagicMock(),
+        drive_service=mock_drive,
+    )
+
+    with patch("app.routers.ingest._get_ingest_service", return_value=mock_service):
+        async with app_client as client:
+            response = await client.post(
+                "/api/v1/ingest/upload",
+                files={"file": ("candidates.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+                data={"link_column": "resume_link"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["ingested"] == 1
+    assert body["data"]["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_csv_success(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/upload with a valid csv file returns 200."""
+    import docx  # type: ignore[import-untyped]
+
+    docx_buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(docx_buf)
+    docx_bytes = docx_buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    csv_bytes = b"name,resume_link\nAlice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view\n"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.id = "resume-csv-001"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = mock_doc
+
+    from app.services.ingest_service import IngestService
+
+    mock_service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=MagicMock(),
+        drive_service=mock_drive,
+    )
+
+    with patch("app.routers.ingest._get_ingest_service", return_value=mock_service):
+        async with app_client as client:
+            response = await client.post(
+                "/api/v1/ingest/upload",
+                files={"file": ("candidates.csv", csv_bytes, "text/csv")},
+                data={"link_column": "resume_link"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["ingested"] == 1
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_unsupported_format_returns_400(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/upload with an unsupported file type returns 400."""
+    from app.services.ingest_service import IngestService
+
+    mock_service = MagicMock(spec=IngestService)
+    mock_service.ingest_file = AsyncMock(
+        side_effect=ValueError("Unsupported upload format '.txt'")
+    )
+
+    with patch("app.routers.ingest._get_ingest_service", return_value=mock_service):
+        async with app_client as client:
+            response = await client.post(
+                "/api/v1/ingest/upload",
+                files={"file": ("candidates.txt", b"data", "text/plain")},
+                data={"link_column": "resume_link"},
+            )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_no_header_row(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/upload with has_header_row=false requires link_column_index."""
+    import docx  # type: ignore[import-untyped]
+
+    docx_buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(docx_buf)
+    docx_bytes = docx_buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    csv_bytes = b"Alice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view\n"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.id = "resume-noheader-001"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = mock_doc
+
+    from app.services.ingest_service import IngestService
+
+    mock_service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=MagicMock(),
+        drive_service=mock_drive,
+    )
+
+    with patch("app.routers.ingest._get_ingest_service", return_value=mock_service):
+        async with app_client as client:
+            response = await client.post(
+                "/api/v1/ingest/upload",
+                files={"file": ("candidates.csv", csv_bytes, "text/csv")},
+                data={"has_header_row": "false", "link_column_index": "2"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_missing_file_returns_422(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/upload without a file returns 422."""
+    async with app_client as client:
+        response = await client.post(
+            "/api/v1/ingest/upload",
+            data={"link_column": "resume_link"},
+        )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_invalid_metadata_returns_400(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/upload with invalid JSON metadata returns 400."""
+    csv_bytes = b"name,resume_link\n"
+
+    async with app_client as client:
+        response = await client.post(
+            "/api/v1/ingest/upload",
+            files={"file": ("candidates.csv", csv_bytes, "text/csv")},
+            data={"link_column": "resume_link", "metadata": "not-json"},
+        )
+    assert response.status_code == 400

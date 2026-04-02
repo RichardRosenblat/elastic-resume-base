@@ -4,7 +4,7 @@ Settings are read from environment variables and optional config files.
 
 At import time, this module calls :func:`toolbox_py.load_config_yaml` to load
 monorepo YAML configuration (``config.yaml`` or ``configs.yaml``), merge
-``systems.shared`` with ``systems.ingestor``, and seed any missing
+``systems.shared`` with ``systems.ingestor-service``, and seed any missing
 environment variables.  Variables already present in the process environment
 always take precedence.
 """
@@ -66,6 +66,6 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
 
 
-load_config_yaml("ingestor")
+load_config_yaml("ingestor-service")
 
 settings = Settings()
