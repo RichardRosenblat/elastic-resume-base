@@ -25,6 +25,8 @@ const configSchema = z.object({
   allowedOrigins: z.string().default('http://localhost:3000'),
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
   userApiServiceUrl: z.string().url().default('http://localhost:8005'),
+  downstreamWarmTtlMs: z.number().default(300000),
+  downstreamHealthRefreshIntervalMs: z.number().default(3600000),
 });
 
 /** Application configuration type inferred from schema. */
@@ -61,6 +63,8 @@ function loadConfig(): Config {
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     userApiServiceUrl: process.env['USER_API_SERVICE_URL'],
+    downstreamWarmTtlMs: safeParseInt(process.env['DOWNSTREAM_WARM_TTL_MS']),
+    downstreamHealthRefreshIntervalMs: safeParseInt(process.env['DOWNSTREAM_HEALTH_REFRESH_INTERVAL_MS']),
   });
 }
 

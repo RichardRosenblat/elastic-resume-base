@@ -2,11 +2,17 @@ import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import { buildApp } from './app.js';
 import { initializeAuth } from '@elastic-resume-base/aegis/server';
+import { initializeRegistry, startBackgroundRefresh } from './services/serviceRegistry.js';
 
 // Initialize authentication on startup
 initializeAuth({ projectId: config.projectId });
 
 const app = await buildApp();
+
+// Probe all downstream services once before accepting traffic, then start
+// the background refresh loop (probes cold services at configured interval).
+await initializeRegistry();
+const refreshInterval = startBackgroundRefresh();
 
 try {
   await app.listen({ port: config.port, host: '0.0.0.0' });
@@ -18,6 +24,7 @@ try {
 
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  clearInterval(refreshInterval);
   void app.close()
     .then(() => {
       logger.info('Server closed');

@@ -53,11 +53,12 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Health'],
       summary: 'Downstream services status',
       description:
-        'Checks the health of all downstream services and returns their status. ' +
-        'Always returns HTTP 200; individual service availability is reflected in the response body.',
+        'Returns the service registry snapshot for all downstream services. ' +
+        'Always returns HTTP 200; individual service availability is reflected in the response body. ' +
+        'For services never yet contacted, a one-time probe is triggered before the response is sent.',
       response: {
         200: {
-          description: 'Downstream service statuses.',
+          description: 'Downstream service registry snapshot.',
           type: 'object',
           properties: {
             downstream: {
@@ -65,10 +66,30 @@ const healthPlugin: FastifyPluginAsync = async (app) => {
               additionalProperties: {
                 type: 'object',
                 properties: {
-                  status: {
+                  live: {
+                    type: 'boolean',
+                    description:
+                      '`true` if the service process is currently reachable; ' +
+                      '`false` if the last contact attempt was a connection-level failure.',
+                  },
+                  temperature: {
                     type: 'string',
-                    enum: ['ok', 'degraded'],
-                    description: '"ok" if reachable, "degraded" if not.',
+                    enum: ['warm', 'cold'],
+                    description:
+                      '`warm` if the service was seen alive within the configured TTL ' +
+                      '(platform expects instant reply); `cold` otherwise.',
+                  },
+                  lastSeenAlive: {
+                    type: ['string', 'null'],
+                    description:
+                      'ISO 8601 timestamp of the last successful contact, ' +
+                      'or `null` if the service has never been seen alive.',
+                  },
+                  lastChecked: {
+                    type: 'string',
+                    description:
+                      'ISO 8601 timestamp of the most recent health check attempt ' +
+                      '(success or failure).',
                   },
                 },
               },

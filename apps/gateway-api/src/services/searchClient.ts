@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js';
 import { SearchRequest, SearchResponse } from '../models/index.js';
 import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
-const client = createHttpClient(config.searchBaseServiceUrl);
+const client = createHttpClient(config.searchBaseServiceUrl, 'searchBase');
 
 /**
  * Performs a semantic search via the search service.

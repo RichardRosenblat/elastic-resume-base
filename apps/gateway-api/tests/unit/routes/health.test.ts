@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/app.js';
 import { _setTokenVerifier, _resetTokenVerifier } from '../../../src/middleware/auth.js';
+import {
+  _resetRegistryForTest,
+  _setRegistryEntryForTest,
+} from '../../../src/services/serviceRegistry.js';
 
 jest.mock('axios', () => {
   const actual = jest.requireActual<typeof import('axios')>('axios');
@@ -33,6 +37,11 @@ describe('Health Routes', () => {
     _resetTokenVerifier();
   });
 
+  beforeEach(() => {
+    _resetRegistryForTest();
+    (axios.get as jest.Mock).mockReset();
+  });
+
   it('GET /health/live returns 200 with status ok', async () => {
     const res = await app.inject({ method: 'GET', url: '/health/live' });
     expect(res.statusCode).toBe(200);
@@ -46,39 +55,96 @@ describe('Health Routes', () => {
   });
 
   describe('GET /health/downstream', () => {
-    it('returns 200 with downstream service statuses', async () => {
-      (axios.get as jest.Mock)
-        .mockResolvedValueOnce({ status: 200 })   // usersApi ok
-        .mockRejectedValueOnce(new Error('ECONNREFUSED'))  // downloader degraded
-        .mockResolvedValueOnce({ status: 200 })   // searchBase ok
-        .mockResolvedValueOnce({ status: 200 })   // fileGenerator ok
-        .mockResolvedValueOnce({ status: 200 });  // documentReader ok
+    const now = new Date().toISOString();
+    const recentTime = new Date(Date.now() - 1000).toISOString(); // 1 s ago → warm
+    const oldTime = new Date(Date.now() - 600_000).toISOString(); // 10 min ago → cold
+
+    it('returns 200 with service registry snapshot', async () => {
+      _setRegistryEntryForTest('usersApi', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      _setRegistryEntryForTest('downloader', { live: false, lastSeenAlive: oldTime, lastChecked: now });
+      _setRegistryEntryForTest('searchBase', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      _setRegistryEntryForTest('fileGenerator', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      _setRegistryEntryForTest('documentReader', { live: true, lastSeenAlive: recentTime, lastChecked: now });
 
       const res = await app.inject({ method: 'GET', url: '/health/downstream' });
       expect(res.statusCode).toBe(200);
-      const body = res.json<{ downstream: Record<string, { status: string }> }>();
+
+      const body = res.json<{ downstream: Record<string, { live: boolean; temperature: string; lastSeenAlive: string | null; lastChecked: string }> }>();
       expect(body).toHaveProperty('downstream');
+
+      // All five services must be present
       expect(body.downstream).toHaveProperty('usersApi');
       expect(body.downstream).toHaveProperty('downloader');
       expect(body.downstream).toHaveProperty('searchBase');
       expect(body.downstream).toHaveProperty('fileGenerator');
       expect(body.downstream).toHaveProperty('documentReader');
-      expect(body.downstream['usersApi']?.status).toBe('ok');
-      expect(body.downstream['downloader']?.status).toBe('degraded');
-      expect(body.downstream['searchBase']?.status).toBe('ok');
-      expect(body.downstream['fileGenerator']?.status).toBe('ok');
-      expect(body.downstream['documentReader']?.status).toBe('ok');
+
+      // usersApi — live and warm
+      expect(body.downstream['usersApi']?.live).toBe(true);
+      expect(body.downstream['usersApi']?.temperature).toBe('warm');
+      expect(body.downstream['usersApi']?.lastSeenAlive).toBe(recentTime);
+
+      // downloader — not live, cold
+      expect(body.downstream['downloader']?.live).toBe(false);
+      expect(body.downstream['downloader']?.temperature).toBe('cold');
+
+      // All entries must include lastChecked
+      for (const entry of Object.values(body.downstream)) {
+        expect(entry).toHaveProperty('lastChecked');
+      }
     });
 
-    it('returns 200 even when all downstream services are degraded', async () => {
+    it('returns 200 even when all services are unreachable', async () => {
+      for (const key of ['usersApi', 'downloader', 'searchBase', 'fileGenerator', 'documentReader']) {
+        _setRegistryEntryForTest(key, { live: false, lastSeenAlive: null, lastChecked: now });
+      }
+
+      // The controller will probe "never seen" services; mock them all as failures
       (axios.get as jest.Mock).mockRejectedValue(new Error('ECONNREFUSED'));
 
       const res = await app.inject({ method: 'GET', url: '/health/downstream' });
       expect(res.statusCode).toBe(200);
-      const body = res.json<{ downstream: Record<string, { status: string }> }>();
+
+      const body = res.json<{ downstream: Record<string, { live: boolean }> }>();
       for (const svc of Object.values(body.downstream)) {
-        expect(svc.status).toBe('degraded');
+        expect(svc.live).toBe(false);
       }
+    });
+
+    it('triggers a probe for never-seen services and reflects the result', async () => {
+      // Pre-populate all except usersApi so only usersApi gets probed
+      _setRegistryEntryForTest('downloader', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      _setRegistryEntryForTest('searchBase', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      _setRegistryEntryForTest('fileGenerator', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      _setRegistryEntryForTest('documentReader', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      // usersApi is absent from registry → never seen → probe will be triggered
+
+      (axios.get as jest.Mock).mockResolvedValueOnce({ status: 200 }); // usersApi probe succeeds
+
+      const res = await app.inject({ method: 'GET', url: '/health/downstream' });
+      expect(res.statusCode).toBe(200);
+
+      const body = res.json<{ downstream: Record<string, { live: boolean; temperature: string }> }>();
+      expect(body.downstream['usersApi']?.live).toBe(true);
+      expect(body.downstream['usersApi']?.temperature).toBe('warm');
+    });
+
+    it('probe locking: concurrent requests share a single outbound probe', async () => {
+      // All services never seen
+      (axios.get as jest.Mock).mockResolvedValue({ status: 200 });
+
+      const [res1, res2] = await Promise.all([
+        app.inject({ method: 'GET', url: '/health/downstream' }),
+        app.inject({ method: 'GET', url: '/health/downstream' }),
+      ]);
+
+      expect(res1.statusCode).toBe(200);
+      expect(res2.statusCode).toBe(200);
+
+      // axios.get should be called at most once per service across both requests
+      // (probe locking collapses duplicate concurrent probes)
+      const callCount = (axios.get as jest.Mock).mock.calls.length;
+      expect(callCount).toBeLessThanOrEqual(5); // at most 1 probe per service
     });
   });
 });
