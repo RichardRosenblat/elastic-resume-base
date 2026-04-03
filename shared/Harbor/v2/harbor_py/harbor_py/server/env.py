@@ -40,6 +40,16 @@ def create_server_harbor_client(
 ) -> ServerHarborClient:
     """Create an environment-aware HTTP client for server-side service calls.
 
+    .. deprecated::
+        The procedural factory interface (``create_server_harbor_client``) is deprecated.
+        Use the object-oriented :class:`~harbor_py.server.ServerHarborClient` class from
+        ``elastic-resume-base-harbor`` v3 instead::
+
+            from harbor_py.server import ServerHarborClient, ServerHarborClientOptions  # v3
+            client = ServerHarborClient(ServerHarborClientOptions(base_url="..."))
+
+        This v2 export will be removed in a future major version.
+
     The underlying transport is chosen automatically based on ``NODE_ENV``:
 
     - In **development** (default): plain ``httpx`` client — no authentication

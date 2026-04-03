@@ -109,6 +109,16 @@ def create_harbor_client(
 ) -> HarborClient:
     """Create a pre-configured :class:`HarborClient` for a downstream service.
 
+    .. deprecated::
+        The procedural factory interface (``create_harbor_client``) is deprecated.
+        Use the object-oriented :class:`~harbor_py.HarborClient` class from
+        ``elastic-resume-base-harbor`` v3 instead::
+
+            from harbor_py import HarborClient, HarborClientOptions  # v3
+            client = HarborClient(HarborClientOptions(base_url="..."))
+
+        This v1 export will be removed in a future major version.
+
     Args:
         base_url: Base URL that is prepended to every request path.
         timeout_seconds: Per-request timeout in seconds.  Pass ``None`` to

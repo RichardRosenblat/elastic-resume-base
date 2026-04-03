@@ -146,6 +146,16 @@ def create_iam_harbor_client(
 ) -> IamHarborClient:
     """Create an IAM-authenticated :class:`IamHarborClient` for service-to-service calls.
 
+    .. deprecated::
+        The procedural factory interface (``create_iam_harbor_client``) is deprecated.
+        Use the object-oriented :class:`~harbor_py.server.IamHarborClient` class from
+        ``elastic-resume-base-harbor`` v3 instead::
+
+            from harbor_py.server import IamHarborClient, IamHarborClientOptions  # v3
+            client = IamHarborClient(IamHarborClientOptions(base_url="...", audience="..."))
+
+        This v2 export will be removed in a future major version.
+
     The returned client automatically attaches a Google Cloud OIDC identity
     token to every outgoing request using Application Default Credentials (ADC).
 

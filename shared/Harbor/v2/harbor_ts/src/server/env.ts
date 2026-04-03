@@ -63,6 +63,15 @@ export interface ServerHarborClientOptions extends HarborClientOptions {
  * @param options - Client configuration.  Set `audience` to override the IAM
  *   OIDC audience used in production (defaults to `baseURL`).
  * @returns A configured HarborClient ready for use.
+ *
+ * @deprecated The procedural factory interface (`createServerHarborClient`) is deprecated.
+ * Use the object-oriented `ServerHarborClient` class from
+ * `@elastic-resume-base/harbor` v3 instead:
+ * ```typescript
+ * import { ServerHarborClient } from '@elastic-resume-base/harbor/server'; // v3
+ * const client = new ServerHarborClient({ baseURL: '...', timeoutMs: 30_000 });
+ * ```
+ * This v2 export will be removed in a future major version.
  */
 export function createServerHarborClient(options: ServerHarborClientOptions): HarborClient {
   if (process.env.NODE_ENV === 'production') {
