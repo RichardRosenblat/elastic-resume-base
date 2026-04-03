@@ -220,7 +220,7 @@
       },
       "documentReader": {
         "name": "Document Reader",
-        "description": "Extracts structured data ",
+        "description": "Extracts structured data from uploaded documents and returns the results in Excel format.",
         "impact": "Uploading and processing documents via OCR will not be available."
       }
     },
