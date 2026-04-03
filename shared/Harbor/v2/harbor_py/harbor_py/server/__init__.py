@@ -4,7 +4,13 @@ Re-exports all client-side symbols and adds IAM-authenticated client
 for service-to-service calls on Google Cloud Platform.
 """
 
-from harbor_py.client import HarborClient, HarborClientOptions, create_harbor_client, is_harbor_error
+from harbor_py.client import (
+    HarborClient,
+    HarborClientOptions,
+    create_harbor_client,
+    is_harbor_error,
+)
+from harbor_py.server.env import ServerHarborClient, create_server_harbor_client
 from harbor_py.server.iam import IamHarborClient, IamHarborClientOptions, create_iam_harbor_client
 
 __all__ = [
@@ -15,4 +21,6 @@ __all__ = [
     "IamHarborClient",
     "IamHarborClientOptions",
     "create_iam_harbor_client",
+    "ServerHarborClient",
+    "create_server_harbor_client",
 ]
