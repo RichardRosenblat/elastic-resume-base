@@ -10,5 +10,5 @@ mypy==1.10.0
 -e ../../shared/Toolbox/v1/toolbox_py
 -e ../../shared/Hermes/v1/hermes_py
 -e ../../shared/Bowltie/v1/bowltie_py
--e ../../shared/Bugle/v1/bugle_py
+-e ../../shared/Bugle/v2/bugle_py
 -e ../../shared/Synapse/v1/synapse_py
