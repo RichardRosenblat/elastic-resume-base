@@ -207,7 +207,7 @@ app.add_middleware(CorrelationIdMiddleware)
 
 **Cause:** The upstream caller is not forwarding the `x-correlation-id` header. This warning should never appear for frontend-originated requests because the frontend Axios client generates a UUID v4 `x-correlation-id` for every request. It should also never appear for service-to-service calls.
 
-**Solution for frontend requests:** Ensure the frontend's Axios interceptor in `apps/frontend/src/services/api.ts` is generating the header. The interceptor sets `reqConfig.headers['x-correlation-id'] = crypto.randomUUID()` before every outbound call. If you are making requests via a different code path (e.g. a raw `fetch` call or a separate Axios instance), add the header there as well.
+**Solution for frontend requests:** Ensure the frontend's Axios interceptor in `apps/frontend/src/services/api.ts` is generating the header. The interceptor sets `reqConfig.headers['x-correlation-id'] = crypto.randomUUID()` before every outbound call through `apiClient`. The initial user-profile fetch in `apps/frontend/src/contexts/AuthContext.tsx` (`fetchUserProfile`) also sets the header directly, as it uses a standalone `axios.get` call instead of `apiClient`. If you add new request code paths that bypass `apiClient` (e.g. a raw `fetch` call or a separate Axios instance), be sure to add the header there as well.
 
 **Solution for service-to-service calls:** Ensure the calling service propagates tracing headers. In the Gateway API this is handled automatically by the Axios interceptor in `src/utils/httpClient.ts` — all clients created via `createHttpClient()` will forward the current request's tracing headers. Do not bypass `createHttpClient` with a raw Axios instance.
 
