@@ -37,10 +37,26 @@
  * // Every request now carries an OIDC identity token.
  * const response = await client.get('/api/v1/users');
  * ```
+ *
+ * ## Quick Start — environment-aware client (recommended for most services)
+ *
+ * ```typescript
+ * import { createServerHarborClient } from '@elastic-resume-base/harbor/server';
+ *
+ * // Automatically uses axios in development and IAM auth in production.
+ * const client = createServerHarborClient({
+ *   baseURL: config.usersApiServiceUrl,
+ *   timeoutMs: config.requestTimeoutMs,
+ * });
+ *
+ * const response = await client.get('/api/v1/users');
+ * ```
  */
 export type { AxiosInstance, AxiosRequestConfig, AxiosResponse, HarborError, } from '../client/index.js';
 export type { HarborClientOptions, HarborClient } from '../client/index.js';
 export { createHarborClient, isHarborError } from '../client/index.js';
 export type { IamHarborClientOptions } from './iam.js';
 export { createIamHarborClient } from './iam.js';
+export type { ServerHarborClientOptions } from './env.js';
+export { createServerHarborClient } from './env.js';
 //# sourceMappingURL=index.d.ts.map
