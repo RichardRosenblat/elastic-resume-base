@@ -4,7 +4,7 @@ import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { DownstreamError, UnavailableError, ValidationError } from '../errors.js';
 
-const client = createHttpClient(config.userApiServiceUrl);
+const client = createHttpClient(config.userApiServiceUrl, 'usersApi');
 
 /** Maximum body size allowed for proxied requests (10 MB). */
 export const MAX_PROXY_BODY_SIZE_BYTES = 10 * 1024 * 1024;

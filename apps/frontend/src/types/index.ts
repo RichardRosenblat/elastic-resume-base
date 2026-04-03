@@ -96,7 +96,17 @@ export interface SearchResponseData {
 
 /** Status of a single downstream service as returned by `GET /health/downstream`. */
 export interface DownstreamServiceStatus {
-  status: 'ok' | 'degraded';
+  /** `true` if the service is currently reachable (L4 connectivity). */
+  live: boolean;
+  /**
+   * `warm` if seen alive within the configured TTL (instant reply expected);
+   * `cold` if not contacted recently (cold start may be required).
+   */
+  temperature: 'warm' | 'cold';
+  /** ISO 8601 timestamp of the last successful contact, or `null` if never seen. */
+  lastSeenAlive: string | null;
+  /** ISO 8601 timestamp of the most recent health-check attempt. */
+  lastChecked: string;
 }
 
 /** Response shape of the Gateway API `GET /health/downstream` endpoint. */

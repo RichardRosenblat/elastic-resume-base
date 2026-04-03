@@ -6,7 +6,7 @@ import { logger } from '../utils/logger.js';
 import { DocumentReadRequest, DocumentReadResponse } from '../models/index.js';
 import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
-const client = createHttpClient(config.documentReaderServiceUrl);
+const client = createHttpClient(config.documentReaderServiceUrl, 'documentReader');
 
 /**
  * Reads and extracts text from a document via the document reader service.
