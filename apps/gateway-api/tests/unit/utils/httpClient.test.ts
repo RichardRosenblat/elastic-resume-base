@@ -20,7 +20,7 @@ const mockClient = {
 };
 
 jest.mock('@elastic-resume-base/harbor/server', () => ({
-  createHarborClient: jest.fn(() => mockClient),
+  createServerHarborClient: jest.fn(() => mockClient),
 }));
 
 import { createHttpClient } from '../../../src/utils/httpClient.js';
