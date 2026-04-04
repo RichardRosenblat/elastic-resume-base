@@ -847,3 +847,11 @@ async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
         if c.args[1].status == "FAILED"
     ]
     assert len(failed_calls) >= 1
+
+    # The first FAILED update should preserve ingestedAt from the successful write.
+    first_failed_update = failed_calls[0].args[1]
+    ingesting_info = first_failed_update.metadata.get("ingestingInfo", {})
+    assert "ingestedAt" in ingesting_info, "ingestedAt should be preserved in the audit trail"
+    assert "failedAt" in ingesting_info
+    assert len(ingesting_info.get("errors", [])) == 1
+    assert ingesting_info["errors"][0]["stage"] == "publish"

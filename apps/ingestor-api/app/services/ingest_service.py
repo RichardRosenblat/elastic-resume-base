@@ -747,6 +747,9 @@ class IngestService:
                         metadata={
                             **ingesting_metadata,
                             "ingestingInfo": {
+                                # Preserve the ingestedAt timestamp from the successful
+                                # Firestore write so the full audit trail is kept.
+                                **ingesting_metadata.get("ingestingInfo", {}),
                                 "failedAt": _now_iso(),
                                 "errors": [
                                     {
