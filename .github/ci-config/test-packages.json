@@ -62,5 +62,12 @@
     "path": "apps/ingestor-api",
     "runner": "python",
     "dependsOn": []
+  },
+  {
+    "id": "ai-worker",
+    "name": "apps/ai-worker",
+    "path": "apps/ai-worker",
+    "runner": "python",
+    "dependsOn": []
   }
 ]

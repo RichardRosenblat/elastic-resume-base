@@ -279,3 +279,86 @@ def test_save_embeddings_calls_firestore() -> None:
     assert payload["resumeId"] == "abc-123"
     assert payload["fullTextEmbedding"] == [0.1, 0.2]
     assert payload["skillsEmbedding"] == [0.3]
+
+
+# ---------------------------------------------------------------------------
+# process_resume — embedding count mismatch
+# ---------------------------------------------------------------------------
+
+
+def test_process_resume_raises_on_embedding_count_mismatch() -> None:
+    """EmbeddingError is raised when generate_embeddings returns fewer vectors than expected."""
+    store = MagicMock()
+    resume = _make_resume()
+    store.get_resume.return_value = resume
+    store.update_resume.return_value = resume
+
+    vertex_ai = MagicMock()
+    vertex_ai.extract_structured_fields.return_value = {"skills": ["Python"]}
+    # Two texts were submitted but only one vector returned.
+    vertex_ai.generate_embeddings.return_value = [[0.1, 0.2]]
+
+    publisher = MagicMock()
+    svc = _make_service(store=store, vertex_ai=vertex_ai, publisher=publisher)
+
+    with patch("app.services.ai_worker_service.AIWorkerService._save_embeddings"):
+        with pytest.raises(EmbeddingError, match="Expected 2 embedding vector"):
+            svc.process_resume("abc-123")
+
+    # Status must be set to FAILED after the count mismatch.
+    failed_calls = [
+        c for c in store.update_resume.call_args_list
+        if c.args[1].status == STATUS_FAILED
+    ]
+    assert len(failed_calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# _update_status — error resilience
+# ---------------------------------------------------------------------------
+
+
+def test_update_status_falls_back_to_extra_metadata_when_get_resume_fails() -> None:
+    """_update_status uses extra_metadata directly when get_resume raises."""
+    store = MagicMock()
+    store.get_resume.side_effect = RuntimeError("Firestore unavailable")
+
+    svc = _make_service(store=store)
+    # Should not raise; the fallback path uses extra_metadata as-is.
+    svc._update_status("abc-123", "PROCESSING", extra_metadata={"key": "value"})
+
+    store.update_resume.assert_called_once()
+    update_data = store.update_resume.call_args.args[1]
+    assert update_data.metadata == {"key": "value"}
+    assert update_data.status == "PROCESSING"
+
+
+def test_update_status_swallows_update_resume_failure() -> None:
+    """_update_status logs but does not raise when update_resume fails."""
+    store = MagicMock()
+    store.update_resume.side_effect = RuntimeError("write failed")
+
+    svc = _make_service(store=store)
+    # Must not raise.
+    svc._update_status("abc-123", "FAILED", extra_metadata={})
+
+
+# ---------------------------------------------------------------------------
+# _save_embeddings — Firestore write failure
+# ---------------------------------------------------------------------------
+
+
+def test_save_embeddings_reraises_on_firestore_failure() -> None:
+    """_save_embeddings re-raises when the Firestore .set() call fails."""
+    svc = _make_service()
+
+    mock_doc_ref = MagicMock()
+    mock_doc_ref.set.side_effect = RuntimeError("Firestore write error")
+    mock_col = MagicMock()
+    mock_col.document.return_value = mock_doc_ref
+    mock_db = MagicMock()
+    mock_db.collection.return_value = mock_col
+
+    with patch("firebase_admin.firestore.client", return_value=mock_db):
+        with pytest.raises(RuntimeError, match="Firestore write error"):
+            svc._save_embeddings("abc-123", [0.1], [0.2])
