@@ -50,6 +50,15 @@ export interface IamHarborClientOptions extends HarborClientOptions {
  * @param options - Configuration including the IAM `audience`.
  * @returns A configured HarborClient with an IAM token request interceptor.
  *
+ * @deprecated The procedural factory interface (`createIamHarborClient`) is deprecated.
+ * Use the object-oriented `IamHarborClient` class from
+ * `@elastic-resume-base/harbor` v3 instead:
+ * ```typescript
+ * import { IamHarborClient } from '@elastic-resume-base/harbor/server'; // v3
+ * const client = new IamHarborClient({ baseURL: '...', audience: '...' });
+ * ```
+ * This v2 export will be removed in a future major version.
+ *
  * @example
  * ```typescript
  * import { createIamHarborClient } from '@elastic-resume-base/harbor/server';

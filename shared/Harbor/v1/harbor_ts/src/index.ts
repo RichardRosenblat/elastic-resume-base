@@ -74,6 +74,15 @@ export type HarborClient = AxiosInstance;
  * @param options - Configuration for the HTTP client.
  * @returns A configured HarborClient ready for use.
  *
+ * @deprecated The procedural interface (`createHarborClient`) is deprecated.
+ * Use the object-oriented `HarborClient` class from
+ * `@elastic-resume-base/harbor` v3 instead:
+ * ```typescript
+ * import { HarborClient } from '@elastic-resume-base/harbor/client'; // v3
+ * const client = new HarborClient({ baseURL: '...', timeoutMs: 30_000 });
+ * ```
+ * This v1 export will be removed in a future major version.
+ *
  * @example
  * ```typescript
  * const client = createHarborClient({

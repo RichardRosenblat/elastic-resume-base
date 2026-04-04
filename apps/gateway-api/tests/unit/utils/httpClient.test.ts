@@ -11,16 +11,20 @@ jest.mock('../../../src/config', () => ({
   },
 }));
 
-// Mock Harbor so we don't need axios installed as a direct dependency in tests.
+// Mock Harbor so we don't need a real ServerHarborClient in tests.
 const mockInterceptorsRequestUse = jest.fn();
 const mockClient = {
-  interceptors: {
-    request: { use: mockInterceptorsRequestUse },
+  axiosInstance: {
+    interceptors: {
+      request: { use: mockInterceptorsRequestUse },
+      response: { use: jest.fn() },
+    },
   },
 };
 
 jest.mock('@elastic-resume-base/harbor/server', () => ({
-  createServerHarborClient: jest.fn(() => mockClient),
+  ServerHarborClient: jest.fn().mockImplementation(() => mockClient),
+  isHarborError: jest.fn(),
 }));
 
 import { createHttpClient } from '../../../src/utils/httpClient.js';

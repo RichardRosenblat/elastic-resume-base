@@ -1,4 +1,4 @@
-import { createServerHarborClient, isHarborError, type HarborClient } from '@elastic-resume-base/harbor/server';
+import { ServerHarborClient, isHarborError, type HarborClient } from '@elastic-resume-base/harbor/server';
 import type { InternalAxiosRequestConfig } from 'axios';
 import { config } from '../config.js';
 import { tracingStorage } from './tracingContext.js';
@@ -31,12 +31,12 @@ export type { HarborClient };
  * @returns Configured HarborClient instance.
  */
 export function createHttpClient(baseURL: string, serviceKey?: string): HarborClient {
-  const client = createServerHarborClient({
+  const client = new ServerHarborClient({
     baseURL,
     timeoutMs: config.requestTimeoutMs,
   });
 
-  client.interceptors.request.use((axiosConfig: InternalAxiosRequestConfig) => {
+  client.axiosInstance.interceptors.request.use((axiosConfig: InternalAxiosRequestConfig) => {
     const ctx = tracingStorage.getStore();
     if (ctx) {
       axiosConfig.headers['x-correlation-id'] = ctx.correlationId;
@@ -46,8 +46,8 @@ export function createHttpClient(baseURL: string, serviceKey?: string): HarborCl
   });
 
   if (serviceKey) {
-    client.interceptors.response.use(
-      (response) => {
+    client.axiosInstance.interceptors.response.use(
+      (response: import('axios').AxiosResponse) => {
         observeSuccess(serviceKey);
         return response;
       },
