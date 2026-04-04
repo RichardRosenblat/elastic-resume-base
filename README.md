@@ -126,7 +126,7 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 | **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
 | **File Generator** | Python | 🔄 Planned | Generates resume documents and handles translation via Cloud Translation |
 | **Document Reader** | Python | ✅ Implemented | OCR processing of scanned documents and field extraction using Cloud Vision API |
-| **DLQ Notifier** | Python | 🔄 Planned | Monitors Dead Letter Queue and sends failure alerts |
+| **DLQ Notifier** | Python | ✅ Implemented | Monitors Dead Letter Queue and sends failure alerts |
 
 ---
 

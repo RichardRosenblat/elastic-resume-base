@@ -260,10 +260,22 @@ systems:
     # LOG_LEVEL: "debug"
 
   # ---------------------------------------------------------------------------
-  # DLQ Notifier (Python — Pub/Sub triggered)
-  # Monitors the Dead Letter Queue and sends failure alerts.
+  # DLQ Notifier (Python — port 8007, Pub/Sub triggered)
+  # Monitors the Dead Letter Queue and sends email failure alerts.
   # ---------------------------------------------------------------------------
   dlq-notifier:
-    DLQ_NOTIFICATION_CHANNEL: slack
-    DLQ_SLACK_WEBHOOK_URL: ""   # fill in locally
-    PUBSUB_DLQ_TOPIC: dead-letter-queue
+    PORT: "8007"
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+
+    # Comma-separated list of email addresses that receive DLQ alert emails.
+    # Leave empty to disable email notifications.
+    NOTIFICATION_RECIPIENTS: ""   # e.g. ops@example.com,alerts@example.com
+
+    # SMTP transport configuration for outgoing alert emails.
+    # Leave SMTP_HOST empty to disable email delivery (alerts will be logged only).
+    SMTP_HOST: ""          # e.g. smtp.gmail.com
+    SMTP_PORT: "587"       # 587 = STARTTLS, 465 = SMTPS, 25 = plain
+    SMTP_SECURE: "false"   # "true" to wrap the connection in TLS from the start
+    SMTP_USER: ""          # SMTP auth username — omit for unauthenticated relays
+    SMTP_PASSWORD: ""      # SMTP auth password — never commit real credentials
+    SMTP_FROM: ""          # Sender address, e.g. noreply@example.com
