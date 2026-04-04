@@ -116,13 +116,13 @@ async def pubsub_push(request: Request) -> JSONResponse:
         logger.warning("Malformed Pub/Sub message: %s", exc)
         return JSONResponse(
             status_code=400,
-            content=format_error("BAD_REQUEST", str(exc)),
+            content=format_error("BAD_REQUEST", "Malformed Pub/Sub message payload."),
         )
     except Exception as exc:
         logger.warning("Failed to parse Pub/Sub push envelope: %s", exc)
         return JSONResponse(
             status_code=400,
-            content=format_error("BAD_REQUEST", f"Invalid Pub/Sub envelope: {exc}"),
+            content=format_error("BAD_REQUEST", "Invalid Pub/Sub envelope."),
         )
 
     resume_id = payload.resume_id
@@ -145,7 +145,7 @@ async def pubsub_push(request: Request) -> JSONResponse:
         # Acknowledge the message (return 200) to stop Pub/Sub retrying.
         return JSONResponse(
             status_code=200,
-            content=format_error("NOT_FOUND", str(exc)),
+            content=format_error("NOT_FOUND", "Resume document not found."),
         )
     except (ExtractionError, EmbeddingError) as exc:
         # Vertex AI errors are transient — return 500 to request retry.
@@ -155,7 +155,7 @@ async def pubsub_push(request: Request) -> JSONResponse:
         )
         return JSONResponse(
             status_code=500,
-            content=format_error("VERTEX_AI_ERROR", str(exc)),
+            content=format_error("VERTEX_AI_ERROR", "Vertex AI processing failed. Retrying."),
         )
     except Exception as exc:
         # Unexpected error — return 500 to request retry.
@@ -165,7 +165,7 @@ async def pubsub_push(request: Request) -> JSONResponse:
         )
         return JSONResponse(
             status_code=500,
-            content=format_error("INTERNAL_ERROR", f"Unexpected error: {exc}"),
+            content=format_error("INTERNAL_ERROR", "An unexpected error occurred. Retrying."),
         )
 
     logger.info(

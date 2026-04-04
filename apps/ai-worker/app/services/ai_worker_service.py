@@ -323,9 +323,9 @@ class AIWorkerService:
         )
 
         # Determine which pipeline stage failed.
-        if isinstance(exc, (ExtractionError,)):
+        if isinstance(exc, ExtractionError):
             stage = "extraction"
-        elif isinstance(exc, (EmbeddingError,)):
+        elif isinstance(exc, EmbeddingError):
             stage = "embedding"
         else:
             stage = "unknown"
