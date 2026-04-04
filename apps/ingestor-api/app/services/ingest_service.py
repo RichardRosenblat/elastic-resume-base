@@ -395,12 +395,21 @@ class IngestService:
                 "driveLink": drive_link,
                 "row": row_number,
             }
+            # Infer the pipeline stage from the exception type for consistent
+            # error reporting across all ingestingInfo error objects.
+            if isinstance(error, DriveDownloadError):
+                stage = "download"
+            elif isinstance(error, TextExtractionError):
+                stage = "extraction"
+            else:
+                stage = "ingestion"
             failed_metadata: dict[str, Any] = {
                 **request_metadata,
                 "ingestingInfo": {
                     "failedAt": _now_iso(),
                     "errors": [
                         {
+                            "stage": stage,
                             "errorType": type(error).__name__,
                             "errorMessage": str(error),
                         }

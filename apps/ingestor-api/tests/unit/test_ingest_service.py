@@ -729,6 +729,9 @@ async def test_ingest_drive_error_creates_failed_firestore_record() -> None:
     assert "ingestingInfo" in stub_create_data.metadata
     assert "failedAt" in stub_create_data.metadata["ingestingInfo"]
     assert len(stub_create_data.metadata["ingestingInfo"]["errors"]) == 1
+    # stage field is present for consistent error reporting.
+    assert "stage" in stub_create_data.metadata["ingestingInfo"]["errors"][0]
+    assert stub_create_data.metadata["ingestingInfo"]["errors"][0]["stage"] == "download"
 
     # update_resume was called to set status to FAILED.
     mock_store.update_resume.assert_called_once()
