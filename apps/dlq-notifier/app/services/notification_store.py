@@ -215,6 +215,9 @@ class NotificationStore:
         cap = min(limit, _MAX_LIMIT)
         try:
             col = self._get_collection()
+            # NOTE: this query requires a Firestore composite index on
+            # (userId ASC, category ASC, createdAt ASC).  Ensure the index
+            # exists in your Firestore project before deploying to production.
             query = (
                 col.where("userId", "==", user_id)
                 .where("category", "==", "user")

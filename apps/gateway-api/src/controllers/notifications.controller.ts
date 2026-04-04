@@ -26,7 +26,8 @@ const systemListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   service: z.string().optional(),
   stage: z.string().optional(),
-  unread: z.enum(['true', 'false']).optional().transform((v) => v === undefined ? undefined : v === 'true'),
+  // Accepts 'true'/'false' string from query params; transforms to boolean.
+  unread: z.string().optional().transform((v) => v === undefined ? undefined : v === 'true'),
 });
 
 const notificationIdSchema = z.object({

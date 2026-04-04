@@ -163,6 +163,8 @@ async def list_system_notifications(
         limit=limit,
         service=service,
         stage=stage,
+        # `unread=True` means return unread notifications, so `read=False`.
+        # When `unread` is None we pass None (no read-status filter applied).
         read=None if unread is None else (not unread),
     )
 

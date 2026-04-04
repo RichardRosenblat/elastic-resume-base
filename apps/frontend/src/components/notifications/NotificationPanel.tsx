@@ -48,6 +48,9 @@ interface NotificationItemProps {
   onDelete: (id: string) => void;
 }
 
+/** Shared sx props for compact metadata chips. */
+const CHIP_SX = { height: 18, fontSize: '0.68rem' } as const;
+
 /**
  * A single notification list item with mark-read and delete actions.
  */
@@ -80,13 +83,13 @@ function NotificationItem({ notification, isSystem, onMarkRead, onDelete }: Noti
           secondary={
             <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}>
               {notification.service && (
-                <Chip label={notification.service} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.68rem' }} />
+                <Chip label={notification.service} size="small" variant="outlined" sx={CHIP_SX} />
               )}
               {notification.stage && (
-                <Chip label={notification.stage} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.68rem' }} />
+                <Chip label={notification.stage} size="small" variant="outlined" sx={CHIP_SX} />
               )}
               {isSystem && notification.error_type && (
-                <Chip label={notification.error_type} size="small" color="error" variant="outlined" sx={{ height: 18, fontSize: '0.68rem' }} />
+                <Chip label={notification.error_type} size="small" color="error" variant="outlined" sx={CHIP_SX} />
               )}
               {when && (
                 <Typography component="span" variant="caption" color="text.disabled">

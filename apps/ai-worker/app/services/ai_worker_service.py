@@ -355,7 +355,8 @@ class AIWorkerService:
         user_id: str | None = None
         try:
             resume = self._store.get_resume(resume_id)
-            user_id = resume.metadata.get("userId") or resume.metadata.get("user_id")
+            metadata = resume.metadata if isinstance(resume.metadata, dict) else {}
+            user_id = metadata.get("userId") or metadata.get("user_id")
         except Exception:
             pass  # Best-effort — missing userId is non-critical
 

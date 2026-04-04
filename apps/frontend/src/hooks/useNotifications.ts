@@ -138,7 +138,7 @@ export function useNotifications(): UseNotificationsReturn {
     void fetchNotifications().then(scheduleNext);
   }, [fetchNotifications, scheduleNext]);
 
-  // Initial fetch + start polling on mount.
+    # Initial fetch + start polling on mount.
   useEffect(() => {
     if (!features.dlqNotifier) {
       setLoading(false);
@@ -150,7 +150,12 @@ export function useNotifications(): UseNotificationsReturn {
         clearTimeout(timerRef.current);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // fetchNotifications and scheduleNext are defined with useCallback and are
+    // recreated only when features.dlqNotifier or isAdmin changes.  Including
+    // them in the deps array would restart the interval on every call, so we
+    // intentionally limit the dep to the flag that controls whether polling
+    // should be active at all.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [features.dlqNotifier]);
 
   const markRead = useCallback(async (id: string) => {

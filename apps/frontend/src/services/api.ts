@@ -376,6 +376,12 @@ export const getDownstreamHealth = async (): Promise<DownstreamHealthData> => {
   return res.data;
 };
 
+/** Empty list returned when the DLQ Notifier feature is disabled. */
+const _EMPTY_NOTIFICATION_LIST: import('../types').NotificationListResponse = {
+  notifications: [],
+  total: 0,
+};
+
 /**
  * Fetches the calling user's DLQ notifications.
  * Returns an empty list when the `dlqNotifier` feature flag is disabled.
@@ -388,7 +394,7 @@ export const getNotifications = async (
   limit = 50,
 ): Promise<import('../types').NotificationListResponse> => {
   if (!config.features.dlqNotifier) {
-    return { notifications: [], total: 0 };
+    return _EMPTY_NOTIFICATION_LIST;
   }
   const params: Record<string, string | number> = { limit };
   if (since) params['since'] = since;
@@ -414,7 +420,7 @@ export const getSystemNotifications = async (
   },
 ): Promise<import('../types').NotificationListResponse> => {
   if (!config.features.dlqNotifier) {
-    return { notifications: [], total: 0 };
+    return _EMPTY_NOTIFICATION_LIST;
   }
   const params: Record<string, string | number | boolean> = {};
   if (options?.since) params['since'] = options.since;
