@@ -186,7 +186,7 @@ class AIWorkerService:
                     f"Expected {expected_count} embedding vector(s) but received "
                     f"{len(embedding_vectors)}."
                 )
-            full_text_embedding = embedding_vectors[0] if embedding_vectors else []
+            full_text_embedding = embedding_vectors[0]
             skills_embedding = embedding_vectors[1] if embed_skills else []
 
             # Step 6 — persist embeddings to the dedicated collection.
