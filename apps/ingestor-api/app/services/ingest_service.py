@@ -21,10 +21,11 @@ import csv
 import io
 import os
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 from hermes_py import IPublisher, get_publisher
-from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore
+from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore, UpdateResumeData
 from toolbox_py import get_logger
 
 from app.config import settings
@@ -33,6 +34,25 @@ from app.services.text_extractor import SUPPORTED_EXTENSIONS, extract_text
 from app.utils.exceptions import DriveDownloadError, SheetReadError, TextExtractionError
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Processing status constants (shared with AI Worker pipeline)
+# ---------------------------------------------------------------------------
+
+#: Resume has been ingested and raw text is stored; awaiting AI processing.
+_STATUS_INGESTED = "INGESTED"
+#: Resume ingestion failed; error details stored in ``metadata.ingestingInfo``.
+_STATUS_FAILED = "FAILED"
+
+
+def _now_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
+    return (
+        datetime.now(tz=UTC)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
 
 #: Regex to extract a Google Sheets spreadsheet ID from a Sheets URL.
 _SHEETS_ID_PATTERN = re.compile(
@@ -345,6 +365,75 @@ class IngestService:
         except Exception as exc:
             logger.warning("Failed to publish DLQ message: %s", exc)
 
+    def _persist_failed_record(
+        self,
+        row_number: int,
+        drive_link: str,
+        source_context: dict[str, Any],
+        request_metadata: dict[str, Any],
+        error: Exception,
+    ) -> None:
+        """Persist a ``FAILED`` stub record to Firestore for a row that could not be ingested.
+
+        Creates a document with empty ``rawText`` and status ``FAILED`` so that
+        every attempted ingestion — including rows that failed before text
+        extraction — leaves an auditable Firestore record with error details.
+
+        Failures to persist the stub are logged but do not propagate so that the
+        main ingestion loop is never blocked.
+
+        Args:
+            row_number: The 1-based row number in the source spreadsheet.
+            drive_link: The Google Drive link for the failed row.
+            source_context: Provenance data (e.g. spreadsheetId or uploadedFile).
+            request_metadata: Caller-supplied metadata attached to every resume.
+            error: The exception that caused the row to fail.
+        """
+        try:
+            source: dict[str, Any] = {
+                **source_context,
+                "driveLink": drive_link,
+                "row": row_number,
+            }
+            # Infer the pipeline stage from the exception type for consistent
+            # error reporting across all ingestingInfo error objects.
+            if isinstance(error, DriveDownloadError):
+                stage = "download"
+            elif isinstance(error, TextExtractionError):
+                stage = "extraction"
+            else:
+                stage = "ingestion"
+            failed_metadata: dict[str, Any] = {
+                **request_metadata,
+                "ingestingInfo": {
+                    "failedAt": _now_iso(),
+                    "errors": [
+                        {
+                            "stage": stage,
+                            "errorType": type(error).__name__,
+                            "errorMessage": str(error),
+                        }
+                    ],
+                },
+            }
+            stub = self._resume_store.create_resume(
+                CreateResumeData(raw_text="", source=source, metadata=failed_metadata)
+            )
+            self._resume_store.update_resume(
+                stub.id,
+                UpdateResumeData(status=_STATUS_FAILED),
+            )
+            logger.debug(
+                "Persisted FAILED record to Firestore",
+                extra={"resume_id": stub.id, "row": row_number},
+            )
+        except Exception as persist_exc:
+            logger.warning(
+                "Could not persist FAILED record to Firestore: %s",
+                persist_exc,
+                extra={"row": row_number},
+            )
+
     async def ingest(self, request: IngestRequest) -> IngestResponse:
         """Execute the full resume ingestion pipeline for a Google Sheet.
 
@@ -547,6 +636,13 @@ class IngestService:
                         **source_context,
                     },
                 )
+                self._persist_failed_record(
+                    row_number=row_number,
+                    drive_link=drive_link,
+                    source_context=source_context,
+                    request_metadata=request_metadata,
+                    error=exc,
+                )
 
         logger.info(
             "Ingestion complete",
@@ -615,18 +711,25 @@ class IngestService:
 
         raw_text = extract_text(content, extension)
 
-        # 4. Persist to Firestore via Synapse.
+        # 4. Persist to Firestore via Synapse with INGESTED status.
         source: dict[str, Any] = {
             **source_context,
             "driveFileId": file_id,
             "driveLink": drive_link,
             "row": row_number,
         }
+        ingesting_metadata: dict[str, Any] = {
+            **request_metadata,
+            "ingestingInfo": {
+                "ingestedAt": _now_iso(),
+                "errors": [],
+            },
+        }
         resume_doc = self._resume_store.create_resume(
             CreateResumeData(
                 raw_text=raw_text,
                 source=source,
-                metadata=request_metadata,
+                metadata=ingesting_metadata,
             )
         )
         resume_id = resume_doc.id
@@ -643,6 +746,37 @@ class IngestService:
                 "Failed to publish resume-ingested Pub/Sub message: %s", exc,
                 extra={"resume_id": resume_id},
             )
+            # Update the Firestore document to FAILED so it doesn't appear INGESTED
+            # without a corresponding downstream Pub/Sub event.
+            try:
+                self._resume_store.update_resume(
+                    resume_id,
+                    UpdateResumeData(
+                        status=_STATUS_FAILED,
+                        metadata={
+                            **ingesting_metadata,
+                            "ingestingInfo": {
+                                # Preserve the ingestedAt timestamp from the successful
+                                # Firestore write so the full audit trail is kept.
+                                **ingesting_metadata.get("ingestingInfo", {}),
+                                "failedAt": _now_iso(),
+                                "errors": [
+                                    {
+                                        "stage": "publish",
+                                        "errorType": type(exc).__name__,
+                                        "errorMessage": str(exc),
+                                    }
+                                ],
+                            },
+                        },
+                    ),
+                )
+            except Exception as update_exc:
+                logger.warning(
+                    "Could not update resume status to FAILED after Pub/Sub failure: %s",
+                    update_exc,
+                    extra={"resume_id": resume_id},
+                )
             # Re-raise so the row is counted as an error.
             raise
 
