@@ -230,5 +230,18 @@
     "lastSeenLabel": "Última vez visto",
     "lastCheckedLabel": "Última verificación",
     "neverSeen": "Nunca visto"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "myNotifications": "Mis Notificaciones",
+    "systemNotifications": "Alertas del Sistema",
+    "noNotifications": "No tienes notificaciones.",
+    "noSystemNotifications": "No hay alertas del sistema.",
+    "markRead": "Marcar como leída",
+    "delete": "Eliminar notificación",
+    "refresh": "Actualizar notificaciones",
+    "unknownError": "Ocurrió un error desconocido.",
+    "serviceUnavailable": "Servicio de notificaciones no disponible",
+    "serviceUnavailableBanner": "El servicio de notificaciones no está disponible temporalmente. Las alertas de fallos pueden estar retrasadas."
   }
 }

@@ -135,4 +135,35 @@ export interface FeatureFlags {
    * in a "coming soon" state.
    */
   hideIfDisabled: boolean;
+  /** DLQ Notifier notification system (bell icon, notification panel). */
+  dlqNotifier: boolean;
+}
+
+/**
+ * A single DLQ failure notification record.
+ */
+export interface NotificationRecord {
+  id: string;
+  /** `"user"` for user-caused failures; `"system"` for infrastructure issues. */
+  category: 'user' | 'system';
+  user_id: string | null;
+  resume_id: string | null;
+  service: string | null;
+  stage: string | null;
+  error_type: string | null;
+  /** Technical error description (shown to admins). */
+  error: string | null;
+  /** User-friendly error description (shown to users). */
+  user_message: string | null;
+  message_id: string;
+  subscription: string;
+  publish_time: string;
+  created_at: string;
+  read: boolean;
+}
+
+/** Response payload for notification list endpoints. */
+export interface NotificationListResponse {
+  notifications: NotificationRecord[];
+  total: number;
 }

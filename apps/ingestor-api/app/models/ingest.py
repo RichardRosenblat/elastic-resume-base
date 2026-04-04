@@ -93,6 +93,17 @@ class IngestRequest(BaseModel):
         default_factory=dict,
         description="Optional extra metadata attached to every ingested resume document.",
     )
+    user_id: str | None = Field(
+        default=None,
+        alias="userId",
+        description=(
+            "Firebase UID of the user who triggered the ingestion.  "
+            "Injected by the Gateway API and included in DLQ messages for "
+            "user-oriented failure notifications."
+        ),
+    )
+
+    model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
     def validate_fields(self) -> "IngestRequest":

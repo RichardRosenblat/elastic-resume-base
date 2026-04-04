@@ -502,6 +502,7 @@ class IngestService:
             row_links=row_links,
             source_context={"spreadsheetId": spreadsheet_id},
             request_metadata=request.metadata,
+            user_id=request.user_id,
         )
 
     async def ingest_file(
@@ -593,6 +594,7 @@ class IngestService:
         row_links: list[tuple[int, str]],
         source_context: dict[str, Any],
         request_metadata: dict[str, Any],
+        user_id: str | None = None,
     ) -> IngestResponse:
         """Process a list of ``(row_number, drive_link)`` pairs.
 
@@ -600,6 +602,8 @@ class IngestService:
             row_links: Pairs of 1-based row number and Google Drive link.
             source_context: Provenance data to attach to each Firestore document.
             request_metadata: Caller-supplied metadata to attach to each document.
+            user_id: Optional Firebase UID of the requesting user; included in
+                DLQ messages so the DLQ Notifier can attribute failures.
 
         Returns:
             :class:`~app.models.ingest.IngestResponse` with counts and errors.
@@ -628,14 +632,14 @@ class IngestService:
                     error_msg,
                 )
                 row_errors.append(IngestRowError(row=row_number, error=error_msg))
-                self._publish_dlq_error(
-                    error_msg,
-                    context={
-                        "row": row_number,
-                        "driveLink": drive_link,
-                        **source_context,
-                    },
-                )
+                dlq_context: dict[str, Any] = {
+                    "row": row_number,
+                    "driveLink": drive_link,
+                    **source_context,
+                }
+                if user_id:
+                    dlq_context["userId"] = user_id
+                self._publish_dlq_error(error_msg, context=dlq_context)
                 self._persist_failed_record(
                     row_number=row_number,
                     drive_link=drive_link,

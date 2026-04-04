@@ -230,5 +230,18 @@
     "lastSeenLabel": "Last seen",
     "lastCheckedLabel": "Last checked",
     "neverSeen": "Never seen"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "myNotifications": "My Notifications",
+    "systemNotifications": "System Alerts",
+    "noNotifications": "You have no notifications.",
+    "noSystemNotifications": "No system alerts.",
+    "markRead": "Mark as read",
+    "delete": "Delete notification",
+    "refresh": "Refresh notifications",
+    "unknownError": "An unknown error occurred.",
+    "serviceUnavailable": "Notification service unavailable",
+    "serviceUnavailableBanner": "The notification service is currently unavailable. Real-time failure alerts may be delayed."
   }
 }

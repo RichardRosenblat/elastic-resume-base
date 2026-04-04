@@ -139,12 +139,13 @@ Gateway → Users API → Firestore (via Synapse)
 
 ---
 
-## DLQ Failure Flow (Planned)
+## DLQ Failure Flow
 
 1. Pub/Sub delivers a failed message to the `dead-letter-queue` topic after the maximum retry attempts are exhausted.
 2. The DLQ Notifier receives the dead-letter message via its push subscription.
-3. The DLQ Notifier sends an alert (including the original topic, message ID, and error details) to the configured Slack webhook (`DLQ_SLACK_WEBHOOK_URL`).
-4. The operations team investigates and, if appropriate, re-publishes the message manually.
+3. The DLQ Notifier extracts failure context (`resumeId`, `error`, `service`, `stage`, `errorType`) from the message payload.
+4. The DLQ Notifier sends an email alert (including all available context) to the configured recipients (`NOTIFICATION_RECIPIENTS`).
+5. The operations team investigates and, if appropriate, re-publishes the message manually.
 
 > See [Troubleshooting](troubleshooting.md) for guidance on diagnosing and recovering from DLQ failures.
 

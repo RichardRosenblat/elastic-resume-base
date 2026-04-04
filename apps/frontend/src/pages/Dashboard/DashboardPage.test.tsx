@@ -83,6 +83,7 @@ const defaultFeatureFlags = {
   resumeGenerate: false,
   userManagement: true,
   hideIfDisabled: false,
+  dlqNotifier: false,
 };
 
 describe('DashboardPage', () => {

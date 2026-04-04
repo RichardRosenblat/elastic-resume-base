@@ -8,6 +8,7 @@ import resumesPlugin from './resumes.js';
 import searchPlugin from './search.js';
 import documentsPlugin from './documents.js';
 import usersPlugin from './users.js';
+import notificationsPlugin from './notifications.js';
 
 const routes: FastifyPluginAsync = async (app) => {
   // Public health routes
@@ -32,6 +33,7 @@ const routes: FastifyPluginAsync = async (app) => {
       await api.register(searchPlugin, { prefix: '/search' });
       await api.register(documentsPlugin, { prefix: '/documents' });
       await api.register(usersPlugin, { prefix: '/users' });
+      await api.register(notificationsPlugin, { prefix: '/notifications' });
     },
     { prefix: '/api/v1' },
   );

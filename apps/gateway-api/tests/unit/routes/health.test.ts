@@ -144,7 +144,7 @@ describe('Health Routes', () => {
       // axios.get should be called at most once per service across both requests
       // (probe locking collapses duplicate concurrent probes)
       const callCount = (axios.get as jest.Mock).mock.calls.length;
-      expect(callCount).toBeLessThanOrEqual(5); // at most 1 probe per service
+      expect(callCount).toBeLessThanOrEqual(6); // at most 1 probe per service
     });
   });
 });

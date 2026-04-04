@@ -58,6 +58,14 @@ vi.mock('../config', () => ({
       resumeSearch: false,
       documentRead: false,
       resumeGenerate: false,
+      userManagement: true,
+      hideIfDisabled: false,
+      dlqNotifier: false,
+    },
+    notifications: {
+      activeIntervalMs: 30000,
+      idleIntervalMs: 120000,
+      idleThresholdMs: 300000,
     },
     firebase: {
       apiKey: 'test-key',

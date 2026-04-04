@@ -350,18 +350,28 @@ class AIWorkerService:
         }
         self._update_status(resume_id, STATUS_FAILED, extra_metadata=error_metadata)
 
+        # Attempt to retrieve the userId stored in the resume's Firestore metadata
+        # so the DLQ Notifier can route the notification to the right user.
+        user_id: str | None = None
+        try:
+            resume = self._store.get_resume(resume_id)
+            metadata = resume.metadata if isinstance(resume.metadata, dict) else {}
+            user_id = metadata.get("userId") or metadata.get("user_id")
+        except Exception:
+            pass  # Best-effort — missing userId is non-critical
+
         # Publish to DLQ so the operations team can investigate.
         try:
-            self._publisher.publish(
-                self._topic_dlq,
-                {
-                    "resumeId": resume_id,
-                    "errorType": error_type,
-                    "errorMessage": error_message,
-                    "stage": stage,
-                    "failedAt": _now_iso(),
-                },
-            )
+            dlq_payload: dict[str, Any] = {
+                "resumeId": resume_id,
+                "errorType": error_type,
+                "errorMessage": error_message,
+                "stage": stage,
+                "failedAt": _now_iso(),
+            }
+            if user_id:
+                dlq_payload["userId"] = user_id
+            self._publisher.publish(self._topic_dlq, dlq_payload)
         except Exception as dlq_exc:
             logger.warning(
                 "Failed to publish error to DLQ: %s",

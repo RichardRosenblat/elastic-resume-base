@@ -171,7 +171,9 @@ describe('Resumes Controller - ingest endpoint', () => {
     const body = res.json();
     expect(body.success).toBe(true);
     expect(body.data).toMatchObject({ jobId: 'job-ingest-1', status: 'accepted' });
-    expect(downloaderClient.triggerIngest).toHaveBeenCalledWith({ sheetId: 'sheet-1' });
+    expect(downloaderClient.triggerIngest).toHaveBeenCalledWith(
+      expect.objectContaining({ sheetId: 'sheet-1' }),
+    );
   });
 
   it('POST /api/v1/resumes/ingest returns 202 with batchId', async () => {

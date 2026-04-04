@@ -376,4 +376,81 @@ export const getDownstreamHealth = async (): Promise<DownstreamHealthData> => {
   return res.data;
 };
 
+/** Empty list returned when the DLQ Notifier feature is disabled. */
+const _EMPTY_NOTIFICATION_LIST: import('../types').NotificationListResponse = {
+  notifications: [],
+  total: 0,
+};
+
+/**
+ * Fetches the calling user's DLQ notifications.
+ * Returns an empty list when the `dlqNotifier` feature flag is disabled.
+ *
+ * @param since  Optional ISO-8601 timestamp; only return notifications after this time.
+ * @param limit  Maximum number of notifications to return.
+ */
+export const getNotifications = async (
+  since?: string,
+  limit = 50,
+): Promise<import('../types').NotificationListResponse> => {
+  if (!config.features.dlqNotifier) {
+    return _EMPTY_NOTIFICATION_LIST;
+  }
+  const params: Record<string, string | number> = { limit };
+  if (since) params['since'] = since;
+  const res = await apiClient.get<SuccessResponse<import('../types').NotificationListResponse>>(
+    '/api/v1/notifications',
+    { params },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Fetches system-level DLQ notifications.  Admin-only.
+ *
+ * @param options  Optional query filters.
+ */
+export const getSystemNotifications = async (
+  options?: {
+    since?: string;
+    limit?: number;
+    service?: string;
+    stage?: string;
+    unread?: boolean;
+  },
+): Promise<import('../types').NotificationListResponse> => {
+  if (!config.features.dlqNotifier) {
+    return _EMPTY_NOTIFICATION_LIST;
+  }
+  const params: Record<string, string | number | boolean> = {};
+  if (options?.since) params['since'] = options.since;
+  if (options?.limit !== undefined) params['limit'] = options.limit;
+  if (options?.service) params['service'] = options.service;
+  if (options?.stage) params['stage'] = options.stage;
+  if (options?.unread !== undefined) params['unread'] = options.unread;
+  const res = await apiClient.get<SuccessResponse<import('../types').NotificationListResponse>>(
+    '/api/v1/notifications/system',
+    { params },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Marks a notification as read.
+ *
+ * @param notificationId  Firestore document ID.
+ */
+export const markNotificationRead = async (notificationId: string): Promise<void> => {
+  await apiClient.patch(`/api/v1/notifications/${encodeURIComponent(notificationId)}/read`);
+};
+
+/**
+ * Permanently deletes a notification.
+ *
+ * @param notificationId  Firestore document ID.
+ */
+export const deleteNotification = async (notificationId: string): Promise<void> => {
+  await apiClient.delete(`/api/v1/notifications/${encodeURIComponent(notificationId)}`);
+};
+
 export default apiClient;
