@@ -18,6 +18,9 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/auth-context";
 import { useAppTheme } from "../../theme";
+import { useFeatureFlags } from "../../hooks/useFeatureFlags";
+import { useNotifications } from "../../hooks/useNotifications";
+import NotificationPanel from "../notifications/NotificationPanel";
 
 /** Props for the {@link Topbar} component. */
 interface TopbarProps {
@@ -92,6 +95,8 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
 	const { theme } = useAppTheme();
 	const navigate = useNavigate();
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const features = useFeatureFlags();
+	const notificationsState = useNotifications();
 
 	const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
 		setAnchorEl(event.currentTarget);
@@ -175,6 +180,9 @@ export default function Topbar({ onMenuClick, drawerWidth }: TopbarProps) {
 					<Button color="inherit" onClick={cycleLanguage} size="small">
 						{LANGUAGE_LABELS[i18n.language] ?? "EN"}
 					</Button>
+					{features.dlqNotifier && (
+						<NotificationPanel notifications={notificationsState} />
+					)}
 					<Tooltip title={displayName || t("nav.account")}>
 						<IconButton color="inherit" onClick={handleMenuOpen}>
 							{photoURL ? (

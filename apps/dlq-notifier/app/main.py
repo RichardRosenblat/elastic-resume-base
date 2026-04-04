@@ -1,10 +1,4 @@
-"""DLQ Notifier service application entrypoint.
-
-Implements a FastAPI microservice that subscribes to the ``dead-letter-queue``
-Cloud Pub/Sub topic via a push subscription.  When a dead-letter message is
-received, the service extracts failure context and dispatches an email alert
-to the configured recipients for manual investigation.
-"""
+"""DLQ Notifier service application entrypoint."""
 
 import os
 from collections.abc import AsyncGenerator
@@ -16,12 +10,8 @@ from fastapi.responses import JSONResponse
 from toolbox_py import CorrelationIdMiddleware, get_logger, is_app_error, setup_logging
 
 from app.config import settings
-from app.routers import health, pubsub
+from app.routers import health, notifications, pubsub
 
-# Apply the service-account key path for local development before any GCP
-# client is constructed.  setdefault only sets the var when it is not already
-# present in the environment so that shell / Docker / CI credentials always
-# take precedence over the config-file value.
 if settings.google_application_credentials:
     os.environ.setdefault(
         "GOOGLE_APPLICATION_CREDENTIALS", settings.google_application_credentials
@@ -31,19 +21,33 @@ setup_logging(level=settings.log_level)
 logger = get_logger(__name__)
 
 
+def _init_firebase() -> None:
+    """Initialise the Firebase Admin SDK (idempotent).
+
+    Uses Application Default Credentials in production (Cloud Run) and the
+    explicit service-account JSON key at ``GOOGLE_APPLICATION_CREDENTIALS``
+    for local development.
+    """
+    try:
+        import firebase_admin  # type: ignore[import-untyped]
+        from firebase_admin import credentials  # type: ignore[import-untyped]
+
+        if firebase_admin._apps:  # already initialised
+            return
+        project_id = settings.effective_project_id
+        cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred, {"projectId": project_id})
+        logger.debug("Firebase Admin SDK initialised", extra={"project_id": project_id})
+    except Exception as exc:
+        logger.warning(
+            "Firebase Admin SDK initialisation failed — Firestore storage will be unavailable: %s",
+            exc,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage startup and shutdown lifecycle hooks for the FastAPI app.
-
-    Initialises the Hermes messaging layer on startup (if SMTP is configured)
-    and logs operational parameters.
-
-    Args:
-        app: The FastAPI application instance provided by the lifespan protocol.
-
-    Returns:
-        Async generator used by FastAPI to delimit startup and shutdown phases.
-    """
+    """Manage startup and shutdown lifecycle hooks."""
     logger.info(
         "DLQ Notifier service starting up",
         extra={
@@ -51,16 +55,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "log_level": settings.log_level,
             "pubsub_topic_dlq": settings.pubsub_topic_dlq,
             "notification_recipients": settings.notification_recipients,
+            "firestore_collection": settings.firestore_collection_notifications,
         },
     )
-    logger.debug(
-        "GCP configuration",
-        extra={
-            "google_application_credentials": (
-                settings.google_application_credentials or "(using ADC)"
-            ),
-        },
-    )
+
+    # Initialise Firebase Admin SDK for Firestore access.
+    _init_firebase()
 
     # Initialise Hermes messaging layer if SMTP is configured.
     if settings.smtp_host and settings.smtp_from:
@@ -95,8 +95,15 @@ _OPENAPI_TAGS = [
         "name": "Pub/Sub",
         "description": (
             "Push endpoint for Google Cloud Pub/Sub messages.  Receives "
-            "dead-letter messages from the ``dead-letter-queue`` subscription "
-            "and dispatches email alerts to configured recipients."
+            "dead-letter messages from the ``dead-letter-queue`` subscription, "
+            "persists them to Firestore, and dispatches email alerts."
+        ),
+    },
+    {
+        "name": "Notifications",
+        "description": (
+            "REST API for reading and managing DLQ notifications.  Proxied by "
+            "the Gateway API which injects user identity headers."
         ),
     },
     {
@@ -113,10 +120,9 @@ app = FastAPI(
     version="1.0.0",
     description=(
         "Dead-Letter Queue notifier microservice.  Subscribes to the "
-        "``dead-letter-queue`` Pub/Sub topic via push subscription, extracts "
-        "failure context from each dead-letter message, and dispatches email "
-        "alerts to the configured recipients for manual investigation and "
-        "re-processing."
+        "``dead-letter-queue`` Pub/Sub topic via push subscription, persists "
+        "notification records to Firestore, and dispatches email alerts to the "
+        "configured recipients for manual investigation and re-processing."
     ),
     lifespan=lifespan,
     docs_url="/api/v1/docs",
@@ -128,20 +134,13 @@ app = FastAPI(
 app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(pubsub.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(health.router, prefix="/health")
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    """Handle FastAPI HTTP exceptions and format them using Bowltie.
-
-    Args:
-        request: The incoming HTTP request.
-        exc: The :class:`~fastapi.HTTPException` raised by a route handler.
-
-    Returns:
-        JSONResponse with Bowltie-formatted error envelope.
-    """
+    """Handle FastAPI HTTP exceptions and format them using Bowltie."""
     _code_map: dict[int, str] = {
         400: "BAD_REQUEST",
         401: "UNAUTHORIZED",
@@ -181,15 +180,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle unhandled exceptions and format them using Bowltie.
-
-    Args:
-        request: The incoming HTTP request.
-        exc: The exception that propagated to the ASGI layer.
-
-    Returns:
-        JSONResponse with Bowltie-formatted error envelope.
-    """
+    """Handle unhandled exceptions and format them using Bowltie."""
     if is_app_error(exc):
         logger.warning(
             "Application error",

@@ -2,7 +2,8 @@
 
 Exposes ``POST /pubsub/push`` which receives Google Cloud Pub/Sub push
 messages from the ``dead-letter-queue`` subscription, decodes the payload,
-and dispatches an email alert to the configured recipients.
+stores a notification record in Firestore, and dispatches an email alert
+to the configured recipients.
 
 Google Cloud Pub/Sub expects an HTTP 2xx response to acknowledge a message.
 Any non-2xx response causes Pub/Sub to retry the delivery.  The endpoint
@@ -25,6 +26,7 @@ from toolbox_py import get_logger
 from app.config import settings
 from app.models.pubsub import DlqMessagePayload, PubSubPushEnvelope
 from app.services.notification_service import NotificationService
+from app.services.notification_store import NotificationStore
 from app.utils.exceptions import PubSubMessageError
 
 logger = get_logger(__name__)
@@ -33,19 +35,20 @@ router = APIRouter(tags=["Pub/Sub"])
 
 
 def _get_notification_service() -> NotificationService:
-    """Create a fully-wired :class:`~app.services.notification_service.NotificationService`.
-
-    Retrieves the Hermes messaging singleton and assembles the service with the
-    configured recipient list.
-
-    Returns:
-        A configured :class:`~app.services.notification_service.NotificationService`.
-    """
+    """Create a fully-wired NotificationService."""
     from hermes_py import get_messaging_service
 
     return NotificationService(
         messaging_service=get_messaging_service(),
         recipients=settings.notification_recipients,
+    )
+
+
+def _get_notification_store() -> NotificationStore:
+    """Return a configured NotificationStore."""
+    return NotificationStore(
+        collection_name=settings.firestore_collection_notifications,
+        ttl_days=settings.notification_ttl_days,
     )
 
 
@@ -55,35 +58,20 @@ def _get_notification_service() -> NotificationService:
     description=(
         "Google Cloud Pub/Sub push endpoint.  Receives dead-letter messages "
         "from the ``dead-letter-queue`` subscription, extracts failure context, "
-        "and dispatches an email alert to the configured recipients.\n\n"
+        "stores the notification in Firestore, and dispatches an email alert to "
+        "the configured recipients.\n\n"
         "Always returns HTTP 200 to acknowledge the message — even when email "
         "delivery fails — to prevent infinite re-delivery loops.  Notification "
         "failures are logged at WARNING level.  Malformed push envelopes return "
         "HTTP 400 (message will not be retried by Pub/Sub)."
     ),
     responses={
-        200: {"description": "Message acknowledged; alert sent or logged on delivery failure."},
+        200: {"description": "Message acknowledged; notification stored and alert sent (or logged on failure)."},
         400: {"description": "Malformed Pub/Sub envelope — message will not be retried."},
     },
 )
 async def pubsub_push(request: Request) -> JSONResponse:
-    """Handle a Google Cloud Pub/Sub push message from the dead-letter queue.
-
-    Decodes the base64 message payload, extracts available failure context
-    (``resumeId``, ``error``, ``service``, ``stage``, ``errorType``), and
-    sends an email notification to all configured recipients.
-
-    The endpoint always acknowledges the message (HTTP 200) once the payload
-    has been successfully decoded.  Notification delivery failures are caught,
-    logged, and do not affect the HTTP response status — this prevents Pub/Sub
-    from retrying endlessly when the email transport is unavailable.
-
-    Args:
-        request: The incoming HTTP request from Google Cloud Pub/Sub.
-
-    Returns:
-        JSONResponse with a Bowltie-formatted payload indicating the outcome.
-    """
+    """Handle a Google Cloud Pub/Sub push message from the dead-letter queue."""
     # --- Parse the Pub/Sub envelope ---
     try:
         body = await request.json()
@@ -113,14 +101,31 @@ async def pubsub_push(request: Request) -> JSONResponse:
         extra={
             "resume_id": payload.resume_id,
             "service": payload.service,
+            "category": payload.effective_category,
+            "user_id": payload.user_id,
             "message_id": message_id,
-            "subscription": subscription,
         },
     )
 
+    # --- Persist notification to Firestore ---
+    store = _get_notification_store()
+    notification_id = store.save({
+        "category": payload.effective_category,
+        "userId": payload.user_id,
+        "resumeId": payload.resume_id,
+        "service": payload.service,
+        "stage": payload.stage,
+        "errorType": payload.error_type,
+        "error": payload.error,
+        "userMessage": payload.effective_user_message,
+        "messageId": message_id,
+        "subscription": subscription,
+        "publishTime": publish_time,
+    })
+
     # --- Send email notification (failures are logged, not raised) ---
-    notification_svc = _get_notification_service()
     try:
+        notification_svc = _get_notification_service()
         notification_svc.send_dlq_alert(
             resume_id=payload.resume_id,
             service=payload.service,
@@ -140,11 +145,11 @@ async def pubsub_push(request: Request) -> JSONResponse:
 
     return JSONResponse(
         status_code=200,
-        content=format_success(
-            {
-                "resumeId": payload.resume_id,
-                "messageId": message_id,
-                "status": "acknowledged",
-            }
-        ),
+        content=format_success({
+            "resumeId": payload.resume_id,
+            "messageId": message_id,
+            "notificationId": notification_id,
+            "category": payload.effective_category,
+            "status": "acknowledged",
+        }),
     )

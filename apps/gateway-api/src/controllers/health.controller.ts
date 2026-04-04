@@ -9,6 +9,7 @@ const DOWNSTREAM_SERVICES: Record<string, string> = {
   searchBase: config.searchBaseServiceUrl,
   fileGenerator: config.fileGeneratorServiceUrl,
   documentReader: config.documentReaderServiceUrl,
+  dlqNotifier: config.dlqNotifierServiceUrl,
 };
 
 /** Responds with liveness status. */

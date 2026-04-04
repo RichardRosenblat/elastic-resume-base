@@ -33,11 +33,17 @@ class Settings(BaseSettings):
             variable before any GCP client is created.  Leave empty in
             production where Application Default Credentials are provided by
             the hosting environment (Cloud Run).
+        gcp_project_id: GCP project ID for Firestore.
+        firebase_project_id: Firebase project ID (fallback for Firestore init).
         pubsub_topic_dlq: Pub/Sub topic name for the dead-letter queue.
             Defaults to ``"dead-letter-queue"``.
         http_request_timeout: Maximum seconds a single HTTP request to this
             service may take before a 504 Gateway Timeout is returned.
             Defaults to ``300``.  Health endpoints are excluded from this limit.
+        firestore_collection_notifications: Firestore collection name where
+            notifications are persisted.  Defaults to ``"notifications"``.
+        notification_ttl_days: Number of days after which old notifications are
+            automatically deleted.  Defaults to ``30``.
         smtp_host: SMTP server hostname.
         smtp_port: SMTP server port (e.g. 587 for STARTTLS, 465 for SSL).
         smtp_secure: Whether to wrap the SMTP connection in TLS from the start.
@@ -54,8 +60,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     google_application_credentials: str = ""
 
+    gcp_project_id: str = ""
+    firebase_project_id: str = "demo-elastic-resume-base"
+
     pubsub_topic_dlq: str = "dead-letter-queue"
     http_request_timeout: int = 300
+
+    firestore_collection_notifications: str = "notifications"
+    notification_ttl_days: int = 30
 
     # SMTP configuration (used by Hermes SmtpMessagingService)
     smtp_host: str = ""
@@ -89,6 +101,14 @@ class Settings(BaseSettings):
             for addr in self.notification_recipients_raw.split(",")
             if addr.strip()
         ]
+
+    @property
+    def effective_project_id(self) -> str:
+        """Return the effective GCP project ID for Firestore initialisation.
+
+        Prefers ``gcp_project_id``; falls back to ``firebase_project_id``.
+        """
+        return self.gcp_project_id or self.firebase_project_id
 
 
 load_config_yaml("dlq-notifier")

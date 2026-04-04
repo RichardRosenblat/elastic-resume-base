@@ -85,9 +85,6 @@ class DlqMessagePayload(BaseModel):
     when a processing step fails irrecoverably, or forwarded automatically by
     Pub/Sub after a subscription exhausts its maximum delivery attempts.
 
-    All fields are optional because different upstream services may omit
-    some context.
-
     Attributes:
         resume_id: Firestore document ID of the resume that failed processing,
             if known.
@@ -97,6 +94,15 @@ class DlqMessagePayload(BaseModel):
             ``"download"``, ``"extraction"``).
         error_type: Machine-readable error category (e.g.
             ``"EXTRACTION_ERROR"``).
+        user_id: Firebase UID of the user whose action triggered the failure.
+            When present, the notification is categorised as a ``"user"``
+            letter; otherwise it defaults to ``"system"``.
+        category: Explicit notification category — ``"user"`` for failures
+            caused by user actions, ``"system"`` for infrastructure/platform
+            failures.  When omitted the category is inferred from the presence
+            of ``userId``.
+        user_message: User-friendly description of the failure to show in the
+            notification panel.  Falls back to ``error`` when absent.
     """
 
     resume_id: str | None = Field(default=None, alias="resumeId")
@@ -104,5 +110,29 @@ class DlqMessagePayload(BaseModel):
     service: str | None = Field(default=None)
     stage: str | None = Field(default=None)
     error_type: str | None = Field(default=None, alias="errorType")
+    user_id: str | None = Field(default=None, alias="userId")
+    category: str | None = Field(default=None)
+    user_message: str | None = Field(default=None, alias="userMessage")
 
     model_config = {"populate_by_name": True, "extra": "allow"}
+
+    @property
+    def effective_category(self) -> str:
+        """Return the notification category, inferring it when not explicit.
+
+        Returns:
+            ``"user"`` when ``userId`` is present or ``category`` is ``"user"``;
+            ``"system"`` otherwise.
+        """
+        if self.category in ("user", "system"):
+            return self.category
+        return "user" if self.user_id else "system"
+
+    @property
+    def effective_user_message(self) -> str | None:
+        """Return the user-facing message, falling back to ``error``.
+
+        Returns:
+            ``userMessage`` if set; otherwise ``error``.
+        """
+        return self.user_message or self.error

@@ -137,6 +137,8 @@ export interface IngestRequest {
   sheetId?: string;
   batchId?: string;
   metadata?: Record<string, unknown>;
+  /** Firebase UID of the user who triggered the ingestion, injected by the Gateway. */
+  userId?: string;
 }
 
 /** Response from the ingest endpoint. */

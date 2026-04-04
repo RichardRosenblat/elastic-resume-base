@@ -80,6 +80,7 @@ systems:
     FILE_GENERATOR_SERVICE_URL: "http://file-generator:8003"
     DOCUMENT_READER_SERVICE_URL: "http://document-reader:8004"
     USER_API_SERVICE_URL: "http://users-api:8005"
+    DLQ_NOTIFIER_SERVICE_URL: "http://dlq-notifier:8007"
 
   # ---------------------------------------------------------------------------
   # Users API (Node.js — port 8005)
@@ -159,10 +160,17 @@ systems:
     VITE_FEATURE_DOCUMENT_READ: "true"    # Document reader (OCR service ready)
     VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
     VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
+    VITE_FEATURE_DLQ_NOTIFIER: "true"     # DLQ Notifier notification panel (bell icon + smart polling)
 
     # When set to "true", features that are disabled (flag = "false") are hidden
     # entirely from the sidebar and dashboard instead of being shown as "Coming Soon".
     VITE_FEATURE_HIDE_IF_DISABLED: "false"
+
+    # Smart notification polling intervals (milliseconds).
+    # The frontend uses these to adapt polling frequency based on user activity.
+    VITE_NOTIFICATIONS_ACTIVE_INTERVAL_MS: "30000"   # 30 s when user is active
+    VITE_NOTIFICATIONS_IDLE_INTERVAL_MS: "120000"    # 120 s when user is idle
+    VITE_NOTIFICATIONS_IDLE_THRESHOLD_MS: "300000"   # 5 min before considered idle
 
   # ---------------------------------------------------------------------------
   # Ingestor Service (Python — port 8001)
@@ -279,3 +287,12 @@ systems:
     SMTP_USER: ""          # SMTP auth username — omit for unauthenticated relays
     SMTP_PASSWORD: ""      # SMTP auth password — never commit real credentials
     SMTP_FROM: ""          # Sender address, e.g. noreply@example.com
+
+    # GCP project ID used to initialise Firestore (defaults to firebase_project_id).
+    GCP_PROJECT_ID: ""
+
+    # Firestore collection where notification records are persisted.
+    FIRESTORE_COLLECTION_NOTIFICATIONS: notifications
+
+    # Number of days after which old notifications are automatically purged.
+    NOTIFICATION_TTL_DAYS: "30"

@@ -33,7 +33,9 @@ export async function ingest(request: FastifyRequest, reply: FastifyReply): Prom
   logger.debug({ correlationId: request.correlationId }, 'ingest: validating request body');
   const body = ingestSchema.parse(request.body);
   logger.info({ correlationId: request.correlationId, sheetId: body.sheetId, batchId: body.batchId }, 'ingest: triggering ingest job');
-  const result = await triggerIngest(body);
+  // Include the authenticated user's UID so the DLQ Notifier can route
+  // failure notifications to the right user if the ingest fails.
+  const result = await triggerIngest({ ...body, userId: request.user.uid });
   logger.debug({ correlationId: request.correlationId, jobId: result.jobId }, 'ingest: job accepted');
   void reply.code(202).send(formatSuccess(result, request.correlationId));
 }
