@@ -648,3 +648,202 @@ async def test_ingest_file_no_header_row() -> None:
 
     assert result.ingested == 1
     assert result.errors == []
+
+
+# ---------------------------------------------------------------------------
+# Status system — ingestingInfo metadata and FAILED records
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_success_includes_ingesting_info_in_metadata() -> None:
+    """Successful ingestion passes ingestingInfo in metadata to create_resume."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("resume-abc")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 1
+    # Verify ingestingInfo was included in the metadata passed to create_resume.
+    create_call_args = mock_store.create_resume.call_args
+    passed_metadata = create_call_args.args[0].metadata
+    assert "ingestingInfo" in passed_metadata
+    assert "ingestedAt" in passed_metadata["ingestingInfo"]
+    assert passed_metadata["ingestingInfo"]["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_error_creates_failed_firestore_record() -> None:
+    """A Drive download failure creates a FAILED Firestore stub with error details."""
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.side_effect = Exception("Drive API unavailable")
+    mock_drive.get_file_metadata.return_value = {"name": "resume.pdf", "mimeType": "application/pdf"}
+    mock_publisher = _make_mock_publisher()
+
+    stub_doc = MagicMock()
+    stub_doc.id = "failed-stub-001"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = stub_doc
+    mock_store.update_resume.return_value = stub_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    # Row is counted as an error.
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+    # create_resume was called once (the FAILED stub).
+    mock_store.create_resume.assert_called_once()
+    stub_create_data = mock_store.create_resume.call_args.args[0]
+    assert stub_create_data.raw_text == ""
+    assert "ingestingInfo" in stub_create_data.metadata
+    assert "failedAt" in stub_create_data.metadata["ingestingInfo"]
+    assert len(stub_create_data.metadata["ingestingInfo"]["errors"]) == 1
+
+    # update_resume was called to set status to FAILED.
+    mock_store.update_resume.assert_called_once()
+    update_data = mock_store.update_resume.call_args.args[1]
+    assert update_data.status == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_ingest_invalid_drive_link_creates_failed_firestore_record() -> None:
+    """An invalid Drive link creates a FAILED stub record in Firestore."""
+    mock_sheets = _make_mock_sheets([(3, "not-a-drive-link")])
+    mock_publisher = _make_mock_publisher()
+
+    stub_doc = MagicMock()
+    stub_doc.id = "failed-stub-002"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = stub_doc
+    mock_store.update_resume.return_value = stub_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=_make_mock_drive(),
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+    # FAILED stub created and updated.
+    mock_store.create_resume.assert_called_once()
+    mock_store.update_resume.assert_called_once()
+    update_data = mock_store.update_resume.call_args.args[1]
+    assert update_data.status == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_ingest_persist_failed_record_does_not_block_on_error() -> None:
+    """If persisting a FAILED record raises, the ingestion loop continues."""
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.side_effect = Exception("Drive error")
+    mock_drive.get_file_metadata.return_value = {"name": "r.pdf", "mimeType": "application/pdf"}
+
+    mock_store = MagicMock()
+    # create_resume raises when trying to persist the FAILED stub.
+    mock_store.create_resume.side_effect = Exception("Firestore unavailable")
+    mock_publisher = _make_mock_publisher()
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    # Should not raise even though both Drive and Firestore fail.
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+
+@pytest.mark.asyncio
+async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
+    """When Pub/Sub publish fails, the existing Firestore doc is updated to FAILED."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+
+    # Publisher always fails.
+    mock_publisher = MagicMock()
+    mock_publisher.publish.side_effect = Exception("Pub/Sub unavailable")
+
+    ingested_doc = MagicMock()
+    ingested_doc.id = "resume-pubsub-fail"
+    ingested_doc.metadata = {}
+    stub_doc = MagicMock()
+    stub_doc.id = "failed-stub-pubsub"
+    # First create_resume returns the INGESTED doc;
+    # second create_resume (from _persist_failed_record) returns a stub.
+    mock_store = MagicMock()
+    mock_store.create_resume.side_effect = [ingested_doc, stub_doc]
+    mock_store.update_resume.return_value = ingested_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+    # update_resume should have been called to mark the doc FAILED.
+    failed_calls = [
+        c for c in mock_store.update_resume.call_args_list
+        if c.args[1].status == "FAILED"
+    ]
+    assert len(failed_calls) >= 1
