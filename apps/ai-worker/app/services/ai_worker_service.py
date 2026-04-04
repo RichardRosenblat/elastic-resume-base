@@ -180,8 +180,14 @@ class AIWorkerService:
                 texts_to_embed.append(skills_text)
 
             embedding_vectors = self._vertex_ai.generate_embeddings(texts_to_embed)
+            expected_count = len(texts_to_embed)
+            if len(embedding_vectors) != expected_count:
+                raise EmbeddingError(
+                    f"Expected {expected_count} embedding vector(s) but received "
+                    f"{len(embedding_vectors)}."
+                )
             full_text_embedding = embedding_vectors[0] if embedding_vectors else []
-            skills_embedding = embedding_vectors[1] if embed_skills and len(embedding_vectors) > 1 else []
+            skills_embedding = embedding_vectors[1] if embed_skills else []
 
             # Step 6 — persist embeddings to the dedicated collection.
             self._save_embeddings(
