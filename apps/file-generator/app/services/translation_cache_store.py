@@ -201,7 +201,8 @@ class TranslationCacheStore:
         ``usage`` by *delta* for every other entry in the collection.
 
         All updates are performed as Firestore batch writes in chunks of
-        :data:`_BATCH_SIZE` to stay within Firestore limits.
+        :data:`_BATCH_SIZE` to stay within Firestore limits.  Only document
+        IDs are fetched (via a projected query) to minimise data transfer.
 
         Args:
             touched_key: Cache key of the entry that was just used or written.
@@ -218,9 +219,12 @@ class TranslationCacheStore:
                 {"usage": fs.Increment(delta), "updatedAt": _now_iso()}
             )
 
-            # Decrement all other entries in batches.
+            # Fetch only document IDs (projected query) to avoid reading full
+            # document payloads — significantly reduces data transfer for large
+            # collections near the 10k cap.
             other_docs = [
-                doc for doc in collection.stream() if doc.id != touched_key
+                doc for doc in collection.select([]).stream()
+                if doc.id != touched_key
             ]
             if not other_docs:
                 return
@@ -253,16 +257,26 @@ class TranslationCacheStore:
     def _prune_if_needed(self) -> None:
         """Delete the lowest-usage entries if the cache exceeds *max_size*.
 
-        Queries the collection ordered by ``usage`` ascending and deletes in
-        batches until the total count is back under :attr:`_max_size`.
+        Uses a count aggregation query to avoid loading all documents into
+        memory when pruning is not needed.  Only streams documents when the
+        count exceeds the limit.
         """
         try:
             db = self._db()
             collection = db.collection(self._collection_name)
 
-            # Count total entries.
-            all_docs = list(collection.stream())
-            total = len(all_docs)
+            # Use an aggregation count query to check the total without loading
+            # all document payloads — O(1) data transfer when under the limit.
+            try:
+                count_query = collection.count()
+                count_result = count_query.get()
+                total = count_result[0][0].value
+            except Exception:
+                # Fallback for environments where count() is unavailable
+                # (e.g. Firestore emulator versions that predate the feature).
+                all_docs = list(collection.select([]).stream())
+                total = len(all_docs)
+
             if total <= self._max_size:
                 return
 
@@ -273,7 +287,9 @@ class TranslationCacheStore:
                 extra={"total": total, "limit": self._max_size, "to_delete": to_delete},
             )
 
-            # Sort by usage ascending (lowest usage deleted first).
+            # Stream full documents so we can sort by usage and delete the
+            # lowest-usage entries.  This is only done when pruning is needed.
+            all_docs = list(collection.stream())
             sorted_docs = sorted(
                 all_docs,
                 key=lambda d: (d.to_dict() or {}).get("usage", 0),

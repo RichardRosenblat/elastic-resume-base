@@ -187,7 +187,7 @@ def test_apply_decay_increments_touched_entry() -> None:
     """_apply_decay increments the usage of the touched entry."""
     store = _make_store()
     mock_db, mock_col = _make_mock_db()
-    mock_col.stream.return_value = []  # no other entries
+    mock_col.select.return_value.stream.return_value = []  # no other entries
 
     from firebase_admin import firestore as fs  # type: ignore[import-untyped]
 
@@ -204,9 +204,10 @@ def test_apply_decay_decrements_other_entries_in_batch() -> None:
     store = _make_store()
     mock_db, mock_col = _make_mock_db()
 
-    # 3 other documents
+    # 3 other documents returned by the projected query
     other_docs = [_make_doc(f"other-{i}") for i in range(3)]
-    mock_col.stream.return_value = [_make_doc("touched")] + other_docs
+    # _apply_decay uses collection.select([]).stream()
+    mock_col.select.return_value.stream.return_value = [_make_doc("touched")] + other_docs
 
     mock_batch = MagicMock()
     mock_db.batch.return_value = mock_batch
@@ -228,7 +229,7 @@ def test_apply_decay_uses_multiple_batches_for_large_collections() -> None:
     # Create _BATCH_SIZE + 10 other documents
     n_others = _BATCH_SIZE + 10
     other_docs = [_make_doc(f"other-{i}") for i in range(n_others)]
-    mock_col.stream.return_value = other_docs  # touched key not in stream
+    mock_col.select.return_value.stream.return_value = other_docs  # touched key not in stream
 
     mock_batch = MagicMock()
     mock_db.batch.return_value = mock_batch
@@ -259,7 +260,13 @@ def test_prune_does_nothing_when_under_limit() -> None:
     """_prune_if_needed does not delete anything when count <= max_size."""
     store = _make_store(max_size=10)
     mock_db, mock_col = _make_mock_db()
-    mock_col.stream.return_value = [_make_doc(f"doc-{i}") for i in range(5)]
+
+    # Simulate count aggregation returning 5
+    mock_count_result = MagicMock()
+    mock_count_result.__getitem__ = lambda self, i: (
+        [MagicMock(value=5)] if i == 0 else []
+    )
+    mock_col.count.return_value.get.return_value = mock_count_result
 
     mock_batch = MagicMock()
     mock_db.batch.return_value = mock_batch
@@ -283,6 +290,15 @@ def test_prune_deletes_lowest_usage_entries_when_over_limit() -> None:
         _make_doc("doc-d", usage=0),   # lowest — should be deleted
         _make_doc("doc-e", usage=8),
     ]
+
+    # Simulate count() aggregation returning 5 (> max_size 3)
+    mock_count_result = MagicMock()
+    mock_count_result.__getitem__ = lambda self, i: (
+        [MagicMock(value=5)] if i == 0 else []
+    )
+    mock_col.count.return_value.get.return_value = mock_count_result
+
+    # stream() for the full document scan (used only when pruning is needed)
     mock_col.stream.return_value = docs
 
     mock_batch = MagicMock()
