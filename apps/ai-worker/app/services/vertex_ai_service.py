@@ -12,12 +12,13 @@ Provides :class:`VertexAIService` which wraps two Vertex AI calls:
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
+
+from toolbox_py import get_logger
 
 from app.utils.exceptions import EmbeddingError, ExtractionError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _EXTRACTION_PROMPT_TEMPLATE = """You are a professional resume parser. Extract structured information from the following resume text and return ONLY a valid JSON object with no additional text or markdown.
 

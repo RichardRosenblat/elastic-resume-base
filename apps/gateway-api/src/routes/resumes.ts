@@ -1,3 +1,9 @@
+/**
+ * @file resumes.ts — Resume ingestion and generation routes for the Gateway API.
+ *
+ * All routes are protected by Firebase authentication and rate limiting (applied
+ * by the parent plugin in `routes/index.ts`).
+ */
 import type { FastifyPluginAsync } from 'fastify';
 import { ingest, generate } from '../controllers/resumes.controller.js';
 

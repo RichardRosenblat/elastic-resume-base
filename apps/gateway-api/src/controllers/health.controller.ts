@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
 import { ensureEntry, getRegistry, probeService } from '../services/serviceRegistry.js';
 
 /** Service key → URL mapping for all registered downstream services. */
@@ -14,11 +15,13 @@ const DOWNSTREAM_SERVICES: Record<string, string> = {
 
 /** Responds with liveness status. */
 export function getLive(_request: FastifyRequest, reply: FastifyReply): void {
+  logger.trace('getLive: liveness probe received');
   void reply.send({ status: 'ok' });
 }
 
 /** Responds with readiness status. */
 export function getReady(_request: FastifyRequest, reply: FastifyReply): void {
+  logger.trace('getReady: readiness probe received');
   void reply.send({ status: 'ok' });
 }
 

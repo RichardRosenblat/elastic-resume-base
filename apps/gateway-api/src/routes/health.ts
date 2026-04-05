@@ -1,3 +1,10 @@
+/**
+ * @file health.ts — Health probe routes for the Gateway API.
+ *
+ * Exposes three public (unauthenticated) endpoints used by Cloud Run and
+ * infrastructure tooling to assess service liveness, readiness, and the
+ * health of registered downstream services.
+ */
 import type { FastifyPluginAsync } from 'fastify';
 import { getLive, getReady, getDownstream } from '../controllers/health.controller.js';
 

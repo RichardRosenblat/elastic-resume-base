@@ -22,6 +22,17 @@ import { logger } from '../utils/logger.js';
 /** Default role assigned to newly created users. */
 const DEFAULT_ROLE = 'user';
 
+/**
+ * Compares two field values for sorting purposes.
+ *
+ * Booleans are ordered with `true` before `false` (i.e., enabled users first
+ * when sorting by `enable`).  All other values are compared as strings using
+ * locale-insensitive case-folding so that `"Admin"` and `"admin"` sort equally.
+ *
+ * @param a - First value to compare.
+ * @param b - Second value to compare.
+ * @returns Negative if `a` should sort before `b`, positive if after, zero if equal.
+ */
 function compareValues(a: string | boolean, b: string | boolean): number {
   if (typeof a === 'boolean' && typeof b === 'boolean') {
     if (a === b) return 0;
@@ -30,6 +41,17 @@ function compareValues(a: string | boolean, b: string | boolean): number {
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
 }
 
+/**
+ * Returns a sorted copy of the provided user list.
+ *
+ * The sort field and direction are taken from `filters.orderBy` and
+ * `filters.orderDirection`.  Defaults to ascending order by `uid`.
+ * The original array is not mutated.
+ *
+ * @param users - Unsorted array of user records.
+ * @param filters - Optional filtering/sorting options.
+ * @returns A new array of user records sorted according to `filters`.
+ */
 function sortUsers(users: UserRecord[], filters?: UserFilters): UserRecord[] {
   const orderBy = filters?.orderBy ?? 'uid';
   const orderDirection = filters?.orderDirection ?? 'asc';

@@ -1,3 +1,10 @@
+/**
+ * @file documents.ts — Document OCR and read routes for the Gateway API.
+ *
+ * Proxies multipart file uploads and document read requests to the
+ * Document Reader service. Registers a no-op content-type parser for
+ * `multipart/form-data` so that raw upload streams are not buffered by Fastify.
+ */
 import type { FastifyPluginAsync, RouteHandlerMethod } from 'fastify';
 import { readDocumentHandler, ocrDocumentsHandler } from '../controllers/documents.controller.js';
 import { documentsProxyHandler } from '../controllers/documentsProxy.controller.js';
