@@ -1,3 +1,12 @@
+/**
+ * @file index.ts — Root route plugin for the Gateway API.
+ *
+ * Registers all sub-plugins in two groups:
+ * - **Public** routes (health probes) — no authentication required.
+ * - **Protected** routes (`/api/v1/*`) — require a valid Firebase ID token,
+ *   are rate-limited via `@fastify/rate-limit`, and enforce RBAC via the
+ *   `authHook` / `requireAdminHook` middleware.
+ */
 import type { FastifyPluginAsync } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { config } from '../config.js';

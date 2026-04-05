@@ -157,16 +157,39 @@ If you plan to run any service **outside Docker** (e.g., for debugging with `npm
 ```bash
 cd apps/gateway-api && npm install && cd ../..
 cd apps/users-api && npm install && cd ../..
+cd apps/frontend && npm install && cd ../..
 ```
 
-**Python services** (example for one service — repeat as needed):
+**Python services** (create a virtual environment for each service you plan to run locally):
 ```bash
-cd ingestor-service
+# Ingestor API
+cd apps/ingestor-api
 python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
-.venv\Scripts\activate      # Windows
-pip install -r requirements.txt
-cd ..
+# .venv\Scripts\activate    # Windows
+pip install -r requirements/requirements-dev.txt
+cd ../..
+
+# AI Worker
+cd apps/ai-worker
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements/requirements-dev.txt
+cd ../..
+
+# Document Reader
+cd apps/document-reader
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cd ../..
+
+# DLQ Notifier
+cd apps/dlq-notifier
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements/requirements-dev.txt
+cd ../..
 ```
 
 > If you are only using Docker Compose, skip this step — containers install their own dependencies at build time.
@@ -212,18 +235,33 @@ Once the stack is up, open these URLs in your browser:
 
 | Service | URL | What to check |
 |---------|-----|---------------|
+| Frontend SPA | http://localhost:5173 | Login page loads |
 | Gateway | http://localhost:3000/api/v1/docs | Swagger UI — all routes visible |
 | Users API | http://localhost:8005/api/v1/docs | Swagger UI — all routes visible |
+| Document Reader | http://localhost:8004/docs | Swagger UI — OCR routes visible |
+| Ingestor API | http://localhost:8001/docs | Swagger UI — ingest routes visible |
+| AI Worker | http://localhost:8006/docs | Swagger UI — pubsub routes visible |
+| DLQ Notifier | http://localhost:8007/docs | Swagger UI — notification routes visible |
 | Firebase Emulator UI | http://localhost:4000 | Firestore / Auth / Pub/Sub tabs visible |
 | Firestore Emulator | http://localhost:8080 | Used internally by services |
 | Firebase Auth Emulator | http://localhost:9099 | Used internally by services |
 | Pub/Sub Emulator | http://localhost:8085 | Used internally by services |
 
-A quick health-check for the Gateway:
+Quick health-checks:
 
 ```bash
+# Gateway
 curl http://localhost:3000/api/v1/health
-# Expected: {"status":"ok"} (or similar)
+# Users API
+curl http://localhost:8005/api/v1/health
+# Document Reader
+curl http://localhost:8004/health
+# Ingestor API
+curl http://localhost:8001/health
+# AI Worker
+curl http://localhost:8006/health
+# DLQ Notifier
+curl http://localhost:8007/health
 ```
 
 ---

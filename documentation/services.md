@@ -49,26 +49,64 @@ A Python/FastAPI service responsible for accepting personal documents and using 
 - Extracts and classifies Brazilian document types (RG, CTPS, PIS, Birth/Marriage Certificate, Residence Proof, Diploma)
 - Returns structured data as a downloadable Excel workbook (`.xlsx`)
 - Supports optional `documentTypes` field to bypass auto-classification
+- **Port:** 8004
 
 See [apps/document-reader/README.md](../apps/document-reader/README.md) for full API documentation.
+
+### Ingestor API (✅ Implemented)
+
+A Python/FastAPI service responsible for downloading resumes from Google Sheets and Google Drive, extracting text from them, persisting the raw text in Firestore, and publishing events to Pub/Sub for the AI Worker to process. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
+
+- Accepts ingest requests via `POST /api/v1/ingest` with a Google Sheets URL and Drive file links
+- Downloads resume files (PDF, DOCX) from Google Drive using Bugle
+- Extracts raw text using PyMuPDF (PDF) or python-docx (DOCX) with layout-aware column detection for PDFs
+- Persists raw text to Firestore via Synapse with `status=INGESTED` and metadata
+- Publishes ingest events to the `resume-ingested` Pub/Sub topic for AI Worker consumption
+- Failed rows get a `FAILED` Firestore stub with stage, error type, and error message
+- **Port:** 8001
+- **Pub/Sub topics:** publishes to `resume-ingested`, `dead-letter-queue`
+
+See [apps/ingestor-api/README.md](../apps/ingestor-api/README.md) for full API documentation.
+
+### AI Worker (✅ Implemented)
+
+A Python/FastAPI service responsible for processing ingested resume data. Consumes Pub/Sub push messages and orchestrates the full AI pipeline: extraction → embedding → persistence → indexing event. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub push subscriptions.
+
+- Receives `POST /api/v1/pubsub/push` from Cloud Pub/Sub with `resumeId` payload
+- Retrieves raw resume text from Firestore via Synapse
+- Extracts structured fields (name, skills, experience, education, etc.) using Vertex AI Gemini 1.5 Flash
+- Generates multilingual embedding vectors using `text-multilingual-embedding-002`
+- Persists structured data and embeddings back to Firestore
+- Publishes `resume-indexed` events for downstream Search Base consumption
+- Status lifecycle: `INGESTED` → `PROCESSING` → `PROCESSED` / `FAILED`
+- **Port:** 8006
+- **Pub/Sub topics:** consumes `resume-ingested`, publishes to `resume-indexed`, `dead-letter-queue`
+
+See [apps/ai-worker/README.md](../apps/ai-worker/README.md) for full API documentation.
+
+### DLQ Notifier (✅ Implemented)
+
+A Python/FastAPI service responsible for processing dead-letter-queue messages and notifying operators. Also provides a REST API for user-facing and system-level notification management. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub push subscriptions.
+
+- Receives `POST /api/v1/pubsub/push` from the `dead-letter-queue` Pub/Sub topic
+- Sends email alerts via SMTP (Hermes `SmtpMessagingService`) to configured recipients
+- Stores structured notifications in Firestore (`notifications` collection, 30-day TTL)
+- Exposes notification REST API (used by frontend bell icon / notification panel):
+  - `GET /api/v1/notifications` — user's own notifications
+  - `GET /api/v1/notifications/system` — system-level notifications (admin only)
+  - `PATCH /api/v1/notifications/{id}/read` — mark as read
+  - `DELETE /api/v1/notifications/{id}` — dismiss
+- Uses `X-User-Id` and `X-User-Role` headers injected by the Gateway for authorization
+- **Port:** 8007
+- **Pub/Sub topics:** consumes `dead-letter-queue`
+
+See [apps/dlq-notifier/README.md](../apps/dlq-notifier/README.md) for full API documentation.
 
 ---
 
 ## Planned Services
 
 > The following services are part of the target architecture but have not yet been implemented.
-
-### Frontend SPA (🔄 Planned — see above for current implementation)
-
-> The base frontend is implemented. The following backend-dependent features are not yet available: resume ingest, AI worker, search, and file generation. These are controlled via feature flags in `VITE_FEATURE_*` environment variables.
-
-### Ingestor Service (🔄 Planned)
-
-A Python service responsible for downloading resumes from Google Sheets and Google Drive, extracting text from the resumes, and storing the extracted data in Firestore. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API. Publishes to a Pub/Sub queue for the AI Worker to process.
-
-### AI Worker (🔄 Planned)
-
-A Python service responsible for processing resume data. Handles both the extraction of relevant information from raw resume text using Vertex AI (Gemini 1.5 Flash) and the creation of embeddings using `text-multilingual-embedding-002`. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub. After processing, stores the structured JSON and embeddings in Firestore and publishes to Pub/Sub for the Search Base to index.
 
 ### Search Base (🔄 Planned)
 
@@ -77,13 +115,6 @@ A Python service responsible for handling search queries from the frontend and m
 ### File Generator (🔄 Planned)
 
 A Python service responsible for generating resume documents and handling translations. Downloads and processes data from Firestore to render the final resume documents. Handles translation via Google Cloud Translation API, caching results in Firestore to reduce API calls. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
-### Document Reader (🔄 Planned)
-
-A Python service responsible for accepting personal documents and using OCR (Google Cloud Vision API) to extract text from them. No extracted data or documents are persisted after text extraction, ensuring data privacy. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
-
-### DLQ Notifier (🔄 Planned)
-
-A Python service responsible for monitoring the Dead Letter Queue (DLQ) for failed messages and sending notifications (e.g., Slack) for further investigation. Hosted on Cloud Run, minimum instance set to 0, activated through Pub/Sub when messages are sent to the DLQ.
 
 ---
 

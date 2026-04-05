@@ -25,6 +25,15 @@ class DecodedFirebaseToken:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DecodedFirebaseToken":
+        """Construct a :class:`DecodedFirebaseToken` from a Firebase Admin SDK decoded token dict.
+
+        Args:
+            data: Raw decoded token dictionary returned by
+                ``firebase_admin.auth.verify_id_token()``.
+
+        Returns:
+            A :class:`DecodedFirebaseToken` populated with the token's claims.
+        """
         return cls(
             uid=str(data["uid"]),
             email=data.get("email"),

@@ -1,3 +1,9 @@
+/**
+ * @file search.ts — Semantic search routes for the Gateway API.
+ *
+ * Proxies search requests to the Search Base service after authentication.
+ * All routes are protected by Firebase auth and rate limiting.
+ */
 import type { FastifyPluginAsync } from 'fastify';
 import { searchHandler } from '../controllers/search.controller.js';
 

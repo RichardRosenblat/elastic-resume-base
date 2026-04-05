@@ -26,6 +26,11 @@ _MAX_LIMIT = 200
 
 
 def _utcnow_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string with millisecond precision.
+
+    Returns:
+        ISO-8601 timestamp string ending in ``Z`` (e.g. ``"2024-01-15T10:30:00.000Z"``).
+    """
     return (
         datetime.now(tz=UTC)
         .isoformat(timespec="milliseconds")

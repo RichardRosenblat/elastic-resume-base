@@ -68,3 +68,8 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 | [ADR-008](ADR-008-auth-and-authorization-flow-overhaul.md) | Overhaul Login & Authorization Flow with Firestore-Native RBAC | Accepted |
 | [ADR-009](ADR-009-shared-library-versioning.md) | Semantic Versioning and CHANGELOG for Shared Libraries | Accepted |
 | [ADR-010](ADR-010-shared-library-directory-architecture.md) | Folder-Based Major-Version Directory Structure for Shared Libraries | Accepted |
+| [ADR-011](ADR-011-aegis-harbor-client-server-split.md) | Aegis and Harbor Client/Server Module Split | Accepted |
+| [ADR-012](ADR-012-frontend-spa-react-typescript-vite.md) | Use React + TypeScript + Vite for the Frontend SPA | Accepted |
+| [ADR-013](ADR-013-firebase-authentication.md) | Use Firebase Authentication with Google SSO | Accepted |
+| [ADR-014](ADR-014-structured-logging-strategy.md) | Structured Logging Strategy (Pino + Python standard logging) | Accepted |
+| [ADR-015](ADR-015-docker-containerization.md) | Docker Containerization and Docker Compose for Local Development | Accepted |
