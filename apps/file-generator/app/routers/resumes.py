@@ -134,14 +134,14 @@ async def generate_resume(
             language=body.language,
             format=body.format,
         )
-    except ResumeNotFoundError as exc:
+    except ResumeNotFoundError:
         logger.warning(
             "Resume not found",
             extra={"resume_id": resume_id, "correlation_id": correlation_id},
         )
         return JSONResponse(
             status_code=404,
-            content=format_error("NOT_FOUND", str(exc)),
+            content=format_error("NOT_FOUND", f"Resume '{resume_id}' not found."),
         )
     except TemplateNotFoundError as exc:
         logger.error(

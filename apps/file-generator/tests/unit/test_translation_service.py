@@ -28,7 +28,7 @@ def _make_service(
 
 def _cache_key(text: str, lang: str) -> str:
     payload = f"{lang}:{text}".encode("utf-8")
-    return hashlib.md5(payload).hexdigest()
+    return hashlib.sha256(payload).hexdigest()
 
 
 # ---------------------------------------------------------------------------

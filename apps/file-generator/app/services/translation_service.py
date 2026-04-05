@@ -145,7 +145,7 @@ class TranslationService:
             A hex-digest string suitable for use as a Firestore document ID.
         """
         payload = f"{target_language}:{text}".encode("utf-8")
-        return hashlib.md5(payload).hexdigest()
+        return hashlib.sha256(payload).hexdigest()
 
     def _get_cached(self, cache_key: str) -> str | None:
         """Look up a cached translation in Firestore.
