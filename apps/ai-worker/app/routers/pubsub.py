@@ -67,6 +67,7 @@ def _get_ai_worker_service() -> AIWorkerService:
         embeddings_collection=settings.firestore_collection_embeddings,
         topic_resume_indexed=settings.pubsub_topic_resume_indexed,
         topic_dlq=settings.pubsub_topic_dlq,
+        kms_key_name=settings.kms_key_name,
     )
 
 

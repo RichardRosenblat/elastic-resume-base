@@ -6,3 +6,4 @@ PyYAML==6.0.2
 google-cloud-aiplatform>=1.50.0
 firebase-admin>=6.5.0
 google-cloud-pubsub>=2.21.0
+google-cloud-kms>=3.12.0

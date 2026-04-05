@@ -45,6 +45,23 @@ class ResumeNotFoundError(Exception):
         self.resume_id = resume_id
 
 
+class KmsEncryptionError(Exception):
+    """Raised when Cloud KMS encryption of a PII field fails.
+
+    Attributes:
+        message: Human-readable description of the failure.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Initialise a KmsEncryptionError.
+
+        Args:
+            message: Human-readable description of the failure.
+        """
+        super().__init__(message)
+        self.message = message
+
+
 class PubSubMessageError(Exception):
     """Raised when a Pub/Sub push message cannot be decoded or is malformed.
 

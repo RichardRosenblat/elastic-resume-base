@@ -54,6 +54,11 @@ class Settings(BaseSettings):
         http_request_timeout: Maximum seconds a single HTTP request to this
             service may take before a 504 Gateway Timeout is returned.
             Defaults to ``300``.  Health endpoints are excluded from this limit.
+        kms_key_name: Fully-qualified Cloud KMS key name used to encrypt PII
+            fields extracted from resumes before persisting to Firestore (e.g.
+            ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
+            When empty, PII fields are stored as plain text — suitable for local
+            development only.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -73,6 +78,8 @@ class Settings(BaseSettings):
     pubsub_topic_resume_ingested: str = "resume-ingested"
     pubsub_topic_resume_indexed: str = "resume-indexed"
     pubsub_topic_dlq: str = "dead-letter-queue"
+
+    kms_key_name: str = ""
 
     http_request_timeout: int = 300
 

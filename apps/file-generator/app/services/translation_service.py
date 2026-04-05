@@ -5,7 +5,9 @@ API (v2 / Basic edition).  Translation results are cached in the
 ``translation-cache`` Firestore collection to avoid redundant API calls.
 
 Cache document IDs are derived from the SHA-256 hash of the source text combined
-with the target language, ensuring stable lookups.
+with the target language, ensuring stable lookups.  The cache is managed by
+:class:`~app.services.translation_cache_store.TranslationCacheStore` which
+enforces a 10 000-phrase limit with a usage-decay eviction policy.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import hashlib
 import logging
 from typing import Any
 
+from app.services.translation_cache_store import TranslationCacheStore
 from app.utils.exceptions import TranslationError
 
 logger = logging.getLogger(__name__)
@@ -38,7 +41,10 @@ _NESTED_TRANSLATABLE = {
 class TranslationService:
     """Translates structured resume data using the Google Cloud Translation API.
 
-    Caches results in Firestore to avoid re-translating the same text.
+    Caches results in Firestore to avoid re-translating the same text.  The
+    cache is managed by
+    :class:`~app.services.translation_cache_store.TranslationCacheStore` which
+    enforces a 10 000-phrase limit and a usage-decay eviction policy.
 
     Args:
         project_id: Google Cloud project ID used to call the Translation API.
@@ -67,8 +73,8 @@ class TranslationService:
             api_location: Google Cloud Translation API location.
         """
         self._project_id = project_id
-        self._cache_collection = cache_collection
         self._api_location = api_location
+        self._cache = TranslationCacheStore(collection_name=cache_collection)
 
     # ------------------------------------------------------------------
     # Public interface
@@ -147,60 +153,13 @@ class TranslationService:
         payload = f"{target_language}:{text}".encode("utf-8")
         return hashlib.sha256(payload).hexdigest()
 
-    def _get_cached(self, cache_key: str) -> str | None:
-        """Look up a cached translation in Firestore.
-
-        Args:
-            cache_key: Firestore document ID for the cache entry.
-
-        Returns:
-            The cached translated text, or ``None`` when not found.
-        """
-        try:
-            from firebase_admin import firestore  # type: ignore[import-untyped]
-
-            db = firestore.client()
-            doc = db.collection(self._cache_collection).document(cache_key).get()
-            if doc.exists:
-                data = doc.to_dict() or {}
-                cached: str | None = data.get("translatedText")
-                if cached:
-                    logger.debug("Translation cache hit", extra={"cache_key": cache_key})
-                    return cached
-        except Exception as exc:
-            logger.warning(
-                "Failed to read from translation cache: %s", exc, extra={"cache_key": cache_key}
-            )
-        return None
-
-    def _set_cached(self, cache_key: str, text: str, translated: str, target_language: str) -> None:
-        """Persist a translation result to the Firestore cache.
-
-        Args:
-            cache_key: Firestore document ID for the cache entry.
-            text: The original source text.
-            translated: The translated text to store.
-            target_language: BCP-47 target language code.
-        """
-        try:
-            from firebase_admin import firestore  # type: ignore[import-untyped]
-
-            db = firestore.client()
-            db.collection(self._cache_collection).document(cache_key).set(
-                {
-                    "sourceText": text,
-                    "translatedText": translated,
-                    "targetLanguage": target_language,
-                }
-            )
-            logger.debug("Translation cached", extra={"cache_key": cache_key})
-        except Exception as exc:
-            logger.warning(
-                "Failed to write to translation cache: %s", exc, extra={"cache_key": cache_key}
-            )
-
     def _translate_text(self, text: str, target_language: str) -> str:
         """Translate a single text string, using the Firestore cache.
+
+        On a cache hit the :class:`~app.services.translation_cache_store.TranslationCacheStore`
+        applies the decay step automatically.  On a cache miss the Translation
+        API is called and the result is stored in the cache (triggering decay
+        and pruning as needed).
 
         Args:
             text: The source text to translate.
@@ -214,8 +173,8 @@ class TranslationService:
         """
         cache_key = self._cache_key(text, target_language)
 
-        # Try cache first.
-        cached = self._get_cached(cache_key)
+        # Try cache first (cache store handles decay on hit).
+        cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
 
@@ -230,7 +189,7 @@ class TranslationService:
             logger.error("Translation API call failed: %s", exc)
             raise TranslationError(f"Translation API call failed: {exc}") from exc
 
-        # Persist to cache.
-        self._set_cached(cache_key, text, translated, target_language)
+        # Persist to cache (cache store handles decay and pruning).
+        self._cache.set(cache_key, text, translated, target_language)
 
         return translated
