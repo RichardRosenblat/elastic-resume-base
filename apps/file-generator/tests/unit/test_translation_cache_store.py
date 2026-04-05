@@ -285,9 +285,9 @@ def test_prune_deletes_lowest_usage_entries_when_over_limit() -> None:
     # 5 entries with different usage; max_size=3 so 2 should be deleted
     docs = [
         _make_doc("doc-a", usage=10),
-        _make_doc("doc-b", usage=1),   # lowest — should be deleted
+        _make_doc("doc-b", usage=1),   # lowest -- should be deleted
         _make_doc("doc-c", usage=5),
-        _make_doc("doc-d", usage=0),   # lowest — should be deleted
+        _make_doc("doc-d", usage=0),   # lowest -- should be deleted
         _make_doc("doc-e", usage=8),
     ]
 

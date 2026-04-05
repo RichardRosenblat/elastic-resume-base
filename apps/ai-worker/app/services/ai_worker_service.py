@@ -163,7 +163,7 @@ class AIWorkerService:
             )
             structured_data = self._vertex_ai.extract_structured_fields(raw_text)
 
-            # Step 4 — persist structured data (encrypt PII fields first).
+            # Step 4 -- persist structured data (encrypt PII fields first).
             logger.info(
                 "Encrypting PII fields",
                 extra={"resume_id": resume_id, "kms_configured": bool(self._kms_key_name)},
