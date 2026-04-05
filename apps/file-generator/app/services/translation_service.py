@@ -4,7 +4,7 @@ Translates structured resume data fields using the Google Cloud Translation
 API (v2 / Basic edition).  Translation results are cached in the
 ``translation-cache`` Firestore collection to avoid redundant API calls.
 
-Cache document IDs are derived from the MD5 hash of the source text combined
+Cache document IDs are derived from the SHA-256 hash of the source text combined
 with the target language, ensuring stable lookups.
 """
 
