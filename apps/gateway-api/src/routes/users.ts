@@ -648,7 +648,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   // route above to the Users API unchanged.  It enables the Gateway to remain
   // compatible with new Users API endpoints without requiring new Gateway routes.
   // Auth is enforced by the parent scope's `authHook` preHandler hook.
-  app.all('/*', usersProxyHandler as RouteHandlerMethod);
+  app.all('/*', { schema: { hide: true } }, usersProxyHandler as RouteHandlerMethod);
 };
 
 export default usersPlugin;

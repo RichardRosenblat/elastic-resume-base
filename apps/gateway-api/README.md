@@ -118,10 +118,42 @@ All outbound requests to downstream services (Users API, Document Reader, Search
 | `DELETE` | `/api/v1/users/pre-approve` | Yes | Yes | Remove a pre-approved user |
 | `PATCH` | `/api/v1/users/pre-approve/batch` | Yes | Yes | Batch-update multiple pre-approved users |
 | `DELETE` | `/api/v1/users/pre-approve/batch` | Yes | Yes | Batch-delete multiple pre-approved users |
+| `POST` | `/api/v1/resumes/ingest` | Yes | No | Ingest resumes from a Google Sheet or batch ID |
+| `POST` | `/api/v1/resumes/ingest/upload` | Yes | No | Ingest resumes from an uploaded Excel or CSV file |
+| `POST` | `/api/v1/resumes/:resumeId/generate` | Yes | No | Trigger a resume file generation job |
 | `POST` | `/api/v1/documents/read` | Yes | No | Extract text from a document via Document Reader |
 | `POST` | `/api/v1/documents/ocr` | Yes | No | OCR-scan uploaded documents, returns Excel workbook |
+| `GET` | `/api/v1/notifications` | Yes | No | Get notifications for the authenticated user |
+| `GET` | `/api/v1/notifications/system` | Yes | Yes | Get system-wide notifications (admin only) |
+| `PATCH` | `/api/v1/notifications/:id/read` | Yes | No | Mark a notification as read |
+| `DELETE` | `/api/v1/notifications/:id` | Yes | No | Delete a notification |
 | `GET` | `/api/v1/docs` | No | No | Swagger UI |
 | `GET` | `/api/v1/docs.json` | No | No | Swagger JSON spec |
+
+### Downstream Service Health
+
+The gateway tracks the health of all downstream services in an in-memory **service registry**. Each entry records whether the service is currently `live` (reachable at the network layer) and its `temperature` — `warm` if it was seen alive within the configured `DOWNSTREAM_WARM_TTL_MS` window, or `cold` if it has not been contacted for longer than that.
+
+#### How health observation works
+
+Health state is updated in two ways:
+
+1. **Passive observation** — every outbound HTTP request made through the gateway's shared HTTP client automatically calls `observeSuccess` or `observeFailure` on its service key:
+   - Any HTTP response, including 4xx and 5xx, marks the service as `live=true` (the service responded at the network layer).
+   - Connection-level failures (ECONNREFUSED, ETIMEDOUT, or no response at all) mark the service as `live=false`. The `lastSeenAlive` timestamp is preserved so the previous known-good time is not lost.
+
+2. **Active background probing** — a periodic timer probes every service whose `lastSeenAlive` is older than `DOWNSTREAM_WARM_TTL_MS` by sending a `GET /health/live` request. This is called a **lazy status check**: only services that have gone cold are re-probed, avoiding unnecessary traffic to services that are already warm. The timer interval is controlled by `DOWNSTREAM_HEALTH_REFRESH_INTERVAL_MS`.
+
+On gateway startup, all registered services are probed once concurrently (`initializeRegistry`) before the server starts accepting traffic, so the registry is pre-populated.
+
+#### Temperature semantics
+
+| Temperature | Meaning |
+|-------------|---------|
+| `warm` | Service was seen alive within the `DOWNSTREAM_WARM_TTL_MS` window (default: 5 minutes). Requests will be routed normally. |
+| `cold` | Service has not been seen within the TTL. A cold start or restart may be in progress. The background prober will attempt to re-establish contact. |
+
+The current health snapshot is exposed at `GET /health/downstream`. Responses include `live`, `temperature`, `lastSeenAlive`, and `lastChecked` for every registered downstream service.
 
 ## Environment Variables
 
