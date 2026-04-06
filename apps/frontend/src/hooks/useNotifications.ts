@@ -138,7 +138,7 @@ export function useNotifications(): UseNotificationsReturn {
     void fetchNotifications().then(scheduleNext);
   }, [fetchNotifications, scheduleNext]);
 
-    # Initial fetch + start polling on mount.
+    // Initial fetch + start polling on mount.
   useEffect(() => {
     if (!features.dlqNotifier) {
       setLoading(false);
