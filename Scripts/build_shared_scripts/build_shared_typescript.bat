@@ -11,7 +11,7 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
-for %%i in ("%SCRIPT_DIR%..") do set "ROOT_DIR=%%~fi"
+for %%i in ("%SCRIPT_DIR%..\..") do set "ROOT_DIR=%%~fi"
 
 for /d %%d in ("%ROOT_DIR%\shared\*") do (
     for %%n in ("%%d\.") do set "LIB_NAME=%%~nn"
