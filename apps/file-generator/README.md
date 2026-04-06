@@ -56,7 +56,7 @@ All settings are read from environment variables (or a `.env` file):
 | `FIRESTORE_COLLECTION_TRANSLATION_CACHE` | `translation-cache` | Translation cache collection |
 | `DRIVE_TEMPLATE_FILE_ID` | `` | Google Drive file ID for the `.docx` template |
 | `LOCAL_TEMPLATE_PATH` | `` | Local template path (dev fallback) |
-| `KMS_KEY_NAME` | `` | Cloud KMS key for PII decryption |
+| `DECRYPT_KMS_KEY_NAME` | `` | Cloud KMS key for PII decryption |
 | `TRANSLATION_API_LOCATION` | `global` | Cloud Translation API region |
 
 ## Local Development

@@ -93,7 +93,7 @@ class AIWorkerService:
         embeddings_collection: str,
         topic_resume_indexed: str,
         topic_dlq: str,
-        kms_key_name: str = "",
+        encrypt_kms_key_name: str = "",
     ) -> None:
         """Initialise the AI Worker service.
 
@@ -104,7 +104,7 @@ class AIWorkerService:
             embeddings_collection: Firestore embeddings collection name.
             topic_resume_indexed: Pub/Sub topic to publish to on success.
             topic_dlq: Pub/Sub dead-letter queue topic.
-            kms_key_name: Cloud KMS key name for encrypting PII fields before
+            encrypt_kms_key_name: Cloud KMS key name for encrypting PII fields before
                 Firestore persistence.  Pass an empty string to skip encryption
                 (local development).
         """
@@ -114,7 +114,7 @@ class AIWorkerService:
         self._embeddings_collection = embeddings_collection
         self._topic_resume_indexed = topic_resume_indexed
         self._topic_dlq = topic_dlq
-        self._kms_key_name = kms_key_name
+        self._encrypt_kms_key_name = encrypt_kms_key_name
 
     # ------------------------------------------------------------------
     # Public interface
@@ -166,10 +166,10 @@ class AIWorkerService:
             # Step 4 -- persist structured data (encrypt PII fields first).
             logger.info(
                 "Encrypting PII fields",
-                extra={"resume_id": resume_id, "kms_configured": bool(self._kms_key_name)},
+                extra={"resume_id": resume_id, "kms_configured": bool(self._encrypt_kms_key_name)},
             )
             structured_data_to_store = encrypt_pii_fields(
-                structured_data, PII_FIELDS, self._kms_key_name
+                structured_data, PII_FIELDS, self._encrypt_kms_key_name
             )
             merged_metadata = dict(resume.metadata)
             merged_metadata["structuredData"] = structured_data_to_store

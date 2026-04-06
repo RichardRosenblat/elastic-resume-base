@@ -18,7 +18,7 @@ from app.utils.exceptions import KmsEncryptionError
 
 
 def test_encrypt_field_returns_value_unchanged_when_no_kms_key() -> None:
-    """encrypt_field returns the plain-text unchanged when kms_key_name is empty."""
+    """encrypt_field returns the plain-text unchanged when encrypt_kms_key_name is empty."""
     result = encrypt_field("John Doe", "")
     assert result == "John Doe"
 
@@ -95,7 +95,7 @@ def test_encrypt_field_raises_kms_error_on_failure() -> None:
 
 
 def test_encrypt_pii_fields_returns_same_dict_when_no_key() -> None:
-    """encrypt_pii_fields returns the original dict when kms_key_name is empty."""
+    """encrypt_pii_fields returns the original dict when encrypt_kms_key_name is empty."""
     data: dict[str, Any] = {"name": "John Doe", "skills": ["Python"]}
     result = encrypt_pii_fields(data, ["name"], "")
     assert result is data

@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 settings.firestore_collection_translation_cache
             ),
             "drive_template_file_id": settings.drive_template_file_id or "(not set)",
-            "kms_key_name": "(configured)" if settings.kms_key_name else "(not set)",
+            "decrypt_kms_key_name": "(configured)" if settings.decrypt_kms_key_name else "(not set)",
         },
     )
     logger.debug(

@@ -48,7 +48,7 @@ class FileGeneratorService:
         drive_template_file_id: Google Drive file ID for the ``.docx`` template.
         local_template_path: Local path to a ``.docx`` template file (used when
             *drive_template_file_id* is empty, for local development).
-        kms_key_name: Cloud KMS key name for decrypting PII fields.  Pass an
+        decrypt_kms_key_name: Cloud KMS key name for decrypting PII fields.  Pass an
             empty string to skip decryption.
 
     Example::
@@ -56,7 +56,7 @@ class FileGeneratorService:
         service = FileGeneratorService(
             resume_store=FirestoreResumeStore(),
             drive_template_file_id="1BxiMVs0XRA5nFMd...",
-            kms_key_name="projects/my-proj/locations/global/...",
+            decrypt_kms_key_name="projects/my-proj/locations/global/...",
         )
         job_id, file_b64, mime = service.generate("resume-abc-123", language="en")
     """
@@ -67,7 +67,7 @@ class FileGeneratorService:
         translation_service: Any | None = None,
         drive_template_file_id: str = "",
         local_template_path: str = "",
-        kms_key_name: str = "",
+        decrypt_kms_key_name: str = "",
     ) -> None:
         """Initialise the FileGeneratorService.
 
@@ -76,13 +76,13 @@ class FileGeneratorService:
             translation_service: Optional translation service instance.
             drive_template_file_id: Google Drive file ID for the template.
             local_template_path: Local path to a template file (dev fallback).
-            kms_key_name: Cloud KMS key name (empty to skip decryption).
+            decrypt_kms_key_name: Cloud KMS key name (empty to skip decryption).
         """
         self._store = resume_store
         self._translation_service = translation_service
         self._drive_template_file_id = drive_template_file_id
         self._local_template_path = local_template_path
-        self._kms_key_name = kms_key_name
+        self._kms_key_name = decrypt_kms_key_name
 
     # ------------------------------------------------------------------
     # Public interface

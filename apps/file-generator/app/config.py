@@ -41,7 +41,7 @@ class Settings(BaseSettings):
             local development when a local template path is provided instead.
         local_template_path: Path to a local ``.docx`` template file used in
             development when ``drive_template_file_id`` is not set.
-        kms_key_name: Fully-qualified Cloud KMS key name used to decrypt PII
+        decrypt_kms_key_name: Fully-qualified Cloud KMS key name used to decrypt PII
             fields (e.g.
             ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
             When empty, decryption is skipped and field values are returned
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     drive_template_file_id: str = ""
     local_template_path: str = ""
 
-    kms_key_name: str = ""
+    decrypt_kms_key_name: str = ""
     translation_api_location: str = "global"
 
     http_request_timeout: int = 300

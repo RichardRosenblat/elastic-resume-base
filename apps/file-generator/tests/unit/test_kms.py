@@ -17,7 +17,7 @@ from app.utils.exceptions import KmsDecryptionError
 
 
 def test_decrypt_field_returns_value_when_no_kms_key() -> None:
-    """decrypt_field returns the value unchanged when kms_key_name is empty."""
+    """decrypt_field returns the value unchanged when decrypt_kms_key_name is empty."""
     result = decrypt_field("plain-text-value", "")
     assert result == "plain-text-value"
 
