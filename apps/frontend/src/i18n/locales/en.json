@@ -222,7 +222,13 @@
         "name": "Document Reader",
         "description": "Extracts structured data from uploaded documents and returns the results in Excel format.",
         "impact": "Uploading and processing documents via OCR will not be available."
+      },
+      "dlqNotifier": {
+        "name": "DLQ Notifier",
+        "description": "Handles queue notifications for failed tasks.",
+        "impact": "Notifications for failed tasks will not be available."
       }
+
     },
     "statusReady": "Ready",
     "statusIdle": "Idle",
