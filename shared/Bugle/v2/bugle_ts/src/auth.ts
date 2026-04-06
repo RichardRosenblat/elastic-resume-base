@@ -1,5 +1,5 @@
 import { GoogleAuth } from 'google-auth-library';
-import type { Credentials } from 'google-auth-library';
+import type { JWTInput } from 'google-auth-library';
 
 
 /** Required OAuth 2.0 scopes for Google Drive read access. */
@@ -35,7 +35,7 @@ export const DRIVE_READONLY_SCOPES = [
  */
 export function getGoogleAuthClient(
   scopes: readonly string[] = DRIVE_READONLY_SCOPES,
-  credentials?: Credentials,
+  credentials?: JWTInput,
 ): GoogleAuth {
   return new GoogleAuth({
     scopes: [...scopes],
