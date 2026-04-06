@@ -76,6 +76,36 @@ describe('SystemStatusPage', () => {
     });
   });
 
+  it('shows idleMessage (not impact) for idle services', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        searchBase: { live: true, temperature: 'cold', lastSeenAlive: oldTime, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText('systemStatus.idleMessage')).toBeInTheDocument();
+      expect(screen.queryByText('systemStatus.services.searchBase.impact')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows impact message (not idleMessage) for unavailable services', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        searchBase: { live: false, temperature: 'cold', lastSeenAlive: null, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText('systemStatus.services.searchBase.impact')).toBeInTheDocument();
+      expect(screen.queryByText('systemStatus.idleMessage')).not.toBeInTheDocument();
+    });
+  });
+
   it('shows the page title', () => {
     mockGetDownstreamHealth.mockResolvedValue({ downstream: {} });
     render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
