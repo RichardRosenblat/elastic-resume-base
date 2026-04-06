@@ -49,7 +49,7 @@ def _make_service(
         translation_service=translation_service,
         drive_template_file_id=drive_file_id,
         local_template_path=local_template,
-        kms_key_name=kms_key,
+        decrypt_kms_key_name=kms_key,
     )
 
 
@@ -294,7 +294,7 @@ def test_generate_raises_not_found() -> None:
 
 
 def test_decrypt_pii_skipped_when_no_kms_key() -> None:
-    """_decrypt_pii returns data unchanged when kms_key_name is empty."""
+    """_decrypt_pii returns data unchanged when decrypt_kms_key_name is empty."""
     svc = _make_service(kms_key="")
     data = {"name": "enc:abc", "skills": ["Python"]}
     result = svc._decrypt_pii(data)
@@ -302,7 +302,7 @@ def test_decrypt_pii_skipped_when_no_kms_key() -> None:
 
 
 def test_decrypt_pii_calls_kms_when_key_configured() -> None:
-    """_decrypt_pii calls decrypt_pii_fields when kms_key_name is set."""
+    """_decrypt_pii calls decrypt_pii_fields when decrypt_kms_key_name is set."""
     svc = _make_service(kms_key="projects/p/locations/global/keyRings/r/cryptoKeys/k")
     data = {"name": "ciphertext", "email": "enc:email"}
 

@@ -1,6 +1,6 @@
 """Cloud KMS utility for encrypting PII fields before Firestore persistence.
 
-When ``kms_key_name`` is configured in settings, plain-text field values are
+When ``encrypt_kms_key_name`` is configured in settings, plain-text field values are
 encrypted using the Google Cloud KMS API and stored as base64-encoded
 ciphertext.  When no key is configured (local development), values are returned
 as-is.
@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 PII_FIELDS = ["name", "email", "phone", "address", "cpf", "rg"]
 
 
-def encrypt_field(plaintext: str, kms_key_name: str) -> str:
+def encrypt_field(plaintext: str, encrypt_kms_key_name: str) -> str:
     """Encrypt a plain-text string using Cloud KMS.
 
-    When *kms_key_name* is empty the function returns *plaintext* unchanged —
+    When *encrypt_kms_key_name* is empty the function returns *plaintext* unchanged —
     this allows local development without a real KMS key.
 
     Args:
         plaintext: The plain-text string to encrypt.
-        kms_key_name: Fully-qualified KMS key resource name, or empty string
+        encrypt_kms_key_name: Fully-qualified KMS key resource name, or empty string
             to skip encryption.
 
     Returns:
@@ -40,7 +40,7 @@ def encrypt_field(plaintext: str, kms_key_name: str) -> str:
     Raises:
         KmsEncryptionError: If the KMS API call fails.
     """
-    if not kms_key_name:
+    if not encrypt_kms_key_name:
         logger.debug("KMS key not configured — returning field value as-is")
         return plaintext
 
@@ -50,7 +50,7 @@ def encrypt_field(plaintext: str, kms_key_name: str) -> str:
         client = kms.KeyManagementServiceClient()
         plaintext_bytes = plaintext.encode("utf-8")
         response = client.encrypt(
-            request={"name": kms_key_name, "plaintext": plaintext_bytes}
+            request={"name": encrypt_kms_key_name, "plaintext": plaintext_bytes}
         )
         ciphertext_b64: str = base64.b64encode(response.ciphertext).decode("utf-8")
         logger.debug("KMS encryption successful")
@@ -63,7 +63,7 @@ def encrypt_field(plaintext: str, kms_key_name: str) -> str:
 def encrypt_pii_fields(
     data: dict[str, object],
     pii_keys: list[str],
-    kms_key_name: str,
+    encrypt_kms_key_name: str,
 ) -> dict[str, object]:
     """Encrypt PII fields in a data dictionary using Cloud KMS.
 
@@ -75,7 +75,7 @@ def encrypt_pii_fields(
     Args:
         data: The data dictionary containing PII fields to encrypt.
         pii_keys: List of top-level key names whose values should be encrypted.
-        kms_key_name: Fully-qualified KMS key resource name.  Pass an empty
+        encrypt_kms_key_name: Fully-qualified KMS key resource name.  Pass an empty
             string to skip encryption.
 
     Returns:
@@ -86,12 +86,12 @@ def encrypt_pii_fields(
     Raises:
         KmsEncryptionError: If any individual field encryption fails.
     """
-    if not kms_key_name:
+    if not encrypt_kms_key_name:
         return data
 
     result = dict(data)
     for key in pii_keys:
         value = result.get(key)
         if isinstance(value, str) and value:
-            result[key] = encrypt_field(value, kms_key_name)
+            result[key] = encrypt_field(value, encrypt_kms_key_name)
     return result

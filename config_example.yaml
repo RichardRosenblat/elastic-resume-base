@@ -214,7 +214,7 @@ systems:
     # before persisting to Firestore. When empty, PII fields are stored as plain text
     # (suitable for local development only).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
-    KMS_KEY_NAME: ""
+    ENCRYPT_KMS_KEY_NAME: ""
 
     # Maximum seconds a single HTTP request to this service may take before timeout.
     # Health endpoints are excluded from this limit.
@@ -253,7 +253,7 @@ systems:
     # generating documents. When empty, decryption is skipped and field values
     # are returned as-is (for local development).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
-    KMS_KEY_NAME: ""
+    DECRYPT_KMS_KEY_NAME: ""
 
     # Google Cloud region for the Translation API.
     TRANSLATION_API_LOCATION: global

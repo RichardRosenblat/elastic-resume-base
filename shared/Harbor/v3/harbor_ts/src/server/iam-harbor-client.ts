@@ -63,19 +63,26 @@ export class IamHarborClient extends HarborClient {
     this._audience = options.audience;
     this._auth = new GoogleAuth();
 
-    this.axiosInstance.interceptors.request.use(
-      async (axiosConfig: InternalAxiosRequestConfig) => {
-        try {
-          const idTokenClient = await this._auth.getIdTokenClient(this._audience);
-          const token = await idTokenClient.idTokenProvider.fetchIdToken(this._audience);
-          axiosConfig.headers['Authorization'] = `Bearer ${token}`;
-        } catch {
-          // If IAM token acquisition fails, let the request proceed without the
-          // token — the downstream service will return 401/403, which surfaces
-          // the misconfiguration more clearly than silently swallowing the error.
+    this.axiosInstance.interceptors.request.use(async (axiosConfig: InternalAxiosRequestConfig) => {
+      try {
+        const idTokenClient = await this._auth.getIdTokenClient(this._audience);
+        const rawHeaders = (await idTokenClient.getRequestHeaders()) as unknown;
+        const headersLike = rawHeaders as Record<string, unknown> & {
+          get?: (name: string) => string | null;
+        };
+        const authorization =
+          typeof headersLike.get === 'function'
+            ? headersLike.get('authorization')
+            : (headersLike['authorization'] ?? headersLike['Authorization']) as string | undefined;
+        if (authorization) {
+          axiosConfig.headers['Authorization'] = authorization;
         }
-        return axiosConfig;
-      },
-    );
+      } catch {
+        // If IAM token acquisition fails, let the request proceed without the
+        // token — the downstream service will return 401/403, which surfaces
+        // the misconfiguration more clearly than silently swallowing the error.
+      }
+      return axiosConfig;
+    });
   }
 }

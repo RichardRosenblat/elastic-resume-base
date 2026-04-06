@@ -39,6 +39,15 @@ import axios from 'axios';
  *
  * @param options - Configuration for the HTTP client.
  * @returns A configured HarborClient ready for use.
+ *
+ * @deprecated The procedural factory interface (`createHarborClient`) is deprecated.
+ * Use the object-oriented `HarborClient` class from
+ * `@elastic-resume-base/harbor` v3 instead:
+ * ```typescript
+ * import { HarborClient } from '@elastic-resume-base/harbor/client'; // v3
+ * const client = new HarborClient({ baseURL: '...', timeoutMs: 30_000 });
+ * ```
+ * This v2 export will be removed in a future major version.
  */
 export function createHarborClient(options) {
     return axios.create({
