@@ -67,8 +67,11 @@ export class IamHarborClient extends HarborClient {
       async (axiosConfig: InternalAxiosRequestConfig) => {
         try {
           const idTokenClient = await this._auth.getIdTokenClient(this._audience);
-          const token = await idTokenClient.idTokenProvider.fetchIdToken(this._audience);
-          axiosConfig.headers['Authorization'] = `Bearer ${token}`;
+          const headers = await idTokenClient.getRequestHeaders();
+          const authorization = headers.get('authorization');
+          if (authorization) {
+            axiosConfig.headers['Authorization'] = authorization;
+          }
         } catch {
           // If IAM token acquisition fails, let the request proceed without the
           // token — the downstream service will return 401/403, which surfaces
