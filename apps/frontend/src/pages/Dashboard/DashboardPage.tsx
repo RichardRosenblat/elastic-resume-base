@@ -17,7 +17,6 @@ import {
   Box,
   Grid,
   Card,
-  CardActionArea,
   CardContent,
   Typography,
   Chip,
@@ -38,53 +37,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/auth-context';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useAppTheme } from '../../theme';
-import { DataDisplayTemplate } from '../../components/templates';
-
-/** Props for the {@link FeatureCard} component. */
-interface FeatureCardProps {
-  title: string;
-  icon: ReactNode;
-  available: boolean;
-  description: string;
-  path?: string;
-}
-
-/**
- * Small summary card used to advertise a platform feature on the dashboard.
- * Renders with reduced opacity and a "coming soon" chip when `available` is
- * `false`. When a `path` is provided the card is clickable and navigates to
- * that route on click.
- */
-function FeatureCard({ title, icon, available, description, path }: FeatureCardProps) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-
-  const content = (
-    <CardContent>
-      <Box display="flex" alignItems="center" gap={1} mb={1}>
-        {icon}
-        <Typography variant="h6">{title}</Typography>
-      </Box>
-      <Typography variant="body2" color="text.secondary">{available? description:t('dashboard.featureNotAvailable')}</Typography>
-      {!available && (
-        <Chip label={t('dashboard.comingSoon')} size="small" color="default" variant="outlined" sx={{ mt: 1.5 }} />
-      )}
-    </CardContent>
-  );
-
-  return (
-    <Card sx={{ height: '100%', opacity: available ? 1 : 0.82 }}>
-      {path && available ? (
-        <CardActionArea
-          sx={{ height: '100%' }}
-          onClick={() => { void navigate(path); }}
-        >
-          {content}
-        </CardActionArea>
-      ) : content}
-    </Card>
-  );
-}
+import { DataDisplayTemplate, FeatureCardTemplate } from '../../components/templates';
 
 /** A single feature entry in the dashboard feature grid. */
 interface DashboardFeatureItem {
@@ -221,7 +174,7 @@ export default function DashboardPage() {
 
         {visibleFeatures.map((item) => (
           <Grid key={item.path} size={{ xs: 12, sm: 6, md: 3 }}>
-            <FeatureCard
+            <FeatureCardTemplate
               title={item.title}
               icon={item.icon}
               available={item.available}
