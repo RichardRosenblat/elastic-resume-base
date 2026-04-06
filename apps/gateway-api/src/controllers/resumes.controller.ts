@@ -2,7 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { formatSuccess, formatError } from '@elastic-resume-base/bowltie';
 import { logger } from '../utils/logger.js';
-import { triggerIngest } from '../services/downloaderClient.js';
+import { triggerIngest, triggerIngestUpload } from '../services/downloaderClient.js';
 import { generateResume } from '../services/fileGeneratorClient.js';
 
 const ingestSchema = z.object({
@@ -38,6 +38,33 @@ export async function ingest(request: FastifyRequest, reply: FastifyReply): Prom
   const result = await triggerIngest({ ...body, userId: request.user.uid });
   logger.debug({ correlationId: request.correlationId, jobId: result.jobId }, 'ingest: job accepted');
   void reply.code(202).send(formatSuccess(result, request.correlationId));
+}
+
+/**
+ * Handles POST /resumes/ingest/upload — proxies a multipart file upload to the
+ * ingestor service and returns the ingestion results to the client.
+ *
+ * The raw multipart body (Excel or CSV file plus optional form fields) is
+ * forwarded as-is so the ingestor can apply its own validation.
+ */
+export async function ingestUpload(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const contentType = request.headers['content-type'] ?? '';
+
+  if (!contentType.includes('multipart/form-data')) {
+    logger.warn({ correlationId: request.correlationId }, 'ingestUpload: request is not multipart/form-data');
+    void reply
+      .status(400)
+      .send(formatError('BAD_REQUEST', 'Expected multipart/form-data upload', request.correlationId));
+    return;
+  }
+
+  logger.info({ correlationId: request.correlationId }, 'ingestUpload: proxying file upload to ingestor service');
+  const result = await triggerIngestUpload(request.raw, contentType);
+  logger.debug({ correlationId: request.correlationId }, 'ingestUpload: file ingest completed');
+  void reply.code(200).send(formatSuccess(result, request.correlationId));
 }
 
 /** Handles POST /resumes/:resumeId/generate - triggers resume file generation. */

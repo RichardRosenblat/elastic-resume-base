@@ -231,6 +231,7 @@
 		"statusReady": "Pronto",
 		"statusIdle": "Em espera",
 		"statusUnavailable": "Indisponível",
+		"idleMessage": "Este serviço está em espera e pode demorar mais para responder.",
 		"lastSeenLabel": "Visto pela última vez",
 		"lastCheckedLabel": "Última verificação",
 		"neverSeen": "Nunca visto"

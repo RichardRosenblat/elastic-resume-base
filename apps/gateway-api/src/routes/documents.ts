@@ -265,7 +265,7 @@ const documentsPlugin: FastifyPluginAsync = async (app) => {
   // route above to the Document Reader service unchanged.  It enables the Gateway
   // to remain compatible with new Document Reader endpoints without requiring
   // new Gateway routes.  Auth is enforced by the parent scope's `authHook`.
-  app.all('/*', documentsProxyHandler as RouteHandlerMethod);
+  app.all('/*', { schema: { hide: true } }, documentsProxyHandler as RouteHandlerMethod);
 };
 
 export default documentsPlugin;

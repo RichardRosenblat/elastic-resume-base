@@ -71,7 +71,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(routes);
 
   // Backward-compatible JSON spec endpoint
-  app.get('/api/v1/docs.json', (_request, reply) => {
+  app.get('/api/v1/docs.json', { schema: { hide: true } }, (_request, reply) => {
     void reply.send(app.swagger());
   });
 
