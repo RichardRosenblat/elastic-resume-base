@@ -73,9 +73,7 @@ export class IamHarborClient extends HarborClient {
         const authorization =
           typeof headersLike.get === 'function'
             ? headersLike.get('authorization')
-            : ((headersLike['authorization'] ?? headersLike['Authorization']) as
-                | string
-                | undefined);
+            : (headersLike['authorization'] ?? headersLike['Authorization']) as string | undefined;
         if (authorization) {
           axiosConfig.headers['Authorization'] = authorization;
         }
