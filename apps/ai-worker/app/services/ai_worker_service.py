@@ -25,6 +25,7 @@ from synapse_py.interfaces.resume_store import IResumeStore, UpdateResumeData
 from toolbox_py import get_logger
 
 from app.utils.exceptions import EmbeddingError, ExtractionError
+from app.utils.kms import PII_FIELDS, encrypt_pii_fields
 
 logger = get_logger(__name__)
 
@@ -92,6 +93,7 @@ class AIWorkerService:
         embeddings_collection: str,
         topic_resume_indexed: str,
         topic_dlq: str,
+        kms_key_name: str = "",
     ) -> None:
         """Initialise the AI Worker service.
 
@@ -102,6 +104,9 @@ class AIWorkerService:
             embeddings_collection: Firestore embeddings collection name.
             topic_resume_indexed: Pub/Sub topic to publish to on success.
             topic_dlq: Pub/Sub dead-letter queue topic.
+            kms_key_name: Cloud KMS key name for encrypting PII fields before
+                Firestore persistence.  Pass an empty string to skip encryption
+                (local development).
         """
         self._store = resume_store
         self._vertex_ai = vertex_ai_service
@@ -109,6 +114,7 @@ class AIWorkerService:
         self._embeddings_collection = embeddings_collection
         self._topic_resume_indexed = topic_resume_indexed
         self._topic_dlq = topic_dlq
+        self._kms_key_name = kms_key_name
 
     # ------------------------------------------------------------------
     # Public interface
@@ -121,11 +127,12 @@ class AIWorkerService:
             1. Mark resume as ``PROCESSING``.
             2. Fetch raw text from Firestore.
             3. Extract structured fields with Vertex AI.
-            4. Update Firestore with structured fields.
-            5. Generate embeddings for full text and skills.
-            6. Persist embeddings to the ``embeddings`` collection.
-            7. Mark resume as ``PROCESSED``.
-            8. Publish ``{ resumeId }`` to the ``resume-indexed`` topic.
+            4. Encrypt PII fields with Cloud KMS (if configured).
+            5. Update Firestore with structured fields.
+            6. Generate embeddings for full text and skills.
+            7. Persist embeddings to the ``embeddings`` collection.
+            8. Mark resume as ``PROCESSED``.
+            9. Publish ``{ resumeId }`` to the ``resume-indexed`` topic.
 
         On any failure the resume status is updated to ``FAILED``, the error
         is published to the DLQ topic, and the exception is re-raised.
@@ -156,9 +163,16 @@ class AIWorkerService:
             )
             structured_data = self._vertex_ai.extract_structured_fields(raw_text)
 
-            # Step 4 — persist structured data.
+            # Step 4 -- persist structured data (encrypt PII fields first).
+            logger.info(
+                "Encrypting PII fields",
+                extra={"resume_id": resume_id, "kms_configured": bool(self._kms_key_name)},
+            )
+            structured_data_to_store = encrypt_pii_fields(
+                structured_data, PII_FIELDS, self._kms_key_name
+            )
             merged_metadata = dict(resume.metadata)
-            merged_metadata["structuredData"] = structured_data
+            merged_metadata["structuredData"] = structured_data_to_store
             merged_metadata["processingInfo"] = {
                 "processedAt": _now_iso(),
                 "errors": [],

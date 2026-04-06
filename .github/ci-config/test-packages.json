@@ -69,5 +69,12 @@
     "path": "apps/ai-worker",
     "runner": "python",
     "dependsOn": []
+  },
+  {
+    "id": "file-generator",
+    "name": "apps/file-generator",
+    "path": "apps/file-generator",
+    "runner": "python",
+    "dependsOn": []
   }
 ]
