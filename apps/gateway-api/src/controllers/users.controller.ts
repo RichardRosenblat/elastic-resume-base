@@ -32,11 +32,9 @@ function formatZodErrors(issues: ZodIssue[]): string {
 
 const updateUserSchema = z
   .object({
-    email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
-    role: z.enum(['admin', 'user'], {
-      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-    }).optional(),
-    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
+    email: z.string({ error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+    role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }).optional(),
+    enable: z.boolean({ error: 'enable must be a boolean' }).optional(),
   })
   .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
     message: 'Request body must contain at least one valid field to update (email, role or enable)',
@@ -44,62 +42,42 @@ const updateUserSchema = z
 
 const updatePreApprovedSchema = z
   .object({
-    role: z.enum(['admin', 'user'], {
-      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-    }).optional(),
+    role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }).optional(),
   })
   .refine((data) => Object.keys(data).some((k) => data[k as keyof typeof data] !== undefined), {
     message: 'Request body must contain at least one valid field to update (role)',
   });
 
 const addPreApprovedSchema = z.object({
-  email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
-  role: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-  }),
+  email: z.string({ error: 'email must be a string' }).email({ message: 'email must be a valid email address' }),
+  role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }),
 });
 
 const listUsersQuerySchema = z.object({
   maxResults: z.coerce.number().int({ message: 'maxResults must be an integer' }).min(1, { message: 'maxResults must be at least 1' }).max(1000, { message: 'maxResults must be at most 1000' }).default(100),
   pageToken: z.string().optional(),
-  email: z.string({ invalid_type_error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
-  role: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-  }).optional(),
-  enable: z.enum(['true', 'false'], {
-    errorMap: () => ({ message: "enable must be 'true' or 'false'" }),
-  }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
-  orderBy: z.enum(['uid', 'email', 'role', 'enable'], {
-    errorMap: () => ({ message: "orderBy must be one of 'uid', 'email', 'role', or 'enable'" }),
-  }).optional(),
-  orderDirection: z.enum(['asc', 'desc'], {
-    errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
-  }).optional(),
+  email: z.string({ error: 'email must be a string' }).email({ message: 'email must be a valid email address' }).optional(),
+  role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }).optional(),
+  enable: z.enum(['true', 'false'], { error: "enable must be 'true' or 'false'" }).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
+  orderBy: z.enum(['uid', 'email', 'role', 'enable'], { error: "orderBy must be one of 'uid', 'email', 'role', or 'enable'" }).optional(),
+  orderDirection: z.enum(['asc', 'desc'], { error: "orderDirection must be either 'asc' or 'desc'" }).optional(),
 });
 
 const getPreApprovedQuerySchema = z.object({
   email: z.string().optional(),
-  role: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-  }).optional(),
-  orderBy: z.enum(['email', 'role'], {
-    errorMap: () => ({ message: "orderBy must be either 'email' or 'role'" }),
-  }).optional(),
-  orderDirection: z.enum(['asc', 'desc'], {
-    errorMap: () => ({ message: "orderDirection must be either 'asc' or 'desc'" }),
-  }).optional(),
+  role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }).optional(),
+  orderBy: z.enum(['email', 'role'], { error: "orderBy must be either 'email' or 'role'" }).optional(),
+  orderDirection: z.enum(['asc', 'desc'], { error: "orderDirection must be either 'asc' or 'desc'" }).optional(),
 });
 
 const batchUpdateUsersSchema = z
   .object({
     uids: z.array(
-      z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
-      { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
+      z.string({ error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
+      { error: 'uids must be an array of user IDs' },
     ).min(1, { message: 'uids must contain at least one user ID' }),
-    role: z.enum(['admin', 'user'], {
-      errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-    }).optional(),
-    enable: z.boolean({ invalid_type_error: 'enable must be a boolean' }).optional(),
+    role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }).optional(),
+    enable: z.boolean({ error: 'enable must be a boolean' }).optional(),
   })
   .refine((data) => data.role !== undefined || data.enable !== undefined, {
     message: 'Request body must contain at least one field to update (role or enable)',
@@ -107,26 +85,24 @@ const batchUpdateUsersSchema = z
 
 const batchDeleteUsersSchema = z.object({
   uids: z.array(
-    z.string({ invalid_type_error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
-    { required_error: 'uids is required', invalid_type_error: 'uids must be an array' },
+    z.string({ error: 'each uid must be a string' }).min(1, { message: 'each uid must not be empty' }),
+    { error: 'uids must be an array of user IDs' },
   ).min(1, { message: 'uids must contain at least one user ID' }),
 });
 
 const batchDeletePreApprovedSchema = z.object({
   emails: z.array(
-    z.string({ invalid_type_error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
-    { required_error: 'emails is required', invalid_type_error: 'emails must be an array' },
+    z.string({ error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
+    { error: 'emails must be an array of email addresses' },
   ).min(1, { message: 'emails must contain at least one email address' }),
 });
 
 const batchUpdatePreApprovedSchema = z.object({
   emails: z.array(
-    z.string({ invalid_type_error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
-    { required_error: 'emails is required', invalid_type_error: 'emails must be an array' },
+    z.string({ error: 'each email must be a string' }).email({ message: 'each email must be a valid email address' }),
+    { error: 'emails must be an array of email addresses' },
   ).min(1, { message: 'emails must contain at least one email address' }),
-  role: z.enum(['admin', 'user'], {
-    errorMap: () => ({ message: "role must be either 'admin' or 'user'" }),
-  }),
+  role: z.enum(['admin', 'user'], { error: "role must be either 'admin' or 'user'" }),
 });
 
 type UidParams = { uid: string };

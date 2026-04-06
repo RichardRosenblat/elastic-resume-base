@@ -8,7 +8,7 @@ import { generateResume } from '../services/fileGeneratorClient.js';
 const ingestSchema = z.object({
   sheetId: z.string().optional(),
   batchId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }).refine(data => data.sheetId || data.batchId, {
   message: 'Either sheetId or batchId must be provided',
 });
