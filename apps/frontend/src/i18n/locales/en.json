@@ -233,6 +233,7 @@
     "statusReady": "Ready",
     "statusIdle": "Idle",
     "statusUnavailable": "Unavailable",
+    "idleMessage": "This service is idle and may be slower to respond.",
     "lastSeenLabel": "Last seen",
     "lastCheckedLabel": "Last checked",
     "neverSeen": "Never seen"
