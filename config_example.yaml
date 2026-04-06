@@ -178,12 +178,9 @@ systems:
   # ---------------------------------------------------------------------------
   ingestor-service:
     PORT: "8001"
-    
+
     # Name of the Firestore collection where ingested resume raw data is stored.
     FIRESTORE_COLLECTION_RESUMES: resumes
-
-    # Google Cloud service-account key file for local development.
-    GOOGLE_SERVICE_ACCOUNT_KEY: ""   # fill in locally — never commit real credentials
 
     # Pub/Sub topic names
     PUBSUB_TOPIC_RESUME_INGESTED: resume-ingested
@@ -202,17 +199,26 @@ systems:
   # Extracts structured data and generates embeddings using Vertex AI.
   # ---------------------------------------------------------------------------
   ai-worker:
+    PORT: "8006"
     VERTEX_AI_LOCATION: us-central1
     VERTEX_AI_EXTRACTION_MODEL: gemini-1.5-flash
     VERTEX_AI_EMBEDDING_MODEL: text-multilingual-embedding-002
-    PUBSUB_AI_WORKER_TOPIC: resume-extracted
-    PUBSUB_SEARCH_INDEX_TOPIC: resume-indexed
-    FIRESTORE_RESUMES_COLLECTION: resumes
+    PUBSUB_TOPIC_RESUME_INGESTED: resume-ingested
+    PUBSUB_TOPIC_RESUME_INDEXED: resume-indexed
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+    FIRESTORE_COLLECTION_RESUMES: resumes
+    FIRESTORE_COLLECTION_EMBEDDINGS: embeddings
 
-    # Cloud KMS — PII encryption keys
-    KMS_KEY_RING: elastic-resume-keyring
-    KMS_KEY_NAME: resume-pii-key
-    KMS_KEY_LOCATION: global
+    # Cloud KMS — PII encryption key name
+    # Fully-qualified Cloud KMS key name used to encrypt PII fields (name, email, phone, etc.)
+    # before persisting to Firestore. When empty, PII fields are stored as plain text
+    # (suitable for local development only).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    KMS_KEY_NAME: ""
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: 300
 
   # ---------------------------------------------------------------------------
   # Search Base (Python + FAISS — port 8002)
@@ -230,8 +236,31 @@ systems:
   # ---------------------------------------------------------------------------
   file-generator:
     PORT: "8003"
-    TRANSLATION_CACHE_COLLECTION: translation-cache
-    FIRESTORE_RESUMES_COLLECTION: resumes
+    FIRESTORE_COLLECTION_RESUMES: resumes
+    FIRESTORE_COLLECTION_TRANSLATION_CACHE: translation-cache
+
+    # Google Drive file ID for the .docx Jinja2 resume template.
+    # Required in production; may be left empty for local development when
+    # a local template path is provided instead.
+    DRIVE_TEMPLATE_FILE_ID: ""
+
+    # Path to a local .docx template file used in development when
+    # DRIVE_TEMPLATE_FILE_ID is not set.
+    LOCAL_TEMPLATE_PATH: ""
+
+    # Cloud KMS — PII decryption key name
+    # Fully-qualified Cloud KMS key name used to decrypt PII fields before
+    # generating documents. When empty, decryption is skipped and field values
+    # are returned as-is (for local development).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    KMS_KEY_NAME: ""
+
+    # Google Cloud region for the Translation API.
+    TRANSLATION_API_LOCATION: global
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: 300
 
   # ---------------------------------------------------------------------------
   # Document Reader / OCR (Python — port 8004)
