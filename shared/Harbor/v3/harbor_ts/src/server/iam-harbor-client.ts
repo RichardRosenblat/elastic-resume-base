@@ -66,11 +66,16 @@ export class IamHarborClient extends HarborClient {
     this.axiosInstance.interceptors.request.use(async (axiosConfig: InternalAxiosRequestConfig) => {
       try {
         const idTokenClient = await this._auth.getIdTokenClient(this._audience);
-        const headers = await idTokenClient.getRequestHeaders();
+        const rawHeaders = (await idTokenClient.getRequestHeaders()) as unknown;
+        const headersLike = rawHeaders as Record<string, unknown> & {
+          get?: (name: string) => string | null;
+        };
         const authorization =
-          typeof headers.get === 'function'
-            ? headers.get('authorization')
-            : (headers as unknown as Record<string, string | undefined>)['authorization'];
+          typeof headersLike.get === 'function'
+            ? headersLike.get('authorization')
+            : ((headersLike['authorization'] ?? headersLike['Authorization']) as
+                | string
+                | undefined);
         if (authorization) {
           axiosConfig.headers['Authorization'] = authorization;
         }
