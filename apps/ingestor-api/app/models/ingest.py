@@ -185,16 +185,44 @@ class FileIngestRequest(BaseModel):
         return self
 
 
+class IngestDuplicate(BaseModel):
+    """Describes a resume that was skipped because it had already been ingested.
+
+    Attributes:
+        row: 1-based row number in the source spreadsheet where the duplicate
+            was detected.
+        existing_resume_id: Firestore document ID of the previously ingested
+            resume with the same content.
+        message: Human-readable description of the duplicate detection.
+    """
+
+    row: int = Field(..., description="1-based row number in the source spreadsheet.")
+    existing_resume_id: str = Field(
+        ...,
+        alias="existingResumeId",
+        description="Firestore document ID of the already-ingested duplicate resume.",
+    )
+    message: str = Field(..., description="Human-readable duplicate detection message.")
+
+    model_config = {"populate_by_name": True}
+
+
 class IngestResponse(BaseModel):
     """Response body for the ``POST /api/v1/ingest`` endpoint.
 
     Attributes:
         ingested: Number of resumes successfully ingested.
         errors: List of row-level errors encountered during ingestion.
+        duplicates: List of rows that were skipped because a resume with the
+            same content was already present in the database.
     """
 
     ingested: int = Field(..., description="Number of resumes successfully ingested.")
     errors: list[IngestRowError] = Field(
         default_factory=list,
         description="Row-level errors encountered during ingestion.",
+    )
+    duplicates: list[IngestDuplicate] = Field(
+        default_factory=list,
+        description="Rows skipped because the resume content already exists in the database.",
     )

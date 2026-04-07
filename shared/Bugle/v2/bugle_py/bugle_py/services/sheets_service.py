@@ -293,13 +293,19 @@ class SheetsService:
     ) -> list[tuple[int, str]]:
         """Fetch column values using the ``spreadsheets.get`` API.
 
-        This variant retrieves both the formatted cell text and any embedded
-        hyperlink for each cell.  When a hyperlink is present it is preferred
-        over the plain text, enabling reading of badge-style cells that display
-        human-friendly text but embed a Drive URL.
+        This variant retrieves the formatted cell text, any embedded hyperlink,
+        and Smart Chips (file badges / rich link chips) for each cell.
+
+        For each data cell the resolution order is:
+
+        1. Smart Chip URL (``chipRuns[*].chip.richLinkProperties.uri``) — used
+           when a Drive link has been converted to an embedded badge.
+        2. Standard hyperlink (``hyperlink``) — used for traditional
+           right-click → *Insert link* hyperlinks.
+        3. Plain formatted text (``formattedValue``) — final fallback.
 
         The header row (when present) is always matched by its formatted text
-        value, never by its hyperlink.
+        value, never by its hyperlink or chip URL.
 
         Args:
             spreadsheet_id: The Google Sheets file ID.
@@ -333,7 +339,8 @@ class SheetsService:
                 includeGridData=True,
                 fields=(
                     "sheets/data/rowData/values/hyperlink,"
-                    "sheets/data/rowData/values/formattedValue"
+                    "sheets/data/rowData/values/formattedValue,"
+                    "sheets/data/rowData/values/chipRuns"
                 ),
             )
             .execute()
@@ -377,8 +384,19 @@ class SheetsService:
             if col_idx >= len(cells):
                 continue
             cell = cells[col_idx]
-            # Prefer embedded hyperlink URL; fall back to formatted text.
-            value = (cell.get("hyperlink") or cell.get("formattedValue") or "").strip()
+
+            # Extract URL from a Smart Chip (embedded badge) if present.
+            chip_url = ""
+            for run in cell.get("chipRuns", []):
+                chip = run.get("chip", {})
+                rich_link = chip.get("richLinkProperties", {})
+                uri = rich_link.get("uri")
+                if uri:
+                    chip_url = uri
+                    break
+
+            # Prefer Smart Chip URL → standard hyperlink → plain formatted text.
+            value = (chip_url or cell.get("hyperlink") or cell.get("formattedValue") or "").strip()
             if value:
                 result.append((row_number, value))
 

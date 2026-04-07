@@ -65,6 +65,7 @@ async def test_ingest_success(app_client: AsyncClient) -> None:
     mock_doc.id = "resume-001"
     mock_store = MagicMock()
     mock_store.create_resume.return_value = mock_doc
+    mock_store.find_by_content_hash.return_value = None
 
     from app.services.ingest_service import IngestService
 
@@ -208,6 +209,7 @@ async def test_ingest_upload_xlsx_success(app_client: AsyncClient) -> None:
     mock_doc.id = "resume-upload-001"
     mock_store = MagicMock()
     mock_store.create_resume.return_value = mock_doc
+    mock_store.find_by_content_hash.return_value = None
 
     from app.services.ingest_service import IngestService
 
@@ -255,6 +257,7 @@ async def test_ingest_upload_csv_success(app_client: AsyncClient) -> None:
     mock_doc.id = "resume-csv-001"
     mock_store = MagicMock()
     mock_store.create_resume.return_value = mock_doc
+    mock_store.find_by_content_hash.return_value = None
 
     from app.services.ingest_service import IngestService
 
@@ -324,6 +327,7 @@ async def test_ingest_upload_no_header_row(app_client: AsyncClient) -> None:
     mock_doc.id = "resume-noheader-001"
     mock_store = MagicMock()
     mock_store.create_resume.return_value = mock_doc
+    mock_store.find_by_content_hash.return_value = None
 
     from app.services.ingest_service import IngestService
 

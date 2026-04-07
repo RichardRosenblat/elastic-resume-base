@@ -265,6 +265,7 @@ def _make_mock_resume_store(resume_id: str = "resume-doc-abc123") -> MagicMock:
     doc = MagicMock()
     doc.id = resume_id
     mock.create_resume.return_value = doc
+    mock.find_by_content_hash.return_value = None
     return mock
 
 
@@ -830,6 +831,7 @@ async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
     mock_store = MagicMock()
     mock_store.create_resume.side_effect = [ingested_doc, stub_doc]
     mock_store.update_resume.return_value = ingested_doc
+    mock_store.find_by_content_hash.return_value = None
 
     service = IngestService(
         resume_store=mock_store,
@@ -858,3 +860,143 @@ async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
     assert "failedAt" in ingesting_info
     assert len(ingesting_info.get("errors", [])) == 1
     assert ingesting_info["errors"][0]["stage"] == "publish"
+
+
+# ---------------------------------------------------------------------------
+# Hash-based deduplication
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_duplicate_resume_reported_separately_from_errors() -> None:
+    """A resume whose content hash already exists is reported as a duplicate, not an error."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([
+        (2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")
+    ])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+
+    # Simulate that a document with the same hash already exists.
+    existing_doc = MagicMock()
+    existing_doc.id = "existing-resume-id"
+    mock_store = _make_mock_resume_store()
+    mock_store.find_by_content_hash.return_value = existing_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert result.errors == []
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].row == 2
+    assert result.duplicates[0].existing_resume_id == "existing-resume-id"
+
+    # No new Firestore document created, no DLQ message published.
+    mock_store.create_resume.assert_not_called()
+    mock_publisher.publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_content_hash_stored_with_new_resume() -> None:
+    """A SHA-256 content hash is computed and passed to create_resume."""
+    import docx  # type: ignore[import-untyped]
+    import hashlib
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([
+        (2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")
+    ])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_store = _make_mock_resume_store("resume-hash-test")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=_make_mock_publisher(),
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 1
+    assert result.duplicates == []
+
+    # Verify that create_resume received a content_hash.
+    create_data = mock_store.create_resume.call_args.args[0]
+    assert create_data.content_hash is not None
+    # The hash should be a 64-character hex string (SHA-256).
+    assert len(create_data.content_hash) == 64
+    assert all(c in "0123456789abcdef" for c in create_data.content_hash)
+    # Verify find_by_content_hash was called with the same hash.
+    mock_store.find_by_content_hash.assert_called_once_with(create_data.content_hash)
+
+
+@pytest.mark.asyncio
+async def test_ingest_partial_success_with_duplicate() -> None:
+    """Mixed batch: one new resume, one duplicate — correct counts reported."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([
+        (2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view"),
+        (3, "https://drive.google.com/file/d/2CyiNWt1YSB6oGNeLwCxyzAbcDefGhiJkl/view"),
+    ])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+
+    existing_doc = MagicMock()
+    existing_doc.id = "dup-resume-id"
+    mock_store = _make_mock_resume_store("new-resume-id")
+    # First call (row 2): no duplicate; second call (row 3): duplicate found.
+    mock_store.find_by_content_hash.side_effect = [None, existing_doc]
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 1
+    assert result.errors == []
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].row == 3
+    assert result.duplicates[0].existing_resume_id == "dup-resume-id"
