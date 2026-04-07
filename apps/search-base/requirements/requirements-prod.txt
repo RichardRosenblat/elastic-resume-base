@@ -1,0 +1,5 @@
+-r base.txt
+-e ../../shared/Toolbox/v1/toolbox_py
+-e ../../shared/Hermes/v1/hermes_py
+-e ../../shared/Bowltie/v1/bowltie_py
+-e ../../shared/Synapse/v1/synapse_py
