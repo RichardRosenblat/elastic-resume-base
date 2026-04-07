@@ -48,6 +48,11 @@ _METADATA_SUFFIX = ".metadata.json"
 # dynamically, so future field-level embeddings are indexed automatically.
 _KNOWN_EMBEDDING_TYPES = ("fullText", "skills")
 
+# When searching, we retrieve this many raw FAISS results per unique resume
+# we want (at minimum) to ensure enough candidates remain after per-resume
+# deduplication (i.e. when a resume has multiple embedding vectors).
+_MIN_DEDUP_MULTIPLIER = 5
+
 
 def _now_iso() -> str:
     """Return the current UTC time as an ISO-8601 string."""
@@ -403,7 +408,7 @@ class SearchService:
             # Retrieve more raw results than top_k to account for
             # per-resume deduplication (multiple vectors per resume).
             # We fetch up to min(ntotal, top_k * 5) to have enough candidates.
-            k_raw = min(self._index.ntotal, top_k * max(5, len(_KNOWN_EMBEDDING_TYPES) + 1))
+            k_raw = min(self._index.ntotal, top_k * max(_MIN_DEDUP_MULTIPLIER, len(_KNOWN_EMBEDDING_TYPES) + 1))
 
             distances, indices = self._index.search(query_vector, k_raw)
 
