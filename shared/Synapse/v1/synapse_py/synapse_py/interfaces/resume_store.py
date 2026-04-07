@@ -73,15 +73,19 @@ class CreateResumeData:
         raw_text: The extracted plain text from the resume file.
         source: Metadata about the origin of the resume.
         metadata: Additional caller-supplied metadata.
+        content_hash: Optional SHA-256 hex digest of ``raw_text`` used for
+            duplicate detection.  When provided, the value is stored in the
+            Firestore document under the ``contentHash`` field.
     """
 
-    __slots__ = ("raw_text", "source", "metadata")
+    __slots__ = ("raw_text", "source", "metadata", "content_hash")
 
     def __init__(
         self,
         raw_text: str,
         source: dict[str, Any],
         metadata: dict[str, Any] | None = None,
+        content_hash: str | None = None,
     ) -> None:
         """Initialise CreateResumeData.
 
@@ -89,10 +93,12 @@ class CreateResumeData:
             raw_text: Extracted plain text.
             source: Origin metadata.
             metadata: Additional metadata (optional).
+            content_hash: SHA-256 hex digest of ``raw_text`` (optional).
         """
         self.raw_text = raw_text
         self.source = source
         self.metadata = metadata or {}
+        self.content_hash = content_hash
 
 
 class UpdateResumeData:
@@ -170,5 +176,20 @@ class IResumeStore(Protocol):
         Raises:
             SynapseNotFoundError: If no document with *resume_id* exists.
             SynapseError: If the Firestore write fails.
+        """
+        ...
+
+    def find_by_content_hash(self, content_hash: str) -> ResumeDocument | None:
+        """Find a resume document by its content hash.
+
+        Args:
+            content_hash: The SHA-256 hex digest to search for.
+
+        Returns:
+            The first matching :class:`ResumeDocument`, or ``None`` if no
+            document with the given hash exists.
+
+        Raises:
+            SynapseError: If the Firestore query fails.
         """
         ...

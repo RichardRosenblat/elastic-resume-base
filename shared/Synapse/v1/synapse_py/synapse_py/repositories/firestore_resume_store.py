@@ -108,7 +108,9 @@ class FirestoreResumeStore(IResumeStore):
 
         A new document reference is created with an auto-generated ID.  The
         document is written with ``status="INGESTED"`` and timestamps for
-        ``createdAt`` and ``updatedAt``.
+        ``createdAt`` and ``updatedAt``.  When ``data.content_hash`` is set the
+        value is persisted as ``contentHash`` to support duplicate detection via
+        :meth:`find_by_content_hash`.
 
         Args:
             data: The resume data to persist.
@@ -128,6 +130,8 @@ class FirestoreResumeStore(IResumeStore):
             "createdAt": now,
             "updatedAt": now,
         }
+        if data.content_hash:
+            payload["contentHash"] = data.content_hash
         try:
             doc_ref = self._collection.document()
             doc_ref.set(payload)
@@ -201,3 +205,28 @@ class FirestoreResumeStore(IResumeStore):
             raise SynapseError(f"Failed to update resume document: {exc}") from exc
 
         return _map_doc(updated_snap.id, updated_snap.to_dict() or {})
+
+    def find_by_content_hash(self, content_hash: str) -> ResumeDocument | None:
+        """Find the first resume document whose ``contentHash`` matches.
+
+        Args:
+            content_hash: The SHA-256 hex digest to search for.
+
+        Returns:
+            The first matching :class:`ResumeDocument`, or ``None`` if no
+            document with the given hash exists.
+
+        Raises:
+            SynapseError: If the Firestore query fails.
+        """
+        try:
+            query = self._collection.where("contentHash", "==", content_hash).limit(1)
+            docs = list(query.stream())
+        except Exception as exc:
+            logger.error("Firestore find_by_content_hash failed: %s", exc)
+            raise SynapseError(f"Failed to query resume by content hash: {exc}") from exc
+
+        if not docs:
+            return None
+        snap = docs[0]
+        return _map_doc(snap.id, snap.to_dict() or {})

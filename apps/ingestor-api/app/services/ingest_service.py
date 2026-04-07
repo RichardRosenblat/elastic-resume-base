@@ -18,6 +18,7 @@ Orchestrates the full resume ingestion pipeline:
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import os
 import re
@@ -29,9 +30,9 @@ from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore, U
 from toolbox_py import get_logger
 
 from app.config import settings
-from app.models.ingest import FileIngestRequest, IngestRequest, IngestResponse, IngestRowError
+from app.models.ingest import FileIngestRequest, IngestDuplicate, IngestRequest, IngestResponse, IngestRowError
 from app.services.text_extractor import SUPPORTED_EXTENSIONS, extract_text
-from app.utils.exceptions import DriveDownloadError, SheetReadError, TextExtractionError
+from app.utils.exceptions import DriveDownloadError, DuplicateResumeError, SheetReadError, TextExtractionError
 
 logger = get_logger(__name__)
 
@@ -610,6 +611,7 @@ class IngestService:
         """
         ingested_count = 0
         row_errors: list[IngestRowError] = []
+        row_duplicates: list[IngestDuplicate] = []
 
         for row_number, drive_link in row_links:
             try:
@@ -623,6 +625,22 @@ class IngestService:
                 logger.info(
                     "Resume ingested",
                     extra={"row": row_number, "resume_id": resume_id},
+                )
+            except DuplicateResumeError as dup_exc:
+                logger.info(
+                    "Duplicate resume skipped at row %d",
+                    row_number,
+                    extra={
+                        "row": row_number,
+                        "existing_resume_id": dup_exc.existing_resume_id,
+                    },
+                )
+                row_duplicates.append(
+                    IngestDuplicate(
+                        row=row_number,
+                        existingResumeId=dup_exc.existing_resume_id,
+                        message=str(dup_exc),
+                    )
                 )
             except Exception as exc:
                 error_msg = str(exc)
@@ -653,10 +671,15 @@ class IngestService:
             extra={
                 **source_context,
                 "ingested": ingested_count,
+                "duplicates": len(row_duplicates),
                 "errors": len(row_errors),
             },
         )
-        return IngestResponse(ingested=ingested_count, errors=row_errors)
+        return IngestResponse(
+            ingested=ingested_count,
+            errors=row_errors,
+            duplicates=row_duplicates,
+        )
 
     async def _ingest_one(
         self,
@@ -678,6 +701,7 @@ class IngestService:
 
         Raises:
             DriveDownloadError: If downloading the file from Drive fails.
+            DuplicateResumeError: If a resume with the same content already exists.
             TextExtractionError: If text extraction fails.
             Exception: If the Firestore write or Pub/Sub publish fails.
         """
@@ -715,7 +739,13 @@ class IngestService:
 
         raw_text = extract_text(content, extension)
 
-        # 4. Persist to Firestore via Synapse with INGESTED status.
+        # 4. Compute content hash and check for duplicates.
+        content_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+        existing = self._resume_store.find_by_content_hash(content_hash)
+        if existing is not None:
+            raise DuplicateResumeError(existing.id)
+
+        # 5. Persist to Firestore via Synapse with INGESTED status.
         source: dict[str, Any] = {
             **source_context,
             "driveFileId": file_id,
@@ -734,11 +764,12 @@ class IngestService:
                 raw_text=raw_text,
                 source=source,
                 metadata=ingesting_metadata,
+                content_hash=content_hash,
             )
         )
         resume_id = resume_doc.id
 
-        # 5. Publish to Pub/Sub.
+        # 6. Publish to Pub/Sub.
         try:
             publisher = self._get_publisher()
             publisher.publish(
