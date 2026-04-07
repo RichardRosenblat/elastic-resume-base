@@ -868,7 +868,7 @@ async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ingest_duplicate_resume_is_skipped_not_counted_as_error() -> None:
+async def test_ingest_duplicate_resume_reported_separately_from_errors() -> None:
     """A resume whose content hash already exists is reported as a duplicate, not an error."""
     import docx  # type: ignore[import-untyped]
 
