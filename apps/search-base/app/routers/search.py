@@ -64,7 +64,7 @@ async def search_resumes(
                 metadata = service.get_resume_metadata(resume_id)
                 search_items.append(
                     SearchResultItem(
-                        resume_id=resume_id,
+                        resumeId=resume_id,  # Use the alias, not the field name
                         score=score,
                         metadata=metadata,
                     )

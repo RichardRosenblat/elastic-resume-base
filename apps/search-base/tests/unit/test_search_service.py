@@ -13,8 +13,11 @@ from app.utils.exceptions import (
 )
 
 
-def test_initialize_creates_empty_index():
+@patch("app.services.search_service.firestore.client")
+def test_initialize_creates_empty_index(mock_firestore_client):
     """Test that initialize creates an empty FAISS index."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="")
     service.initialize()
 
@@ -23,8 +26,11 @@ def test_initialize_creates_empty_index():
     assert len(service._resume_ids) == 0
 
 
-def test_add_resume_embedding_success():
+@patch("app.services.search_service.firestore.client")
+def test_add_resume_embedding_success(mock_firestore_client):
     """Test adding a resume embedding to the index."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="")
     service.initialize()
 
@@ -36,8 +42,11 @@ def test_add_resume_embedding_success():
     assert service._resume_ids[0] == "resume-123"
 
 
-def test_add_resume_embedding_wrong_dimension():
+@patch("app.services.search_service.firestore.client")
+def test_add_resume_embedding_wrong_dimension(mock_firestore_client):
     """Test that adding an embedding with wrong dimension raises error."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="")
     service.initialize()
 
@@ -47,8 +56,11 @@ def test_add_resume_embedding_wrong_dimension():
         service.add_resume_embedding("resume-123", embedding)
 
 
-def test_add_resume_embedding_duplicate_skipped():
+@patch("app.services.search_service.firestore.client")
+def test_add_resume_embedding_duplicate_skipped(mock_firestore_client):
     """Test that duplicate resume IDs are skipped."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="")
     service.initialize()
 
@@ -61,8 +73,11 @@ def test_add_resume_embedding_duplicate_skipped():
     assert len(service._resume_ids) == 1
 
 
-def test_search_success():
+@patch("app.services.search_service.firestore.client")
+def test_search_success(mock_firestore_client):
     """Test searching the index returns ranked results."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="", metric="cosine")
     service.initialize()
 
@@ -82,8 +97,11 @@ def test_search_success():
     assert results[0][1] > results[1][1]  # Higher score for more similar
 
 
-def test_search_empty_index_raises_error():
+@patch("app.services.search_service.firestore.client")
+def test_search_empty_index_raises_error(mock_firestore_client):
     """Test that searching an empty index raises IndexNotReadyError."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="")
     service.initialize()
 
@@ -93,8 +111,11 @@ def test_search_empty_index_raises_error():
         service.search(query, top_k=10)
 
 
-def test_search_wrong_query_dimension():
+@patch("app.services.search_service.firestore.client")
+def test_search_wrong_query_dimension(mock_firestore_client):
     """Test that searching with wrong query dimension raises error."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, index_path="")
     service.initialize()
     service.add_resume_embedding("resume-1", [0.1] * 768)
@@ -105,8 +126,11 @@ def test_search_wrong_query_dimension():
         service.search(query, top_k=10)
 
 
-def test_normalize_vector_for_cosine():
+@patch("app.services.search_service.firestore.client")
+def test_normalize_vector_for_cosine(mock_firestore_client):
     """Test L2 normalization for cosine similarity."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, metric="cosine")
     vector = np.array([[3.0, 4.0] + [0.0] * 766])
     normalized = service._normalize_vector(vector)
@@ -116,8 +140,11 @@ def test_normalize_vector_for_cosine():
     np.testing.assert_array_almost_equal(normalized, expected)
 
 
-def test_normalize_vector_for_l2_does_nothing():
+@patch("app.services.search_service.firestore.client")
+def test_normalize_vector_for_l2_does_nothing(mock_firestore_client):
     """Test that L2 metric does not normalize vectors."""
+    mock_firestore_client.return_value = MagicMock()
+
     service = SearchService(embedding_dim=768, metric="l2")
     vector = np.array([[3.0, 4.0] + [0.0] * 766])
     result = service._normalize_vector(vector)
@@ -211,33 +238,41 @@ def test_get_resume_metadata_not_found(mock_firestore_client):
         service.get_resume_metadata("resume-999")
 
 
-@patch("app.services.search_service.vertexai")
-@patch("app.services.search_service.TextEmbeddingModel")
-def test_generate_query_embedding_success(mock_embedding_model_class, mock_vertexai):
+@patch("app.services.search_service.firestore.client")
+def test_generate_query_embedding_success(mock_firestore_client):
     """Test generating a query embedding using Vertex AI."""
-    # Mock Vertex AI
-    mock_model = MagicMock()
-    mock_embedding_model_class.from_pretrained.return_value = mock_model
+    mock_firestore_client.return_value = MagicMock()
 
-    mock_embedding = Mock()
-    mock_embedding.values = [0.1] * 768
-    mock_model.get_embeddings.return_value = [mock_embedding]
+    # Mock vertexai and TextEmbeddingModel from inside generate_query_embedding
+    with patch("vertexai.init") as mock_init:
+        with patch("vertexai.language_models.TextEmbeddingModel.from_pretrained") as mock_from_pretrained:
+            mock_model = MagicMock()
+            mock_from_pretrained.return_value = mock_model
 
-    service = SearchService(embedding_dim=768)
-    embedding = service.generate_query_embedding("Python developer")
+            mock_embedding = Mock()
+            mock_embedding.values = [0.1] * 768
+            mock_model.get_embeddings.return_value = [mock_embedding]
 
-    assert len(embedding) == 768
-    assert embedding == [0.1] * 768
+            service = SearchService(embedding_dim=768)
+            embedding = service.generate_query_embedding("Python developer")
+
+            assert len(embedding) == 768
+            assert embedding == [0.1] * 768
+            # Verify vertexai.init was called
+            mock_init.assert_called_once()
 
 
-@patch("app.services.search_service.vertexai")
-@patch("app.services.search_service.TextEmbeddingModel")
-def test_generate_query_embedding_failure(mock_embedding_model_class, mock_vertexai):
+@patch("app.services.search_service.firestore.client")
+def test_generate_query_embedding_failure(mock_firestore_client):
     """Test that embedding generation failure raises error."""
+    mock_firestore_client.return_value = MagicMock()
+
     # Mock Vertex AI to raise exception
-    mock_embedding_model_class.from_pretrained.side_effect = Exception("API error")
+    with patch("vertexai.init"):
+        with patch("vertexai.language_models.TextEmbeddingModel.from_pretrained") as mock_from_pretrained:
+            mock_from_pretrained.side_effect = Exception("API error")
 
-    service = SearchService(embedding_dim=768)
+            service = SearchService(embedding_dim=768)
 
-    with pytest.raises(EmbeddingGenerationError, match="Embedding generation failed"):
-        service.generate_query_embedding("Python developer")
+            with pytest.raises(EmbeddingGenerationError, match="Embedding generation failed"):
+                service.generate_query_embedding("Python developer")

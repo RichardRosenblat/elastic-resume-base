@@ -22,14 +22,20 @@ async def test_search_endpoint_success(app_client):
             ("resume-2", 0.85),
         ]
 
-        # Mock metadata fetching
-        def get_metadata(resume_id):
+        # Mock metadata fetching - need to return valid metadata dict
+        # Use a function that returns different metadata for each call
+        def mock_get_metadata(resume_id):
+            if resume_id == "resume-1":
+                return {
+                    "name": "Candidate resume-1",
+                    "skills": ["Python", "Java"],
+                }
             return {
-                "name": f"Candidate {resume_id}",
-                "skills": ["Python", "Java"],
+                "name": "Candidate resume-2",
+                "skills": ["JavaScript", "React"],
             }
 
-        mock_service.get_resume_metadata.side_effect = get_metadata
+        mock_service.get_resume_metadata.side_effect = mock_get_metadata
 
         async with app_client as client:
             response = await client.get(
