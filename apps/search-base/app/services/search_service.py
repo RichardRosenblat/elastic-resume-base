@@ -3,20 +3,31 @@
 Manages an in-memory FAISS index with optional disk persistence.  Provides
 methods to add new resume embeddings, perform similarity search, rebuild the
 index from Firestore, and save/load the index to/from disk.
+
+The service supports multiple embedding types per resume (e.g. ``fullText``,
+``skills``, and other field-level embeddings).  Each embedding type is stored
+as a separate FAISS vector, keyed by ``{resume_id}:{embedding_type}``.  Search
+results are aggregated by ``resume_id``, returning the best score across all
+embedding types for each resume.
+
+On startup the service attempts to load an existing index from the path
+configured by ``FAISS_INDEX_PATH``.  If no persisted index is found, it falls
+back to rebuilding the index from all documents in the Firestore embeddings
+collection.  The index is saved back to disk after every update so that it
+survives container restarts.
 """
 
 from __future__ import annotations
 
-import logging
+import json
 import os
 import threading
+from datetime import UTC, datetime
 from typing import Any
 
 import faiss
 import numpy as np
 from firebase_admin import firestore
-from google.cloud.firestore_v1 import FieldFilter
-from synapse_py import FirestoreResumeStore, initialize_persistence
 from toolbox_py import get_logger
 
 from app.config import settings
@@ -29,12 +40,56 @@ from app.utils.kms import PII_FIELDS, decrypt_pii_fields
 
 logger = get_logger(__name__)
 
+# Suffix appended to index_path for the JSON metadata sidecar file.
+_METADATA_SUFFIX = ".metadata.json"
+
+# Embedding fields that the AI Worker stores in the embeddings collection.
+# Any document field whose name ends with "Embedding" is also picked up
+# dynamically, so future field-level embeddings are indexed automatically.
+_KNOWN_EMBEDDING_TYPES = ("fullText", "skills")
+
+
+def _now_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
+    return (
+        datetime.now(tz=UTC)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def _embedding_field_to_type(field_name: str) -> str:
+    """Convert a Firestore field name to an embedding type label.
+
+    Examples::
+
+        >>> _embedding_field_to_type("fullTextEmbedding")
+        'fullText'
+        >>> _embedding_field_to_type("skillsEmbedding")
+        'skills'
+
+    Args:
+        field_name: Firestore field name ending in ``"Embedding"``.
+
+    Returns:
+        Embedding type label (field name without the ``"Embedding"`` suffix).
+    """
+    if field_name.endswith("Embedding"):
+        return field_name[: -len("Embedding")]
+    return field_name
+
 
 class SearchService:
     """FAISS-based semantic search service.
 
     Manages a vector index for resume embeddings, provides similarity search,
     and handles index persistence.
+
+    Each resume may have multiple embedding vectors (one per embedding type,
+    e.g. full-text and skills).  Vectors are stored with keys of the form
+    ``"{resume_id}:{embedding_type}"``.  Search results are deduplicated by
+    ``resume_id`` and ranked by the best matching score across all embedding
+    types.
 
     Attributes:
         embedding_dim: Dimensionality of embedding vectors (768 for
@@ -64,9 +119,12 @@ class SearchService:
         self.metric = metric
         self.decrypt_kms_key_name = decrypt_kms_key_name
 
-        # FAISS index and metadata
+        # FAISS index and positional vector-key list.
+        # Each entry in _vector_keys maps positionally to the corresponding
+        # FAISS vector: _vector_keys[i] == "{resume_id}:{embedding_type}".
         self._index: faiss.Index | None = None
-        self._resume_ids: list[str] = []
+        self._vector_keys: list[str] = []
+        self._vector_key_set: set[str] = set()
         self._lock = threading.RLock()
 
         # Initialize Firestore client
@@ -82,24 +140,60 @@ class SearchService:
             },
         )
 
+    # ------------------------------------------------------------------
+    # Backward-compatible property
+    # ------------------------------------------------------------------
+
+    @property
+    def _resume_ids(self) -> list[str]:
+        """Backward-compatible list of resume IDs (one entry per vector).
+
+        Returns:
+            List of resume IDs extracted from ``_vector_keys`` by stripping
+            the embedding-type suffix.
+        """
+        return [key.split(":", 1)[0] for key in self._vector_keys]
+
+    # ------------------------------------------------------------------
+    # Initialization
+    # ------------------------------------------------------------------
+
     def initialize(self) -> None:
         """Initialize or load the FAISS index.
 
-        If an index file exists at ``index_path``, loads it from disk.
-        Otherwise, creates a new empty index.
+        Lookup order:
+
+        1. If a serialised index file exists at ``index_path``, load it.
+        2. Otherwise, if a GCP project is configured, rebuild the index from
+           all documents in the Firestore embeddings collection.
+        3. Otherwise (local development without GCP), create an empty index.
         """
         with self._lock:
             if self.index_path and os.path.exists(self.index_path):
                 logger.info("Loading FAISS index from disk", extra={"path": self.index_path})
                 try:
                     self._load_from_disk()
+                    return
                 except Exception as exc:
-                    logger.error("Failed to load index from disk: %s", exc)
-                    logger.info("Creating new empty index")
-                    self._create_empty_index()
-            else:
-                logger.info("Creating new empty FAISS index")
-                self._create_empty_index()
+                    logger.error(
+                        "Failed to load index from disk, will rebuild: %s", exc
+                    )
+
+            # No persisted file — try to rebuild from Firestore.
+            if settings.gcp_project_id:
+                logger.info(
+                    "No persisted index found. Rebuilding from Firestore embeddings."
+                )
+                try:
+                    self.rebuild_index_from_firestore()
+                    return
+                except Exception as exc:
+                    logger.error(
+                        "Failed to rebuild index from Firestore, starting empty: %s", exc
+                    )
+
+            logger.info("Creating new empty FAISS index")
+            self._create_empty_index()
 
     def _create_empty_index(self) -> None:
         """Create a new empty FAISS index."""
@@ -111,7 +205,8 @@ class SearchService:
             self._index = faiss.IndexFlatL2(self.embedding_dim)
         else:
             raise ValueError(f"Unsupported metric: {self.metric}")
-        self._resume_ids = []
+        self._vector_keys = []
+        self._vector_key_set = set()
         logger.debug("Empty FAISS index created")
 
     def _normalize_vector(self, vector: np.ndarray) -> np.ndarray:
@@ -130,8 +225,15 @@ class SearchService:
         norm = np.where(norm == 0, 1.0, norm)
         return vector / norm
 
+    # ------------------------------------------------------------------
+    # Index mutation
+    # ------------------------------------------------------------------
+
     def add_resume_embedding(self, resume_id: str, embedding: list[float]) -> None:
-        """Add a resume embedding to the FAISS index.
+        """Add a single full-text embedding for a resume.
+
+        This is the backward-compatible single-vector variant.  It delegates
+        to :meth:`add_resume_embeddings` with the ``"fullText"`` type.
 
         Args:
             resume_id: Unique identifier for the resume.
@@ -141,48 +243,141 @@ class SearchService:
             FaissIndexError: If the index has not been initialized or the
                 embedding dimension is incorrect.
         """
+        self.add_resume_embeddings(resume_id, {"fullText": embedding})
+
+    def add_resume_embeddings(
+        self,
+        resume_id: str,
+        embeddings: dict[str, list[float]],
+        mark_indexed: bool = True,
+    ) -> int:
+        """Add one or more typed embeddings for a resume to the FAISS index.
+
+        Embeddings are keyed by embedding type (e.g. ``"fullText"``,
+        ``"skills"``).  Duplicate ``(resume_id, embedding_type)`` pairs are
+        silently skipped.  After new vectors are added the index is saved to
+        disk (if ``index_path`` is configured) and the resume is marked as
+        indexed in Firestore.
+
+        Args:
+            resume_id: Unique identifier for the resume.
+            embeddings: Mapping of embedding type label → vector.
+            mark_indexed: If ``True`` (default), update the resume document in
+                Firestore after successfully adding vectors.
+
+        Returns:
+            The number of new vectors actually added (0 if all were duplicates).
+
+        Raises:
+            FaissIndexError: If the index has not been initialized or an
+                embedding dimension is incorrect.
+        """
+        added = 0
         with self._lock:
             if self._index is None:
                 raise FaissIndexError("Index not initialized")
 
-            if len(embedding) != self.embedding_dim:
-                raise FaissIndexError(
-                    f"Embedding dimension mismatch: expected {self.embedding_dim}, "
-                    f"got {len(embedding)}"
+            for embedding_type, embedding in embeddings.items():
+                vector_key = f"{resume_id}:{embedding_type}"
+
+                if vector_key in self._vector_key_set:
+                    logger.debug(
+                        "Vector already in index, skipping duplicate",
+                        extra={"resume_id": resume_id, "embedding_type": embedding_type},
+                    )
+                    continue
+
+                if len(embedding) != self.embedding_dim:
+                    raise FaissIndexError(
+                        f"Embedding dimension mismatch for type '{embedding_type}': "
+                        f"expected {self.embedding_dim}, got {len(embedding)}"
+                    )
+
+                vector = np.array(embedding, dtype=np.float32).reshape(1, -1)
+                vector = self._normalize_vector(vector)
+
+                self._index.add(vector)
+                self._vector_keys.append(vector_key)
+                self._vector_key_set.add(vector_key)
+                added += 1
+
+                logger.debug(
+                    "Added vector to index",
+                    extra={
+                        "resume_id": resume_id,
+                        "embedding_type": embedding_type,
+                        "total_vectors": len(self._vector_keys),
+                    },
                 )
 
-            # Convert to numpy array and normalize if using cosine
-            vector = np.array(embedding, dtype=np.float32).reshape(1, -1)
-            vector = self._normalize_vector(vector)
-
-            # Check if resume already exists in index
-            if resume_id in self._resume_ids:
-                logger.warning(
-                    "Resume already in index, skipping duplicate",
-                    extra={"resume_id": resume_id},
-                )
-                return
-
-            # Add to FAISS index
-            self._index.add(vector)
-            self._resume_ids.append(resume_id)
-
+        if added > 0:
             logger.info(
-                "Added resume to index",
-                extra={"resume_id": resume_id, "total_vectors": len(self._resume_ids)},
+                "Added resume embeddings to index",
+                extra={
+                    "resume_id": resume_id,
+                    "vectors_added": added,
+                    "total_vectors": len(self._vector_keys),
+                },
             )
+            if self.index_path:
+                self.save_to_disk()
+            if mark_indexed:
+                self._mark_resume_indexed(resume_id)
+        else:
+            logger.info(
+                "Resume already fully indexed, skipping",
+                extra={"resume_id": resume_id},
+            )
+
+        return added
+
+    def _mark_resume_indexed(self, resume_id: str) -> None:
+        """Mark a resume as indexed in the Firestore ``resumes`` collection.
+
+        Uses a partial Firestore update (dot-notation path) so that other
+        metadata fields are not overwritten.  Errors are logged and suppressed
+        because a missing Firestore update is non-critical — the in-memory
+        ``_vector_key_set`` handles deduplication within the same process
+        lifetime, and the persisted FAISS index handles it across restarts.
+
+        Args:
+            resume_id: The Firestore document ID of the resume.
+        """
+        try:
+            resumes_ref = self._db.collection(settings.firestore_collection_resumes)
+            resumes_ref.document(resume_id).update(
+                {"metadata.searchIndexInfo.faissIndexedAt": _now_iso()}
+            )
+            logger.debug(
+                "Marked resume as indexed in Firestore",
+                extra={"resume_id": resume_id},
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to mark resume as indexed in Firestore (non-critical): %s",
+                exc,
+                extra={"resume_id": resume_id},
+            )
+
+    # ------------------------------------------------------------------
+    # Similarity search
+    # ------------------------------------------------------------------
 
     def search(
         self, query_embedding: list[float], top_k: int = 10
     ) -> list[tuple[str, float]]:
         """Perform similarity search against the FAISS index.
 
+        When a resume has multiple embedding vectors (e.g. full-text and
+        skills), the results are deduplicated by ``resume_id`` and ranked by
+        the *best* score found across all embedding types for that resume.
+
         Args:
             query_embedding: Query embedding vector (768-dimensional).
-            top_k: Maximum number of results to return (default 10).
+            top_k: Maximum number of *unique resume* results to return (default 10).
 
         Returns:
-            List of (resume_id, similarity_score) tuples, ranked by score.
+            List of (resume_id, best_similarity_score) tuples, ranked by score.
 
         Raises:
             IndexNotReadyError: If the index is empty or not initialized.
@@ -205,20 +400,28 @@ class SearchService:
             query_vector = np.array(query_embedding, dtype=np.float32).reshape(1, -1)
             query_vector = self._normalize_vector(query_vector)
 
-            # Limit top_k to the actual number of vectors in the index
-            k = min(top_k, self._index.ntotal)
+            # Retrieve more raw results than top_k to account for
+            # per-resume deduplication (multiple vectors per resume).
+            # We fetch up to min(ntotal, top_k * 5) to have enough candidates.
+            k_raw = min(self._index.ntotal, top_k * max(5, len(_KNOWN_EMBEDDING_TYPES) + 1))
 
-            # Perform search
-            distances, indices = self._index.search(query_vector, k)
+            distances, indices = self._index.search(query_vector, k_raw)
 
-            # Build results
-            results: list[tuple[str, float]] = []
+            # Aggregate by resume_id, keeping the best (highest) score.
+            best_scores: dict[str, float] = {}
             for i, idx in enumerate(indices[0]):
-                if idx < 0 or idx >= len(self._resume_ids):
+                if idx < 0 or idx >= len(self._vector_keys):
                     continue
-                resume_id = self._resume_ids[idx]
+                vector_key = self._vector_keys[idx]
+                resume_id = vector_key.split(":", 1)[0]
                 score = float(distances[0][i])
-                results.append((resume_id, score))
+                if resume_id not in best_scores or score > best_scores[resume_id]:
+                    best_scores[resume_id] = score
+
+            # Sort by descending score and cap at top_k unique resumes.
+            results = sorted(best_scores.items(), key=lambda x: x[1], reverse=True)[
+                :top_k
+            ]
 
             logger.info(
                 "Search completed",
@@ -226,57 +429,98 @@ class SearchService:
             )
             return results
 
-    def rebuild_index_from_firestore(self) -> None:
-        """Rebuild the FAISS index from all embeddings in Firestore.
+    # ------------------------------------------------------------------
+    # Index rebuild
+    # ------------------------------------------------------------------
 
-        Fetches all documents from the embeddings collection and rebuilds
-        the index from scratch.
+    def rebuild_index_from_firestore(self) -> None:
+        """Rebuild the FAISS index from all embeddings stored in Firestore.
+
+        Fetches all documents from the embeddings collection and indexes every
+        recognized embedding vector (``fullTextEmbedding``, ``skillsEmbedding``,
+        and any other field whose name ends with ``"Embedding"``).
+
+        The rebuilt index is saved to disk after completion (if ``index_path``
+        is configured).
         """
         logger.info("Starting index rebuild from Firestore")
 
         with self._lock:
-            # Create a new empty index
             self._create_empty_index()
 
-            # Fetch all embeddings from Firestore
             embeddings_ref = self._db.collection(settings.firestore_collection_embeddings)
             docs = embeddings_ref.stream()
 
-            count = 0
+            vectors_added = 0
+            resumes_added = 0
+
             for doc in docs:
-                data = doc.to_dict()
+                data = doc.to_dict() or {}
                 resume_id = doc.id
 
-                # Use fullTextEmbedding for search (768-dim)
-                embedding = data.get("fullTextEmbedding")
-                if not embedding:
+                # Discover all embedding fields in this document.
+                embedding_fields = {
+                    k: v
+                    for k, v in data.items()
+                    if k.endswith("Embedding") and isinstance(v, list) and len(v) > 0
+                }
+
+                if not embedding_fields:
                     logger.warning(
-                        "Missing fullTextEmbedding for resume, skipping",
+                        "No embedding vectors found for resume, skipping",
                         extra={"resume_id": resume_id},
                     )
                     continue
 
-                # Add to index (without lock, we're already holding it)
-                vector = np.array(embedding, dtype=np.float32).reshape(1, -1)
-                vector = self._normalize_vector(vector)
-                self._index.add(vector)
-                self._resume_ids.append(resume_id)
-                count += 1
+                resume_vector_count = 0
+                for field_name, embedding in embedding_fields.items():
+                    embedding_type = _embedding_field_to_type(field_name)
+                    vector_key = f"{resume_id}:{embedding_type}"
+
+                    if len(embedding) != self.embedding_dim:
+                        logger.warning(
+                            "Skipping embedding with wrong dimension",
+                            extra={
+                                "resume_id": resume_id,
+                                "embedding_type": embedding_type,
+                                "expected_dim": self.embedding_dim,
+                                "actual_dim": len(embedding),
+                            },
+                        )
+                        continue
+
+                    vector = np.array(embedding, dtype=np.float32).reshape(1, -1)
+                    vector = self._normalize_vector(vector)
+                    self._index.add(vector)
+                    self._vector_keys.append(vector_key)
+                    self._vector_key_set.add(vector_key)
+                    vectors_added += 1
+                    resume_vector_count += 1
+
+                if resume_vector_count > 0:
+                    resumes_added += 1
 
             logger.info(
                 "Index rebuild complete",
-                extra={"total_vectors": count},
+                extra={"resumes_indexed": resumes_added, "total_vectors": vectors_added},
             )
 
-        # Save to disk if configured
         if self.index_path:
             self.save_to_disk()
 
-    def save_to_disk(self) -> None:
-        """Save the FAISS index to disk.
+    # ------------------------------------------------------------------
+    # Disk persistence
+    # ------------------------------------------------------------------
 
-        Persists both the FAISS index and the resume ID mapping to the
-        configured ``index_path``.
+    def save_to_disk(self) -> None:
+        """Save the FAISS index to the configured ``index_path``.
+
+        Writes two files:
+
+        * ``{index_path}`` — the binary FAISS index.
+        * ``{index_path}.metadata.json`` — JSON array of vector keys
+          (``"{resume_id}:{embedding_type}"``) that maps positionally to the
+          FAISS vectors.
 
         Raises:
             FaissIndexError: If the index has not been initialized or no path
@@ -291,50 +535,76 @@ class SearchService:
                 raise FaissIndexError("Index not initialized")
 
             try:
-                # Create directory if needed
-                os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
+                index_dir = os.path.dirname(self.index_path)
+                if index_dir:
+                    os.makedirs(index_dir, exist_ok=True)
 
-                # Save FAISS index
                 faiss.write_index(self._index, self.index_path)
 
-                # Save resume ID mapping
-                metadata_path = f"{self.index_path}.metadata"
+                metadata_path = self.index_path + _METADATA_SUFFIX
                 with open(metadata_path, "w") as f:
-                    for resume_id in self._resume_ids:
-                        f.write(f"{resume_id}\n")
+                    json.dump(self._vector_keys, f)
 
                 logger.info(
                     "Index saved to disk",
-                    extra={"path": self.index_path, "total_vectors": len(self._resume_ids)},
+                    extra={
+                        "path": self.index_path,
+                        "total_vectors": len(self._vector_keys),
+                    },
                 )
             except Exception as exc:
                 logger.error("Failed to save index to disk: %s", exc)
                 raise FaissIndexError(f"Failed to save index: {exc}") from exc
 
     def _load_from_disk(self) -> None:
-        """Load the FAISS index from disk.
+        """Load the FAISS index and vector-key metadata from disk.
 
-        Loads both the FAISS index and the resume ID mapping from the
-        configured ``index_path``.
+        Reads:
+
+        * ``{index_path}`` — the binary FAISS index.
+        * ``{index_path}.metadata.json`` — JSON array of vector keys.
+
+        Falls back gracefully to an empty key list if the metadata sidecar is
+        absent (e.g. index was saved by an older version of the service).
 
         Raises:
-            FaissIndexError: If loading fails.
+            FaissIndexError: If loading the FAISS binary fails.
         """
         try:
-            # Load FAISS index
             self._index = faiss.read_index(self.index_path)
 
-            # Load resume ID mapping
-            metadata_path = f"{self.index_path}.metadata"
-            self._resume_ids = []
+            metadata_path = self.index_path + _METADATA_SUFFIX
+            self._vector_keys = []
+            self._vector_key_set = set()
+
             if os.path.exists(metadata_path):
                 with open(metadata_path, "r") as f:
-                    for line in f:
-                        self._resume_ids.append(line.strip())
+                    keys = json.load(f)
+                self._vector_keys = [str(k) for k in keys]
+                self._vector_key_set = set(self._vector_keys)
+            else:
+                # Legacy fallback: plain-text file with one resume_id per line.
+                legacy_path = f"{self.index_path}.metadata"
+                if os.path.exists(legacy_path):
+                    with open(legacy_path, "r") as f:
+                        for line in f:
+                            key = line.strip()
+                            if key:
+                                # Treat legacy entries as fullText type.
+                                typed_key = (
+                                    key
+                                    if ":" in key
+                                    else f"{key}:fullText"
+                                )
+                                self._vector_keys.append(typed_key)
+                    self._vector_key_set = set(self._vector_keys)
 
             logger.info(
                 "Index loaded from disk",
-                extra={"path": self.index_path, "total_vectors": len(self._resume_ids)},
+                extra={
+                    "path": self.index_path,
+                    "total_vectors": len(self._vector_keys),
+                },
             )
         except Exception as exc:
             logger.error("Failed to load index from disk: %s", exc)

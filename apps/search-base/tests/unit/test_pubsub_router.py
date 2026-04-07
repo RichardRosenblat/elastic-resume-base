@@ -40,6 +40,7 @@ async def test_pubsub_push_success(app_client):
         with patch("app.routers.pubsub.firestore.client") as mock_firestore_client:
             # Mock search service
             mock_service = MagicMock()
+            mock_service.add_resume_embeddings.return_value = 2
             mock_get_service.return_value = mock_service
 
             # Mock Firestore
@@ -54,7 +55,10 @@ async def test_pubsub_push_success(app_client):
 
             mock_doc = MagicMock()
             mock_doc.exists = True
-            mock_doc.to_dict.return_value = {"fullTextEmbedding": [0.1] * 768}
+            mock_doc.to_dict.return_value = {
+                "fullTextEmbedding": [0.1] * 768,
+                "skillsEmbedding": [0.2] * 768,
+            }
             mock_doc_ref.get.return_value = mock_doc
 
             async with app_client as client:
@@ -68,8 +72,13 @@ async def test_pubsub_push_success(app_client):
             assert data["data"]["resumeId"] == "resume-123"
             assert data["data"]["status"] == "indexed"
 
-            # Verify service was called
-            mock_service.add_resume_embedding.assert_called_once()
+            # Verify service was called with all embedding types
+            mock_service.add_resume_embeddings.assert_called_once()
+            call_args = mock_service.add_resume_embeddings.call_args
+            assert call_args[0][0] == "resume-123"
+            embeddings_arg = call_args[0][1]
+            assert "fullText" in embeddings_arg
+            assert "skills" in embeddings_arg
 
 
 @pytest.mark.asyncio
@@ -105,6 +114,40 @@ async def test_pubsub_push_embedding_not_found(app_client):
             assert response.status_code == 200
             data = response.json()
             assert data["error"]["code"] == "NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_pubsub_push_no_embedding_vectors(app_client):
+    """Test that a document with no embedding vectors returns 200 (permanent error)."""
+    with patch("app.routers.pubsub.get_search_service") as mock_get_service:
+        with patch("app.routers.pubsub.firestore.client") as mock_firestore_client:
+            mock_service = MagicMock()
+            mock_get_service.return_value = mock_service
+
+            mock_db = MagicMock()
+            mock_firestore_client.return_value = mock_db
+
+            mock_collection = MagicMock()
+            mock_db.collection.return_value = mock_collection
+
+            mock_doc_ref = MagicMock()
+            mock_collection.document.return_value = mock_doc_ref
+
+            mock_doc = MagicMock()
+            mock_doc.exists = True
+            # Document exists but has no *Embedding fields
+            mock_doc.to_dict.return_value = {"resumeId": "resume-123", "createdAt": "2024-01-01"}
+            mock_doc_ref.get.return_value = mock_doc
+
+            async with app_client as client:
+                response = await client.post(
+                    "/api/v1/pubsub/push",
+                    json=_make_push_body("resume-123"),
+                )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["error"]["code"] == "INVALID_DATA"
 
 
 @pytest.mark.asyncio
