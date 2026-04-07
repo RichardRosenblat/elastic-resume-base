@@ -156,7 +156,7 @@ systems:
 
     # Feature flags — set to "true" to enable, "false" to hide/disable
     VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)
-    VITE_FEATURE_RESUME_SEARCH: "false"    # Semantic search (search-base not ready)
+    VITE_FEATURE_RESUME_SEARCH: "true"     # Semantic search (search-base ready)
     VITE_FEATURE_DOCUMENT_READ: "true"    # Document reader (OCR service ready)
     VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
     VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
@@ -226,9 +226,30 @@ systems:
   # ---------------------------------------------------------------------------
   search-base:
     PORT: "8002"
-    FAISS_INDEX_PATH: /app/data/resume.faiss
-    PUBSUB_SEARCH_INDEX_TOPIC: resume-indexed
-    FIRESTORE_RESUMES_COLLECTION: resumes
+    VERTEX_AI_LOCATION: us-central1
+    VERTEX_AI_EMBEDDING_MODEL: text-multilingual-embedding-002
+    FIRESTORE_COLLECTION_RESUMES: resumes
+    FIRESTORE_COLLECTION_EMBEDDINGS: embeddings
+    PUBSUB_TOPIC_RESUME_INDEXED: resume-indexed
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+
+    # Optional path for persisting the FAISS index to disk.
+    # When empty (default), the index exists in-memory only and is rebuilt on restart.
+    # When set, the index is saved to disk and reloaded on startup if present.
+    FAISS_INDEX_PATH: ""   # e.g. /app/data/faiss_index
+
+    # Distance metric for FAISS index: "cosine" or "l2"
+    FAISS_INDEX_METRIC: cosine
+
+    # Cloud KMS — PII decryption key name
+    # Fully-qualified Cloud KMS key name used to decrypt PII fields before
+    # returning search results. When empty, decryption is skipped (local dev).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    DECRYPT_KMS_KEY_NAME: ""
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: 300
 
   # ---------------------------------------------------------------------------
   # File Generator (Python — port 8003)

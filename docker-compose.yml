@@ -58,7 +58,19 @@ services:
     depends_on:
       - gateway-api
 
-  # 5. Document Reader / OCR (Python — port 8004)
+  # 5. Search Base (Python + FAISS — port 8002)
+  search-base:
+    build:
+      context: .
+      dockerfile: apps/search-base/Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by load_config_yaml at startup
+    depends_on:
+      - firebase-emulator
+
+  # 6. Document Reader / OCR (Python — port 8004)
   document-reader:
     build:
       context: .
