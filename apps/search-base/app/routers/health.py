@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+import logging
 
 from app.dependencies import get_search_service
 from app.utils.exceptions import IndexNotReadyError
@@ -41,7 +42,8 @@ async def readiness() -> JSONResponse:
             )
         return JSONResponse({"status": "ready"})
     except Exception as exc:
+        logging.exception("Readiness probe failed")
         return JSONResponse(
-            {"status": "not_ready", "reason": str(exc)},
+            {"status": "not_ready", "reason": "Internal error"},
             status_code=503,
         )
