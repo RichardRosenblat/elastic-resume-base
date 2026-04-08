@@ -1,0 +1,32 @@
+# ── Version control ────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Documentation / scripts not needed in the image ────────────────────────
+documentation
+Scripts
+*.md
+*.bat
+
+# ── CI config ──────────────────────────────────────────────────────────────
+.github
+
+# ── Node artifacts ─────────────────────────────────────────────────────────
+node_modules
+dist
+.npm
+.cache
+
+# ── Test & coverage ────────────────────────────────────────────────────────
+tests
+coverage
+**/*.log
+
+# ── Environment ────────────────────────────────────────────────────────────
+.env
+.env.*
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────
+.vscode
+.idea
+.DS_Store

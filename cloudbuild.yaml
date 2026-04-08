@@ -1,0 +1,466 @@
+# =============================================================================
+# Cloud Build — Test, Build, Push and Deploy Pipeline
+# =============================================================================
+#
+# Triggered by the deploy-prod GitHub Actions workflow on every push to the
+# `prod` branch.
+#
+# Pipeline phases
+# ───────────────
+# 1. TEST   — unit tests for every service listed in
+#             .github/deploy-config/deploy-services.json run in parallel.
+#             If any test step exits non-zero, Cloud Build marks the entire
+#             build as FAILED and the subsequent phases never execute.
+#
+# 2. GATE   — a lightweight barrier step that waits for all test steps.
+#             Reaching this step means every test passed.
+#
+# 3. BUILD  — Docker images are built and pushed to the container registry
+#             in parallel for each service (all wait for the gate step).
+#
+# 4. DEPLOY — each service is deployed to Cloud Run after its own image
+#             has been pushed.
+#
+# Substitutions (passed by the GitHub Action; override via --substitutions)
+# ──────────────────────────────────────────────────────────────────────────
+#   _COMMIT_SHA     full Git commit SHA   (default: "latest")
+#   _SHORT_SHA      first 7 chars of SHA  (default: "latest")
+#   _REGION         Cloud Run region      (default: "us-central1")
+#   _IMAGE_REGISTRY container registry    (default: "gcr.io")
+#                   For Artifact Registry use "<region>-docker.pkg.dev"
+#
+# Required Cloud Build service-account roles
+# ──────────────────────────────────────────
+#   roles/run.admin
+#   roles/iam.serviceAccountUser   (to act as the Cloud Run runtime SA)
+#   roles/storage.admin            (to push images to GCR / AR)
+# =============================================================================
+
+substitutions:
+  _COMMIT_SHA: latest
+  _SHORT_SHA: latest
+  _REGION: us-central1
+  _IMAGE_REGISTRY: gcr.io
+
+timeout: '2400s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+
+  # ===========================================================================
+  # PHASE 1 — TESTS
+  # All test steps start immediately (waitFor: ['-']) and run in parallel.
+  # A failing step causes Cloud Build to abort the entire build, halting
+  # deployment automatically.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # ai-worker — Python
+  # ---------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'test-ai-worker'
+    waitFor: ['-']
+    dir: 'apps/ai-worker'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [ai-worker] Installing test dependencies ==="
+        pip install -q -r requirements/requirements-dev.txt
+        echo "=== [ai-worker] Running tests ==="
+        python -m pytest tests/ -v --tb=short 2>&1
+        echo "=== [ai-worker] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # document-reader — Python
+  # ---------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'test-document-reader'
+    waitFor: ['-']
+    dir: 'apps/document-reader'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [document-reader] Installing test dependencies ==="
+        pip install -q -r requirements/requirements-dev.txt
+        echo "=== [document-reader] Running tests ==="
+        python -m pytest tests/ -v --tb=short 2>&1
+        echo "=== [document-reader] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # file-generator — Python
+  # ---------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'test-file-generator'
+    waitFor: ['-']
+    dir: 'apps/file-generator'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [file-generator] Installing test dependencies ==="
+        pip install -q -r requirements/requirements-dev.txt
+        echo "=== [file-generator] Running tests ==="
+        python -m pytest tests/ -v --tb=short 2>&1
+        echo "=== [file-generator] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # ingestor-api — Python
+  # ---------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'test-ingestor-api'
+    waitFor: ['-']
+    dir: 'apps/ingestor-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [ingestor-api] Installing test dependencies ==="
+        pip install -q -r requirements/requirements-dev.txt
+        echo "=== [ingestor-api] Running tests ==="
+        python -m pytest tests/ -v --tb=short 2>&1
+        echo "=== [ingestor-api] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # gateway-api — Node.js
+  # ---------------------------------------------------------------------------
+  - name: 'node:22-alpine'
+    id: 'test-gateway-api'
+    waitFor: ['-']
+    dir: 'apps/gateway-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [gateway-api] Installing dependencies ==="
+        npm ci --prefer-offline
+        echo "=== [gateway-api] Running tests ==="
+        NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --verbose 2>&1
+        echo "=== [gateway-api] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # users-api — Node.js
+  # ---------------------------------------------------------------------------
+  - name: 'node:22-alpine'
+    id: 'test-users-api'
+    waitFor: ['-']
+    dir: 'apps/users-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [users-api] Installing dependencies ==="
+        npm ci --prefer-offline
+        echo "=== [users-api] Running tests ==="
+        NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --verbose 2>&1
+        echo "=== [users-api] All tests PASSED ==="
+
+  # ===========================================================================
+  # PHASE 2 — GATE
+  # Waits for every test step. If any earlier step failed this step is never
+  # reached and the build is already marked FAILED by Cloud Build.
+  # ===========================================================================
+
+  - name: 'alpine'
+    id: 'tests-gate'
+    waitFor:
+      - 'test-ai-worker'
+      - 'test-document-reader'
+      - 'test-file-generator'
+      - 'test-ingestor-api'
+      - 'test-gateway-api'
+      - 'test-users-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        echo "All tests passed (commit $_SHORT_SHA). Proceeding with build and deployment."
+
+  # ===========================================================================
+  # PHASE 3 — BUILD & PUSH
+  # Images are built and pushed to the container registry in parallel.
+  # Each step waits for the gate (tests-gate) to ensure all tests passed first.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # ai-worker  — build context: repo root (Dockerfile references shared/ libs)
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-ai-worker'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/ai-worker"
+        echo "=== [ai-worker] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/ai-worker/Dockerfile \
+          .
+        echo "=== [ai-worker] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [ai-worker] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # document-reader  — build context: repo root
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-document-reader'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/document-reader"
+        echo "=== [document-reader] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/document-reader/Dockerfile \
+          .
+        echo "=== [document-reader] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [document-reader] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # file-generator  — build context: repo root
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-file-generator'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/file-generator"
+        echo "=== [file-generator] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/file-generator/Dockerfile \
+          .
+        echo "=== [file-generator] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [file-generator] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # ingestor-api  — build context: repo root
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-ingestor-api'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/ingestor-api"
+        echo "=== [ingestor-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/ingestor-api/Dockerfile \
+          .
+        echo "=== [ingestor-api] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [ingestor-api] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # gateway-api  — build context: apps/gateway-api (no shared/ deps in image)
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-gateway-api'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/gateway-api"
+        echo "=== [gateway-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/gateway-api/Dockerfile \
+          apps/gateway-api
+        echo "=== [gateway-api] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [gateway-api] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # users-api  — build context: repo root (Dockerfile references shared/ libs)
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-users-api'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/users-api"
+        echo "=== [users-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/users-api/Dockerfile \
+          .
+        echo "=== [users-api] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [users-api] Image pushed ==="
+
+  # ===========================================================================
+  # PHASE 4 — DEPLOY
+  # Each service is deployed to Cloud Run after its own image has been pushed.
+  # Deploy steps run in parallel across services (each waits for its own push).
+  #
+  # Adjust Cloud Run flags (--memory, --cpu, --min-instances, --max-instances,
+  # --concurrency, --service-account, --set-env-vars, etc.) as required per
+  # service before going to production.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # ai-worker
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-ai-worker'
+    waitFor: ['build-push-ai-worker']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-worker'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/ai-worker:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8006'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # document-reader
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-document-reader'
+    waitFor: ['build-push-document-reader']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'document-reader'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/document-reader:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8004'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # file-generator
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-file-generator'
+    waitFor: ['build-push-file-generator']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'file-generator'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/file-generator:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8003'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # ingestor-api
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-ingestor-api'
+    waitFor: ['build-push-ingestor-api']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ingestor-api'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/ingestor-api:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8001'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # gateway-api
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-gateway-api'
+    waitFor: ['build-push-gateway-api']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'gateway-api'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/gateway-api:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '3000'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # users-api
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-users-api'
+    waitFor: ['build-push-users-api']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'users-api'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/users-api:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8005'
+      - '--quiet'

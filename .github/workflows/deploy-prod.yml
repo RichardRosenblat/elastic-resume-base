@@ -1,0 +1,55 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - prod
+
+# Minimal default permissions; the deploy job needs id-token for WIF auth.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Trigger Cloud Build Deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Google Cloud authentication ────────────────────────────────────────
+      # Option A (recommended): Workload Identity Federation — no long-lived keys.
+      # Add the following GitHub secrets:
+      #   GCP_WORKLOAD_IDENTITY_PROVIDER  e.g. projects/123/locations/global/workloadIdentityPools/...
+      #   GCP_SERVICE_ACCOUNT             e.g. deployer@my-project.iam.gserviceaccount.com
+      #
+      # Option B: Service Account key — less secure, kept for reference.
+      # Replace the `with:` block below with:
+      #   credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # ── Submit the Cloud Build job ─────────────────────────────────────────
+      # Cloud Build runs all service tests first; if any test fails the build
+      # is halted and no image is built or deployed.
+      # Required GitHub repository variable (Settings → Variables → Actions):
+      #   GCP_DEPLOY_REGION   target Cloud Run region (default: us-central1)
+      - name: Submit Cloud Build
+        env:
+          GCP_REGION: ${{ vars.GCP_DEPLOY_REGION || 'us-central1' }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          gcloud builds submit \
+            --config cloudbuild.yaml \
+            --substitutions "_COMMIT_SHA=${COMMIT_SHA},_SHORT_SHA=${SHORT_SHA},_REGION=${GCP_REGION}" \
+            --timeout 2400s \
+            .

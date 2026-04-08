@@ -1,0 +1,55 @@
+# ── Version control ────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ── CI / documentation ─────────────────────────────────────────────────────
+.github
+documentation
+Scripts
+*.md
+*.bat
+apphosting.emulator.yaml
+firebase.json
+docker-compose.yml
+config_example.yaml
+config.yaml
+start_firebase_emulators.bat
+start_firebase_emulators.sh
+build_shared.bat
+build_shared.sh
+
+# ── Node artifacts ─────────────────────────────────────────────────────────
+**/node_modules
+**/dist
+**/build
+**/.npm
+**/.cache
+
+# ── Python artifacts ───────────────────────────────────────────────────────
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.egg-info
+**/.eggs
+**/htmlcov
+
+# ── Test & coverage outputs ────────────────────────────────────────────────
+**/coverage
+**/test-results
+**/*.log
+
+# ── Environment / secrets ──────────────────────────────────────────────────
+**/.env
+**/.env.*
+*.yaml.local
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────
+.vscode
+.idea
+.DS_Store
+Thumbs.db
