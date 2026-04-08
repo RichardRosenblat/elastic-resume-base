@@ -54,15 +54,6 @@ systems:
     FIREBASE_AUTH_EMULATOR_HOST: "firebase-emulator:9099"
     PUBSUB_EMULATOR_HOST: "firebase-emulator:8085"
 
-    # SMTP — outbound email notifications via the Hermes shared library.
-    # Used by any service that calls initializeMessagingFromEnv() at startup.
-    SMTP_HOST: "localhost"
-    SMTP_PORT: "1025"
-    SMTP_SECURE: "false"       # set to "true" for SMTPS (port 465)
-    SMTP_USER: ""              # fill in locally — never commit real credentials
-    SMTP_PASSWORD: ""          # fill in locally — never commit real credentials
-    SMTP_FROM: "noreply@elastic-resume-base.local"
-
   # ---------------------------------------------------------------------------
   # Gateway API (Node.js — port 3000)
   # ---------------------------------------------------------------------------
@@ -83,12 +74,19 @@ systems:
     # Timeout (milliseconds) applied to every downstream service call
     REQUEST_TIMEOUT_MS: "30000"
 
+    # Service registry — downstream health tracking
+    # A downstream service is considered "warm" if it was seen alive within this window (ms).
+    DOWNSTREAM_WARM_TTL_MS: "300000"
+    # How often (ms) the gateway re-probes services that have gone cold.
+    DOWNSTREAM_HEALTH_REFRESH_INTERVAL_MS: "3600000"
+
     # Downstream microservice base URLs (Docker Compose service names)
-    DOWNLOADER_SERVICE_URL: "http://ingestor-service:8001"
+    INGESTOR_SERVICE_URL: "http://ingestor-service:8001"
     SEARCH_BASE_SERVICE_URL: "http://search-base:8002"
     FILE_GENERATOR_SERVICE_URL: "http://file-generator:8003"
     DOCUMENT_READER_SERVICE_URL: "http://document-reader:8004"
     USER_API_SERVICE_URL: "http://users-api:8005"
+    DLQ_NOTIFIER_SERVICE_URL: "http://dlq-notifier:8007"
 
   # ---------------------------------------------------------------------------
   # Users API (Node.js — port 8005)
@@ -164,14 +162,21 @@ systems:
 
     # Feature flags — set to "true" to enable, "false" to hide/disable
     VITE_FEATURE_RESUME_INGEST: "false"    # Resume ingestion (AI worker not ready)
-    VITE_FEATURE_RESUME_SEARCH: "false"    # Semantic search (search-base not ready)
+    VITE_FEATURE_RESUME_SEARCH: "true"     # Semantic search (search-base ready)
     VITE_FEATURE_DOCUMENT_READ: "true"    # Document reader (OCR service ready)
     VITE_FEATURE_RESUME_GENERATE: "false"  # Resume generation (file-generator not ready)
     VITE_FEATURE_USER_MANAGEMENT: "true"   # Admin user management (users-api ready)
+    VITE_FEATURE_DLQ_NOTIFIER: "true"     # DLQ Notifier notification panel (bell icon + smart polling)
 
     # When set to "true", features that are disabled (flag = "false") are hidden
     # entirely from the sidebar and dashboard instead of being shown as "Coming Soon".
     VITE_FEATURE_HIDE_IF_DISABLED: "false"
+
+    # Smart notification polling intervals (milliseconds).
+    # The frontend uses these to adapt polling frequency based on user activity.
+    VITE_NOTIFICATIONS_ACTIVE_INTERVAL_MS: "30000"   # 30 s when user is active
+    VITE_NOTIFICATIONS_IDLE_INTERVAL_MS: "120000"    # 120 s when user is idle
+    VITE_NOTIFICATIONS_IDLE_THRESHOLD_MS: "300000"   # 5 min before considered idle
 
   # ---------------------------------------------------------------------------
   # Ingestor Service (Python — port 8001)
@@ -179,27 +184,49 @@ systems:
   # ---------------------------------------------------------------------------
   ingestor-service:
     PORT: "8001"
-    FIRESTORE_RESUMES_COLLECTION: resumes
-    FIRESTORE_USERS_COLLECTION: users
-    PUBSUB_INGESTOR_TOPIC: resume-ingested
-    PUBSUB_AI_WORKER_TOPIC: resume-extracted
+
+    # Name of the Firestore collection where ingested resume raw data is stored.
+    FIRESTORE_COLLECTION_RESUMES: resumes
+
+    # Pub/Sub topic names
+    PUBSUB_TOPIC_RESUME_INGESTED: resume-ingested
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+
+    # Name of the default column in the Google Sheet containing the resume links.
+    SHEETS_LINK_COLUMN: resume_link
+
+    # Timeout (seconds) applied to every HTTP request made by the ingestor service
+    HTTP_REQUEST_TIMEOUT: 120
+    # Maximum number of API requests accepted from a single client IP per minute.
+    RATE_LIMIT_PER_MINUTE: 60
+    # Maximum number of resumes processed concurrently during a single ingest batch.
+    INGEST_CONCURRENCY: 10
 
   # ---------------------------------------------------------------------------
   # AI Worker (Python — Pub/Sub triggered)
   # Extracts structured data and generates embeddings using Vertex AI.
   # ---------------------------------------------------------------------------
   ai-worker:
+    PORT: "8006"
     VERTEX_AI_LOCATION: us-central1
     VERTEX_AI_EXTRACTION_MODEL: gemini-1.5-flash
     VERTEX_AI_EMBEDDING_MODEL: text-multilingual-embedding-002
-    PUBSUB_AI_WORKER_TOPIC: resume-extracted
-    PUBSUB_SEARCH_INDEX_TOPIC: resume-indexed
-    FIRESTORE_RESUMES_COLLECTION: resumes
+    PUBSUB_TOPIC_RESUME_INGESTED: resume-ingested
+    PUBSUB_TOPIC_RESUME_INDEXED: resume-indexed
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+    FIRESTORE_COLLECTION_RESUMES: resumes
+    FIRESTORE_COLLECTION_EMBEDDINGS: embeddings
 
-    # Cloud KMS — PII encryption keys
-    KMS_KEY_RING: elastic-resume-keyring
-    KMS_KEY_NAME: resume-pii-key
-    KMS_KEY_LOCATION: global
+    # Cloud KMS — PII encryption key name
+    # Fully-qualified Cloud KMS key name used to encrypt PII fields (name, email, phone, etc.)
+    # before persisting to Firestore. When empty, PII fields are stored as plain text
+    # (suitable for local development only).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    ENCRYPT_KMS_KEY_NAME: ""
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: 300
 
   # ---------------------------------------------------------------------------
   # Search Base (Python + FAISS — port 8002)
@@ -207,9 +234,30 @@ systems:
   # ---------------------------------------------------------------------------
   search-base:
     PORT: "8002"
-    FAISS_INDEX_PATH: /app/data/resume.faiss
-    PUBSUB_SEARCH_INDEX_TOPIC: resume-indexed
-    FIRESTORE_RESUMES_COLLECTION: resumes
+    VERTEX_AI_LOCATION: us-central1
+    VERTEX_AI_EMBEDDING_MODEL: text-multilingual-embedding-002
+    FIRESTORE_COLLECTION_RESUMES: resumes
+    FIRESTORE_COLLECTION_EMBEDDINGS: embeddings
+    PUBSUB_TOPIC_RESUME_INDEXED: resume-indexed
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+
+    # Optional path for persisting the FAISS index to disk.
+    # When empty (default), the index exists in-memory only and is rebuilt on restart.
+    # When set, the index is saved to disk and reloaded on startup if present.
+    FAISS_INDEX_PATH: ""   # e.g. /app/data/faiss_index
+
+    # Distance metric for FAISS index: "cosine" or "l2"
+    FAISS_INDEX_METRIC: cosine
+
+    # Cloud KMS — PII decryption key name
+    # Fully-qualified Cloud KMS key name used to decrypt PII fields before
+    # returning search results. When empty, decryption is skipped (local dev).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    DECRYPT_KMS_KEY_NAME: ""
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: 300
 
   # ---------------------------------------------------------------------------
   # File Generator (Python — port 8003)
@@ -217,8 +265,31 @@ systems:
   # ---------------------------------------------------------------------------
   file-generator:
     PORT: "8003"
-    TRANSLATION_CACHE_COLLECTION: translation-cache
-    FIRESTORE_RESUMES_COLLECTION: resumes
+    FIRESTORE_COLLECTION_RESUMES: resumes
+    FIRESTORE_COLLECTION_TRANSLATION_CACHE: translation-cache
+
+    # Google Drive file ID for the .docx Jinja2 resume template.
+    # Required in production; may be left empty for local development when
+    # a local template path is provided instead.
+    DRIVE_TEMPLATE_FILE_ID: ""
+
+    # Path to a local .docx template file used in development when
+    # DRIVE_TEMPLATE_FILE_ID is not set.
+    LOCAL_TEMPLATE_PATH: ""
+
+    # Cloud KMS — PII decryption key name
+    # Fully-qualified Cloud KMS key name used to decrypt PII fields before
+    # generating documents. When empty, decryption is skipped and field values
+    # are returned as-is (for local development).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    DECRYPT_KMS_KEY_NAME: ""
+
+    # Google Cloud region for the Translation API.
+    TRANSLATION_API_LOCATION: global
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: 300
 
   # ---------------------------------------------------------------------------
   # Document Reader / OCR (Python — port 8004)
@@ -249,16 +320,62 @@ systems:
     # directing users to contact support.  Adjust to match your GCP quota.
     VISION_API_RATE_LIMIT: "60"
 
+    # Vision API request timeout in seconds.
+    VISION_API_TIMEOUT: "30"
+
+    # Maximum number of retries for a single Vision API call before giving up.
+    VISION_API_MAX_RETRIES: "3"
+
+    # Delay in seconds between Vision API retry attempts.
+    VISION_API_RETRY_DELAY: "1.0"
+
+    # Maximum dimension (width or height, in pixels) to which document images
+    # are resized before being sent to the Vision API.  Larger images are
+    # downscaled; smaller images are left unchanged.
+    VISION_API_IMAGE_MAX_DIMENSION: "3000"
+
+    # DPI used when rendering PDF pages to images for Vision API processing.
+    VISION_API_PDF_DPI: "200"
+
+    # Maximum seconds a single HTTP request to this service may take.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: "60"
+
     # Logging verbosity (debug | info | warning | error | critical).
     # Inherited from systems.shared.LOG_LEVEL — override here for more
     # verbose OCR debugging without flooding the rest of the platform.
     # LOG_LEVEL: "debug"
 
   # ---------------------------------------------------------------------------
-  # DLQ Notifier (Python — Pub/Sub triggered)
-  # Monitors the Dead Letter Queue and sends failure alerts.
+  # DLQ Notifier (Python — port 8007, Pub/Sub triggered)
+  # Monitors the Dead Letter Queue and sends email failure alerts.
   # ---------------------------------------------------------------------------
   dlq-notifier:
-    DLQ_NOTIFICATION_CHANNEL: slack
-    DLQ_SLACK_WEBHOOK_URL: ""   # fill in locally
-    PUBSUB_DLQ_TOPIC: dead-letter-queue
+    PORT: "8007"
+    PUBSUB_TOPIC_DLQ: dead-letter-queue
+
+    # Comma-separated list of email addresses that receive DLQ alert emails.
+    # Leave empty to disable email notifications.
+    NOTIFICATION_RECIPIENTS: ""   # e.g. ops@example.com,alerts@example.com
+
+    # SMTP transport configuration for outgoing alert emails.
+    # Leave SMTP_HOST empty to disable email delivery (alerts will be logged only).
+    SMTP_HOST: ""          # e.g. smtp.gmail.com
+    SMTP_PORT: "587"       # 587 = STARTTLS, 465 = SMTPS, 25 = plain
+    SMTP_SECURE: "false"   # "true" to wrap the connection in TLS from the start
+    SMTP_USER: ""          # SMTP auth username — omit for unauthenticated relays
+    SMTP_PASSWORD: ""      # SMTP auth password — never commit real credentials
+    SMTP_FROM: ""          # Sender address, e.g. noreply@example.com
+
+    # GCP project ID used to initialise Firestore (defaults to firebase_project_id).
+    GCP_PROJECT_ID: ""
+
+    # Firestore collection where notification records are persisted.
+    FIRESTORE_COLLECTION_NOTIFICATIONS: notifications
+
+    # Number of days after which old notifications are automatically purged.
+    NOTIFICATION_TTL_DAYS: "30"
+
+    # Maximum seconds a single HTTP request to this service may take before timeout.
+    # Health endpoints are excluded from this limit.
+    HTTP_REQUEST_TIMEOUT: "300"

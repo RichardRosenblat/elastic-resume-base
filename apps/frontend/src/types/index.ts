@@ -72,6 +72,16 @@ export interface ResumeIngestJob {
   acceptedAt: string;
 }
 
+/**
+ * Result from a single-document ingest (Drive link or direct file upload).
+ */
+export interface SingleIngestResult {
+  resumeId: string | null;
+  ingested: number;
+  errors: Array<{ row: number; error: string }>;
+  duplicates: Array<{ row: number; existingResumeId: string; message: string }>;
+}
+
 /** Async generation job returned by the Gateway API generate endpoint. */
 export interface ResumeGenerateJob {
   jobId: string;
@@ -96,7 +106,17 @@ export interface SearchResponseData {
 
 /** Status of a single downstream service as returned by `GET /health/downstream`. */
 export interface DownstreamServiceStatus {
-  status: 'ok' | 'degraded';
+  /** `true` if the service is currently reachable (L4 connectivity). */
+  live: boolean;
+  /**
+   * `warm` if seen alive within the configured TTL (instant reply expected);
+   * `cold` if not contacted recently (cold start may be required).
+   */
+  temperature: 'warm' | 'cold';
+  /** ISO 8601 timestamp of the last successful contact, or `null` if never seen. */
+  lastSeenAlive: string | null;
+  /** ISO 8601 timestamp of the most recent health-check attempt. */
+  lastChecked: string;
 }
 
 /** Response shape of the Gateway API `GET /health/downstream` endpoint. */
@@ -125,4 +145,35 @@ export interface FeatureFlags {
    * in a "coming soon" state.
    */
   hideIfDisabled: boolean;
+  /** DLQ Notifier notification system (bell icon, notification panel). */
+  dlqNotifier: boolean;
+}
+
+/**
+ * A single DLQ failure notification record.
+ */
+export interface NotificationRecord {
+  id: string;
+  /** `"user"` for user-caused failures; `"system"` for infrastructure issues. */
+  category: 'user' | 'system';
+  user_id: string | null;
+  resume_id: string | null;
+  service: string | null;
+  stage: string | null;
+  error_type: string | null;
+  /** Technical error description (shown to admins). */
+  error: string | null;
+  /** User-friendly error description (shown to users). */
+  user_message: string | null;
+  message_id: string;
+  subscription: string;
+  publish_time: string;
+  created_at: string;
+  read: boolean;
+}
+
+/** Response payload for notification list endpoints. */
+export interface NotificationListResponse {
+  notifications: NotificationRecord[];
+  total: number;
 }

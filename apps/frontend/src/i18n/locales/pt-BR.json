@@ -93,7 +93,20 @@
 		"language": "Idioma",
 		"format": "Formato",
 		"loading": "Carregando currículos...",
-		"noResumesFound": "Nenhum currículo encontrado"
+		"noResumesFound": "Nenhum currículo encontrado",
+		"ingestType": "Tipo de Importação",
+		"spreadsheet": "Planilha",
+		"excelFile": "Arquivo Excel / CSV",
+		"driveLink": "Link do Drive",
+		"singleFile": "Arquivo PDF / DOCX",
+		"sheetIdOrUrl": "ID ou URL da planilha",
+		"driveLinkLabel": "Link do Google Drive",
+		"resumeFile": "Arquivo de Currículo",
+		"ingestedCount": "{{count}} currículo(s) importado(s)",
+		"errorsCount": "{{count}} erro(s)",
+		"resumeId": "ID do Currículo",
+		"excelFileDescription": "Envie um arquivo Excel (.xlsx, .xls, .xlsm) ou CSV (.csv) com links do Google Drive para os currículos.",
+		"singleFileDescription": "Envie um arquivo PDF ou DOCX de currículo para importação direta."
 	},
 	"documents": {
 		"title": "Documentos",
@@ -196,8 +209,6 @@
 		"title": "Status do Sistema",
 		"loading": "Verificando a integridade dos serviços...",
 		"unavailable": "Status Indisponível — não foi possível acessar o endpoint de saúde.",
-		"statusOk": "Online",
-		"statusDegraded": "Degradado",
 		"services": {
 			"usersApi": {
 				"name": "Gestão de Usuários",
@@ -221,9 +232,34 @@
 			},
 			"documentReader": {
 				"name": "Leitor de Documentos",
-				"description": "Extracts structured data from uploaded documents and returns the results in Excel format.",
-				"impact": "Document uploading, processing, and the generation of Excel results will be unavailable."
+				"description": "Extrai dados estruturados de documentos enviados e retorna os resultados em formato Excel.",
+				"impact": "O envio, processamento de documentos e a geração de resultados em Excel estarão indisponíveis."
+			},
+			"dlqNotifier": {
+				"name": "Notificador de DLQ",
+				"description": "Gerencia as notificações da fila de tarefas com falha.",
+				"impact": "As notificações de tarefas com falha não estarão disponíveis."
 			}
-		}
+		},
+		"statusReady": "Pronto",
+		"statusIdle": "Em espera",
+		"statusUnavailable": "Indisponível",
+		"idleMessage": "Este serviço está em espera e pode demorar mais para responder.",
+		"lastSeenLabel": "Visto pela última vez",
+		"lastCheckedLabel": "Última verificação",
+		"neverSeen": "Nunca visto"
+	},
+	"notifications": {
+		"title": "Notificações",
+		"myNotifications": "Minhas Notificações",
+		"systemNotifications": "Alertas do Sistema",
+		"noNotifications": "Você não tem notificações.",
+		"noSystemNotifications": "Nenhum alerta do sistema.",
+		"markRead": "Marcar como lida",
+		"delete": "Excluir notificação",
+		"refresh": "Atualizar notificações",
+		"unknownError": "Ocorreu um erro desconhecido.",
+		"serviceUnavailable": "Serviço de notificações indisponível",
+		"serviceUnavailableBanner": "O serviço de notificações está temporariamente indisponível. Alertas de falha podem estar atrasados."
 	}
 }

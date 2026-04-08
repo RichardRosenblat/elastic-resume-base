@@ -21,6 +21,10 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+const now = new Date().toISOString();
+const recentTime = new Date(Date.now() - 1000).toISOString(); // 1 s ago → warm
+const oldTime = new Date(Date.now() - 600_000).toISOString();  // 10 min ago → cold
+
 describe('SystemStatusPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -33,11 +37,11 @@ describe('SystemStatusPage', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('renders service status cards on success', async () => {
+  it('renders service status cards with live/temperature data on success', async () => {
     mockGetDownstreamHealth.mockResolvedValue({
       downstream: {
-        usersApi: { status: 'ok' },
-        downloader: { status: 'degraded' },
+        usersApi: { live: true, temperature: 'warm', lastSeenAlive: recentTime, lastChecked: now },
+        downloader: { live: false, temperature: 'cold', lastSeenAlive: null, lastChecked: now },
       },
     });
 
@@ -53,9 +57,53 @@ describe('SystemStatusPage', () => {
     expect(screen.getByText('systemStatus.services.usersApi.name')).toBeInTheDocument();
     expect(screen.getByText('systemStatus.services.downloader.name')).toBeInTheDocument();
 
-    // Status chips
-    expect(screen.getByText('systemStatus.statusOk')).toBeInTheDocument();
-    expect(screen.getByText('systemStatus.statusDegraded')).toBeInTheDocument();
+    // Status chips — usersApi is warm/live → Ready; downloader is not live → Unavailable
+    expect(screen.getByText('systemStatus.statusReady')).toBeInTheDocument();
+    expect(screen.getByText('systemStatus.statusUnavailable')).toBeInTheDocument();
+  });
+
+  it('renders idle chip for cold-but-live service', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        searchBase: { live: true, temperature: 'cold', lastSeenAlive: oldTime, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText('systemStatus.statusIdle')).toBeInTheDocument();
+    });
+  });
+
+  it('shows idleMessage (not impact) for idle services', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        searchBase: { live: true, temperature: 'cold', lastSeenAlive: oldTime, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText('systemStatus.idleMessage')).toBeInTheDocument();
+      expect(screen.queryByText('systemStatus.services.searchBase.impact')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows impact message (not idleMessage) for unavailable services', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        searchBase: { live: false, temperature: 'cold', lastSeenAlive: null, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText('systemStatus.services.searchBase.impact')).toBeInTheDocument();
+      expect(screen.queryByText('systemStatus.idleMessage')).not.toBeInTheDocument();
+    });
   });
 
   it('shows the page title', () => {
@@ -77,7 +125,7 @@ describe('SystemStatusPage', () => {
   it('does not show a spinner after data loads', async () => {
     mockGetDownstreamHealth.mockResolvedValue({
       downstream: {
-        usersApi: { status: 'ok' },
+        usersApi: { live: true, temperature: 'warm', lastSeenAlive: recentTime, lastChecked: now },
       },
     });
 
@@ -85,6 +133,35 @@ describe('SystemStatusPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows lastSeenAlive and lastChecked labels', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        usersApi: { live: true, temperature: 'warm', lastSeenAlive: recentTime, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText(/systemStatus\.lastSeenLabel/)).toBeInTheDocument();
+      expect(screen.getByText(/systemStatus\.lastCheckedLabel/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows "neverSeen" when lastSeenAlive is null', async () => {
+    mockGetDownstreamHealth.mockResolvedValue({
+      downstream: {
+        downloader: { live: false, temperature: 'cold', lastSeenAlive: null, lastChecked: now },
+      },
+    });
+
+    render(<MemoryRouter><SystemStatusPage /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByText(/systemStatus\.neverSeen/)).toBeInTheDocument();
     });
   });
 });

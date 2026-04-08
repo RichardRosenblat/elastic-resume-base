@@ -28,6 +28,7 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
         { name: 'Resumes', description: 'Resume ingestion and generation jobs.' },
         { name: 'Search', description: 'Semantic search across resume content.' },
         { name: 'Documents', description: 'Document reading and text extraction.' },
+        { name: 'Notifications', description: 'User and system notification management.' },
       ],
       components: {
         securitySchemes: {

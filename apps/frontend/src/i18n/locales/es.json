@@ -94,7 +94,20 @@
 		"language": "Idioma",
 		"format": "Formato",
 		"loading": "Cargando currículums...",
-		"noResumesFound": "No se encontraron currículums"
+		"noResumesFound": "No se encontraron currículums",
+		"ingestType": "Tipo de Importación",
+		"spreadsheet": "Hoja de Cálculo",
+		"excelFile": "Archivo Excel / CSV",
+		"driveLink": "Enlace de Drive",
+		"singleFile": "Archivo PDF / DOCX",
+		"sheetIdOrUrl": "ID o URL de la hoja",
+		"driveLinkLabel": "Enlace de Google Drive",
+		"resumeFile": "Archivo de Currículum",
+		"ingestedCount": "{{count}} currículum(s) importado(s)",
+		"errorsCount": "{{count}} error(es)",
+		"resumeId": "ID de Currículum",
+		"excelFileDescription": "Sube un archivo Excel (.xlsx, .xls, .xlsm) o CSV (.csv) con enlaces de Google Drive a los currículums.",
+		"singleFileDescription": "Sube un archivo PDF o DOCX de currículum para importación directa."
 	},
 	"documents": {
 		"title": "Documentos",
@@ -197,8 +210,6 @@
 		"title": "Estado del Sistema",
 		"loading": "Verificando el estado de los servicios...",
 		"unavailable": "Estado No Disponible — no se pudo alcanzar el endpoint de salud.",
-		"statusOk": "En línea",
-		"statusDegraded": "Degradado",
 		"services": {
 			"usersApi": {
 				"name": "Gestión de Usuarios",
@@ -224,7 +235,32 @@
 				"name": "Lector de Documentos",
 				"description": "Extrae datos estructurados de los documentos cargados y devuelve los resultados en formato Excel.",
 				"impact": "La carga y el procesamiento de documentos, así como la generación de resultados en Excel, no estarán disponibles."
+			},
+			"dlqNotifier": {
+				"name": "Notificador de DLQ",
+				"description": "Gestiona las notificaciones de la cola de tareas fallidas.",
+				"impact": "Las notificaciones de tareas fallidas no estarán disponibles."
 			}
-		}
+		},
+		"statusReady": "Listo",
+		"statusIdle": "En espera",
+		"statusUnavailable": "No disponible",
+		"idleMessage": "Este servicio está inactivo y puede tardar más en responder.",
+		"lastSeenLabel": "Última vez visto",
+		"lastCheckedLabel": "Última verificación",
+		"neverSeen": "Nunca visto"
+	},
+	"notifications": {
+		"title": "Notificaciones",
+		"myNotifications": "Mis Notificaciones",
+		"systemNotifications": "Alertas del Sistema",
+		"noNotifications": "No tienes notificaciones.",
+		"noSystemNotifications": "No hay alertas del sistema.",
+		"markRead": "Marcar como leída",
+		"delete": "Eliminar notificación",
+		"refresh": "Actualizar notificaciones",
+		"unknownError": "Ocurrió un error desconocido.",
+		"serviceUnavailable": "Servicio de notificaciones no disponible",
+		"serviceUnavailableBanner": "El servicio de notificaciones no está disponible temporalmente. Las alertas de fallos pueden estar retrasadas."
 	}
 }

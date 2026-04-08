@@ -21,6 +21,7 @@ import type {
   PreApprovedSortField,
   SortDirection,
   ResumeIngestJob,
+  SingleIngestResult,
   ResumeGenerateJob,
   SearchResponseData,
   ListUsersData,
@@ -287,11 +288,81 @@ export const batchUpdatePreApprovedUsers = async (emails: string[], role: 'admin
  * Submits a resume ingest job to the Gateway API.
  * Returns mock data when `config.features.resumeIngest` is `false`.
  */
-export const triggerResumeIngest = async (data: { sheetId?: string; batchId?: string }): Promise<ResumeIngestJob> => {
+export const triggerResumeIngest = async (data: { sheetId?: string; sheetUrl?: string; batchId?: string }): Promise<ResumeIngestJob> => {
   if (!config.features.resumeIngest) {
     return { jobId: 'mock-job-id', status: 'mock', acceptedAt: new Date().toISOString() };
   }
   const res = await apiClient.post<SuccessResponse<ResumeIngestJob>>('/api/v1/resumes/ingest', data);
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Uploads an Excel or CSV spreadsheet for resume ingestion via the Gateway API.
+ * Returns mock data when `config.features.resumeIngest` is `false`.
+ *
+ * @param file     The Excel or CSV file to upload.
+ * @param options  Optional ingestion parameters forwarded as form fields.
+ */
+export const triggerResumeIngestUpload = async (
+  file: File,
+  options?: { linkColumn?: string; metadata?: Record<string, unknown> },
+): Promise<import('../types').SingleIngestResult> => {
+  if (!config.features.resumeIngest) {
+    return { resumeId: null, ingested: 0, errors: [], duplicates: [] };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  if (options?.linkColumn) formData.append('link_column', options.linkColumn);
+  if (options?.metadata) formData.append('metadata', JSON.stringify(options.metadata));
+  const res = await apiClient.post<SuccessResponse<import('../types').SingleIngestResult>>(
+    '/api/v1/resumes/ingest/upload',
+    formData,
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Ingests a single resume from a Google Drive link via the Gateway API.
+ * Returns mock data when `config.features.resumeIngest` is `false`.
+ *
+ * @param driveLink  Google Drive URL or file ID pointing to the resume.
+ * @param metadata   Optional extra metadata to attach to the ingested resume.
+ */
+export const triggerResumeIngestDriveLink = async (
+  driveLink: string,
+  metadata?: Record<string, unknown>,
+): Promise<import('../types').SingleIngestResult> => {
+  if (!config.features.resumeIngest) {
+    return { resumeId: null, ingested: 0, errors: [], duplicates: [] };
+  }
+  const res = await apiClient.post<SuccessResponse<import('../types').SingleIngestResult>>(
+    '/api/v1/resumes/ingest/drive',
+    { driveLink, metadata },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Ingests a single PDF or DOCX resume from a directly uploaded file via the Gateway API.
+ * Returns mock data when `config.features.resumeIngest` is `false`.
+ *
+ * @param file      The PDF or DOCX file to upload.
+ * @param metadata  Optional extra metadata to attach to the ingested resume.
+ */
+export const triggerResumeIngestSingleFile = async (
+  file: File,
+  metadata?: Record<string, unknown>,
+): Promise<import('../types').SingleIngestResult> => {
+  if (!config.features.resumeIngest) {
+    return { resumeId: null, ingested: 0, errors: [], duplicates: [] };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  if (metadata) formData.append('metadata', JSON.stringify(metadata));
+  const res = await apiClient.post<SuccessResponse<import('../types').SingleIngestResult>>(
+    '/api/v1/resumes/ingest/file',
+    formData,
+  );
   return unwrapSuccessResponse(res.data);
 };
 
@@ -368,11 +439,89 @@ export const ocrDocuments = async (files: File[], documentTypes?: string[]): Pro
 
 /**
  * Fetches the health status of all downstream services from the Gateway API.
- * Uses a plain axios call without auth since the `/health/downstream` endpoint is public.
+ * Uses the shared apiClient so that a correlation ID is automatically attached
+ * to the request via the request interceptor.
  */
 export const getDownstreamHealth = async (): Promise<DownstreamHealthData> => {
-  const res = await axios.get<DownstreamHealthData>(`${config.gatewayApiUrl}/health/downstream`);
+  const res = await apiClient.get<DownstreamHealthData>('/health/downstream');
   return res.data;
+};
+
+/** Empty list returned when the DLQ Notifier feature is disabled. */
+const _EMPTY_NOTIFICATION_LIST: import('../types').NotificationListResponse = {
+  notifications: [],
+  total: 0,
+};
+
+/**
+ * Fetches the calling user's DLQ notifications.
+ * Returns an empty list when the `dlqNotifier` feature flag is disabled.
+ *
+ * @param since  Optional ISO-8601 timestamp; only return notifications after this time.
+ * @param limit  Maximum number of notifications to return.
+ */
+export const getNotifications = async (
+  since?: string,
+  limit = 50,
+): Promise<import('../types').NotificationListResponse> => {
+  if (!config.features.dlqNotifier) {
+    return _EMPTY_NOTIFICATION_LIST;
+  }
+  const params: Record<string, string | number> = { limit };
+  if (since) params['since'] = since;
+  const res = await apiClient.get<SuccessResponse<import('../types').NotificationListResponse>>(
+    '/api/v1/notifications',
+    { params },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Fetches system-level DLQ notifications.  Admin-only.
+ *
+ * @param options  Optional query filters.
+ */
+export const getSystemNotifications = async (
+  options?: {
+    since?: string;
+    limit?: number;
+    service?: string;
+    stage?: string;
+    unread?: boolean;
+  },
+): Promise<import('../types').NotificationListResponse> => {
+  if (!config.features.dlqNotifier) {
+    return _EMPTY_NOTIFICATION_LIST;
+  }
+  const params: Record<string, string | number | boolean> = {};
+  if (options?.since) params['since'] = options.since;
+  if (options?.limit !== undefined) params['limit'] = options.limit;
+  if (options?.service) params['service'] = options.service;
+  if (options?.stage) params['stage'] = options.stage;
+  if (options?.unread !== undefined) params['unread'] = options.unread;
+  const res = await apiClient.get<SuccessResponse<import('../types').NotificationListResponse>>(
+    '/api/v1/notifications/system',
+    { params },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Marks a notification as read.
+ *
+ * @param notificationId  Firestore document ID.
+ */
+export const markNotificationRead = async (notificationId: string): Promise<void> => {
+  await apiClient.patch(`/api/v1/notifications/${encodeURIComponent(notificationId)}/read`);
+};
+
+/**
+ * Permanently deletes a notification.
+ *
+ * @param notificationId  Firestore document ID.
+ */
+export const deleteNotification = async (notificationId: string): Promise<void> => {
+  await apiClient.delete(`/api/v1/notifications/${encodeURIComponent(notificationId)}`);
 };
 
 export default apiClient;

@@ -8,6 +8,17 @@ import { getUserByEmail } from './usersService.js';
 import type { AddPreApprovedRequest, PreApprovedFilters, PreApprovedUser, UpdatePreApprovedRequest, BatchDeletePreApprovedResponse, BatchUpdatePreApprovedResponse } from '../models/index.js';
 import { logger } from '../utils/logger.js';
 
+/**
+ * Returns a sorted copy of the provided pre-approved user list.
+ *
+ * Sort field and direction are taken from `filters.orderBy` and
+ * `filters.orderDirection`.  Defaults to ascending order by `email`.
+ * The original array is not mutated.
+ *
+ * @param users - Unsorted array of pre-approved user records.
+ * @param filters - Optional filtering/sorting options.
+ * @returns A new array of pre-approved users sorted according to `filters`.
+ */
 function sortPreApprovedUsers(users: PreApprovedUser[], filters?: PreApprovedFilters): PreApprovedUser[] {
   const orderBy = filters?.orderBy ?? 'email';
   const orderDirection = filters?.orderDirection ?? 'asc';

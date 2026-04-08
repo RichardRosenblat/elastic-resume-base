@@ -25,11 +25,28 @@ Quick start (IAM-authenticated client — new in v2)::
 
     async with client as c:
         response = await c.get("/api/v1/users")
+
+Quick start (environment-aware client — recommended for most services)::
+
+    from harbor_py import create_server_harbor_client
+
+    # Automatically uses plain httpx in development and IAM auth in production.
+    client = create_server_harbor_client(base_url=config.users_api_url)
+
+    async with client as c:
+        response = await c.get("/api/v1/users")
 """
 
 # ─── Client exports ────────────────────────────────────────────────────────────
-from harbor_py.client import HarborClient, HarborClientOptions, create_harbor_client
-from harbor_py.client import is_harbor_error
+from harbor_py.client import (
+    HarborClient,
+    HarborClientOptions,
+    create_harbor_client,
+    is_harbor_error,
+)
+
+# ─── Server exports — environment-aware client ────────────────────────────────
+from harbor_py.server.env import ServerHarborClient, create_server_harbor_client
 
 # ─── Server exports — IAM-authenticated client ────────────────────────────────
 from harbor_py.server.iam import IamHarborClient, IamHarborClientOptions, create_iam_harbor_client
@@ -40,8 +57,12 @@ __all__ = [
     "HarborClientOptions",
     "create_harbor_client",
     "is_harbor_error",
-    # server exports
+    # server exports — IAM-authenticated
     "IamHarborClient",
     "IamHarborClientOptions",
     "create_iam_harbor_client",
+    # server exports — environment-aware
+    "ServerHarborClient",
+    "create_server_harbor_client",
 ]
+

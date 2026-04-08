@@ -26,6 +26,8 @@ export { default as FormTemplate } from './FormTemplate';
 export { default as TableTemplate } from './TableTemplate';
 export { default as DataDisplayTemplate } from './DataDisplayTemplate';
 export { default as FileUploadTemplate } from './FileUploadTemplate';
+export { default as FeatureCardTemplate } from './FeatureCardTemplate';
+export { default as ServiceStatusCardTemplate, deriveServiceState } from './ServiceStatusCardTemplate';
 
 // Types — re-exported so consumers don't need deep imports
 export type {
@@ -49,3 +51,5 @@ export type {
   // File Upload
   FileUploadConfig,
 } from './types';
+export type { FeatureCardTemplateProps } from './FeatureCardTemplate';
+export type { ServiceStatusCardTemplateProps } from './ServiceStatusCardTemplate';

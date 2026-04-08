@@ -6,72 +6,13 @@
  * success, and error states according to the acceptance criteria.
  */
 import { useEffect, useState } from "react";
-import { Box, Typography, Card, CardContent, Grid, Chip } from "@mui/material";
-import { CheckCircle as CheckCircleIcon, Cancel as CancelIcon } from "@mui/icons-material";
+import { Box, Typography, Card, CardContent, Grid } from "@mui/material";
+import { Cancel as CancelIcon } from "@mui/icons-material";
 import { useTranslation } from "react-i18next";
 import { getDownstreamHealth } from "../../services/api";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { ServiceStatusCardTemplate, deriveServiceState } from "../../components/templates";
 import type { DownstreamHealthData } from "../../types";
-
-/** Maps the Gateway API service key to its canonical technical service name. */
-const SERVICE_TECHNICAL_NAMES: Record<string, string> = {
-	usersApi: "users-api",
-	downloader: "downloader",
-	searchBase: "search-base",
-	fileGenerator: "file-generator",
-	documentReader: "document-reader",
-};
-
-/**
- * Displays the operational status of a single downstream service with
- * a user-friendly name, description, impact notice, and technical identifier.
- */
-function ServiceStatusCard({ name, status }: { name: string; status: "ok" | "degraded" }) {
-	const { t } = useTranslation();
-	const isOk = status === "ok";
-	const icon = isOk ? <CheckCircleIcon fontSize="small" /> : <CancelIcon fontSize="small" />;
-	const technicalName = SERVICE_TECHNICAL_NAMES[name] ?? name;
-
-	return (
-		<Card>
-			<CardContent>
-				{/* Header row: friendly name + status chip */}
-				<Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1} mb={1}>
-					<Box>
-						<Typography variant="subtitle1" fontWeight={600}>
-							{t(`systemStatus.services.${name}.name`)}
-						</Typography>
-						<Typography variant="caption" color="text.disabled">
-							{technicalName}
-						</Typography>
-					</Box>
-					<Chip
-						icon={icon}
-						label={isOk ? t("systemStatus.statusOk") : t("systemStatus.statusDegraded")}
-						color={isOk ? "success" : "error"}
-						size="small"
-						sx={{ flexShrink: 0 }}
-					/>
-				</Box>
-
-				{/* Service description */}
-				<Typography variant="body2" color="text.secondary">
-					{t(`systemStatus.services.${name}.description`)}
-				</Typography>
-
-				{/* Impact notice — always shown so users understand the service's importance */}
-				<Typography
-					variant="body2"
-					color={isOk ? "text.secondary" : "error.main"}
-					display={isOk ? "none" : "block"}
-					sx={{ mt: 0.5, fontStyle: "italic" }}
-				>
-					{t(`systemStatus.services.${name}.impact`)}
-				</Typography>
-			</CardContent>
-		</Card>
-	);
-}
 
 /**
  * Page that fetches and renders the health status of all downstream services
@@ -136,10 +77,14 @@ export default function SystemStatusPage() {
 			{!loading && !error && data && (
 				<Grid container spacing={2}>
 					{Object.entries(data.downstream)
-						.sort(([, s1], [, s2]) => -s1.status.localeCompare(s2.status))
+						.sort(([, s1], [, s2]) => {
+							// Sort order: ready first, then idle, then unavailable
+							const order = { ready: 0, idle: 1, unavailable: 2 };
+							return order[deriveServiceState(s1)] - order[deriveServiceState(s2)];
+						})
 						.map(([name, service]) => (
 							<Grid key={name} size={{ xs: 12, sm: 6, md: 4 }}>
-								<ServiceStatusCard name={name} status={service.status} />
+								<ServiceStatusCardTemplate name={name} service={service} />
 							</Grid>
 						))}
 				</Grid>
@@ -147,3 +92,4 @@ export default function SystemStatusPage() {
 		</Box>
 	);
 }
+

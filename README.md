@@ -1,5 +1,16 @@
 # Elastic Resume Base
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org/)
+[![GCP](https://img.shields.io/badge/Google_Cloud-Platform-4285F4?logo=google-cloud&logoColor=white)](https://cloud.google.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth_%26_Hosting-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Tests](https://img.shields.io/badge/Tests-Jest_%7C_Vitest_%7C_pytest-brightgreen)](https://docs.pytest.org/)
+[![Coverage](https://img.shields.io/badge/Coverage-%E2%89%A580%25-brightgreen)](https://coverage.readthedocs.io/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A cloud-native, microservices-based resume processing platform built on Google Cloud Platform (GCP) and Firebase. This system ingests, extracts, embeds, and semantically searches resume data using AI and vector search technologies.
 
 ---
@@ -50,12 +61,12 @@ This repository is under active development. The following table summarizes what
 | **Users API** | ✅ Implemented | Authorization logic, user CRUD, pre-approval management |
 | **Shared Libraries** (Synapse, Bowltie, Bugle, Aegis, Toolbox, Hermes) | ✅ Implemented | TypeScript libs consumed by Gateway and Users API; Hermes also available as Python package |
 | **Frontend SPA** | ✅ Implemented | React + TypeScript SPA with Firebase Auth, i18n, MUI, and feature flags |
-| **Ingestor Service** | 🔄 Planned | Not yet implemented |
-| **AI Worker** | 🔄 Planned | Not yet implemented |
-| **Search Base** | 🔄 Planned | Not yet implemented |
-| **File Generator** | 🔄 Planned | Not yet implemented |
-| **Document Reader** | ✅ Implemented | OCR and structured data extraction from Brazilian documents using Cloud Vision API |
-| **DLQ Notifier** | 🔄 Planned | Not yet implemented |
+| **Ingestor Service** | ✅ Implemented | Pub/Sub pipeline, PDF/DOCX text extraction, Google Sheets/Drive integration (port 8001) |
+| **AI Worker** | ✅ Implemented | Vertex AI extraction (Gemini 1.5 Flash), multilingual text embeddings, Firestore persistence (port 8006) |
+| **Search Base** | ✅ Implemented | FAISS vector index with multi-embedding support, semantic search, PII decryption via KMS (port 8002) |
+| **File Generator** | ✅ Implemented | Renders .docx resume documents from Firestore data, Cloud Translation with caching, KMS PII decryption (port 8003) |
+| **Document Reader** | ✅ Implemented | OCR and structured data extraction from Brazilian documents using Cloud Vision API (port 8004) |
+| **DLQ Notifier** | ✅ Implemented | Monitors Dead Letter Queue, stores notifications in Firestore, sends email alerts (port 8007) |
 
 ---
 
@@ -65,52 +76,32 @@ This repository is under active development. The following table summarizes what
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Client / Frontend                       │
+│                        Client Layer                         │
+│              Frontend SPA (Firebase Hosting)                │
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTPS / Firebase ID Token
 ┌────────────────────────▼────────────────────────────────────┐
 │              Gateway (Node.js – Cloud Run)                  │
 │          Verifies token · Calls Users API · RBAC            │
-└────────────────────────┬────────────────────────────────────┘
-                         │ Internal HTTP
-┌────────────────────────▼────────────────────────────────────┐
-│               Users API (Node.js – Cloud Run)               │
-│  Authorization logic · User CRUD · Pre-approval management  │
-└────────────────────────┬────────────────────────────────────┘
-                         │ Synapse (persistence abstraction)
-              ┌──────────▼──────────┐
-              │  Firestore (NoSQL)  │
-              │  + Cloud KMS (PII)  │
-              └─────────────────────┘
+└──┬──────┬───────┬──────┬──────┬───────────────┬────────────┘
+   │      │       │      │      │               │
+   ▼      ▼       ▼      ▼      ▼               ▼
+Users  Ingestor Search  File  Document       DLQ
+API    (Python) Base  Generator  Reader     Notifier
+(Node) (8001) (Python) (Python) (Python)   (Python)
+                (8002)  (8003)   (8004)      (8007)
+         │       ▲
+  Pub/Sub│       │Pub/Sub
+         ▼       │
+     AI Worker ──┘
+     (Python)
+     (8006)
+         │
+         ▼
+  Firestore (via Synapse)
+  Cloud KMS (PII encryption)
+  Vertex AI (Gemini + Embeddings)
 ```
-
-### Full Target Architecture (Planned)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Client Layer                         │
-│              Frontend SPA (Firebase Hosting)                │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTPS / TLS
-┌────────────────────────▼────────────────────────────────────┐
-│              Gateway (Node.js – Cloud Run)                  │
-└──┬─────────┬──────────┬──────────┬──────────┬──────────────┘
-   │         │          │          │          │
-   ▼         ▼          ▼          ▼          ▼
-Users API Ingestor  Search Base  File Gen  Doc Reader
-(Node.js) (Python)  (Python)     (Python)  (Python)
-              │         ▲
-       Pub/Sub│         │Pub/Sub
-              ▼         │
-          AI Worker ────┘
-          (Python – Vertex AI)
-              │
-              ▼
-    Firestore (via Synapse)
-    Cloud KMS (PII encryption)
-```
-
-All inter-service communication is asynchronous via **Cloud Pub/Sub** where applicable. All data at rest is encrypted, with PII fields secured through **Cloud KMS**.
 
 ---
 
@@ -121,12 +112,12 @@ All inter-service communication is asynchronous via **Cloud Pub/Sub** where appl
 | **Gateway** | Node.js | ✅ Implemented | Handles authentication, RBAC, and routes client requests to microservices |
 | **Users API** | Node.js | ✅ Implemented | Manages user records, authorization logic, and pre-approval workflows |
 | **Frontend SPA** | React + TypeScript | ✅ Implemented | User interface hosted on Firebase Hosting; integrates with Gateway |
-| **Ingestor Service** | Python | 🔄 Planned | Downloads resumes from Google Sheets/Drive, publishes to Pub/Sub |
-| **AI Worker** | Python | 🔄 Planned | Extracts structured JSON and generates embeddings using Vertex AI |
-| **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
-| **File Generator** | Python | 🔄 Planned | Generates resume documents and handles translation via Cloud Translation |
+| **Ingestor Service** | Python | ✅ Implemented | Downloads resumes from Google Sheets/Drive, extracts text from PDF/DOCX, publishes to Pub/Sub |
+| **AI Worker** | Python | ✅ Implemented | Extracts structured JSON and generates embeddings using Vertex AI |
+| **Search Base** | Python | ✅ Implemented | Manages FAISS index and handles semantic vector search queries |
+| **File Generator** | Python | ✅ Implemented | Generates resume documents and handles translation via Cloud Translation |
 | **Document Reader** | Python | ✅ Implemented | OCR processing of scanned documents and field extraction using Cloud Vision API |
-| **DLQ Notifier** | Python | 🔄 Planned | Monitors Dead Letter Queue and sends failure alerts |
+| **DLQ Notifier** | Python | ✅ Implemented | Monitors Dead Letter Queue and sends failure alerts; stores notifications in Firestore |
 
 ---
 
@@ -159,7 +150,7 @@ Ensure you have the following tools installed locally:
 
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
 - [Node.js](https://nodejs.org/) v22+ (for the Gateway and Users API)
-- [Python](https://www.python.org/downloads/) v3.11+ (for future Python microservices)
+- [Python](https://www.python.org/downloads/) v3.11+ (for Python microservices)
 - [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
 
@@ -239,12 +230,22 @@ The following local endpoints will be available:
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
-| Document Reader | http://localhost:8004 |
-| Document Reader API Docs (Swagger) | http://localhost:8004/docs |
 | Gateway | http://localhost:3000 |
 | Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
 | Users API Docs (Swagger) | http://localhost:8005/api/v1/docs |
+| Ingestor API | http://localhost:8001 |
+| Ingestor API Docs (Swagger) | http://localhost:8001/docs |
+| Search Base | http://localhost:8002 |
+| Search Base API Docs (Swagger) | http://localhost:8002/docs |
+| File Generator | http://localhost:8003 |
+| File Generator API Docs (Swagger) | http://localhost:8003/docs |
+| Document Reader | http://localhost:8004 |
+| Document Reader API Docs (Swagger) | http://localhost:8004/docs |
+| AI Worker | http://localhost:8006 |
+| AI Worker API Docs (Swagger) | http://localhost:8006/docs |
+| DLQ Notifier | http://localhost:8007 |
+| DLQ Notifier API Docs (Swagger) | http://localhost:8007/api/v1/docs |
 | Firebase Emulator UI | http://localhost:4000 |
 | Firebase Auth Emulator | http://localhost:9099 |
 | Firestore Emulator | http://localhost:8080 |
@@ -269,7 +270,27 @@ elastic-resume-base/
 │   │   ├── src/
 │   │   ├── Dockerfile
 │   │   └── package.json
-│   └── document-reader/           # ✅ Python Document Reader (FastAPI)
+│   ├── ingestor-api/              # ✅ Python Ingestor Service (FastAPI, port 8001)
+│   │   ├── app/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   ├── search-base/               # ✅ Python Search Base (FastAPI + FAISS, port 8002)
+│   │   ├── app/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   ├── file-generator/            # ✅ Python File Generator (FastAPI, port 8003)
+│   │   ├── app/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   ├── document-reader/           # ✅ Python Document Reader (FastAPI, port 8004)
+│   │   ├── app/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   ├── ai-worker/                 # ✅ Python AI Worker Service (FastAPI, port 8006)
+│   │   ├── app/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   └── dlq-notifier/              # ✅ Python DLQ Notifier Service (FastAPI, port 8007)
 │       ├── app/
 │       ├── Dockerfile
 │       └── pyproject.toml
@@ -313,6 +334,7 @@ elastic-resume-base/
 
 | Document | Description |
 |---|---|
+| [Quick Start](GETTING_STARTED.md) | Fast setup guide — clone, configure, and run in minutes |
 | [Getting Started](documentation/getting-started.md) | End-to-end guide for setting up the local development environment |
 | [Initial Setup](documentation/initial-setup.md) | GCP/Firebase project initialization and development roadmap |
 | [Docker Orchestration](documentation/docker-orchestration.md) | Containerization strategy and Docker Compose configuration |
@@ -328,7 +350,7 @@ elastic-resume-base/
 | [Frontend Coding Standards](documentation/coding-standards/frontend-coding-standards.md) | React/TypeScript style guide and best practices for the frontend SPA |
 | [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
 | [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
-| [Frontend README](frontend/README.md) | Frontend SPA setup, environment variables, and development guide |
+| [Frontend README](apps/frontend/README.md) | Frontend SPA setup, environment variables, and development guide |
 | [Contributing](CONTRIBUTING.md) | How to contribute to this project |
 | [Security](SECURITY.md) | Security policy and vulnerability reporting |
 

@@ -17,20 +17,52 @@ Orchestrates the full resume ingestion pipeline:
 
 from __future__ import annotations
 
+import asyncio
+import csv
+import hashlib
+import io
 import os
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 from hermes_py import IPublisher, get_publisher
-from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore
+from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore, UpdateResumeData
 from toolbox_py import get_logger
 
 from app.config import settings
-from app.models.ingest import IngestRequest, IngestResponse, IngestRowError
+from app.models.ingest import (
+    DriveLinkIngestRequest,
+    FileIngestRequest,
+    IngestDuplicate,
+    IngestRequest,
+    IngestResponse,
+    IngestRowError,
+    SingleIngestResponse,
+)
 from app.services.text_extractor import SUPPORTED_EXTENSIONS, extract_text
-from app.utils.exceptions import DriveDownloadError, SheetReadError, TextExtractionError
+from app.utils.exceptions import DriveDownloadError, DuplicateResumeError, SheetReadError, TextExtractionError
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Processing status constants (shared with AI Worker pipeline)
+# ---------------------------------------------------------------------------
+
+#: Resume has been ingested and raw text is stored; awaiting AI processing.
+_STATUS_INGESTED = "INGESTED"
+#: Resume ingestion failed; error details stored in ``metadata.ingestingInfo``.
+_STATUS_FAILED = "FAILED"
+
+
+def _now_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
+    return (
+        datetime.now(tz=UTC)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
 
 #: Regex to extract a Google Sheets spreadsheet ID from a Sheets URL.
 _SHEETS_ID_PATTERN = re.compile(
@@ -44,6 +76,11 @@ _MIME_TO_EXT: dict[str, str] = {
     "application/vnd.google-apps.document": ".docx",  # exported as DOCX
     "application/msword": ".docx",
 }
+
+#: Accepted MIME types / extensions for uploaded spreadsheet files.
+_EXCEL_EXTENSIONS = frozenset({".xlsx", ".xls", ".xlsm"})
+_CSV_EXTENSIONS = frozenset({".csv"})
+_UPLOAD_EXTENSIONS = _EXCEL_EXTENSIONS | _CSV_EXTENSIONS
 
 
 def _extract_sheet_id(sheet_id: str | None, sheet_url: str | None) -> str:
@@ -93,6 +130,156 @@ def _resolve_extension(mime_type: str, filename: str) -> str:
         return ext
     _, file_ext = os.path.splitext(filename)
     return file_ext.lower()
+
+
+def _read_links_from_excel(
+    file_bytes: bytes,
+    sheet_name: str | None,
+    has_header_row: bool,
+    link_column: str | None,
+    link_column_index: int | None,
+) -> list[tuple[int, str]]:
+    """Parse an Excel workbook and return ``(row_number, url)`` pairs.
+
+    Embedded cell hyperlinks (badge-style links) are preferred over plain cell
+    text when present, enabling Drive links that are hidden behind user-friendly
+    display text to be discovered automatically.
+
+    Args:
+        file_bytes: Raw bytes of the ``.xlsx`` / ``.xls`` / ``.xlsm`` file.
+        sheet_name: Worksheet tab name.  Uses the active sheet when ``None``.
+        has_header_row: Whether the first row contains column headers.
+        link_column: Header label of the column containing Drive links.  Used
+            when ``has_header_row`` is ``True``.
+        link_column_index: 1-based column number.  Used when ``has_header_row``
+            is ``False``.
+
+    Returns:
+        A list of ``(row_number, url)`` tuples for non-empty cells in the
+        target column.  Row numbers are 1-based.
+
+    Raises:
+        ValueError: If the column cannot be located or required args are missing.
+        Exception: If the file cannot be parsed.
+    """
+    import openpyxl  # type: ignore[import-untyped]
+
+    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+    ws = wb[sheet_name] if sheet_name else wb.active
+    if ws is None:
+        raise ValueError("Could not open the specified worksheet.")
+
+    all_rows = list(ws.iter_rows())
+    if not all_rows:
+        return []
+
+    def _cell_url(cell: Any) -> str:
+        """Return the hyperlink target if present, else the cell value as str."""
+        if cell.hyperlink and cell.hyperlink.target:
+            return str(cell.hyperlink.target).strip()
+        return str(cell.value or "").strip()
+
+    if has_header_row:
+        if link_column is None:
+            raise ValueError(
+                "'link_column' is required when 'has_header_row' is True for file uploads."
+            )
+        header_cells = all_rows[0]
+        header_labels = [str(c.value or "").strip().lower() for c in header_cells]
+        target = link_column.strip().lower()
+        if target not in header_labels:
+            raise ValueError(
+                f"Column '{link_column}' not found in the uploaded file. "
+                f"Available columns: {[str(c.value or '') for c in header_cells]}"
+            )
+        col_idx = header_labels.index(target)
+        data_rows = all_rows[1:]
+        start_row = 2
+    else:
+        if link_column_index is None:
+            raise ValueError(
+                "'link_column_index' is required when 'has_header_row' is False."
+            )
+        col_idx = link_column_index - 1
+        data_rows = all_rows
+        start_row = 1
+
+    result: list[tuple[int, str]] = []
+    for row_offset, row in enumerate(data_rows):
+        row_number = start_row + row_offset
+        if col_idx >= len(row):
+            continue
+        value = _cell_url(row[col_idx])
+        if value:
+            result.append((row_number, value))
+
+    return result
+
+
+def _read_links_from_csv(
+    file_bytes: bytes,
+    has_header_row: bool,
+    link_column: str | None,
+    link_column_index: int | None,
+) -> list[tuple[int, str]]:
+    """Parse a CSV file and return ``(row_number, url)`` pairs.
+
+    Args:
+        file_bytes: Raw bytes of the ``.csv`` file.
+        has_header_row: Whether the first row contains column headers.
+        link_column: Header label of the column containing Drive links.  Used
+            when ``has_header_row`` is ``True``.
+        link_column_index: 1-based column number.  Used when ``has_header_row``
+            is ``False``.
+
+    Returns:
+        A list of ``(row_number, url)`` tuples for non-empty cells in the
+        target column.  Row numbers are 1-based.
+
+    Raises:
+        ValueError: If the column cannot be located or required args are missing.
+    """
+    text = file_bytes.decode("utf-8-sig")  # handle BOM if present
+    reader = csv.reader(io.StringIO(text))
+    all_rows = list(reader)
+
+    if not all_rows:
+        return []
+
+    if has_header_row:
+        if link_column is None:
+            raise ValueError(
+                "'link_column' is required when 'has_header_row' is True for file uploads."
+            )
+        header_labels = [cell.strip().lower() for cell in all_rows[0]]
+        target = link_column.strip().lower()
+        if target not in header_labels:
+            raise ValueError(
+                f"Column '{link_column}' not found in the uploaded CSV file. "
+                f"Available columns: {all_rows[0]}"
+            )
+        col_idx = header_labels.index(target)
+        data_rows = all_rows[1:]
+        start_row = 2
+    else:
+        if link_column_index is None:
+            raise ValueError(
+                "'link_column_index' is required when 'has_header_row' is False."
+            )
+        col_idx = link_column_index - 1
+        data_rows = all_rows
+        start_row = 1
+
+    result: list[tuple[int, str]] = []
+    for row_offset, row in enumerate(data_rows):
+        row_number = start_row + row_offset
+        if col_idx >= len(row):
+            continue
+        value = row[col_idx].strip()
+        if value:
+            result.append((row_number, value))
+
+    return result
 
 
 class IngestService:
@@ -188,6 +375,75 @@ class IngestService:
         except Exception as exc:
             logger.warning("Failed to publish DLQ message: %s", exc)
 
+    def _persist_failed_record(
+        self,
+        row_number: int,
+        drive_link: str,
+        source_context: dict[str, Any],
+        request_metadata: dict[str, Any],
+        error: Exception,
+    ) -> None:
+        """Persist a ``FAILED`` stub record to Firestore for a row that could not be ingested.
+
+        Creates a document with empty ``rawText`` and status ``FAILED`` so that
+        every attempted ingestion — including rows that failed before text
+        extraction — leaves an auditable Firestore record with error details.
+
+        Failures to persist the stub are logged but do not propagate so that the
+        main ingestion loop is never blocked.
+
+        Args:
+            row_number: The 1-based row number in the source spreadsheet.
+            drive_link: The Google Drive link for the failed row.
+            source_context: Provenance data (e.g. spreadsheetId or uploadedFile).
+            request_metadata: Caller-supplied metadata attached to every resume.
+            error: The exception that caused the row to fail.
+        """
+        try:
+            source: dict[str, Any] = {
+                **source_context,
+                "driveLink": drive_link,
+                "row": row_number,
+            }
+            # Infer the pipeline stage from the exception type for consistent
+            # error reporting across all ingestingInfo error objects.
+            if isinstance(error, DriveDownloadError):
+                stage = "download"
+            elif isinstance(error, TextExtractionError):
+                stage = "extraction"
+            else:
+                stage = "ingestion"
+            failed_metadata: dict[str, Any] = {
+                **request_metadata,
+                "ingestingInfo": {
+                    "failedAt": _now_iso(),
+                    "errors": [
+                        {
+                            "stage": stage,
+                            "errorType": type(error).__name__,
+                            "errorMessage": str(error),
+                        }
+                    ],
+                },
+            }
+            stub = self._resume_store.create_resume(
+                CreateResumeData(raw_text="", source=source, metadata=failed_metadata)
+            )
+            self._resume_store.update_resume(
+                stub.id,
+                UpdateResumeData(status=_STATUS_FAILED),
+            )
+            logger.debug(
+                "Persisted FAILED record to Firestore",
+                extra={"resume_id": stub.id, "row": row_number},
+            )
+        except Exception as persist_exc:
+            logger.warning(
+                "Could not persist FAILED record to Firestore: %s",
+                persist_exc,
+                extra={"row": row_number},
+            )
+
     async def ingest(self, request: IngestRequest) -> IngestResponse:
         """Execute the full resume ingestion pipeline for a Google Sheet.
 
@@ -195,7 +451,8 @@ class IngestService:
 
         1. Resolve the spreadsheet ID from ``request.sheet_id`` or
            ``request.sheet_url``.
-        2. Read the Drive-link column from the sheet using Bugle.
+        2. Read the Drive-link column from the sheet using Bugle, extracting
+           embedded hyperlinks (badges) in addition to plain text values.
         3. For each row, download the resume from Drive and extract text.
         4. Persist the raw text to Firestore via Synapse.
         5. Publish ``{ resumeId }`` to the configured Pub/Sub topic.
@@ -216,16 +473,32 @@ class IngestService:
 
         logger.info(
             "Starting ingestion",
-            extra={"spreadsheet_id": spreadsheet_id, "link_column": link_column},
+            extra={
+                "spreadsheet_id": spreadsheet_id,
+                "link_column": link_column,
+                "sheet_name": request.sheet_name,
+                "has_header_row": request.has_header_row,
+            },
         )
 
         # 1. Read the Google Sheet to get (row_number, drive_link) pairs.
         try:
             sheets = self._get_sheets_service()
-            row_links: list[tuple[int, str]] = sheets.get_column_values(
-                spreadsheet_id=spreadsheet_id,
-                column_header=link_column,
-            )
+            if request.has_header_row:
+                row_links: list[tuple[int, str]] = sheets.get_column_values(
+                    spreadsheet_id=spreadsheet_id,
+                    column_header=link_column,
+                    sheet_name=request.sheet_name,
+                    extract_hyperlinks=True,
+                )
+            else:
+                row_links = sheets.get_column_values(
+                    spreadsheet_id=spreadsheet_id,
+                    sheet_name=request.sheet_name,
+                    column_index=request.link_column_index,
+                    has_header_row=False,
+                    extract_hyperlinks=True,
+                )
         except Exception as exc:
             logger.error("Failed to read Google Sheet: %s", exc)
             raise SheetReadError(f"Failed to read Google Sheet: {exc}") from exc
@@ -235,54 +508,219 @@ class IngestService:
             extra={"spreadsheet_id": spreadsheet_id, "link_count": len(row_links)},
         )
 
-        ingested_count = 0
-        row_errors: list[IngestRowError] = []
+        return await self._ingest_links(
+            row_links=row_links,
+            source_context={"spreadsheetId": spreadsheet_id},
+            request_metadata=request.metadata,
+            user_id=request.user_id,
+        )
 
-        for row_number, drive_link in row_links:
-            try:
-                resume_id = await self._ingest_one(
-                    row_number=row_number,
-                    drive_link=drive_link,
-                    spreadsheet_id=spreadsheet_id,
-                    request_metadata=request.metadata,
-                )
-                ingested_count += 1
-                logger.info(
-                    "Resume ingested",
-                    extra={"row": row_number, "resume_id": resume_id},
-                )
-            except Exception as exc:
-                error_msg = str(exc)
-                logger.warning(
-                    "Failed to ingest resume at row %d: %s",
-                    row_number,
-                    error_msg,
-                )
-                row_errors.append(IngestRowError(row=row_number, error=error_msg))
-                self._publish_dlq_error(
-                    error_msg,
-                    context={
+    async def ingest_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        request: FileIngestRequest,
+    ) -> IngestResponse:
+        """Execute the resume ingestion pipeline for an uploaded file.
+
+        Supports ``.xlsx``, ``.xls``, ``.xlsm`` (Excel) and ``.csv`` files.
+        Embedded cell hyperlinks in Excel files are extracted automatically,
+        enabling badge-style Drive links to be discovered.
+
+        Steps:
+
+        1. Parse the uploaded file to extract ``(row_number, drive_link)`` pairs.
+        2. For each row, download the resume from Drive and extract text.
+        3. Persist the raw text to Firestore via Synapse.
+        4. Publish ``{ resumeId }`` to the configured Pub/Sub topic.
+        5. Collect per-row errors and publish them to the DLQ.
+
+        Args:
+            file_bytes: Raw bytes of the uploaded file.
+            filename: Original filename (used to detect the file format).
+            request: Validated parameters describing the file structure.
+
+        Returns:
+            :class:`~app.models.ingest.IngestResponse` with the count of
+            successfully ingested resumes and any per-row errors.
+
+        Raises:
+            ValueError: If the file format is unsupported or the column cannot
+                be located.
+        """
+        _, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        logger.info(
+            "Starting file ingestion",
+            extra={
+                "upload_filename": filename,
+                "extension": ext,
+                "sheet_name": request.sheet_name,
+                "has_header_row": request.has_header_row,
+            },
+        )
+
+        if ext in _EXCEL_EXTENSIONS:
+            effective_link_column = request.link_column or (
+                settings.sheets_link_column if request.has_header_row else None
+            )
+            row_links = _read_links_from_excel(
+                file_bytes=file_bytes,
+                sheet_name=request.sheet_name,
+                has_header_row=request.has_header_row,
+                link_column=effective_link_column,
+                link_column_index=request.link_column_index,
+            )
+        elif ext in _CSV_EXTENSIONS:
+            effective_link_column = request.link_column or (
+                settings.sheets_link_column if request.has_header_row else None
+            )
+            row_links = _read_links_from_csv(
+                file_bytes=file_bytes,
+                has_header_row=request.has_header_row,
+                link_column=effective_link_column,
+                link_column_index=request.link_column_index,
+            )
+        else:
+            raise ValueError(
+                f"Unsupported upload format '{ext}'. "
+                f"Accepted extensions: {sorted(_UPLOAD_EXTENSIONS)}"
+            )
+
+        logger.info(
+            "Parsed uploaded file",
+            extra={"upload_filename": filename, "link_count": len(row_links)},
+        )
+
+        return await self._ingest_links(
+            row_links=row_links,
+            source_context={"uploadedFile": filename},
+            request_metadata=request.metadata,
+        )
+
+    async def _ingest_links(
+        self,
+        row_links: list[tuple[int, str]],
+        source_context: dict[str, Any],
+        request_metadata: dict[str, Any],
+        user_id: str | None = None,
+    ) -> IngestResponse:
+        """Process a list of ``(row_number, drive_link)`` pairs concurrently.
+
+        Downloads and processes all rows simultaneously (up to
+        ``settings.ingest_concurrency`` at a time) using an
+        :class:`asyncio.Semaphore` to avoid Drive API rate limits.
+
+        Args:
+            row_links: Pairs of 1-based row number and Google Drive link.
+            source_context: Provenance data to attach to each Firestore document.
+            request_metadata: Caller-supplied metadata to attach to each document.
+            user_id: Optional Firebase UID of the requesting user; included in
+                DLQ messages so the DLQ Notifier can attribute failures.
+
+        Returns:
+            :class:`~app.models.ingest.IngestResponse` with counts and errors.
+        """
+        semaphore = asyncio.Semaphore(settings.ingest_concurrency)
+
+        async def _process_row(row_number: int, drive_link: str) -> tuple[int, str | None, IngestRowError | None, IngestDuplicate | None]:
+            """Process a single row under the concurrency semaphore.
+
+            Returns a tuple of (row_number, resume_id_or_None, error_or_None, duplicate_or_None).
+            """
+            async with semaphore:
+                try:
+                    resume_id = await self._ingest_one(
+                        row_number=row_number,
+                        drive_link=drive_link,
+                        source_context=source_context,
+                        request_metadata=request_metadata,
+                    )
+                    logger.info(
+                        "Resume ingested",
+                        extra={"row": row_number, "resume_id": resume_id},
+                    )
+                    return (row_number, resume_id, None, None)
+                except DuplicateResumeError as dup_exc:
+                    logger.info(
+                        "Duplicate resume skipped at row %d",
+                        row_number,
+                        extra={
+                            "row": row_number,
+                            "existing_resume_id": dup_exc.existing_resume_id,
+                        },
+                    )
+                    duplicate = IngestDuplicate(
+                        row=row_number,
+                        existingResumeId=dup_exc.existing_resume_id,
+                        message=str(dup_exc),
+                    )
+                    return (row_number, None, None, duplicate)
+                except Exception as exc:
+                    error_msg = str(exc)
+                    logger.warning(
+                        "Failed to ingest resume at row %d: %s",
+                        row_number,
+                        error_msg,
+                    )
+                    dlq_context: dict[str, Any] = {
                         "row": row_number,
                         "driveLink": drive_link,
-                        "spreadsheetId": spreadsheet_id,
-                    },
-                )
+                        **source_context,
+                    }
+                    if user_id:
+                        dlq_context["userId"] = user_id
+                    self._publish_dlq_error(error_msg, context=dlq_context)
+                    self._persist_failed_record(
+                        row_number=row_number,
+                        drive_link=drive_link,
+                        source_context=source_context,
+                        request_metadata=request_metadata,
+                        error=exc,
+                    )
+                    return (row_number, None, IngestRowError(row=row_number, error=error_msg), None)
+
+        tasks = [_process_row(row_number, drive_link) for row_number, drive_link in row_links]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        ingested_count = 0
+        row_errors: list[IngestRowError] = []
+        row_duplicates: list[IngestDuplicate] = []
+
+        for item in results:
+            if isinstance(item, BaseException):
+                # Unexpected exception escaping _process_row (should not happen)
+                logger.error("Unexpected exception during row processing: %s", item)
+                continue
+            _row_number, resume_id, row_error, duplicate = item
+            if resume_id is not None:
+                ingested_count += 1
+            elif row_error is not None:
+                row_errors.append(row_error)
+            elif duplicate is not None:
+                row_duplicates.append(duplicate)
 
         logger.info(
             "Ingestion complete",
             extra={
-                "spreadsheet_id": spreadsheet_id,
+                **source_context,
                 "ingested": ingested_count,
+                "duplicates": len(row_duplicates),
                 "errors": len(row_errors),
             },
         )
-        return IngestResponse(ingested=ingested_count, errors=row_errors)
+        return IngestResponse(
+            ingested=ingested_count,
+            errors=row_errors,
+            duplicates=row_duplicates,
+        )
 
     async def _ingest_one(
         self,
         row_number: int,
         drive_link: str,
-        spreadsheet_id: str,
+        source_context: dict[str, Any],
         request_metadata: dict[str, Any],
     ) -> str:
         """Ingest a single resume from a Google Drive link.
@@ -290,7 +728,7 @@ class IngestService:
         Args:
             row_number: The 1-based row number in the source spreadsheet.
             drive_link: Google Drive file URL or file ID.
-            spreadsheet_id: The source spreadsheet ID (stored as provenance).
+            source_context: Provenance data (e.g. spreadsheetId or uploadedFile).
             request_metadata: Caller-supplied metadata to attach to the document.
 
         Returns:
@@ -298,6 +736,7 @@ class IngestService:
 
         Raises:
             DriveDownloadError: If downloading the file from Drive fails.
+            DuplicateResumeError: If a resume with the same content already exists.
             TextExtractionError: If text extraction fails.
             Exception: If the Firestore write or Pub/Sub publish fails.
         """
@@ -335,23 +774,37 @@ class IngestService:
 
         raw_text = extract_text(content, extension)
 
-        # 4. Persist to Firestore via Synapse.
+        # 4. Compute content hash and check for duplicates.
+        content_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+        existing = self._resume_store.find_by_content_hash(content_hash)
+        if existing is not None:
+            raise DuplicateResumeError(existing.id)
+
+        # 5. Persist to Firestore via Synapse with INGESTED status.
         source: dict[str, Any] = {
-            "spreadsheetId": spreadsheet_id,
+            **source_context,
             "driveFileId": file_id,
             "driveLink": drive_link,
             "row": row_number,
+        }
+        ingesting_metadata: dict[str, Any] = {
+            **request_metadata,
+            "ingestingInfo": {
+                "ingestedAt": _now_iso(),
+                "errors": [],
+            },
         }
         resume_doc = self._resume_store.create_resume(
             CreateResumeData(
                 raw_text=raw_text,
                 source=source,
-                metadata=request_metadata,
+                metadata=ingesting_metadata,
+                content_hash=content_hash,
             )
         )
         resume_id = resume_doc.id
 
-        # 5. Publish to Pub/Sub.
+        # 6. Publish to Pub/Sub.
         try:
             publisher = self._get_publisher()
             publisher.publish(
@@ -363,7 +816,266 @@ class IngestService:
                 "Failed to publish resume-ingested Pub/Sub message: %s", exc,
                 extra={"resume_id": resume_id},
             )
+            # Update the Firestore document to FAILED so it doesn't appear INGESTED
+            # without a corresponding downstream Pub/Sub event.
+            try:
+                self._resume_store.update_resume(
+                    resume_id,
+                    UpdateResumeData(
+                        status=_STATUS_FAILED,
+                        metadata={
+                            **ingesting_metadata,
+                            "ingestingInfo": {
+                                # Preserve the ingestedAt timestamp from the successful
+                                # Firestore write so the full audit trail is kept.
+                                **ingesting_metadata.get("ingestingInfo", {}),
+                                "failedAt": _now_iso(),
+                                "errors": [
+                                    {
+                                        "stage": "publish",
+                                        "errorType": type(exc).__name__,
+                                        "errorMessage": str(exc),
+                                    }
+                                ],
+                            },
+                        },
+                    ),
+                )
+            except Exception as update_exc:
+                logger.warning(
+                    "Could not update resume status to FAILED after Pub/Sub failure: %s",
+                    update_exc,
+                    extra={"resume_id": resume_id},
+                )
             # Re-raise so the row is counted as an error.
             raise
 
         return resume_id
+
+    async def ingest_drive_link(self, request: DriveLinkIngestRequest) -> SingleIngestResponse:
+        """Ingest a single resume from a Google Drive link.
+
+        Args:
+            request: The validated drive-link ingest request.
+
+        Returns:
+            :class:`~app.models.ingest.SingleIngestResponse` describing the
+            outcome of ingesting a single document.
+        """
+        logger.info(
+            "Starting single Drive-link ingestion",
+            extra={"drive_link": request.drive_link},
+        )
+        try:
+            resume_id = await self._ingest_one(
+                row_number=1,
+                drive_link=request.drive_link,
+                source_context={"driveLink": request.drive_link},
+                request_metadata=request.metadata,
+            )
+            logger.info("Single Drive-link ingestion complete", extra={"resume_id": resume_id})
+            return SingleIngestResponse(resumeId=resume_id, ingested=1)
+        except DuplicateResumeError as dup_exc:
+            logger.info(
+                "Duplicate resume skipped for Drive link",
+                extra={"existing_resume_id": dup_exc.existing_resume_id},
+            )
+            return SingleIngestResponse(
+                resumeId=dup_exc.existing_resume_id,
+                ingested=0,
+                duplicates=[
+                    IngestDuplicate(
+                        row=1,
+                        existingResumeId=dup_exc.existing_resume_id,
+                        message=str(dup_exc),
+                    )
+                ],
+            )
+        except Exception as exc:
+            error_msg = str(exc)
+            logger.warning("Failed to ingest Drive link: %s", error_msg)
+            dlq_context: dict[str, Any] = {"driveLink": request.drive_link}
+            if request.user_id:
+                dlq_context["userId"] = request.user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            self._persist_failed_record(
+                row_number=1,
+                drive_link=request.drive_link,
+                source_context={"driveLink": request.drive_link},
+                request_metadata=request.metadata,
+                error=exc,
+            )
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+    async def ingest_direct_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        metadata: dict[str, Any],
+        user_id: str | None = None,
+    ) -> SingleIngestResponse:
+        """Ingest a single resume from an uploaded PDF or DOCX file.
+
+        Steps:
+
+        1. Resolve the file extension from *filename*.
+        2. Extract plain text using :func:`~app.services.text_extractor.extract_text`.
+        3. Compute the SHA-256 content hash and check for duplicates.
+        4. Persist the raw text to Firestore via Synapse.
+        5. Publish ``{ resumeId }`` to the configured Pub/Sub topic.
+
+        Args:
+            file_bytes: Raw bytes of the uploaded PDF or DOCX file.
+            filename: Original filename (used to determine the file format).
+            metadata: Caller-supplied metadata attached to the resume document.
+            user_id: Optional Firebase UID of the requesting user.
+
+        Returns:
+            :class:`~app.models.ingest.SingleIngestResponse` describing the
+            outcome.
+        """
+        _, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        logger.info(
+            "Starting single file ingestion",
+            extra={"upload_filename": filename, "extension": ext},
+        )
+
+        if ext not in SUPPORTED_EXTENSIONS:
+            error_msg = (
+                f"Unsupported file type '{ext}'. "
+                f"Supported types: {sorted(SUPPORTED_EXTENSIONS)}"
+            )
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        try:
+            raw_text = extract_text(file_bytes, ext)
+        except Exception as exc:
+            error_msg = str(exc)
+            logger.warning("Text extraction failed for uploaded file: %s", error_msg)
+            dlq_context: dict[str, Any] = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        content_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+        existing = self._resume_store.find_by_content_hash(content_hash)
+        if existing is not None:
+            logger.info(
+                "Duplicate resume skipped for uploaded file",
+                extra={"existing_resume_id": existing.id},
+            )
+            return SingleIngestResponse(
+                resumeId=existing.id,
+                ingested=0,
+                duplicates=[
+                    IngestDuplicate(
+                        row=1,
+                        existingResumeId=existing.id,
+                        message=f"Resume already ingested (existing document: {existing.id!r}).",
+                    )
+                ],
+            )
+
+        source: dict[str, Any] = {"uploadedFile": filename}
+        ingesting_metadata: dict[str, Any] = {
+            **metadata,
+            "ingestingInfo": {
+                "ingestedAt": _now_iso(),
+                "errors": [],
+            },
+        }
+
+        try:
+            resume_doc = self._resume_store.create_resume(
+                CreateResumeData(
+                    raw_text=raw_text,
+                    source=source,
+                    metadata=ingesting_metadata,
+                    content_hash=content_hash,
+                )
+            )
+            resume_id = resume_doc.id
+            self._resume_store.update_resume(
+                resume_id,
+                UpdateResumeData(status=_STATUS_INGESTED),
+            )
+        except Exception as exc:
+            error_msg = str(exc)
+            logger.warning("Failed to persist uploaded file to Firestore: %s", error_msg)
+            dlq_context = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        try:
+            publisher = self._get_publisher()
+            publisher.publish(
+                settings.pubsub_topic_resume_ingested,
+                {"resumeId": resume_id},
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to publish resume-ingested Pub/Sub message for uploaded file: %s",
+                exc,
+                extra={"resume_id": resume_id},
+            )
+            try:
+                self._resume_store.update_resume(
+                    resume_id,
+                    UpdateResumeData(
+                        status=_STATUS_FAILED,
+                        metadata={
+                            **ingesting_metadata,
+                            "ingestingInfo": {
+                                **ingesting_metadata.get("ingestingInfo", {}),
+                                "failedAt": _now_iso(),
+                                "errors": [
+                                    {
+                                        "stage": "publish",
+                                        "errorType": type(exc).__name__,
+                                        "errorMessage": str(exc),
+                                    }
+                                ],
+                            },
+                        },
+                    ),
+                )
+            except Exception as update_exc:
+                logger.warning(
+                    "Could not update resume status to FAILED after Pub/Sub failure: %s",
+                    update_exc,
+                    extra={"resume_id": resume_id},
+                )
+            error_msg = str(exc)
+            dlq_context = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        logger.info("Single file ingestion complete", extra={"resume_id": resume_id})
+        return SingleIngestResponse(resumeId=resume_id, ingested=1)

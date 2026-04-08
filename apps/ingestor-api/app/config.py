@@ -4,7 +4,7 @@ Settings are read from environment variables and optional config files.
 
 At import time, this module calls :func:`toolbox_py.load_config_yaml` to load
 monorepo YAML configuration (``config.yaml`` or ``configs.yaml``), merge
-``systems.shared`` with ``systems.ingestor``, and seed any missing
+``systems.shared`` with ``systems.ingestor-service``, and seed any missing
 environment variables.  Variables already present in the process environment
 always take precedence.
 """
@@ -32,9 +32,6 @@ class Settings(BaseSettings):
             variable before any GCP client is created.  Leave empty in
             production where Application Default Credentials are provided by
             the hosting environment (Cloud Run).
-        google_service_account_key: Raw or Base64-encoded service-account JSON
-            key used by Bugle to authenticate with the Google Sheets and Drive
-            APIs.  Passed via ``GOOGLE_SERVICE_ACCOUNT_KEY``.
         firestore_collection_resumes: Firestore collection name for resume
             documents.  Defaults to ``"resumes"``.
         pubsub_topic_resume_ingested: Pub/Sub topic name to publish to after
@@ -49,6 +46,10 @@ class Settings(BaseSettings):
         rate_limit_per_minute: Maximum number of API requests accepted from a
             single client IP per minute.  Exceeding this triggers an HTTP 429
             response.  Defaults to ``60``.
+        ingest_concurrency: Maximum number of Drive file downloads processed
+            concurrently during a spreadsheet / sheet ingestion run.  A
+            semaphore of this size limits simultaneous Drive API calls to
+            prevent rate-limiting.  Defaults to ``10``.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -57,15 +58,15 @@ class Settings(BaseSettings):
     port: int = 8001
     log_level: str = "INFO"
     google_application_credentials: str = ""
-    google_service_account_key: str = ""
     firestore_collection_resumes: str = "resumes"
     pubsub_topic_resume_ingested: str = "resume-ingested"
     pubsub_topic_dlq: str = "dead-letter-queue"
     sheets_link_column: str = "resume_link"
     http_request_timeout: int = 120
     rate_limit_per_minute: int = 60
+    ingest_concurrency: int = 10
 
 
-load_config_yaml("ingestor")
+load_config_yaml("ingestor-service")
 
 settings = Settings()

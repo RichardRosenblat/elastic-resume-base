@@ -12,7 +12,7 @@ const configSchema = z.object({
   projectId: z.string().default('demo-elastic-resume-base'),
   firestoreEmulatorHost: z.string().optional(),
   firebaseAuthEmulatorHost: z.string().optional(),
-  downloaderServiceUrl: z.string().url().default('http://localhost:8001'),
+  ingestorServiceUrl: z.string().url().default('http://localhost:8001'),
   searchBaseServiceUrl: z.string().url().default('http://localhost:8002'),
   fileGeneratorServiceUrl: z.string().url().default('http://localhost:8003'),
   documentReaderServiceUrl: z.string().url().default('http://localhost:8004'),
@@ -25,6 +25,9 @@ const configSchema = z.object({
   allowedOrigins: z.string().default('http://localhost:3000'),
   gcpProjectId: z.string().default('demo-elastic-resume-base'),
   userApiServiceUrl: z.string().url().default('http://localhost:8005'),
+  dlqNotifierServiceUrl: z.string().url().default('http://localhost:8007'),
+  downstreamWarmTtlMs: z.number().default(300000),
+  downstreamHealthRefreshIntervalMs: z.number().default(3600000),
 });
 
 /** Application configuration type inferred from schema. */
@@ -48,7 +51,7 @@ function loadConfig(): Config {
     projectId: process.env['FIREBASE_PROJECT_ID'],
     firestoreEmulatorHost: process.env['FIRESTORE_EMULATOR_HOST'],
     firebaseAuthEmulatorHost: process.env['FIREBASE_AUTH_EMULATOR_HOST'],
-    downloaderServiceUrl: process.env['DOWNLOADER_SERVICE_URL'],
+    ingestorServiceUrl: process.env['INGESTOR_SERVICE_URL'],
     searchBaseServiceUrl: process.env['SEARCH_BASE_SERVICE_URL'],
     fileGeneratorServiceUrl: process.env['FILE_GENERATOR_SERVICE_URL'],
     documentReaderServiceUrl: process.env['DOCUMENT_READER_SERVICE_URL'],
@@ -61,6 +64,9 @@ function loadConfig(): Config {
     allowedOrigins: process.env['ALLOWED_ORIGINS'],
     gcpProjectId: process.env['GCP_PROJECT_ID'],
     userApiServiceUrl: process.env['USER_API_SERVICE_URL'],
+    dlqNotifierServiceUrl: process.env['DLQ_NOTIFIER_SERVICE_URL'],
+    downstreamWarmTtlMs: safeParseInt(process.env['DOWNSTREAM_WARM_TTL_MS']),
+    downstreamHealthRefreshIntervalMs: safeParseInt(process.env['DOWNSTREAM_HEALTH_REFRESH_INTERVAL_MS']),
   });
 }
 

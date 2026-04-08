@@ -34,6 +34,8 @@ vi.mock('../../hooks/useFeatureFlags', () => ({
     documentRead: false,
     resumeGenerate: false,
     userManagement: true,
+    hideIfDisabled: false,
+    dlqNotifier: false,
   }),
 }));
 

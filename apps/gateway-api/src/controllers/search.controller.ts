@@ -6,7 +6,7 @@ import { search } from '../services/searchClient.js';
 
 const searchSchema = z.object({
   query: z.string().min(1).max(1000),
-  filters: z.record(z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),
 });

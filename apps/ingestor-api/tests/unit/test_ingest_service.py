@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import io
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.models.ingest import IngestRequest, IngestResponse
-from app.services.ingest_service import IngestService, _extract_sheet_id, _resolve_extension
+from app.models.ingest import FileIngestRequest, IngestRequest, IngestResponse
+from app.services.ingest_service import (
+    IngestService,
+    _extract_sheet_id,
+    _read_links_from_csv,
+    _read_links_from_excel,
+    _resolve_extension,
+)
 from app.utils.exceptions import DriveDownloadError, SheetReadError
 
 
@@ -77,6 +84,157 @@ def test_resolve_extension_unknown_mime_and_filename() -> None:
 
 
 # ---------------------------------------------------------------------------
+# _read_links_from_csv
+# ---------------------------------------------------------------------------
+
+
+def test_read_links_from_csv_with_header() -> None:
+    """CSV with header row: reads links from the named column."""
+    csv_bytes = b"name,resume_link,email\nAlice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view,a@b.c\n"
+    result = _read_links_from_csv(
+        file_bytes=csv_bytes,
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert len(result) == 1
+    row_num, url = result[0]
+    assert row_num == 2
+    assert url.startswith("https://drive.google.com/")
+
+
+def test_read_links_from_csv_without_header() -> None:
+    """CSV without header row: reads links from the specified column index."""
+    csv_bytes = b"Alice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view\nBob,https://drive.google.com/file/d/2CyiNWt1YSB6oGNeL/view\n"
+    result = _read_links_from_csv(
+        file_bytes=csv_bytes,
+        has_header_row=False,
+        link_column=None,
+        link_column_index=2,
+    )
+    assert len(result) == 2
+    assert result[0] == (1, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view")
+    assert result[1] == (2, "https://drive.google.com/file/d/2CyiNWt1YSB6oGNeL/view")
+
+
+def test_read_links_from_csv_missing_column_raises() -> None:
+    """CSV with header: missing column header raises ValueError."""
+    csv_bytes = b"name,email\nAlice,a@b.c\n"
+    with pytest.raises(ValueError, match="resume_link"):
+        _read_links_from_csv(
+            file_bytes=csv_bytes,
+            has_header_row=True,
+            link_column="resume_link",
+            link_column_index=None,
+        )
+
+
+def test_read_links_from_csv_empty_returns_empty() -> None:
+    """Empty CSV returns an empty list."""
+    result = _read_links_from_csv(
+        file_bytes=b"",
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _read_links_from_excel
+# ---------------------------------------------------------------------------
+
+
+def _make_xlsx(rows: list[list[Any]]) -> bytes:
+    """Create a minimal xlsx file with the given rows."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_read_links_from_excel_with_header() -> None:
+    """Excel with header row: reads links from the named column."""
+    xlsx_bytes = _make_xlsx([
+        ["name", "resume_link", "email"],
+        ["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view", "a@b.c"],
+    ])
+    result = _read_links_from_excel(
+        file_bytes=xlsx_bytes,
+        sheet_name=None,
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert len(result) == 1
+    row_num, url = result[0]
+    assert row_num == 2
+    assert url.startswith("https://drive.google.com/")
+
+
+def test_read_links_from_excel_without_header() -> None:
+    """Excel without header row: reads links from the specified column index."""
+    xlsx_bytes = _make_xlsx([
+        ["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view"],
+        ["Bob", "https://drive.google.com/file/d/2CyiNWt1YSB6oGNeL/view"],
+    ])
+    result = _read_links_from_excel(
+        file_bytes=xlsx_bytes,
+        sheet_name=None,
+        has_header_row=False,
+        link_column=None,
+        link_column_index=2,
+    )
+    assert len(result) == 2
+    assert result[0] == (1, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view")
+
+
+def test_read_links_from_excel_hyperlink_preferred() -> None:
+    """Excel with embedded hyperlink: hyperlink URL is returned instead of cell text."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["name", "resume_link"])
+    ws.append(["Alice", "View Resume"])
+    # Set hyperlink on the cell in the resume_link column
+    cell = ws.cell(row=2, column=2)
+    cell.hyperlink = "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view"
+    buf = io.BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    result = _read_links_from_excel(
+        file_bytes=xlsx_bytes,
+        sheet_name=None,
+        has_header_row=True,
+        link_column="resume_link",
+        link_column_index=None,
+    )
+    assert len(result) == 1
+    _, url = result[0]
+    assert url == "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgm/view"
+
+
+def test_read_links_from_excel_missing_column_raises() -> None:
+    """Excel with header: missing column header raises ValueError."""
+    xlsx_bytes = _make_xlsx([["name", "email"], ["Alice", "a@b.c"]])
+    with pytest.raises(ValueError, match="resume_link"):
+        _read_links_from_excel(
+            file_bytes=xlsx_bytes,
+            sheet_name=None,
+            has_header_row=True,
+            link_column="resume_link",
+            link_column_index=None,
+        )
+
+
+# ---------------------------------------------------------------------------
 # IngestService.ingest
 # ---------------------------------------------------------------------------
 
@@ -107,14 +265,13 @@ def _make_mock_resume_store(resume_id: str = "resume-doc-abc123") -> MagicMock:
     doc = MagicMock()
     doc.id = resume_id
     mock.create_resume.return_value = doc
+    mock.find_by_content_hash.return_value = None
     return mock
 
 
 @pytest.mark.asyncio
 async def test_ingest_success_single_resume() -> None:
     """A single valid row is ingested successfully."""
-    import io
-
     import docx  # type: ignore[import-untyped]
 
     buf = io.BytesIO()
@@ -222,8 +379,6 @@ async def test_ingest_invalid_drive_link_recorded_as_row_error() -> None:
 @pytest.mark.asyncio
 async def test_ingest_partial_success() -> None:
     """Multiple rows: some succeed, some fail."""
-    import io
-
     import docx  # type: ignore[import-untyped]
 
     buf = io.BytesIO()
@@ -280,6 +435,62 @@ async def test_ingest_uses_request_link_column() -> None:
     mock_sheets.get_column_values.assert_called_once_with(
         spreadsheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
         column_header="cv_url",
+        sheet_name=None,
+        extract_hyperlinks=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_passes_sheet_name() -> None:
+    """sheet_name is forwarded to get_column_values."""
+    mock_sheets = _make_mock_sheets([])
+
+    service = IngestService(
+        resume_store=_make_mock_resume_store(),
+        publisher=_make_mock_publisher(),
+        sheets_service=mock_sheets,
+        drive_service=_make_mock_drive(),
+    )
+
+    request = IngestRequest(
+        sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        sheet_name="Candidates",
+    )
+    await service.ingest(request)
+
+    mock_sheets.get_column_values.assert_called_once_with(
+        spreadsheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        column_header=mock_sheets.get_column_values.call_args.kwargs["column_header"],
+        sheet_name="Candidates",
+        extract_hyperlinks=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_no_header_row_uses_column_index() -> None:
+    """When has_header_row=False, get_column_values is called with column_index."""
+    mock_sheets = _make_mock_sheets([])
+
+    service = IngestService(
+        resume_store=_make_mock_resume_store(),
+        publisher=_make_mock_publisher(),
+        sheets_service=mock_sheets,
+        drive_service=_make_mock_drive(),
+    )
+
+    request = IngestRequest(
+        sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        has_header_row=False,
+        link_column_index=3,
+    )
+    await service.ingest(request)
+
+    mock_sheets.get_column_values.assert_called_once_with(
+        spreadsheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+        sheet_name=None,
+        column_index=3,
+        has_header_row=False,
+        extract_hyperlinks=True,
     )
 
 
@@ -300,3 +511,658 @@ async def test_ingest_empty_sheet_returns_zero() -> None:
 
     assert result.ingested == 0
     assert result.errors == []
+
+
+# ---------------------------------------------------------------------------
+# IngestService.ingest_file
+# ---------------------------------------------------------------------------
+
+
+def _make_docx_bytes() -> bytes:
+    """Return minimal valid DOCX bytes with some text."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_excel_success() -> None:
+    """ingest_file processes an uploaded Excel file and ingests all rows."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["name", "resume_link"])
+    ws.append(["Alice", "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    xlsx_bytes = buf.getvalue()
+
+    docx_bytes = _make_docx_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("resume-file-abc")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    file_request = FileIngestRequest(link_column="resume_link")
+    result = await service.ingest_file(
+        file_bytes=xlsx_bytes,
+        filename="candidates.xlsx",
+        request=file_request,
+    )
+
+    assert result.ingested == 1
+    assert result.errors == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_csv_success() -> None:
+    """ingest_file processes an uploaded CSV file and ingests all rows."""
+    csv_bytes = b"name,resume_link\nAlice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view\n"
+
+    docx_bytes = _make_docx_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("resume-csv-abc")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    file_request = FileIngestRequest(link_column="resume_link")
+    result = await service.ingest_file(
+        file_bytes=csv_bytes,
+        filename="candidates.csv",
+        request=file_request,
+    )
+
+    assert result.ingested == 1
+    assert result.errors == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_unsupported_format_raises() -> None:
+    """ingest_file raises ValueError for unsupported file extensions."""
+    service = IngestService(
+        resume_store=_make_mock_resume_store(),
+        publisher=_make_mock_publisher(),
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    file_request = FileIngestRequest(link_column="resume_link")
+    with pytest.raises(ValueError, match="Unsupported upload format"):
+        await service.ingest_file(
+            file_bytes=b"data",
+            filename="candidates.txt",
+            request=file_request,
+        )
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_no_header_row() -> None:
+    """ingest_file with has_header_row=False reads links by column index."""
+    csv_bytes = b"Alice,https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view\n"
+
+    docx_bytes = _make_docx_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_store = _make_mock_resume_store("resume-noheader")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=_make_mock_publisher(),
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    file_request = FileIngestRequest(has_header_row=False, link_column_index=2)
+    result = await service.ingest_file(
+        file_bytes=csv_bytes,
+        filename="candidates.csv",
+        request=file_request,
+    )
+
+    assert result.ingested == 1
+    assert result.errors == []
+
+
+# ---------------------------------------------------------------------------
+# Status system — ingestingInfo metadata and FAILED records
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_success_includes_ingesting_info_in_metadata() -> None:
+    """Successful ingestion passes ingestingInfo in metadata to create_resume."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("resume-abc")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 1
+    # Verify ingestingInfo was included in the metadata passed to create_resume.
+    create_call_args = mock_store.create_resume.call_args
+    passed_metadata = create_call_args.args[0].metadata
+    assert "ingestingInfo" in passed_metadata
+    assert "ingestedAt" in passed_metadata["ingestingInfo"]
+    assert passed_metadata["ingestingInfo"]["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_error_creates_failed_firestore_record() -> None:
+    """A Drive download failure creates a FAILED Firestore stub with error details."""
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.side_effect = Exception("Drive API unavailable")
+    mock_drive.get_file_metadata.return_value = {"name": "resume.pdf", "mimeType": "application/pdf"}
+    mock_publisher = _make_mock_publisher()
+
+    stub_doc = MagicMock()
+    stub_doc.id = "failed-stub-001"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = stub_doc
+    mock_store.update_resume.return_value = stub_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    # Row is counted as an error.
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+    # create_resume was called once (the FAILED stub).
+    mock_store.create_resume.assert_called_once()
+    stub_create_data = mock_store.create_resume.call_args.args[0]
+    assert stub_create_data.raw_text == ""
+    assert "ingestingInfo" in stub_create_data.metadata
+    assert "failedAt" in stub_create_data.metadata["ingestingInfo"]
+    assert len(stub_create_data.metadata["ingestingInfo"]["errors"]) == 1
+    # stage field is present for consistent error reporting.
+    assert "stage" in stub_create_data.metadata["ingestingInfo"]["errors"][0]
+    assert stub_create_data.metadata["ingestingInfo"]["errors"][0]["stage"] == "download"
+
+    # update_resume was called to set status to FAILED.
+    mock_store.update_resume.assert_called_once()
+    update_data = mock_store.update_resume.call_args.args[1]
+    assert update_data.status == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_ingest_invalid_drive_link_creates_failed_firestore_record() -> None:
+    """An invalid Drive link creates a FAILED stub record in Firestore."""
+    mock_sheets = _make_mock_sheets([(3, "not-a-drive-link")])
+    mock_publisher = _make_mock_publisher()
+
+    stub_doc = MagicMock()
+    stub_doc.id = "failed-stub-002"
+    mock_store = MagicMock()
+    mock_store.create_resume.return_value = stub_doc
+    mock_store.update_resume.return_value = stub_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=_make_mock_drive(),
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+    # FAILED stub created and updated.
+    mock_store.create_resume.assert_called_once()
+    mock_store.update_resume.assert_called_once()
+    update_data = mock_store.update_resume.call_args.args[1]
+    assert update_data.status == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_ingest_persist_failed_record_does_not_block_on_error() -> None:
+    """If persisting a FAILED record raises, the ingestion loop continues."""
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.side_effect = Exception("Drive error")
+    mock_drive.get_file_metadata.return_value = {"name": "r.pdf", "mimeType": "application/pdf"}
+
+    mock_store = MagicMock()
+    # create_resume raises when trying to persist the FAILED stub.
+    mock_store.create_resume.side_effect = Exception("Firestore unavailable")
+    mock_publisher = _make_mock_publisher()
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    # Should not raise even though both Drive and Firestore fail.
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+
+@pytest.mark.asyncio
+async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
+    """When Pub/Sub publish fails, the existing Firestore doc is updated to FAILED."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+
+    # Publisher always fails.
+    mock_publisher = MagicMock()
+    mock_publisher.publish.side_effect = Exception("Pub/Sub unavailable")
+
+    ingested_doc = MagicMock()
+    ingested_doc.id = "resume-pubsub-fail"
+    ingested_doc.metadata = {}
+    stub_doc = MagicMock()
+    stub_doc.id = "failed-stub-pubsub"
+    # First create_resume returns the INGESTED doc;
+    # second create_resume (from _persist_failed_record) returns a stub.
+    mock_store = MagicMock()
+    mock_store.create_resume.side_effect = [ingested_doc, stub_doc]
+    mock_store.update_resume.return_value = ingested_doc
+    mock_store.find_by_content_hash.return_value = None
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+
+    # update_resume should have been called to mark the doc FAILED.
+    failed_calls = [
+        c for c in mock_store.update_resume.call_args_list
+        if c.args[1].status == "FAILED"
+    ]
+    assert len(failed_calls) >= 1
+
+    # The first FAILED update should preserve ingestedAt from the successful write.
+    first_failed_update = failed_calls[0].args[1]
+    ingesting_info = first_failed_update.metadata.get("ingestingInfo", {})
+    assert "ingestedAt" in ingesting_info, "ingestedAt should be preserved in the audit trail"
+    assert "failedAt" in ingesting_info
+    assert len(ingesting_info.get("errors", [])) == 1
+    assert ingesting_info["errors"][0]["stage"] == "publish"
+
+
+# ---------------------------------------------------------------------------
+# Hash-based deduplication
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_duplicate_resume_reported_separately_from_errors() -> None:
+    """A resume whose content hash already exists is reported as a duplicate, not an error."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([
+        (2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")
+    ])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+
+    # Simulate that a document with the same hash already exists.
+    existing_doc = MagicMock()
+    existing_doc.id = "existing-resume-id"
+    mock_store = _make_mock_resume_store()
+    mock_store.find_by_content_hash.return_value = existing_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 0
+    assert result.errors == []
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].row == 2
+    assert result.duplicates[0].existing_resume_id == "existing-resume-id"
+
+    # No new Firestore document created, no DLQ message published.
+    mock_store.create_resume.assert_not_called()
+    mock_publisher.publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_content_hash_stored_with_new_resume() -> None:
+    """A SHA-256 content hash is computed and passed to create_resume."""
+    import docx  # type: ignore[import-untyped]
+    import hashlib
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([
+        (2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")
+    ])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_store = _make_mock_resume_store("resume-hash-test")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=_make_mock_publisher(),
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 1
+    assert result.duplicates == []
+
+    # Verify that create_resume received a content_hash.
+    create_data = mock_store.create_resume.call_args.args[0]
+    assert create_data.content_hash is not None
+    # The hash should be a 64-character hex string (SHA-256).
+    assert len(create_data.content_hash) == 64
+    assert all(c in "0123456789abcdef" for c in create_data.content_hash)
+    # Verify find_by_content_hash was called with the same hash.
+    mock_store.find_by_content_hash.assert_called_once_with(create_data.content_hash)
+
+
+@pytest.mark.asyncio
+async def test_ingest_partial_success_with_duplicate() -> None:
+    """Mixed batch: one new resume, one duplicate — correct counts reported."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_sheets = _make_mock_sheets([
+        (2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view"),
+        (3, "https://drive.google.com/file/d/2CyiNWt1YSB6oGNeLwCxyzAbcDefGhiJkl/view"),
+    ])
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+
+    existing_doc = MagicMock()
+    existing_doc.id = "dup-resume-id"
+    mock_store = _make_mock_resume_store("new-resume-id")
+    # First call (row 2): no duplicate; second call (row 3): duplicate found.
+    mock_store.find_by_content_hash.side_effect = [None, existing_doc]
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=mock_sheets,
+        drive_service=mock_drive,
+    )
+
+    request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
+    result = await service.ingest(request)
+
+    assert result.ingested == 1
+    assert result.errors == []
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].row == 3
+    assert result.duplicates[0].existing_resume_id == "dup-resume-id"
+
+
+# ---------------------------------------------------------------------------
+# IngestService.ingest_drive_link
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_link_success() -> None:
+    """ingest_drive_link successfully ingests a single Drive-linked resume."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Drive resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("drive-resume-001")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    from app.models.ingest import DriveLinkIngestRequest
+
+    request = DriveLinkIngestRequest(
+        driveLink="https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view",
+    )
+    result = await service.ingest_drive_link(request)
+
+    assert result.ingested == 1
+    assert result.resume_id == "drive-resume-001"
+    assert result.errors == []
+    assert result.duplicates == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_link_duplicate() -> None:
+    """ingest_drive_link returns a duplicate entry when content already exists."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Duplicate drive text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    existing_doc = MagicMock()
+    existing_doc.id = "existing-resume-dup"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("any-id")
+    mock_store.find_by_content_hash.return_value = existing_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    from app.models.ingest import DriveLinkIngestRequest
+
+    request = DriveLinkIngestRequest(
+        driveLink="https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view",
+    )
+    result = await service.ingest_drive_link(request)
+
+    assert result.ingested == 0
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].existing_resume_id == "existing-resume-dup"
+
+
+# ---------------------------------------------------------------------------
+# IngestService.ingest_direct_file
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_direct_file_docx_success() -> None:
+    """ingest_direct_file successfully ingests an uploaded DOCX file."""
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("direct-file-001")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    docx_bytes = _make_docx_bytes()
+    result = await service.ingest_direct_file(
+        file_bytes=docx_bytes,
+        filename="resume.docx",
+        metadata={},
+    )
+
+    assert result.ingested == 1
+    assert result.resume_id == "direct-file-001"
+    assert result.errors == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_direct_file_unsupported_type() -> None:
+    """ingest_direct_file returns an error for unsupported file type."""
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("any-id")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    result = await service.ingest_direct_file(
+        file_bytes=b"some data",
+        filename="resume.txt",
+        metadata={},
+    )
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+    assert ".txt" in result.errors[0].error
+
+
+@pytest.mark.asyncio
+async def test_ingest_direct_file_duplicate() -> None:
+    """ingest_direct_file returns a duplicate when content hash already exists."""
+    existing_doc = MagicMock()
+    existing_doc.id = "existing-direct-dup"
+
+    mock_store = _make_mock_resume_store("any-id")
+    mock_store.find_by_content_hash.return_value = existing_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=_make_mock_publisher(),
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    docx_bytes = _make_docx_bytes()
+    result = await service.ingest_direct_file(
+        file_bytes=docx_bytes,
+        filename="resume.docx",
+        metadata={},
+    )
+
+    assert result.ingested == 0
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].existing_resume_id == "existing-direct-dup"

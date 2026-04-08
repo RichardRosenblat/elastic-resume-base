@@ -52,5 +52,18 @@ export const config = {
     resumeGenerate: import.meta.env.VITE_FEATURE_RESUME_GENERATE === 'true',
     userManagement: import.meta.env.VITE_FEATURE_USER_MANAGEMENT !== 'false',
     hideIfDisabled: import.meta.env.VITE_FEATURE_HIDE_IF_DISABLED === 'true',
+    dlqNotifier: import.meta.env.VITE_FEATURE_DLQ_NOTIFIER === 'true',
+  },
+  /**
+   * Smart polling configuration for the notification system.
+   * Intervals in milliseconds.
+   */
+  notifications: {
+    /** Initial polling interval when user is active (ms). Default: 30s. */
+    activeIntervalMs: parseInt(import.meta.env.VITE_NOTIFICATIONS_ACTIVE_INTERVAL_MS ?? '30000', 10),
+    /** Polling interval after user has been idle for a while (ms). Default: 120s. */
+    idleIntervalMs: parseInt(import.meta.env.VITE_NOTIFICATIONS_IDLE_INTERVAL_MS ?? '120000', 10),
+    /** Time in ms before a user is considered idle. Default: 5 minutes. */
+    idleThresholdMs: parseInt(import.meta.env.VITE_NOTIFICATIONS_IDLE_THRESHOLD_MS ?? '300000', 10),
   },
 } as const;

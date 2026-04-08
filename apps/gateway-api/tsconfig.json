@@ -15,9 +15,9 @@
       "firebase-admin/*": ["apps/gateway-api/node_modules/firebase-admin/*"],
       "google-auth-library": ["apps/gateway-api/node_modules/google-auth-library"],
       "google-auth-library/*": ["apps/gateway-api/node_modules/google-auth-library/*"],
-      "@elastic-resume-base/harbor": ["shared/Harbor/v2/harbor_ts/src/server/index.ts"],
-      "@elastic-resume-base/harbor/server": ["shared/Harbor/v2/harbor_ts/src/server/index.ts"],
-      "@elastic-resume-base/harbor/client": ["shared/Harbor/v2/harbor_ts/src/client/index.ts"],
+      "@elastic-resume-base/harbor": ["shared/Harbor/v3/harbor_ts/src/server/index.ts"],
+      "@elastic-resume-base/harbor/server": ["shared/Harbor/v3/harbor_ts/src/server/index.ts"],
+      "@elastic-resume-base/harbor/client": ["shared/Harbor/v3/harbor_ts/src/client/index.ts"],
       "@elastic-resume-base/aegis": ["shared/Aegis/v2/aegis_ts/src/server/index.ts"],
       "@elastic-resume-base/aegis/server": ["shared/Aegis/v2/aegis_ts/src/server/index.ts"],
       "@elastic-resume-base/aegis/client": ["shared/Aegis/v2/aegis_ts/src/client/index.ts"]

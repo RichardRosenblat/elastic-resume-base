@@ -1,7 +1,8 @@
-import { createHarborClient, type HarborClient } from '@elastic-resume-base/harbor/server';
+import { ServerHarborClient, isHarborError, type HarborClient } from '@elastic-resume-base/harbor/server';
 import type { InternalAxiosRequestConfig } from 'axios';
 import { config } from '../config.js';
 import { tracingStorage } from './tracingContext.js';
+import { observeSuccess, observeFailure } from '../services/serviceRegistry.js';
 
 export type { HarborClient };
 
@@ -20,16 +21,22 @@ export type { HarborClient };
  * forwarded to the downstream service when a tracing context is available.
  * The context is set by {@link correlationIdHook} via {@link tracingStorage}.
  *
- * @param baseURL - The base URL of the downstream service.
+ * When `serviceKey` is provided, a response interceptor is also attached that
+ * passively observes every proxied call and updates the service registry:
+ *   - Any HTTP response (including 4xx/5xx) → `observeSuccess` (L4 health).
+ *   - Connection-level failures (no response) → `observeFailure`.
+ *
+ * @param baseURL    - The base URL of the downstream service.
+ * @param serviceKey - Optional registry key used for passive health observation.
  * @returns Configured HarborClient instance.
  */
-export function createHttpClient(baseURL: string): HarborClient {
-  const client = createHarborClient({
+export function createHttpClient(baseURL: string, serviceKey?: string): HarborClient {
+  const client = new ServerHarborClient({
     baseURL,
     timeoutMs: config.requestTimeoutMs,
   });
 
-  client.interceptors.request.use((axiosConfig: InternalAxiosRequestConfig) => {
+  client.axiosInstance.interceptors.request.use((axiosConfig: InternalAxiosRequestConfig) => {
     const ctx = tracingStorage.getStore();
     if (ctx) {
       axiosConfig.headers['x-correlation-id'] = ctx.correlationId;
@@ -37,6 +44,27 @@ export function createHttpClient(baseURL: string): HarborClient {
     }
     return axiosConfig;
   });
+
+  if (serviceKey) {
+    client.axiosInstance.interceptors.response.use(
+      (response: import('axios').AxiosResponse) => {
+        observeSuccess(serviceKey);
+        return response;
+      },
+      (error: unknown) => {
+        if (isHarborError(error)) {
+          if (!error.response) {
+            // Connection-level error (ECONNREFUSED, ETIMEDOUT, DNS failure, …)
+            observeFailure(serviceKey);
+          } else {
+            // HTTP error with a response — service is reachable (L4 health only)
+            observeSuccess(serviceKey);
+          }
+        }
+        return Promise.reject(error);
+      },
+    );
+  }
 
   return client;
 }

@@ -1,3 +1,10 @@
+/**
+ * @file users.ts — User and pre-approved-user management routes for the Gateway API.
+ *
+ * All routes are protected by Firebase authentication. Admin-only endpoints
+ * additionally require the `requireAdminHook` middleware.  Requests are proxied
+ * to the Users API via the service functions in `usersService.ts`.
+ */
 import type { FastifyPluginAsync, RouteHandlerMethod } from 'fastify';
 import { requireAdminHook } from '../middleware/auth.js';
 import {
@@ -641,7 +648,7 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   // route above to the Users API unchanged.  It enables the Gateway to remain
   // compatible with new Users API endpoints without requiring new Gateway routes.
   // Auth is enforced by the parent scope's `authHook` preHandler hook.
-  app.all('/*', usersProxyHandler as RouteHandlerMethod);
+  app.all('/*', { schema: { hide: true } }, usersProxyHandler as RouteHandlerMethod);
 };
 
 export default usersPlugin;

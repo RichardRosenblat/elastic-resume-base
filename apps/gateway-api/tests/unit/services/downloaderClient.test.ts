@@ -5,7 +5,7 @@
 
 jest.mock('../../../src/config', () => ({
   config: {
-    downloaderServiceUrl: 'http://localhost:8001',
+    ingestorServiceUrl: 'http://localhost:8001',
     requestTimeoutMs: 30000,
     nodeEnv: 'test',
     gcpProjectId: 'demo-project',
@@ -63,7 +63,7 @@ describe('downloaderClient – triggerIngest', () => {
 
     const result = await triggerIngest({ sheetId: 'sheet-1' });
     expect(result).toEqual(fakeResponse);
-    expect(mockPost).toHaveBeenCalledWith('/ingest', { sheetId: 'sheet-1' });
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/ingest', { sheetId: 'sheet-1' });
   });
 
   it('returns IngestResponse with batchId', async () => {

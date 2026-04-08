@@ -21,3 +21,22 @@ class SheetReadError(IngestorError):
 
 class DriveDownloadError(IngestorError):
     """Raised when downloading a file from Google Drive fails."""
+
+
+class DuplicateResumeError(IngestorError):
+    """Raised when a resume with the same content hash already exists.
+
+    Attributes:
+        existing_resume_id: Firestore document ID of the already-ingested resume.
+    """
+
+    def __init__(self, existing_resume_id: str) -> None:
+        """Initialise the error.
+
+        Args:
+            existing_resume_id: Firestore document ID of the duplicate resume.
+        """
+        super().__init__(
+            f"Resume already ingested (existing document: {existing_resume_id!r})."
+        )
+        self.existing_resume_id = existing_resume_id

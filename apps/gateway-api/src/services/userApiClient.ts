@@ -19,7 +19,7 @@ import type {
   BatchDeletePreApprovedResponse,
 } from '../models/index.js';
 
-const client = createHttpClient(config.userApiServiceUrl);
+const client = createHttpClient(config.userApiServiceUrl, 'usersApi');
 
 type ErrorHandlerParams = {
   context: Record<string, unknown>;
