@@ -46,6 +46,10 @@ class Settings(BaseSettings):
         rate_limit_per_minute: Maximum number of API requests accepted from a
             single client IP per minute.  Exceeding this triggers an HTTP 429
             response.  Defaults to ``60``.
+        ingest_concurrency: Maximum number of Drive file downloads processed
+            concurrently during a spreadsheet / sheet ingestion run.  A
+            semaphore of this size limits simultaneous Drive API calls to
+            prevent rate-limiting.  Defaults to ``10``.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -60,6 +64,7 @@ class Settings(BaseSettings):
     sheets_link_column: str = "resume_link"
     http_request_timeout: int = 120
     rate_limit_per_minute: int = 60
+    ingest_concurrency: int = 10
 
 
 load_config_yaml("ingestor-service")

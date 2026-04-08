@@ -5,7 +5,7 @@
  * by the parent plugin in `routes/index.ts`).
  */
 import type { FastifyPluginAsync } from 'fastify';
-import { ingest, ingestUpload, generate } from '../controllers/resumes.controller.js';
+import { ingest, ingestUpload, ingestDriveLink, ingestSingleFile, generate } from '../controllers/resumes.controller.js';
 
 const resumesPlugin: FastifyPluginAsync = async (app) => {
   app.post('/ingest', {
@@ -22,12 +22,17 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
         properties: {
           sheetId: {
             type: 'string',
-            description: 'Google Sheets file ID to ingest resumes from. One of `sheetId` or `batchId` is required.',
+            description: 'Google Sheets file ID to ingest resumes from. One of `sheetId`, `sheetUrl`, or `batchId` is required.',
             example: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms',
+          },
+          sheetUrl: {
+            type: 'string',
+            description: 'Full Google Sheets URL to ingest resumes from. One of `sheetId`, `sheetUrl`, or `batchId` is required.',
+            example: 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms/edit',
           },
           batchId: {
             type: 'string',
-            description: 'Identifier of a pre-defined ingestion batch. One of `sheetId` or `batchId` is required.',
+            description: 'Identifier of a pre-defined ingestion batch. One of `sheetId`, `sheetUrl`, or `batchId` is required.',
             example: 'batch-2026-q1',
           },
           metadata: {
@@ -339,6 +344,168 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
       },
     },
   }, ingestUpload);
+
+  app.post('/ingest/drive', {
+    schema: {
+      tags: ['Resumes'],
+      summary: 'Ingest a single resume from a Google Drive link',
+      description:
+        'Downloads a single resume file from the provided Google Drive URL or file ID, ' +
+        'extracts plain text, stores it in Firestore, and publishes a Pub/Sub message.\n\n' +
+        'Supported file types: PDF and DOCX.',
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['driveLink'],
+        properties: {
+          driveLink: {
+            type: 'string',
+            description: 'Google Drive file URL or file ID pointing to the resume.',
+            example: 'https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms/view',
+          },
+          metadata: {
+            type: 'object',
+            additionalProperties: true,
+            description: 'Arbitrary key/value pairs to attach to the ingested resume.',
+            example: { campaign: 'spring-2026' },
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Single resume ingestion completed.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                resumeId: {
+                  type: 'string',
+                  nullable: true,
+                  description: 'Firestore document ID of the ingested resume, or null if ingestion failed.',
+                  example: 'resume-abc123',
+                },
+                ingested: {
+                  type: 'integer',
+                  description: '1 when successfully ingested, 0 otherwise.',
+                  example: 1,
+                },
+                errors: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      row: { type: 'integer' },
+                      error: { type: 'string' },
+                    },
+                  },
+                },
+                duplicates: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      row: { type: 'integer' },
+                      existingResumeId: { type: 'string' },
+                      message: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: 'Invalid request body.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', example: 'VALIDATION_ERROR' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+        401: {
+          description: 'Missing or invalid Firebase ID token.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } },
+          },
+        },
+      },
+    },
+  }, ingestDriveLink);
+
+  app.post('/ingest/file', {
+    schema: {
+      tags: ['Resumes'],
+      summary: 'Ingest a single resume from a directly uploaded file',
+      description:
+        'Upload a single PDF or DOCX resume file for direct ingestion. ' +
+        'The service extracts plain text, stores it in Firestore, and publishes a Pub/Sub message.\n\n' +
+        'The request must be a `multipart/form-data` upload with the resume as the `file` field.',
+      security: [{ bearerAuth: [] }],
+      consumes: ['multipart/form-data'],
+      response: {
+        200: {
+          description: 'Single resume ingestion completed.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                resumeId: {
+                  type: 'string',
+                  nullable: true,
+                  description: 'Firestore document ID of the ingested resume, or null if ingestion failed.',
+                  example: 'resume-abc123',
+                },
+                ingested: { type: 'integer', example: 1 },
+                errors: {
+                  type: 'array',
+                  items: { type: 'object', properties: { row: { type: 'integer' }, error: { type: 'string' } } },
+                },
+                duplicates: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      row: { type: 'integer' },
+                      existingResumeId: { type: 'string' },
+                      message: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: 'Unsupported file type or missing multipart/form-data.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } },
+          },
+        },
+        401: {
+          description: 'Missing or invalid Firebase ID token.',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } },
+          },
+        },
+      },
+    },
+  }, ingestSingleFile);
 
   app.post('/:resumeId/generate', {
     schema: {

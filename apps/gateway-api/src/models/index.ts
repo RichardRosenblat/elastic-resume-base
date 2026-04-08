@@ -33,6 +33,8 @@ export type {
   PreApprovedFilters,
   IngestRequest,
   IngestResponse,
+  DriveLinkIngestRequest,
+  SingleIngestResponse,
   SearchRequest,
   SearchResult,
   SearchResponse,

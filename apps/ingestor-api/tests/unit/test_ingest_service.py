@@ -1000,3 +1000,169 @@ async def test_ingest_partial_success_with_duplicate() -> None:
     assert len(result.duplicates) == 1
     assert result.duplicates[0].row == 3
     assert result.duplicates[0].existing_resume_id == "dup-resume-id"
+
+
+# ---------------------------------------------------------------------------
+# IngestService.ingest_drive_link
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_link_success() -> None:
+    """ingest_drive_link successfully ingests a single Drive-linked resume."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Drive resume text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("drive-resume-001")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    from app.models.ingest import DriveLinkIngestRequest
+
+    request = DriveLinkIngestRequest(
+        driveLink="https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view",
+    )
+    result = await service.ingest_drive_link(request)
+
+    assert result.ingested == 1
+    assert result.resume_id == "drive-resume-001"
+    assert result.errors == []
+    assert result.duplicates == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_link_duplicate() -> None:
+    """ingest_drive_link returns a duplicate entry when content already exists."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Duplicate drive text")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    existing_doc = MagicMock()
+    existing_doc.id = "existing-resume-dup"
+
+    mock_drive = MagicMock()
+    mock_drive.download_file.return_value = (docx_bytes, mime)
+    mock_drive.get_file_metadata.return_value = {"name": "resume.docx", "mimeType": mime}
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("any-id")
+    mock_store.find_by_content_hash.return_value = existing_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=mock_drive,
+    )
+
+    from app.models.ingest import DriveLinkIngestRequest
+
+    request = DriveLinkIngestRequest(
+        driveLink="https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view",
+    )
+    result = await service.ingest_drive_link(request)
+
+    assert result.ingested == 0
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].existing_resume_id == "existing-resume-dup"
+
+
+# ---------------------------------------------------------------------------
+# IngestService.ingest_direct_file
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_direct_file_docx_success() -> None:
+    """ingest_direct_file successfully ingests an uploaded DOCX file."""
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("direct-file-001")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    docx_bytes = _make_docx_bytes()
+    result = await service.ingest_direct_file(
+        file_bytes=docx_bytes,
+        filename="resume.docx",
+        metadata={},
+    )
+
+    assert result.ingested == 1
+    assert result.resume_id == "direct-file-001"
+    assert result.errors == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_direct_file_unsupported_type() -> None:
+    """ingest_direct_file returns an error for unsupported file type."""
+    mock_publisher = _make_mock_publisher()
+    mock_store = _make_mock_resume_store("any-id")
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=mock_publisher,
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    result = await service.ingest_direct_file(
+        file_bytes=b"some data",
+        filename="resume.txt",
+        metadata={},
+    )
+
+    assert result.ingested == 0
+    assert len(result.errors) == 1
+    assert ".txt" in result.errors[0].error
+
+
+@pytest.mark.asyncio
+async def test_ingest_direct_file_duplicate() -> None:
+    """ingest_direct_file returns a duplicate when content hash already exists."""
+    existing_doc = MagicMock()
+    existing_doc.id = "existing-direct-dup"
+
+    mock_store = _make_mock_resume_store("any-id")
+    mock_store.find_by_content_hash.return_value = existing_doc
+
+    service = IngestService(
+        resume_store=mock_store,
+        publisher=_make_mock_publisher(),
+        sheets_service=_make_mock_sheets([]),
+        drive_service=_make_mock_drive(),
+    )
+
+    docx_bytes = _make_docx_bytes()
+    result = await service.ingest_direct_file(
+        file_bytes=docx_bytes,
+        filename="resume.docx",
+        metadata={},
+    )
+
+    assert result.ingested == 0
+    assert len(result.duplicates) == 1
+    assert result.duplicates[0].existing_resume_id == "existing-direct-dup"

@@ -94,7 +94,20 @@
     "language": "Language",
     "format": "Format",
     "loading": "Loading resumes...",
-    "noResumesFound": "No resumes found"
+    "noResumesFound": "No resumes found",
+    "ingestType": "Ingest Type",
+    "spreadsheet": "Spreadsheet",
+    "excelFile": "Excel / CSV File",
+    "driveLink": "Drive Link",
+    "singleFile": "PDF / DOCX File",
+    "sheetIdOrUrl": "Sheet ID or URL",
+    "driveLinkLabel": "Google Drive Link",
+    "resumeFile": "Resume File",
+    "ingestedCount": "{{count}} resume(s) ingested",
+    "errorsCount": "{{count}} error(s)",
+    "resumeId": "Resume ID",
+    "excelFileDescription": "Upload an Excel (.xlsx, .xls, .xlsm) or CSV (.csv) file containing Google Drive links to resume files.",
+    "singleFileDescription": "Upload a single PDF or DOCX resume file for direct ingestion."
   },
   "documents": {
     "title": "Documents",

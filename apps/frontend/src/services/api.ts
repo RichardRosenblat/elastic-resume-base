@@ -21,6 +21,7 @@ import type {
   PreApprovedSortField,
   SortDirection,
   ResumeIngestJob,
+  SingleIngestResult,
   ResumeGenerateJob,
   SearchResponseData,
   ListUsersData,
@@ -287,11 +288,81 @@ export const batchUpdatePreApprovedUsers = async (emails: string[], role: 'admin
  * Submits a resume ingest job to the Gateway API.
  * Returns mock data when `config.features.resumeIngest` is `false`.
  */
-export const triggerResumeIngest = async (data: { sheetId?: string; batchId?: string }): Promise<ResumeIngestJob> => {
+export const triggerResumeIngest = async (data: { sheetId?: string; sheetUrl?: string; batchId?: string }): Promise<ResumeIngestJob> => {
   if (!config.features.resumeIngest) {
     return { jobId: 'mock-job-id', status: 'mock', acceptedAt: new Date().toISOString() };
   }
   const res = await apiClient.post<SuccessResponse<ResumeIngestJob>>('/api/v1/resumes/ingest', data);
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Uploads an Excel or CSV spreadsheet for resume ingestion via the Gateway API.
+ * Returns mock data when `config.features.resumeIngest` is `false`.
+ *
+ * @param file     The Excel or CSV file to upload.
+ * @param options  Optional ingestion parameters forwarded as form fields.
+ */
+export const triggerResumeIngestUpload = async (
+  file: File,
+  options?: { linkColumn?: string; metadata?: Record<string, unknown> },
+): Promise<import('../types').SingleIngestResult> => {
+  if (!config.features.resumeIngest) {
+    return { resumeId: null, ingested: 0, errors: [], duplicates: [] };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  if (options?.linkColumn) formData.append('link_column', options.linkColumn);
+  if (options?.metadata) formData.append('metadata', JSON.stringify(options.metadata));
+  const res = await apiClient.post<SuccessResponse<import('../types').SingleIngestResult>>(
+    '/api/v1/resumes/ingest/upload',
+    formData,
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Ingests a single resume from a Google Drive link via the Gateway API.
+ * Returns mock data when `config.features.resumeIngest` is `false`.
+ *
+ * @param driveLink  Google Drive URL or file ID pointing to the resume.
+ * @param metadata   Optional extra metadata to attach to the ingested resume.
+ */
+export const triggerResumeIngestDriveLink = async (
+  driveLink: string,
+  metadata?: Record<string, unknown>,
+): Promise<import('../types').SingleIngestResult> => {
+  if (!config.features.resumeIngest) {
+    return { resumeId: null, ingested: 0, errors: [], duplicates: [] };
+  }
+  const res = await apiClient.post<SuccessResponse<import('../types').SingleIngestResult>>(
+    '/api/v1/resumes/ingest/drive',
+    { driveLink, metadata },
+  );
+  return unwrapSuccessResponse(res.data);
+};
+
+/**
+ * Ingests a single PDF or DOCX resume from a directly uploaded file via the Gateway API.
+ * Returns mock data when `config.features.resumeIngest` is `false`.
+ *
+ * @param file      The PDF or DOCX file to upload.
+ * @param metadata  Optional extra metadata to attach to the ingested resume.
+ */
+export const triggerResumeIngestSingleFile = async (
+  file: File,
+  metadata?: Record<string, unknown>,
+): Promise<import('../types').SingleIngestResult> => {
+  if (!config.features.resumeIngest) {
+    return { resumeId: null, ingested: 0, errors: [], duplicates: [] };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  if (metadata) formData.append('metadata', JSON.stringify(metadata));
+  const res = await apiClient.post<SuccessResponse<import('../types').SingleIngestResult>>(
+    '/api/v1/resumes/ingest/file',
+    formData,
+  );
   return unwrapSuccessResponse(res.data);
 };
 

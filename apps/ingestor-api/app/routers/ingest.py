@@ -1,8 +1,10 @@
 """Ingest router for the ingestor service.
 
 Exposes the ``POST /api/v1/ingest`` endpoint that triggers the resume
-ingestion pipeline from a Google Sheet, and ``POST /api/v1/ingest/upload``
-for direct Excel / CSV file uploads.
+ingestion pipeline from a Google Sheet, ``POST /api/v1/ingest/upload``
+for direct Excel / CSV file uploads, ``POST /api/v1/ingest/drive`` for
+a single Google Drive link, and ``POST /api/v1/ingest/file`` for a
+directly uploaded PDF or DOCX resume.
 """
 
 from __future__ import annotations
@@ -16,7 +18,13 @@ from fastapi.responses import JSONResponse
 from toolbox_py import get_correlation_id, get_logger
 
 from app.config import settings
-from app.models.ingest import FileIngestRequest, IngestRequest, IngestResponse
+from app.models.ingest import (
+    DriveLinkIngestRequest,
+    FileIngestRequest,
+    IngestRequest,
+    IngestResponse,
+    SingleIngestResponse,
+)
 from app.services.ingest_service import IngestService
 from app.utils.exceptions import SheetReadError
 
@@ -79,6 +87,52 @@ _INGEST_SUCCESS_SCHEMA: dict[str, object] = {
                         },
                     },
                     "description": "Per-row errors encountered during ingestion.",
+                },
+            },
+        },
+    },
+}
+
+_SINGLE_INGEST_SUCCESS_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "success": {"type": "boolean", "example": True},
+        "data": {
+            "type": "object",
+            "properties": {
+                "resumeId": {
+                    "type": "string",
+                    "nullable": True,
+                    "example": "resume-abc123",
+                    "description": "Firestore document ID of the ingested resume, or null if ingestion failed.",
+                },
+                "ingested": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "1 when the resume was successfully ingested, 0 otherwise.",
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "row": {"type": "integer"},
+                            "error": {"type": "string"},
+                        },
+                    },
+                    "description": "Errors encountered during ingestion.",
+                },
+                "duplicates": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "row": {"type": "integer"},
+                            "existingResumeId": {"type": "string"},
+                            "message": {"type": "string"},
+                        },
+                    },
+                    "description": "Non-empty when the document was a duplicate of an already-ingested resume.",
                 },
             },
         },
@@ -349,4 +403,163 @@ async def ingest_upload(
 
     return JSONResponse(
         format_success(result.model_dump(), correlation_id=correlation_id)
+    )
+
+
+@router.post(
+    "/ingest/drive",
+    summary="Ingest a single resume from a Google Drive link",
+    description=(
+        "Downloads a single resume file from the provided Google Drive link, "
+        "extracts plain text, stores it in Firestore, and publishes a "
+        "``{ resumeId }`` message to the ``resume-ingested`` Pub/Sub topic.\n\n"
+        "Supported file types: PDF and DOCX.  The response includes the "
+        "Firestore document ID of the ingested resume and an indication of "
+        "whether the document was a duplicate."
+    ),
+    responses={
+        200: {
+            "description": "Ingestion completed.",
+            "content": {"application/json": {"schema": _SINGLE_INGEST_SUCCESS_SCHEMA}},
+        },
+        400: {
+            "description": "Invalid request body or unsupported file type.",
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+        422: {
+            "description": "Validation error — missing required fields.",
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+    },
+)
+async def ingest_drive(body: DriveLinkIngestRequest, request: Request) -> JSONResponse:
+    """Ingest a single resume from a Google Drive link.
+
+    Downloads the resume file from the given Drive URL or file ID,
+    extracts text, stores it in Firestore, and publishes a Pub/Sub message.
+
+    Args:
+        body: Validated drive-link ingest request containing ``driveLink`` and
+            optional ``metadata`` and ``userId``.
+        request: The incoming HTTP request (used for correlation ID extraction).
+
+    Returns:
+        JSONResponse with a Bowltie-formatted success envelope containing the
+        :class:`~app.models.ingest.SingleIngestResponse` data.
+    """
+    correlation_id = get_correlation_id()
+    logger.info(
+        "Drive-link ingest request received",
+        extra={"drive_link": body.drive_link},
+    )
+
+    service = _get_ingest_service()
+    result: SingleIngestResponse = await service.ingest_drive_link(body)
+
+    logger.info(
+        "Drive-link ingest request complete",
+        extra={"ingested": result.ingested, "resume_id": result.resume_id},
+    )
+
+    return JSONResponse(
+        format_success(result.model_dump(by_alias=True), correlation_id=correlation_id)
+    )
+
+
+@router.post(
+    "/ingest/file",
+    summary="Ingest a single resume from a directly uploaded file",
+    description=(
+        "Upload a single PDF or DOCX resume file for direct ingestion.  "
+        "The service extracts plain text, stores it in Firestore, and publishes a "
+        "``{ resumeId }`` message to the ``resume-ingested`` Pub/Sub topic.\n\n"
+        "Supported file types: ``.pdf``, ``.docx``."
+    ),
+    responses={
+        200: {
+            "description": "Ingestion completed.",
+            "content": {"application/json": {"schema": _SINGLE_INGEST_SUCCESS_SCHEMA}},
+        },
+        400: {
+            "description": "Unsupported file type or invalid parameters.",
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+        422: {
+            "description": "Validation error — missing required fields.",
+            "content": {"application/json": {"schema": _BOWLTIE_ERROR_SCHEMA}},
+        },
+    },
+)
+async def ingest_file_direct(
+    request: Request,
+    file: Annotated[UploadFile, File(description="PDF (.pdf) or DOCX (.docx) resume file.")],
+    metadata: Annotated[
+        str | None,
+        Form(
+            description=(
+                "Optional JSON object of extra metadata attached to the ingested resume.  "
+                "Example: ``{\"source\": \"careers-fair-2024\"}``"
+            )
+        ),
+    ] = None,
+    user_id: Annotated[
+        str | None,
+        Form(
+            description="Firebase UID of the requesting user (injected by the Gateway).",
+        ),
+    ] = None,
+) -> JSONResponse:
+    """Ingest a single resume from a directly uploaded PDF or DOCX file.
+
+    Extracts plain text from the file, stores it in Firestore, and publishes
+    a Pub/Sub message.
+
+    Args:
+        request: The incoming HTTP request.
+        file: The uploaded resume file (PDF or DOCX).
+        metadata: JSON-encoded extra metadata string.
+        user_id: Firebase UID of the requesting user.
+
+    Returns:
+        JSONResponse with a Bowltie-formatted success envelope containing the
+        :class:`~app.models.ingest.SingleIngestResponse` data.
+    """
+    correlation_id = get_correlation_id()
+
+    # Parse the optional JSON metadata string.
+    parsed_metadata: dict = {}
+    if metadata:
+        try:
+            parsed_metadata = json.loads(metadata)
+            if not isinstance(parsed_metadata, dict):
+                raise ValueError("metadata must be a JSON object")
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid 'metadata' field: {exc}",
+            ) from exc
+
+    filename = file.filename or "upload"
+    logger.info(
+        "Direct file ingest request received",
+        extra={"upload_filename": filename},
+    )
+
+    file_bytes = await file.read()
+    service = _get_ingest_service()
+
+    result: SingleIngestResponse = await service.ingest_direct_file(
+        file_bytes=file_bytes,
+        filename=filename,
+        metadata=parsed_metadata,
+        user_id=user_id,
+    )
+
+    logger.info(
+        "Direct file ingest request complete",
+        extra={"ingested": result.ingested, "resume_id": result.resume_id},
+    )
+
+    return JSONResponse(
+        format_success(result.model_dump(by_alias=True), correlation_id=correlation_id)
     )

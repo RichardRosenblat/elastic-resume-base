@@ -17,6 +17,7 @@ Orchestrates the full resume ingestion pipeline:
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import hashlib
 import io
@@ -30,7 +31,15 @@ from synapse_py.interfaces.resume_store import CreateResumeData, IResumeStore, U
 from toolbox_py import get_logger
 
 from app.config import settings
-from app.models.ingest import FileIngestRequest, IngestDuplicate, IngestRequest, IngestResponse, IngestRowError
+from app.models.ingest import (
+    DriveLinkIngestRequest,
+    FileIngestRequest,
+    IngestDuplicate,
+    IngestRequest,
+    IngestResponse,
+    IngestRowError,
+    SingleIngestResponse,
+)
 from app.services.text_extractor import SUPPORTED_EXTENSIONS, extract_text
 from app.utils.exceptions import DriveDownloadError, DuplicateResumeError, SheetReadError, TextExtractionError
 
@@ -597,7 +606,11 @@ class IngestService:
         request_metadata: dict[str, Any],
         user_id: str | None = None,
     ) -> IngestResponse:
-        """Process a list of ``(row_number, drive_link)`` pairs.
+        """Process a list of ``(row_number, drive_link)`` pairs concurrently.
+
+        Downloads and processes all rows simultaneously (up to
+        ``settings.ingest_concurrency`` at a time) using an
+        :class:`asyncio.Semaphore` to avoid Drive API rate limits.
 
         Args:
             row_links: Pairs of 1-based row number and Google Drive link.
@@ -609,62 +622,84 @@ class IngestService:
         Returns:
             :class:`~app.models.ingest.IngestResponse` with counts and errors.
         """
-        ingested_count = 0
-        row_errors: list[IngestRowError] = []
-        row_duplicates: list[IngestDuplicate] = []
+        semaphore = asyncio.Semaphore(settings.ingest_concurrency)
 
-        for row_number, drive_link in row_links:
-            try:
-                resume_id = await self._ingest_one(
-                    row_number=row_number,
-                    drive_link=drive_link,
-                    source_context=source_context,
-                    request_metadata=request_metadata,
-                )
-                ingested_count += 1
-                logger.info(
-                    "Resume ingested",
-                    extra={"row": row_number, "resume_id": resume_id},
-                )
-            except DuplicateResumeError as dup_exc:
-                logger.info(
-                    "Duplicate resume skipped at row %d",
-                    row_number,
-                    extra={
-                        "row": row_number,
-                        "existing_resume_id": dup_exc.existing_resume_id,
-                    },
-                )
-                row_duplicates.append(
-                    IngestDuplicate(
+        async def _process_row(row_number: int, drive_link: str) -> tuple[int, str | None, IngestRowError | None, IngestDuplicate | None]:
+            """Process a single row under the concurrency semaphore.
+
+            Returns a tuple of (row_number, resume_id_or_None, error_or_None, duplicate_or_None).
+            """
+            async with semaphore:
+                try:
+                    resume_id = await self._ingest_one(
+                        row_number=row_number,
+                        drive_link=drive_link,
+                        source_context=source_context,
+                        request_metadata=request_metadata,
+                    )
+                    logger.info(
+                        "Resume ingested",
+                        extra={"row": row_number, "resume_id": resume_id},
+                    )
+                    return (row_number, resume_id, None, None)
+                except DuplicateResumeError as dup_exc:
+                    logger.info(
+                        "Duplicate resume skipped at row %d",
+                        row_number,
+                        extra={
+                            "row": row_number,
+                            "existing_resume_id": dup_exc.existing_resume_id,
+                        },
+                    )
+                    duplicate = IngestDuplicate(
                         row=row_number,
                         existingResumeId=dup_exc.existing_resume_id,
                         message=str(dup_exc),
                     )
-                )
-            except Exception as exc:
-                error_msg = str(exc)
-                logger.warning(
-                    "Failed to ingest resume at row %d: %s",
-                    row_number,
-                    error_msg,
-                )
-                row_errors.append(IngestRowError(row=row_number, error=error_msg))
-                dlq_context: dict[str, Any] = {
-                    "row": row_number,
-                    "driveLink": drive_link,
-                    **source_context,
-                }
-                if user_id:
-                    dlq_context["userId"] = user_id
-                self._publish_dlq_error(error_msg, context=dlq_context)
-                self._persist_failed_record(
-                    row_number=row_number,
-                    drive_link=drive_link,
-                    source_context=source_context,
-                    request_metadata=request_metadata,
-                    error=exc,
-                )
+                    return (row_number, None, None, duplicate)
+                except Exception as exc:
+                    error_msg = str(exc)
+                    logger.warning(
+                        "Failed to ingest resume at row %d: %s",
+                        row_number,
+                        error_msg,
+                    )
+                    dlq_context: dict[str, Any] = {
+                        "row": row_number,
+                        "driveLink": drive_link,
+                        **source_context,
+                    }
+                    if user_id:
+                        dlq_context["userId"] = user_id
+                    self._publish_dlq_error(error_msg, context=dlq_context)
+                    self._persist_failed_record(
+                        row_number=row_number,
+                        drive_link=drive_link,
+                        source_context=source_context,
+                        request_metadata=request_metadata,
+                        error=exc,
+                    )
+                    return (row_number, None, IngestRowError(row=row_number, error=error_msg), None)
+
+        tasks = [_process_row(row_number, drive_link) for row_number, drive_link in row_links]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        ingested_count = 0
+        row_errors: list[IngestRowError] = []
+        row_duplicates: list[IngestDuplicate] = []
+
+        for item in results:
+            if isinstance(item, BaseException):
+                # Unexpected exception escaping _process_row (should not happen)
+                logger.error("Unexpected exception during row processing: %s", item)
+                continue
+            _row_number, resume_id, row_error, duplicate = item
+            if resume_id is not None:
+                ingested_count += 1
+            elif row_error is not None:
+                row_errors.append(row_error)
+            elif duplicate is not None:
+                row_duplicates.append(duplicate)
 
         logger.info(
             "Ingestion complete",
@@ -816,3 +851,231 @@ class IngestService:
             raise
 
         return resume_id
+
+    async def ingest_drive_link(self, request: DriveLinkIngestRequest) -> SingleIngestResponse:
+        """Ingest a single resume from a Google Drive link.
+
+        Args:
+            request: The validated drive-link ingest request.
+
+        Returns:
+            :class:`~app.models.ingest.SingleIngestResponse` describing the
+            outcome of ingesting a single document.
+        """
+        logger.info(
+            "Starting single Drive-link ingestion",
+            extra={"drive_link": request.drive_link},
+        )
+        try:
+            resume_id = await self._ingest_one(
+                row_number=1,
+                drive_link=request.drive_link,
+                source_context={"driveLink": request.drive_link},
+                request_metadata=request.metadata,
+            )
+            logger.info("Single Drive-link ingestion complete", extra={"resume_id": resume_id})
+            return SingleIngestResponse(resumeId=resume_id, ingested=1)
+        except DuplicateResumeError as dup_exc:
+            logger.info(
+                "Duplicate resume skipped for Drive link",
+                extra={"existing_resume_id": dup_exc.existing_resume_id},
+            )
+            return SingleIngestResponse(
+                resumeId=dup_exc.existing_resume_id,
+                ingested=0,
+                duplicates=[
+                    IngestDuplicate(
+                        row=1,
+                        existingResumeId=dup_exc.existing_resume_id,
+                        message=str(dup_exc),
+                    )
+                ],
+            )
+        except Exception as exc:
+            error_msg = str(exc)
+            logger.warning("Failed to ingest Drive link: %s", error_msg)
+            dlq_context: dict[str, Any] = {"driveLink": request.drive_link}
+            if request.user_id:
+                dlq_context["userId"] = request.user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            self._persist_failed_record(
+                row_number=1,
+                drive_link=request.drive_link,
+                source_context={"driveLink": request.drive_link},
+                request_metadata=request.metadata,
+                error=exc,
+            )
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+    async def ingest_direct_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        metadata: dict[str, Any],
+        user_id: str | None = None,
+    ) -> SingleIngestResponse:
+        """Ingest a single resume from an uploaded PDF or DOCX file.
+
+        Steps:
+
+        1. Resolve the file extension from *filename*.
+        2. Extract plain text using :func:`~app.services.text_extractor.extract_text`.
+        3. Compute the SHA-256 content hash and check for duplicates.
+        4. Persist the raw text to Firestore via Synapse.
+        5. Publish ``{ resumeId }`` to the configured Pub/Sub topic.
+
+        Args:
+            file_bytes: Raw bytes of the uploaded PDF or DOCX file.
+            filename: Original filename (used to determine the file format).
+            metadata: Caller-supplied metadata attached to the resume document.
+            user_id: Optional Firebase UID of the requesting user.
+
+        Returns:
+            :class:`~app.models.ingest.SingleIngestResponse` describing the
+            outcome.
+        """
+        _, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        logger.info(
+            "Starting single file ingestion",
+            extra={"upload_filename": filename, "extension": ext},
+        )
+
+        if ext not in SUPPORTED_EXTENSIONS:
+            error_msg = (
+                f"Unsupported file type '{ext}'. "
+                f"Supported types: {sorted(SUPPORTED_EXTENSIONS)}"
+            )
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        try:
+            raw_text = extract_text(file_bytes, ext)
+        except Exception as exc:
+            error_msg = str(exc)
+            logger.warning("Text extraction failed for uploaded file: %s", error_msg)
+            dlq_context: dict[str, Any] = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        content_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+        existing = self._resume_store.find_by_content_hash(content_hash)
+        if existing is not None:
+            logger.info(
+                "Duplicate resume skipped for uploaded file",
+                extra={"existing_resume_id": existing.id},
+            )
+            return SingleIngestResponse(
+                resumeId=existing.id,
+                ingested=0,
+                duplicates=[
+                    IngestDuplicate(
+                        row=1,
+                        existingResumeId=existing.id,
+                        message=f"Resume already ingested (existing document: {existing.id!r}).",
+                    )
+                ],
+            )
+
+        source: dict[str, Any] = {"uploadedFile": filename}
+        ingesting_metadata: dict[str, Any] = {
+            **metadata,
+            "ingestingInfo": {
+                "ingestedAt": _now_iso(),
+                "errors": [],
+            },
+        }
+
+        try:
+            resume_doc = self._resume_store.create_resume(
+                CreateResumeData(
+                    raw_text=raw_text,
+                    source=source,
+                    metadata=ingesting_metadata,
+                    content_hash=content_hash,
+                )
+            )
+            resume_id = resume_doc.id
+            self._resume_store.update_resume(
+                resume_id,
+                UpdateResumeData(status=_STATUS_INGESTED),
+            )
+        except Exception as exc:
+            error_msg = str(exc)
+            logger.warning("Failed to persist uploaded file to Firestore: %s", error_msg)
+            dlq_context = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        try:
+            publisher = self._get_publisher()
+            publisher.publish(
+                settings.pubsub_topic_resume_ingested,
+                {"resumeId": resume_id},
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to publish resume-ingested Pub/Sub message for uploaded file: %s",
+                exc,
+                extra={"resume_id": resume_id},
+            )
+            try:
+                self._resume_store.update_resume(
+                    resume_id,
+                    UpdateResumeData(
+                        status=_STATUS_FAILED,
+                        metadata={
+                            **ingesting_metadata,
+                            "ingestingInfo": {
+                                **ingesting_metadata.get("ingestingInfo", {}),
+                                "failedAt": _now_iso(),
+                                "errors": [
+                                    {
+                                        "stage": "publish",
+                                        "errorType": type(exc).__name__,
+                                        "errorMessage": str(exc),
+                                    }
+                                ],
+                            },
+                        },
+                    ),
+                )
+            except Exception as update_exc:
+                logger.warning(
+                    "Could not update resume status to FAILED after Pub/Sub failure: %s",
+                    update_exc,
+                    extra={"resume_id": resume_id},
+                )
+            error_msg = str(exc)
+            dlq_context = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
+        logger.info("Single file ingestion complete", extra={"resume_id": resume_id})
+        return SingleIngestResponse(resumeId=resume_id, ingested=1)
