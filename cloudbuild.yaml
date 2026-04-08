@@ -1,0 +1,338 @@
+# =============================================================================
+# Cloud Build — Test, Build, Push and Deploy Pipeline
+# =============================================================================
+#
+# Triggered by the deploy-prod GitHub Actions workflow on every push to the
+# `prod` branch.
+#
+# Pipeline phases
+# ───────────────
+# 1. TEST   — unit tests for every service listed in
+#             .github/deploy-config/deploy-services.json run in parallel.
+#             If any test step exits non-zero, Cloud Build marks the entire
+#             build as FAILED and the subsequent phases never execute.
+#
+# 2. GATE   — a lightweight barrier step that waits for all test steps.
+#             Reaching this step means every test passed.
+#
+# 3. BUILD  — Docker images are built and pushed to the container registry
+#             in parallel for each service (all wait for the gate step).
+#
+# 4. DEPLOY — each service is deployed to Cloud Run after its own image
+#             has been pushed.
+#
+# Substitutions (passed by the GitHub Action; override via --substitutions)
+# ──────────────────────────────────────────────────────────────────────────
+#   _COMMIT_SHA     full Git commit SHA   (default: "latest")
+#   _SHORT_SHA      first 7 chars of SHA  (default: "latest")
+#   _REGION         Cloud Run region      (default: "us-central1")
+#   _PROJECT_ID     GCP project ID        (required — passed by the GitHub Action)
+#   _IMAGE_REGISTRY container registry    (default: "gcr.io")
+#
+# Required Cloud Build service-account roles
+# ──────────────────────────────────────────
+#   roles/run.admin
+#   roles/iam.serviceAccountUser   (to act as the Cloud Run runtime SA)
+#   roles/storage.admin            (to push images to GCR / AR)
+# =============================================================================
+
+substitutions:
+  _COMMIT_SHA: latest
+  _SHORT_SHA: latest
+  _REGION: us-central1
+  _IMAGE_REGISTRY: gcr.io
+  _PROJECT_ID: ''
+
+timeout: '2400s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+
+  # ===========================================================================
+  # PHASE 1 — TESTS
+  # All test steps start immediately (waitFor: ['-']) and run in parallel.
+  # A failing step causes Cloud Build to abort the entire build, halting
+  # deployment automatically.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # document-reader — Python
+  # ---------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'test-document-reader'
+    waitFor: ['-']
+    dir: 'apps/document-reader'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [document-reader] Installing test dependencies ==="
+        pip install -q -r requirements/requirements-dev.txt
+        echo "=== [document-reader] Running tests ==="
+        python -m pytest tests/ -v --tb=short 2>&1
+        echo "=== [document-reader] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # frontend — Node.js (vitest)
+    waitFor: ['-']
+    dir: 'apps/frontend'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [frontend] Installing dependencies ==="
+        npm ci --prefer-offline
+        echo "=== [frontend] Running tests ==="
+        npm test 2>&1
+        echo "=== [frontend] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # gateway-api — Node.js
+  # ---------------------------------------------------------------------------
+  - name: 'node:22-alpine'
+    id: 'test-gateway-api'
+    waitFor: ['-']
+    dir: 'apps/gateway-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [gateway-api] Installing dependencies ==="
+        npm ci --prefer-offline
+        echo "=== [gateway-api] Running tests ==="
+        NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --verbose 2>&1
+        echo "=== [gateway-api] All tests PASSED ==="
+
+  # ---------------------------------------------------------------------------
+  # users-api — Node.js
+  # ---------------------------------------------------------------------------
+  - name: 'node:22-alpine'
+    id: 'test-users-api'
+    waitFor: ['-']
+    dir: 'apps/users-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== [users-api] Installing dependencies ==="
+        npm ci --prefer-offline
+        echo "=== [users-api] Running tests ==="
+        NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --verbose 2>&1
+        echo "=== [users-api] All tests PASSED ==="
+
+  # ===========================================================================
+  # PHASE 2 — GATE
+  # Waits for every test step. If any earlier step failed this step is never
+  # reached and the build is already marked FAILED by Cloud Build.
+  # ===========================================================================
+
+  - name: 'alpine'
+    id: 'tests-gate'
+    waitFor:
+      - 'test-document-reader'
+      - 'test-frontend'
+      - 'test-gateway-api'
+      - 'test-users-api'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        echo "All tests passed (commit $_SHORT_SHA). Proceeding with build and deployment."
+
+  # ===========================================================================
+  # PHASE 3 — BUILD & PUSH
+  # Images are built and pushed to the container registry in parallel.
+  # Each step waits for the gate (tests-gate) to ensure all tests passed first.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # document-reader  — build context: repo root
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-document-reader'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/document-reader"
+        echo "=== [document-reader] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/document-reader/Dockerfile \
+          .
+        echo "=== [document-reader] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [document-reader] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # frontend  — build context: apps/frontend (self-contained, no shared/ deps)
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-frontend'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/frontend"
+        echo "=== [frontend] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/frontend/Dockerfile \
+          apps/frontend
+        echo "=== [frontend] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [frontend] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # gateway-api  — build context: apps/gateway-api (no shared/ deps in image)
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-gateway-api'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/gateway-api"
+        echo "=== [gateway-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/gateway-api/Dockerfile \
+          apps/gateway-api
+        echo "=== [gateway-api] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [gateway-api] Image pushed ==="
+
+  # ---------------------------------------------------------------------------
+  # users-api  — build context: repo root (Dockerfile references shared/ libs)
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-push-users-api'
+    waitFor: ['tests-gate']
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        set -e
+        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/users-api"
+        echo "=== [users-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        docker build \
+          -t "$${IMAGE}:$_COMMIT_SHA" \
+          -t "$${IMAGE}:latest" \
+          -f apps/users-api/Dockerfile \
+          .
+        echo "=== [users-api] Pushing image ==="
+        docker push "$${IMAGE}:$_COMMIT_SHA"
+        docker push "$${IMAGE}:latest"
+        echo "=== [users-api] Image pushed ==="
+
+  # ===========================================================================
+  # PHASE 4 — DEPLOY
+  # Each service is deployed to Cloud Run after its own image has been pushed.
+  # Deploy steps run in parallel across services (each waits for its own push).
+  #
+  # Adjust Cloud Run flags (--memory, --cpu, --min-instances, --max-instances,
+  # --concurrency, --service-account, --set-env-vars, etc.) as required per
+  # service before going to production.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # document-reader
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-document-reader'
+    waitFor: ['build-push-document-reader']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'document-reader'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$_PROJECT_ID/document-reader:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8004'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # frontend
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-frontend'
+    waitFor: ['build-push-frontend']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'frontend'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$_PROJECT_ID/frontend:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '80'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # gateway-api
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-gateway-api'
+    waitFor: ['build-push-gateway-api']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'gateway-api'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$_PROJECT_ID/gateway-api:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '3000'
+      - '--quiet'
+
+  # ---------------------------------------------------------------------------
+  # users-api
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-users-api'
+    waitFor: ['build-push-users-api']
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'users-api'
+      - '--image'
+      - '$_IMAGE_REGISTRY/$_PROJECT_ID/users-api:$_COMMIT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8005'
+      - '--quiet'
