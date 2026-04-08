@@ -33,7 +33,7 @@ This document covers provisioning GCP resources and deploying Elastic Resume Bas
 | Document Reader | Cloud Run | `--min-instances=0` |
 | DLQ Notifier | Cloud Run | `--min-instances=0`, triggered via Pub/Sub push |
 | Database | Firestore (Native mode) | |
-| Messaging | Cloud Pub/Sub | Topics: `resume-ingested`, `resume-indexed`, `dead-letter-queue` |
+| Messaging | Cloud Pub/Sub | Topics: `resume-ingested`, `resume-extracted`, `resume-indexed`, `dead-letter-queue` |
 | Secrets | Cloud KMS | Key ring: `elastic-resume-keyring`, Key: `resume-pii-key` |
 | Auth | Firebase Authentication | Google SSO provider enabled |
 | Frontend | Firebase Hosting | |
@@ -47,27 +47,28 @@ Create topics and push subscriptions before deploying services:
 ```bash
 # Create topics
 gcloud pubsub topics create resume-ingested
+gcloud pubsub topics create resume-extracted
 gcloud pubsub topics create resume-indexed
 gcloud pubsub topics create dead-letter-queue
 
 # Push subscription for AI Worker
 gcloud pubsub subscriptions create ai-worker-sub \
-  --topic=resume-ingested \
-  --push-endpoint=https://<ai-worker-url>/api/v1/pubsub/push \
+  --topic=resume-extracted \
+  --push-endpoint=https://<ai-worker-url>/pubsub/push \
   --dead-letter-topic=dead-letter-queue \
   --max-delivery-attempts=5
 
 # Push subscription for Search Base indexing
 gcloud pubsub subscriptions create search-index-sub \
   --topic=resume-indexed \
-  --push-endpoint=https://<search-base-url>/api/v1/pubsub/push \
+  --push-endpoint=https://<search-base-url>/pubsub/push \
   --dead-letter-topic=dead-letter-queue \
   --max-delivery-attempts=5
 
 # Push subscription for DLQ Notifier
 gcloud pubsub subscriptions create dlq-notifier-sub \
   --topic=dead-letter-queue \
-  --push-endpoint=https://<dlq-notifier-url>/api/v1/pubsub/push
+  --push-endpoint=https://<dlq-notifier-url>/pubsub/push
 ```
 
 Replace `<ai-worker-url>`, `<search-base-url>`, and `<dlq-notifier-url>` with the Cloud Run service URLs obtained after the initial deployment.
@@ -95,28 +96,23 @@ docker build -t $REGISTRY/users-api:latest \
 docker push $REGISTRY/users-api:latest
 
 # Build and push Python services (repeat for each)
-docker build -t $REGISTRY/ingestor-service:latest \
-  -f apps/ingestor-api/Dockerfile .
+docker build -t $REGISTRY/ingestor-service:latest ingestor-service/
 docker push $REGISTRY/ingestor-service:latest
 
-docker build -t $REGISTRY/ai-worker:latest \
-  -f apps/ai-worker/Dockerfile .
+docker build -t $REGISTRY/ai-worker:latest ai-worker/
 docker push $REGISTRY/ai-worker:latest
 
-docker build -t $REGISTRY/search-base:latest \
-  -f apps/search-base/Dockerfile .
+docker build -t $REGISTRY/search-base:latest search-base/
 docker push $REGISTRY/search-base:latest
 
-docker build -t $REGISTRY/file-generator:latest \
-  -f apps/file-generator/Dockerfile .
+docker build -t $REGISTRY/file-generator:latest file-generator/
 docker push $REGISTRY/file-generator:latest
 
 docker build -t $REGISTRY/document-reader:latest \
   -f apps/document-reader/Dockerfile .
 docker push $REGISTRY/document-reader:latest
 
-docker build -t $REGISTRY/dlq-notifier:latest \
-  -f apps/dlq-notifier/Dockerfile .
+docker build -t $REGISTRY/dlq-notifier:latest dlq-notifier/
 docker push $REGISTRY/dlq-notifier:latest
 ```
 
@@ -172,7 +168,7 @@ Grant the following IAM roles to the Cloud Run service accounts:
 | Search Base | `roles/datastore.user`, `roles/pubsub.subscriber`, `roles/aiplatform.user`, `roles/cloudkms.cryptoKeyDecrypter` |
 | File Generator | `roles/datastore.user`, `roles/cloudtranslate.user`, `roles/cloudkms.cryptoKeyDecrypter` |
 | Document Reader | `roles/cloudvision.user` |
-| DLQ Notifier | `roles/pubsub.subscriber`, `roles/datastore.user` |
+| DLQ Notifier | `roles/pubsub.subscriber` |
 | Gateway | `roles/firebase.sdkAdminServiceAgent` |
 | Users API | `roles/datastore.user`, `roles/drive.readonly` (via service account key) |
 

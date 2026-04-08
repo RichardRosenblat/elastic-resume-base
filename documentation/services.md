@@ -102,35 +102,19 @@ A Python/FastAPI service responsible for processing dead-letter-queue messages a
 
 See [apps/dlq-notifier/README.md](../apps/dlq-notifier/README.md) for full API documentation.
 
-### Search Base (✅ Implemented)
+---
 
-A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 1 (to keep the in-memory index warm), activated through API calls from the Gateway API (for search queries) and through Pub/Sub (when new embeddings are indexed).
+## Planned Services
 
-- Subscribes to `resume-indexed` Pub/Sub events; fetches embedding vectors from Firestore and adds them to the in-process FAISS index
-- Supports multiple embedding types per resume (`fullText`, `skills`, and field-specific embeddings)
-- Exposes a `GET /api/v1/search?q=...` endpoint; generates a query embedding via Vertex AI and performs FAISS similarity search
-- Aggregates results by `resume_id`, selecting the best score across all embedding types
-- Decrypts PII fields using Cloud KMS before returning results
-- Optionally persists the FAISS index to disk (`FAISS_INDEX_PATH`) for survival across restarts; rebuilds from Firestore on startup when no persisted index is found
-- Marks each indexed resume in Firestore with `metadata.searchIndexInfo.faissIndexedAt`
-- **Port:** 8002
-- **Pub/Sub topics:** consumes `resume-indexed`, publishes to `dead-letter-queue`
+> The following services are part of the target architecture but have not yet been implemented.
 
-See [apps/search-base/README.md](../apps/search-base/README.md) for full API documentation.
+### Search Base (🔄 Planned)
 
-### File Generator (✅ Implemented)
+A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API (for search queries) and through Pub/Sub (when new embeddings are indexed).
 
-A Python service responsible for generating resume documents on demand. Downloads and processes data from Firestore to render the final resume documents. Handles translation via Google Cloud Translation API, caching results in Firestore to reduce API calls. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
+### File Generator (🔄 Planned)
 
-- Receives `POST /resumes/{resume_id}/generate` requests with optional language and format parameters
-- Retrieves structured resume JSON from Firestore and decrypts PII fields using Cloud KMS
-- Fetches the `.docx` Jinja2 template from Google Drive via Bugle's `DriveService`
-- Optionally translates resume content via Google Cloud Translation API (with results cached in the `translation-cache` Firestore collection using LFU-decay eviction)
-- Renders the template with `docxtpl` and returns the document as a base64-encoded string in the JSON response
-- **No generated files are persisted** (per ADR-007) — document content is returned in-memory only
-- **Port:** 8003
-
-See [apps/file-generator/README.md](../apps/file-generator/README.md) for full API documentation.
+A Python service responsible for generating resume documents and handling translations. Downloads and processes data from Firestore to render the final resume documents. Handles translation via Google Cloud Translation API, caching results in Firestore to reduce API calls. Hosted on Cloud Run, minimum instance set to 0, activated through API calls from the Gateway API.
 
 ---
 

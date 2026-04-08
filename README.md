@@ -63,8 +63,8 @@ This repository is under active development. The following table summarizes what
 | **Frontend SPA** | ✅ Implemented | React + TypeScript SPA with Firebase Auth, i18n, MUI, and feature flags |
 | **Ingestor Service** | ✅ Implemented | Pub/Sub pipeline, PDF/DOCX text extraction, Google Sheets/Drive integration (port 8001) |
 | **AI Worker** | ✅ Implemented | Vertex AI extraction (Gemini 1.5 Flash), multilingual text embeddings, Firestore persistence (port 8006) |
-| **Search Base** | ✅ Implemented | FAISS vector index with multi-embedding support, semantic search, PII decryption via KMS (port 8002) |
-| **File Generator** | ✅ Implemented | Renders .docx resume documents from Firestore data, Cloud Translation with caching, KMS PII decryption (port 8003) |
+| **Search Base** | 🔄 Planned | Not yet implemented |
+| **File Generator** | 🔄 Planned | Not yet implemented |
 | **Document Reader** | ✅ Implemented | OCR and structured data extraction from Brazilian documents using Cloud Vision API (port 8004) |
 | **DLQ Notifier** | ✅ Implemented | Monitors Dead Letter Queue, stores notifications in Firestore, sends email alerts (port 8007) |
 
@@ -76,32 +76,52 @@ This repository is under active development. The following table summarizes what
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Client Layer                         │
-│              Frontend SPA (Firebase Hosting)                │
+│                     Client / Frontend                       │
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTPS / Firebase ID Token
 ┌────────────────────────▼────────────────────────────────────┐
 │              Gateway (Node.js – Cloud Run)                  │
 │          Verifies token · Calls Users API · RBAC            │
-└──┬──────┬───────┬──────┬──────┬───────────────┬────────────┘
-   │      │       │      │      │               │
-   ▼      ▼       ▼      ▼      ▼               ▼
-Users  Ingestor Search  File  Document       DLQ
-API    (Python) Base  Generator  Reader     Notifier
-(Node) (8001) (Python) (Python) (Python)   (Python)
-                (8002)  (8003)   (8004)      (8007)
-         │       ▲
-  Pub/Sub│       │Pub/Sub
-         ▼       │
-     AI Worker ──┘
-     (Python)
-     (8006)
-         │
-         ▼
-  Firestore (via Synapse)
-  Cloud KMS (PII encryption)
-  Vertex AI (Gemini + Embeddings)
+└────────────────────────┬────────────────────────────────────┘
+                         │ Internal HTTP
+┌────────────────────────▼────────────────────────────────────┐
+│               Users API (Node.js – Cloud Run)               │
+│  Authorization logic · User CRUD · Pre-approval management  │
+└────────────────────────┬────────────────────────────────────┘
+                         │ Synapse (persistence abstraction)
+              ┌──────────▼──────────┐
+              │  Firestore (NoSQL)  │
+              │  + Cloud KMS (PII)  │
+              └─────────────────────┘
 ```
+
+### Full Target Architecture (Planned)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Layer                         │
+│              Frontend SPA (Firebase Hosting)                │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTPS / TLS
+┌────────────────────────▼────────────────────────────────────┐
+│              Gateway (Node.js – Cloud Run)                  │
+└──┬─────────┬──────────┬──────────┬──────────┬──────────────┘
+   │         │          │          │          │
+   ▼         ▼          ▼          ▼          ▼
+Users API Ingestor  Search Base  File Gen  Doc Reader
+(Node.js) (Python)  (Python)     (Python)  (Python)
+              │         ▲
+       Pub/Sub│         │Pub/Sub
+              ▼         │
+          AI Worker ────┘
+          (Python – Vertex AI)
+              │
+              ▼
+    Firestore (via Synapse)
+    Cloud KMS (PII encryption)
+```
+
+All inter-service communication is asynchronous via **Cloud Pub/Sub** where applicable. All data at rest is encrypted, with PII fields secured through **Cloud KMS**.
 
 ---
 
@@ -114,8 +134,8 @@ API    (Python) Base  Generator  Reader     Notifier
 | **Frontend SPA** | React + TypeScript | ✅ Implemented | User interface hosted on Firebase Hosting; integrates with Gateway |
 | **Ingestor Service** | Python | ✅ Implemented | Downloads resumes from Google Sheets/Drive, extracts text from PDF/DOCX, publishes to Pub/Sub |
 | **AI Worker** | Python | ✅ Implemented | Extracts structured JSON and generates embeddings using Vertex AI |
-| **Search Base** | Python | ✅ Implemented | Manages FAISS index and handles semantic vector search queries |
-| **File Generator** | Python | ✅ Implemented | Generates resume documents and handles translation via Cloud Translation |
+| **Search Base** | Python | 🔄 Planned | Manages FAISS index and handles semantic vector search queries |
+| **File Generator** | Python | 🔄 Planned | Generates resume documents and handles translation via Cloud Translation |
 | **Document Reader** | Python | ✅ Implemented | OCR processing of scanned documents and field extraction using Cloud Vision API |
 | **DLQ Notifier** | Python | ✅ Implemented | Monitors Dead Letter Queue and sends failure alerts; stores notifications in Firestore |
 
@@ -150,7 +170,7 @@ Ensure you have the following tools installed locally:
 
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
 - [Node.js](https://nodejs.org/) v22+ (for the Gateway and Users API)
-- [Python](https://www.python.org/downloads/) v3.11+ (for Python microservices)
+- [Python](https://www.python.org/downloads/) v3.11+ (for future Python microservices)
 - [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
 
@@ -230,22 +250,18 @@ The following local endpoints will be available:
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
+| Document Reader | http://localhost:8004 |
+| Document Reader API Docs (Swagger) | http://localhost:8004/docs |
+| Ingestor API | http://localhost:8001 |
+| Ingestor API Docs (Swagger) | http://localhost:8001/docs |
+| AI Worker | http://localhost:8006 |
+| AI Worker API Docs (Swagger) | http://localhost:8006/docs |
+| DLQ Notifier | http://localhost:8007 |
+| DLQ Notifier API Docs (Swagger) | http://localhost:8007/docs |
 | Gateway | http://localhost:3000 |
 | Gateway API Docs (Swagger) | http://localhost:3000/api/v1/docs |
 | Users API | http://localhost:8005 |
 | Users API Docs (Swagger) | http://localhost:8005/api/v1/docs |
-| Ingestor API | http://localhost:8001 |
-| Ingestor API Docs (Swagger) | http://localhost:8001/docs |
-| Search Base | http://localhost:8002 |
-| Search Base API Docs (Swagger) | http://localhost:8002/docs |
-| File Generator | http://localhost:8003 |
-| File Generator API Docs (Swagger) | http://localhost:8003/docs |
-| Document Reader | http://localhost:8004 |
-| Document Reader API Docs (Swagger) | http://localhost:8004/docs |
-| AI Worker | http://localhost:8006 |
-| AI Worker API Docs (Swagger) | http://localhost:8006/docs |
-| DLQ Notifier | http://localhost:8007 |
-| DLQ Notifier API Docs (Swagger) | http://localhost:8007/api/v1/docs |
 | Firebase Emulator UI | http://localhost:4000 |
 | Firebase Auth Emulator | http://localhost:9099 |
 | Firestore Emulator | http://localhost:8080 |
@@ -270,19 +286,11 @@ elastic-resume-base/
 │   │   ├── src/
 │   │   ├── Dockerfile
 │   │   └── package.json
-│   ├── ingestor-api/              # ✅ Python Ingestor Service (FastAPI, port 8001)
-│   │   ├── app/
-│   │   ├── Dockerfile
-│   │   └── pyproject.toml
-│   ├── search-base/               # ✅ Python Search Base (FastAPI + FAISS, port 8002)
-│   │   ├── app/
-│   │   ├── Dockerfile
-│   │   └── pyproject.toml
-│   ├── file-generator/            # ✅ Python File Generator (FastAPI, port 8003)
-│   │   ├── app/
-│   │   ├── Dockerfile
-│   │   └── pyproject.toml
 │   ├── document-reader/           # ✅ Python Document Reader (FastAPI, port 8004)
+│   │   ├── app/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   ├── ingestor-api/              # ✅ Python Ingestor Service (FastAPI, port 8001)
 │   │   ├── app/
 │   │   ├── Dockerfile
 │   │   └── pyproject.toml
@@ -350,7 +358,7 @@ elastic-resume-base/
 | [Frontend Coding Standards](documentation/coding-standards/frontend-coding-standards.md) | React/TypeScript style guide and best practices for the frontend SPA |
 | [Python Coding Standards](documentation/coding-standards/python-coding-standards.md) | Python style guide and best practices |
 | [Shared Library Standards](documentation/coding-standards/shared-libraries-standards.md) | Coding standards for internal TypeScript packages |
-| [Frontend README](apps/frontend/README.md) | Frontend SPA setup, environment variables, and development guide |
+| [Frontend README](frontend/README.md) | Frontend SPA setup, environment variables, and development guide |
 | [Contributing](CONTRIBUTING.md) | How to contribute to this project |
 | [Security](SECURITY.md) | Security policy and vulnerability reporting |
 

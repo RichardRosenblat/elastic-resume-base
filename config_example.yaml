@@ -74,12 +74,6 @@ systems:
     # Timeout (milliseconds) applied to every downstream service call
     REQUEST_TIMEOUT_MS: "30000"
 
-    # Service registry — downstream health tracking
-    # A downstream service is considered "warm" if it was seen alive within this window (ms).
-    DOWNSTREAM_WARM_TTL_MS: "300000"
-    # How often (ms) the gateway re-probes services that have gone cold.
-    DOWNSTREAM_HEALTH_REFRESH_INTERVAL_MS: "3600000"
-
     # Downstream microservice base URLs (Docker Compose service names)
     INGESTOR_SERVICE_URL: "http://ingestor-service:8001"
     SEARCH_BASE_SERVICE_URL: "http://search-base:8002"
@@ -199,8 +193,6 @@ systems:
     HTTP_REQUEST_TIMEOUT: 120
     # Maximum number of API requests accepted from a single client IP per minute.
     RATE_LIMIT_PER_MINUTE: 60
-    # Maximum number of resumes processed concurrently during a single ingest batch.
-    INGEST_CONCURRENCY: 10
 
   # ---------------------------------------------------------------------------
   # AI Worker (Python — Pub/Sub triggered)
@@ -320,27 +312,6 @@ systems:
     # directing users to contact support.  Adjust to match your GCP quota.
     VISION_API_RATE_LIMIT: "60"
 
-    # Vision API request timeout in seconds.
-    VISION_API_TIMEOUT: "30"
-
-    # Maximum number of retries for a single Vision API call before giving up.
-    VISION_API_MAX_RETRIES: "3"
-
-    # Delay in seconds between Vision API retry attempts.
-    VISION_API_RETRY_DELAY: "1.0"
-
-    # Maximum dimension (width or height, in pixels) to which document images
-    # are resized before being sent to the Vision API.  Larger images are
-    # downscaled; smaller images are left unchanged.
-    VISION_API_IMAGE_MAX_DIMENSION: "3000"
-
-    # DPI used when rendering PDF pages to images for Vision API processing.
-    VISION_API_PDF_DPI: "200"
-
-    # Maximum seconds a single HTTP request to this service may take.
-    # Health endpoints are excluded from this limit.
-    HTTP_REQUEST_TIMEOUT: "60"
-
     # Logging verbosity (debug | info | warning | error | critical).
     # Inherited from systems.shared.LOG_LEVEL — override here for more
     # verbose OCR debugging without flooding the rest of the platform.
@@ -375,7 +346,3 @@ systems:
 
     # Number of days after which old notifications are automatically purged.
     NOTIFICATION_TTL_DAYS: "30"
-
-    # Maximum seconds a single HTTP request to this service may take before timeout.
-    # Health endpoints are excluded from this limit.
-    HTTP_REQUEST_TIMEOUT: "300"

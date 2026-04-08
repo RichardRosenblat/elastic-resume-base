@@ -164,24 +164,16 @@ All configuration is loaded from `config.yaml` (merged from `systems.shared` and
 | `PORT` | `3000` | HTTP port |
 | `NODE_ENV` | `development` | Environment mode (`development`, `production`, `test`) |
 | `FIREBASE_PROJECT_ID` | `demo-elastic-resume-base` | Firebase project ID for token verification |
-| `GCP_PROJECT_ID` | `demo-elastic-resume-base` | GCP project ID |
 | `USER_API_SERVICE_URL` | `http://localhost:8005` | Base URL for the Users API |
-| `INGESTOR_SERVICE_URL` | `http://localhost:8001` | Base URL for the Ingestor service |
-| `SEARCH_BASE_SERVICE_URL` | `http://localhost:8002` | Base URL for the Search Base service |
-| `FILE_GENERATOR_SERVICE_URL` | `http://localhost:8003` | Base URL for the File Generator service |
 | `DOCUMENT_READER_SERVICE_URL` | `http://localhost:8004` | Base URL for the Document Reader service |
-| `DLQ_NOTIFIER_SERVICE_URL` | `http://localhost:8007` | Base URL for the DLQ Notifier service |
+| `SEARCH_SERVICE_URL` | `http://localhost:8001` | Base URL for the Search service |
+| `FILE_GENERATOR_SERVICE_URL` | `http://localhost:8002` | Base URL for the File Generator service |
+| `INGESTOR_SERVICE_URL` | `http://localhost:8003` | Base URL for the Downloader service |
 | `FIRESTORE_EMULATOR_HOST` | — | Firestore emulator host (e.g. `localhost:8080`) |
 | `FIREBASE_AUTH_EMULATOR_HOST` | — | Firebase Auth emulator host (e.g. `localhost:9099`) |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
 | `LOG_LEVEL` | `info` | Pino log level |
 | `REQUEST_TIMEOUT_MS` | `30000` | Downstream request timeout in milliseconds |
-| `RATE_LIMIT_MAX` | `1000` | Max requests per time window (global) |
-| `RATE_LIMIT_TIME_WINDOW` | `15 minutes` | Rate-limit window duration |
-| `API_V1_RATE_LIMIT_MAX` | `1000` | Max requests per time window for `/api/v1` routes |
-| `API_V1_RATE_LIMIT_TIME_WINDOW` | `15 minutes` | Rate-limit window for `/api/v1` routes |
-| `DOWNSTREAM_WARM_TTL_MS` | `300000` | TTL (ms) for considering a downstream service "warm" |
-| `DOWNSTREAM_HEALTH_REFRESH_INTERVAL_MS` | `3600000` | Interval (ms) for re-probing cold downstream services |
 
 ## Running Tests
 
