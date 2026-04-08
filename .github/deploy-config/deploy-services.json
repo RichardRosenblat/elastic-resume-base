@@ -1,15 +1,5 @@
 [
   {
-    "id": "ai-worker",
-    "name": "AI Worker",
-    "path": "apps/ai-worker",
-    "runner": "python",
-    "dockerfile": "apps/ai-worker/Dockerfile",
-    "buildContext": ".",
-    "cloudRunService": "ai-worker",
-    "port": 8006
-  },
-  {
     "id": "document-reader",
     "name": "Document Reader",
     "path": "apps/document-reader",
@@ -20,14 +10,14 @@
     "port": 8004
   },
   {
-    "id": "file-generator",
-    "name": "File Generator",
-    "path": "apps/file-generator",
-    "runner": "python",
-    "dockerfile": "apps/file-generator/Dockerfile",
-    "buildContext": ".",
-    "cloudRunService": "file-generator",
-    "port": 8003
+    "id": "frontend",
+    "name": "Frontend",
+    "path": "apps/frontend",
+    "runner": "node",
+    "dockerfile": "apps/frontend/Dockerfile",
+    "buildContext": "apps/frontend",
+    "cloudRunService": "frontend",
+    "port": 80
   },
   {
     "id": "gateway-api",
@@ -38,16 +28,6 @@
     "buildContext": "apps/gateway-api",
     "cloudRunService": "gateway-api",
     "port": 3000
-  },
-  {
-    "id": "ingestor-api",
-    "name": "Ingestor API",
-    "path": "apps/ingestor-api",
-    "runner": "python",
-    "dockerfile": "apps/ingestor-api/Dockerfile",
-    "buildContext": ".",
-    "cloudRunService": "ingestor-api",
-    "port": 8001
   },
   {
     "id": "users-api",

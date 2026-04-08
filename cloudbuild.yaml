@@ -57,24 +57,6 @@ steps:
   # ===========================================================================
 
   # ---------------------------------------------------------------------------
-  # ai-worker — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-ai-worker'
-    waitFor: ['-']
-    dir: 'apps/ai-worker'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [ai-worker] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [ai-worker] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [ai-worker] All tests PASSED ==="
-
-  # ---------------------------------------------------------------------------
   # document-reader — Python
   # ---------------------------------------------------------------------------
   - name: 'python:3.11-slim'
@@ -93,40 +75,22 @@ steps:
         echo "=== [document-reader] All tests PASSED ==="
 
   # ---------------------------------------------------------------------------
-  # file-generator — Python
+  # document-reader — Python
   # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-file-generator'
+  - name: 'node:22-alpine'
+    id: 'test-frontend'
     waitFor: ['-']
-    dir: 'apps/file-generator'
+    dir: 'apps/frontend'
     entrypoint: sh
     args:
       - '-c'
       - |
         set -e
-        echo "=== [file-generator] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [file-generator] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [file-generator] All tests PASSED ==="
-
-  # ---------------------------------------------------------------------------
-  # ingestor-api — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-ingestor-api'
-    waitFor: ['-']
-    dir: 'apps/ingestor-api'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [ingestor-api] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [ingestor-api] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [ingestor-api] All tests PASSED ==="
+        echo "=== [frontend] Installing dependencies ==="
+        npm ci --prefer-offline
+        echo "=== [frontend] Running tests ==="
+        npm test 2>&1
+        echo "=== [frontend] All tests PASSED ==="
 
   # ---------------------------------------------------------------------------
   # gateway-api — Node.js
@@ -173,10 +137,8 @@ steps:
   - name: 'alpine'
     id: 'tests-gate'
     waitFor:
-      - 'test-ai-worker'
       - 'test-document-reader'
-      - 'test-file-generator'
-      - 'test-ingestor-api'
+      - 'test-frontend'
       - 'test-gateway-api'
       - 'test-users-api'
     entrypoint: sh
@@ -190,29 +152,6 @@ steps:
   # Images are built and pushed to the container registry in parallel.
   # Each step waits for the gate (tests-gate) to ensure all tests passed first.
   # ===========================================================================
-
-  # ---------------------------------------------------------------------------
-  # ai-worker  — build context: repo root (Dockerfile references shared/ libs)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-ai-worker'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/ai-worker"
-        echo "=== [ai-worker] Building image $${IMAGE}:$_SHORT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/ai-worker/Dockerfile \
-          .
-        echo "=== [ai-worker] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [ai-worker] Image pushed ==="
 
   # ---------------------------------------------------------------------------
   # document-reader  — build context: repo root
@@ -238,50 +177,27 @@ steps:
         echo "=== [document-reader] Image pushed ==="
 
   # ---------------------------------------------------------------------------
-  # file-generator  — build context: repo root
+  # frontend  — build context: apps/frontend (self-contained, no shared/ deps)
   # ---------------------------------------------------------------------------
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-file-generator'
+    id: 'build-push-frontend'
     waitFor: ['tests-gate']
     entrypoint: sh
     args:
       - '-c'
       - |
         set -e
-        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/file-generator"
-        echo "=== [file-generator] Building image $${IMAGE}:$_SHORT_SHA ==="
+        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/frontend"
+        echo "=== [frontend] Building image $${IMAGE}:$_SHORT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
-          -f apps/file-generator/Dockerfile \
-          .
-        echo "=== [file-generator] Pushing image ==="
+          -f apps/frontend/Dockerfile \
+          apps/frontend
+        echo "=== [frontend] Pushing image ==="
         docker push "$${IMAGE}:$_COMMIT_SHA"
         docker push "$${IMAGE}:latest"
-        echo "=== [file-generator] Image pushed ==="
-
-  # ---------------------------------------------------------------------------
-  # ingestor-api  — build context: repo root
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-ingestor-api'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$PROJECT_ID/ingestor-api"
-        echo "=== [ingestor-api] Building image $${IMAGE}:$_SHORT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/ingestor-api/Dockerfile \
-          .
-        echo "=== [ingestor-api] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [ingestor-api] Image pushed ==="
+        echo "=== [frontend] Image pushed ==="
 
   # ---------------------------------------------------------------------------
   # gateway-api  — build context: apps/gateway-api (no shared/ deps in image)
@@ -340,27 +256,6 @@ steps:
   # ===========================================================================
 
   # ---------------------------------------------------------------------------
-  # ai-worker
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-ai-worker'
-    waitFor: ['build-push-ai-worker']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'ai-worker'
-      - '--image'
-      - '$_IMAGE_REGISTRY/$PROJECT_ID/ai-worker:$_COMMIT_SHA'
-      - '--region'
-      - '$_REGION'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '8006'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
   # document-reader
   # ---------------------------------------------------------------------------
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -382,45 +277,24 @@ steps:
       - '--quiet'
 
   # ---------------------------------------------------------------------------
-  # file-generator
+  # frontend
   # ---------------------------------------------------------------------------
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-file-generator'
-    waitFor: ['build-push-file-generator']
+    id: 'deploy-frontend'
+    waitFor: ['build-push-frontend']
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'file-generator'
+      - 'frontend'
       - '--image'
-      - '$_IMAGE_REGISTRY/$PROJECT_ID/file-generator:$_COMMIT_SHA'
+      - '$_IMAGE_REGISTRY/$PROJECT_ID/frontend:$_COMMIT_SHA'
       - '--region'
       - '$_REGION'
       - '--platform'
       - 'managed'
       - '--port'
-      - '8003'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
-  # ingestor-api
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-ingestor-api'
-    waitFor: ['build-push-ingestor-api']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'ingestor-api'
-      - '--image'
-      - '$_IMAGE_REGISTRY/$PROJECT_ID/ingestor-api:$_COMMIT_SHA'
-      - '--region'
-      - '$_REGION'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '8001'
+      - '80'
       - '--quiet'
 
   # ---------------------------------------------------------------------------
