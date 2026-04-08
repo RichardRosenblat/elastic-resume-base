@@ -77,6 +77,9 @@ steps:
 
   # ---------------------------------------------------------------------------
   # frontend — Node.js (vitest)
+  # ---------------------------------------------------------------------------
+  - name: 'node:22-alpine'
+    id: 'test-frontend'
     waitFor: ['-']
     dir: 'apps/frontend'
     entrypoint: sh
@@ -175,27 +178,27 @@ steps:
         echo "=== [document-reader] Image pushed ==="
 
   # ---------------------------------------------------------------------------
-  # frontend  — build context: apps/frontend (self-contained, no shared/ deps)
+  # frontend  — static npm build (Firebase Hosting; no Docker image needed)
   # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-frontend'
+  - name: 'node:22-alpine'
+    id: 'build-frontend'
     waitFor: ['tests-gate']
+    dir: 'apps/frontend'
     entrypoint: sh
+    secretEnv:
+      - 'VITE_FIREBASE_API_KEY'
     args:
       - '-c'
       - |
         set -e
-        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/frontend"
-        echo "=== [frontend] Building image $${IMAGE}:$_SHORT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/frontend/Dockerfile \
-          apps/frontend
-        echo "=== [frontend] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [frontend] Image pushed ==="
+        echo "=== [frontend] Installing dependencies ==="
+        export VITE_GATEWAY_URL="https://gateway-api-xxxx-uc.a.run.app"
+        export VITE_FIREBASE_AUTH_DOMAIN="$_PROJECT_ID.firebaseapp.com"
+        export FIREBASE_PROJECT_ID="$_PROJECT_ID"
+        export VITE_FEATURE_DOCUMENT_READ="true"
+        export VITE_FEATURE_USER_MANAGEMENT="true"
+        npm ci && npm run build
+        echo "=== [frontend] Static build complete ==="
 
   # ---------------------------------------------------------------------------
   # gateway-api  — build context: apps/gateway-api (no shared/ deps in image)
@@ -264,36 +267,35 @@ steps:
       - 'run'
       - 'deploy'
       - 'document-reader'
-      - '--image'
-      - '$_IMAGE_REGISTRY/$_PROJECT_ID/document-reader:$_COMMIT_SHA'
-      - '--region'
-      - '$_REGION'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '8004'
+      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/document-reader:$_COMMIT_SHA'
+      - '--region=$_REGION'
+      - '--platform=managed'
+      - '--port=8004'
+      - '--allow-unauthenticated'
+      - '--service-account=cloud-run-runtime@$_PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO,MAX_FILE_SIZE_MB=10'
       - '--quiet'
 
   # ---------------------------------------------------------------------------
-  # frontend
+  # frontend — Firebase Hosting deploy
   # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: 'node:22-alpine'
     id: 'deploy-frontend'
-    waitFor: ['build-push-frontend']
-    entrypoint: gcloud
+    waitFor: ['build-frontend']
+    dir: '.'
+    entrypoint: sh
+    secretEnv:
+      - 'FIREBASE_DEPLOY_TOKEN'
     args:
-      - 'run'
-      - 'deploy'
-      - 'frontend'
-      - '--image'
-      - '$_IMAGE_REGISTRY/$_PROJECT_ID/frontend:$_COMMIT_SHA'
-      - '--region'
-      - '$_REGION'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '80'
-      - '--quiet'
+      - '-c'
+      - |
+        set -e
+        echo "=== [frontend] Installing Firebase CLI ==="
+        npm install -g firebase-tools
+        echo "=== [frontend] Deploying to Firebase Hosting ==="
+        firebase deploy --only hosting --project $_PROJECT_ID --non-interactive \
+          --token "$$FIREBASE_DEPLOY_TOKEN"
+        echo "=== [frontend] Firebase Hosting deploy complete ==="
 
   # ---------------------------------------------------------------------------
   # gateway-api
@@ -306,14 +308,13 @@ steps:
       - 'run'
       - 'deploy'
       - 'gateway-api'
-      - '--image'
-      - '$_IMAGE_REGISTRY/$_PROJECT_ID/gateway-api:$_COMMIT_SHA'
-      - '--region'
-      - '$_REGION'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '3000'
+      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/gateway-api:$_COMMIT_SHA'
+      - '--region=$_REGION'
+      - '--platform=managed'
+      - '--port=3000'
+      - '--allow-unauthenticated'
+      - '--service-account=cloud-run-runtime@$_PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID,DOCUMENT_READER_SERVICE_URL=https://document-reader-xxxx-uc.a.run.app,USER_API_SERVICE_URL=https://users-api-xxxx-uc.a.run.app,ALLOWED_ORIGINS=https://$_PROJECT_ID.web.app'
       - '--quiet'
 
   # ---------------------------------------------------------------------------
@@ -327,12 +328,19 @@ steps:
       - 'run'
       - 'deploy'
       - 'users-api'
-      - '--image'
-      - '$_IMAGE_REGISTRY/$_PROJECT_ID/users-api:$_COMMIT_SHA'
-      - '--region'
-      - '$_REGION'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '8005'
+      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/users-api:$_COMMIT_SHA'
+      - '--region=$_REGION'
+      - '--platform=managed'
+      - '--port=8005'
+      - '--allow-unauthenticated'
+      - '--service-account=cloud-run-runtime@$_PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID'
+      - '--update-secrets=BOOTSTRAP_ADMIN_USER_EMAIL=BOOTSTRAP_ADMIN_USER_EMAIL:latest,ONBOARDABLE_EMAIL_DOMAINS=ONBOARDABLE_EMAIL_DOMAINS:latest'
       - '--quiet'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$_PROJECT_ID/secrets/VITE_FIREBASE_API_KEY/versions/latest
+      env: 'VITE_FIREBASE_API_KEY'
+    - versionName: projects/$_PROJECT_ID/secrets/FIREBASE_DEPLOY_TOKEN/versions/latest
+      env: 'FIREBASE_DEPLOY_TOKEN'
