@@ -60,11 +60,13 @@ describe('Health Routes', () => {
     const oldTime = new Date(Date.now() - 600_000).toISOString(); // 10 min ago → cold
 
     it('returns 200 with service registry snapshot', async () => {
-      _setRegistryEntryForTest('usersApi', { live: true, lastSeenAlive: recentTime, lastChecked: now });
-      _setRegistryEntryForTest('downloader', { live: false, lastSeenAlive: oldTime, lastChecked: now });
-      _setRegistryEntryForTest('searchBase', { live: true, lastSeenAlive: recentTime, lastChecked: now });
-      _setRegistryEntryForTest('fileGenerator', { live: true, lastSeenAlive: recentTime, lastChecked: now });
-      _setRegistryEntryForTest('documentReader', { live: true, lastSeenAlive: recentTime, lastChecked: now });
+      // Set lastActiveProbeAttempt to now so ensureFreshHealth skips probing
+      // (cold services are only re-probed when the attempt timestamp is stale).
+      _setRegistryEntryForTest('usersApi', { live: true, lastSeenAlive: recentTime, lastChecked: now, lastActiveProbeAttempt: now });
+      _setRegistryEntryForTest('downloader', { live: false, lastSeenAlive: oldTime, lastChecked: now, lastActiveProbeAttempt: now });
+      _setRegistryEntryForTest('searchBase', { live: true, lastSeenAlive: recentTime, lastChecked: now, lastActiveProbeAttempt: now });
+      _setRegistryEntryForTest('fileGenerator', { live: true, lastSeenAlive: recentTime, lastChecked: now, lastActiveProbeAttempt: now });
+      _setRegistryEntryForTest('documentReader', { live: true, lastSeenAlive: recentTime, lastChecked: now, lastActiveProbeAttempt: now });
 
       const res = await app.inject({ method: 'GET', url: '/health/downstream' });
       expect(res.statusCode).toBe(200);

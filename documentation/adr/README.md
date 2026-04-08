@@ -73,3 +73,4 @@ ADRs are immutable once accepted. If a decision is reversed or superseded, a new
 | [ADR-013](ADR-013-firebase-authentication.md) | Use Firebase Authentication with Google SSO | Accepted |
 | [ADR-014](ADR-014-structured-logging-strategy.md) | Structured Logging Strategy (Pino + Python standard logging) | Accepted |
 | [ADR-015](ADR-015-docker-containerization.md) | Docker Containerization and Docker Compose for Local Development | Accepted |
+| [ADR-016](ADR-016-pull-based-downstream-health-probing.md) | Pull-Based Downstream Health Probing for Cloud Run | Accepted |
