@@ -109,7 +109,7 @@ export function observeFailure(serviceKey: string): void {
 /**
  * Ensures a registry entry exists for the given service key and URL.
  * Creates a "never seen" default entry if the key is not yet tracked.
- * `lastActiveProbeAttempt` is initialised to the epoch so that the first call
+ * `lastActiveProbeAttempt` is initialized to the epoch so that the first call
  * to `ensureFreshHealth` will always consider the entry stale.
  * Idempotent — safe to call multiple times.
  */
