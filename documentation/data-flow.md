@@ -63,11 +63,7 @@ Gateway → Users API → Firestore (via Synapse)
 
 ---
 
-## Planned Flows
-
-> The following flows describe the target architecture. These services have **not yet been implemented**.
-
-## Architecture Overview (Full Target)
+## Architecture Overview
 
 ```
                           ┌──────────────────────┐
@@ -99,41 +95,42 @@ Gateway → Users API → Firestore (via Synapse)
 
 ---
 
-## Resume Ingestion Flow (Planned)
+## Resume Ingestion Flow
 
-1. A recruiter triggers the Ingestor Service via the Gateway (`POST /api/v1/ingest`).
-2. The Ingestor downloads resumes from Google Sheets/Drive using Bugle's `DrivePermissionsService`.
+1. A recruiter triggers the Ingestor Service via the Gateway (`POST /api/v1/resumes/ingest`).
+2. The Ingestor downloads resumes from Google Sheets/Drive using Bugle's `DriveService`.
 3. The Ingestor stores raw resume text in Firestore (`resumes` collection, status: `INGESTED`).
 4. The Ingestor publishes `{ resumeId }` to the `resume-ingested` Pub/Sub topic.
 5. The AI Worker receives the message and retrieves the raw text from Firestore.
 6. The AI Worker calls Vertex AI Gemini 1.5 Flash to extract structured JSON fields from the raw text.
-7. The AI Worker calls Vertex AI `text-multilingual-embedding-002` to generate a semantic embedding vector.
-8. The AI Worker encrypts PII fields with Cloud KMS and writes the structured data and embedding to Firestore (status: `PROCESSED`).
+7. The AI Worker calls Vertex AI `text-multilingual-embedding-002` to generate semantic embedding vectors (`fullText`, `skills`, and field-specific).
+8. The AI Worker encrypts PII fields with Cloud KMS and writes the structured data and embeddings to Firestore (status: `PROCESSED`).
 9. The AI Worker publishes `{ resumeId }` to the `resume-indexed` Pub/Sub topic.
-10. The Search Base receives the message, fetches the embedding from Firestore, and adds the vector to the in-process FAISS index.
+10. The Search Base receives the message, fetches the embeddings from Firestore, and adds the vectors to the in-process FAISS index. It marks the resume in Firestore with `metadata.searchIndexInfo.faissIndexedAt`.
 
 > **Note:** Only the `resumeId` identifier is passed through Pub/Sub messages — never the full resume payload. Each stage fetches the data it needs directly from Firestore.
 
 ---
 
-## Search Query Flow (Planned)
+## Search Query Flow
 
 1. The frontend sends a search query to the Gateway (`GET /api/v1/search?q=...`).
 2. The Gateway forwards the authenticated request to the Search Base service.
 3. The Search Base generates a query embedding using Vertex AI `text-multilingual-embedding-002`.
-4. The Search Base runs a FAISS similarity search to find the top-k nearest resume vectors.
-5. The Search Base retrieves the full resume records from Firestore for the matched resume IDs.
-6. The Search Base decrypts PII fields using Cloud KMS.
-7. The ranked results flow back through the Gateway to the frontend.
+4. The Search Base runs a FAISS similarity search to find the top-k nearest resume vectors across all embedding types.
+5. Results are aggregated by `resume_id`, selecting the best score across embedding types.
+6. The Search Base retrieves the full resume records from Firestore for the matched resume IDs.
+7. The Search Base decrypts PII fields using Cloud KMS.
+8. The ranked results flow back through the Gateway to the frontend.
 
 ---
 
-## OCR Document Flow (Planned)
+## OCR Document Flow
 
 1. The frontend uploads a scanned document via `POST /api/v1/documents/ocr`.
 2. The Gateway forwards the request to the Document Reader service.
 3. The Document Reader calls the Google Cloud Vision API for OCR text extraction.
-4. The extracted text is returned directly to the caller.
+4. The extracted text is classified by Brazilian document type (RG, CTPS, PIS, etc.) and returned as a downloadable Excel workbook.
 
 > **No data is persisted** in the OCR flow — extracted text is returned in the response only.
 
@@ -143,22 +140,25 @@ Gateway → Users API → Firestore (via Synapse)
 
 1. Pub/Sub delivers a failed message to the `dead-letter-queue` topic after the maximum retry attempts are exhausted.
 2. The DLQ Notifier receives the dead-letter message via its push subscription.
-3. The DLQ Notifier extracts failure context (`resumeId`, `error`, `service`, `stage`, `errorType`) from the message payload.
+3. The DLQ Notifier stores a structured notification record in Firestore (`notifications` collection, 30-day TTL).
 4. The DLQ Notifier sends an email alert (including all available context) to the configured recipients (`NOTIFICATION_RECIPIENTS`).
-5. The operations team investigates and, if appropriate, re-publishes the message manually.
+5. Users and admins can view notifications via the frontend bell icon / notification panel (REST API proxied by Gateway).
+6. The operations team investigates and, if appropriate, re-publishes the message manually.
 
 > See [Troubleshooting](troubleshooting.md) for guidance on diagnosing and recovering from DLQ failures.
 
 ---
 
-## File Generation Flow (Planned)
+## File Generation Flow
 
-1. The frontend requests a resume document (`POST /api/v1/files/generate`).
+1. The frontend requests a resume document (`POST /api/v1/resumes/{resumeId}/generate`).
 2. The Gateway forwards the request to the File Generator service.
-3. The File Generator retrieves the structured resume JSON from Firestore.
+3. The File Generator retrieves the structured resume JSON from Firestore and decrypts PII fields via Cloud KMS.
 4. If a translation is requested, the File Generator calls the Google Cloud Translation API.
-5. The translated result is cached in the `translation-cache` Firestore collection to avoid redundant API calls.
-6. The File Generator renders the final document and returns it to the caller.
+5. The translated result is cached in the `translation-cache` Firestore collection (LFU-decay eviction, 10k entry limit) to avoid redundant API calls.
+6. The File Generator renders the `.docx` Jinja2 template (fetched from Google Drive via Bugle) using `docxtpl` and returns the document as base64-encoded JSON.
+
+> **No generated files are persisted** (per ADR-007) — document content is returned in-memory only.
 
 ---
 
@@ -168,11 +168,12 @@ Gateway → Users API → Firestore (via Synapse)
 |---|---|---|---|---|
 | User profiles and roles | Firestore `users` | Users API | Gateway, Users API | ✅ Implemented |
 | Pre-approved users | Firestore `pre_approved_users` | Users API | Users API | ✅ Implemented |
-| Raw resume text | Firestore `resumes` | Ingestor | AI Worker | 🔄 Planned |
-| Structured resume JSON | Firestore `resumes` | AI Worker | Search Base, File Generator | 🔄 Planned |
-| Embedding vectors | Firestore `resumes` | AI Worker | Search Base | 🔄 Planned |
-| Translation cache | Firestore `translation-cache` | File Generator | File Generator | 🔄 Planned |
-| FAISS index | In-memory (optional volume) | Search Base | Search Base | 🔄 Planned |
+| Raw resume text | Firestore `resumes` | Ingestor | AI Worker | ✅ Implemented |
+| Structured resume JSON | Firestore `resumes` | AI Worker | Search Base, File Generator | ✅ Implemented |
+| Embedding vectors | Firestore `embeddings` | AI Worker | Search Base | ✅ Implemented |
+| Translation cache | Firestore `translation-cache` | File Generator | File Generator | ✅ Implemented |
+| FAISS index | In-memory (optional volume) | Search Base | Search Base | ✅ Implemented |
+| DLQ notifications | Firestore `notifications` | DLQ Notifier | DLQ Notifier, Frontend | ✅ Implemented |
 
 ---
 

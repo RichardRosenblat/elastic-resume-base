@@ -119,9 +119,13 @@ Open `config.yaml` and fill in the values marked as empty strings — particular
 
 | Variable | Where | What to put |
 |----------|-------|-------------|
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | `systems.users-api` | Base64-encoded service account JSON key |
-| `ADMIN_SHEET_FILE_ID` | `systems.users-api` | Google Drive file ID (optional) |
-| `DLQ_SLACK_WEBHOOK_URL` | `systems.dlq-notifier` | Slack incoming webhook URL (optional) |
+| `FIREBASE_AUTH_DOMAIN` | `systems.shared` | Your Firebase auth domain, e.g. `<project-id>.firebaseapp.com` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `systems.shared` | Absolute path to your GCP service-account JSON key file (local dev only) |
+| `BOOTSTRAP_ADMIN_USER_EMAIL` | `systems.users-api` | Email address of the initial admin user |
+| `VITE_FIREBASE_API_KEY` | `systems.frontend` | Firebase Web SDK API key from the Firebase Console |
+| `DRIVE_TEMPLATE_FILE_ID` | `systems.file-generator` | Google Drive file ID for the `.docx` resume template (optional for local dev) |
+| `NOTIFICATION_RECIPIENTS` | `systems.dlq-notifier` | Comma-separated email addresses for DLQ failure alerts (optional) |
+| `SMTP_HOST` / `SMTP_FROM` | `systems.dlq-notifier` | SMTP server and sender address for email alerts (optional) |
 
 > **`config.yaml` is git-ignored.** Never commit it — it may contain credentials. The committed file is `config_example.yaml` (no secrets, safe defaults).
 
@@ -172,6 +176,20 @@ cd ../..
 
 # AI Worker
 cd apps/ai-worker
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements/requirements-dev.txt
+cd ../..
+
+# Search Base
+cd apps/search-base
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements/requirements-dev.txt
+cd ../..
+
+# File Generator
+cd apps/file-generator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/requirements-dev.txt
@@ -238,10 +256,12 @@ Once the stack is up, open these URLs in your browser:
 | Frontend SPA | http://localhost:5173 | Login page loads |
 | Gateway | http://localhost:3000/api/v1/docs | Swagger UI — all routes visible |
 | Users API | http://localhost:8005/api/v1/docs | Swagger UI — all routes visible |
-| Document Reader | http://localhost:8004/docs | Swagger UI — OCR routes visible |
 | Ingestor API | http://localhost:8001/docs | Swagger UI — ingest routes visible |
+| Search Base | http://localhost:8002/docs | Swagger UI — search routes visible |
+| File Generator | http://localhost:8003/docs | Swagger UI — generate routes visible |
+| Document Reader | http://localhost:8004/docs | Swagger UI — OCR routes visible |
 | AI Worker | http://localhost:8006/docs | Swagger UI — pubsub routes visible |
-| DLQ Notifier | http://localhost:8007/docs | Swagger UI — notification routes visible |
+| DLQ Notifier | http://localhost:8007/api/v1/docs | Swagger UI — notification routes visible |
 | Firebase Emulator UI | http://localhost:4000 | Firestore / Auth / Pub/Sub tabs visible |
 | Firestore Emulator | http://localhost:8080 | Used internally by services |
 | Firebase Auth Emulator | http://localhost:9099 | Used internally by services |
@@ -254,14 +274,18 @@ Quick health-checks:
 curl http://localhost:3000/api/v1/health
 # Users API
 curl http://localhost:8005/api/v1/health
-# Document Reader
-curl http://localhost:8004/health
 # Ingestor API
 curl http://localhost:8001/health
+# Search Base
+curl http://localhost:8002/health/live
+# File Generator
+curl http://localhost:8003/health/live
+# Document Reader
+curl http://localhost:8004/health
 # AI Worker
 curl http://localhost:8006/health
 # DLQ Notifier
-curl http://localhost:8007/health
+curl http://localhost:8007/health/live
 ```
 
 ---
