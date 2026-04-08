@@ -21,12 +21,25 @@ jobs:
 
       # ── Google Cloud authentication ────────────────────────────────────────
       # Option A (recommended): Workload Identity Federation — no long-lived keys.
-      # Add the following GitHub secrets:
-      #   GCP_WORKLOAD_IDENTITY_PROVIDER  e.g. projects/123/locations/global/workloadIdentityPools/...
-      #   GCP_SERVICE_ACCOUNT             e.g. deployer@my-project.iam.gserviceaccount.com
+      #
+      # Required GitHub secrets (Settings → Secrets and variables → Actions):
+      #   GCP_WORKLOAD_IDENTITY_PROVIDER  Workload Identity Provider resource name
+      #                                   e.g. projects/123456789/locations/global/
+      #                                        workloadIdentityPools/my-pool/
+      #                                        providers/my-provider
+      #   GCP_SERVICE_ACCOUNT             Service account email used for impersonation
+      #                                   e.g. deployer@my-project.iam.gserviceaccount.com
+      #   GCP_PROJECT_ID                  GCP project ID where Cloud Build runs and
+      #                                   images are stored
+      #                                   e.g. my-gcp-project-id
+      #   GCP_DEPLOY_REGION               Cloud Run deployment region
+      #                                   e.g. us-central1  (defaults to us-central1)
+      #   GCP_IMAGE_REGISTRY              Container registry host
+      #                                   e.g. gcr.io  or  us-docker.pkg.dev
+      #                                   (defaults to gcr.io)
       #
       # Option B: Service Account key — less secure, kept for reference.
-      # Replace the `with:` block below with:
+      # Replace the workload_identity_provider + service_account block with:
       #   credentials_json: ${{ secrets.GCP_SA_KEY }}
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -40,16 +53,17 @@ jobs:
       # ── Submit the Cloud Build job ─────────────────────────────────────────
       # Cloud Build runs all service tests first; if any test fails the build
       # is halted and no image is built or deployed.
-      # Required GitHub repository variable (Settings → Variables → Actions):
-      #   GCP_DEPLOY_REGION   target Cloud Run region (default: us-central1)
+      # The build timeout is defined in cloudbuild.yaml (timeout: '2400s').
       - name: Submit Cloud Build
         env:
-          GCP_REGION: ${{ vars.GCP_DEPLOY_REGION || 'us-central1' }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ secrets.GCP_DEPLOY_REGION || 'us-central1' }}
+          GCP_IMAGE_REGISTRY: ${{ secrets.GCP_IMAGE_REGISTRY || 'gcr.io' }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
           SHORT_SHA="${COMMIT_SHA:0:7}"
           gcloud builds submit \
+            --project "${GCP_PROJECT_ID}" \
             --config cloudbuild.yaml \
-            --substitutions "_COMMIT_SHA=${COMMIT_SHA},_SHORT_SHA=${SHORT_SHA},_REGION=${GCP_REGION}" \
-            --timeout 2400s \
+            --substitutions "_COMMIT_SHA=${COMMIT_SHA},_SHORT_SHA=${SHORT_SHA},_REGION=${GCP_REGION},_PROJECT_ID=${GCP_PROJECT_ID},_IMAGE_REGISTRY=${GCP_IMAGE_REGISTRY}" \
             .
