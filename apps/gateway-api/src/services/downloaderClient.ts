@@ -3,7 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
-import { IngestRequest, IngestResponse } from '../models/index.js';
+import { IngestRequest, IngestResponse, DriveLinkIngestRequest, SingleIngestResponse } from '../models/index.js';
 import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
 const client = createHttpClient(config.ingestorServiceUrl, 'downloader');
@@ -84,5 +84,75 @@ export async function triggerIngestUpload(
       throw new DownstreamError(responseMessage ?? 'Downloader service returned an error');
     }
     throw new DownstreamError('Unexpected error from Downloader service');
+  }
+}
+
+/**
+ * Triggers ingestion of a single resume from a Google Drive link.
+ *
+ * @param payload - Drive-link ingest request payload.
+ * @returns SingleIngestResponse with the resulting resume ID and any errors.
+ */
+export async function triggerIngestDriveLink(payload: DriveLinkIngestRequest): Promise<SingleIngestResponse> {
+  logger.debug({ driveLink: payload.driveLink }, 'triggerIngestDriveLink: forwarding request to ingestor service');
+  try {
+    const response = await client.post<SingleIngestResponse>('/api/v1/ingest/drive', payload);
+    logger.info({ ingested: response.data.ingested }, 'triggerIngestDriveLink: drive-link ingest completed');
+    return response.data;
+  } catch (err) {
+    if (isHarborError(err)) {
+      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
+        logger.warn({ driveLink: payload.driveLink }, 'triggerIngestDriveLink: ingestor service unavailable');
+        throw new UnavailableError('Ingestor service unavailable');
+      }
+      if (err.response.status === 429) {
+        throw new RateLimitError();
+      }
+      const responseMessage = (err.response.data as { error?: { message?: string } } | undefined)?.error?.message;
+      if (err.response.status >= 500) {
+        throw new UnavailableError(responseMessage ?? 'Ingestor service error');
+      }
+      throw new DownstreamError(responseMessage ?? 'Ingestor service returned an error');
+    }
+    throw new DownstreamError('Unexpected error from Ingestor service');
+  }
+}
+
+/**
+ * Proxies a single resume file upload to the ingestor service.
+ *
+ * @param rawBody     - The raw multipart request stream.
+ * @param contentType - The full Content-Type header value.
+ * @returns SingleIngestResponse with the resulting resume ID and any errors.
+ */
+export async function triggerIngestSingleFile(
+  rawBody: IncomingMessage,
+  contentType: string,
+): Promise<SingleIngestResponse> {
+  logger.debug('triggerIngestSingleFile: proxying single file upload to ingestor service');
+  try {
+    const response = await client.post<SingleIngestResponse>('/api/v1/ingest/file', rawBody, {
+      headers: { 'content-type': contentType },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+    logger.info({ ingested: response.data.ingested }, 'triggerIngestSingleFile: file ingest completed');
+    return response.data;
+  } catch (err) {
+    if (isHarborError(err)) {
+      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {
+        logger.warn('triggerIngestSingleFile: ingestor service unavailable');
+        throw new UnavailableError('Ingestor service unavailable');
+      }
+      if (err.response.status === 429) {
+        throw new RateLimitError();
+      }
+      const responseMessage = (err.response.data as { error?: { message?: string } } | undefined)?.error?.message;
+      if (err.response.status >= 500) {
+        throw new UnavailableError(responseMessage ?? 'Ingestor service error');
+      }
+      throw new DownstreamError(responseMessage ?? 'Ingestor service returned an error');
+    }
+    throw new DownstreamError('Unexpected error from Ingestor service');
   }
 }

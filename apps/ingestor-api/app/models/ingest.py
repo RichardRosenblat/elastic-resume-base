@@ -22,17 +22,19 @@ class IngestRowError(BaseModel):
 class IngestRequest(BaseModel):
     """Request body for the ``POST /api/v1/ingest`` endpoint.
 
-    Either ``sheet_id`` or ``sheet_url`` must be provided.  When
-    ``has_header_row`` is ``False``, either ``link_column`` or
+    Either ``sheet_id`` / ``sheetId`` or ``sheet_url`` / ``sheetUrl`` must be
+    provided.  When ``has_header_row`` is ``False``, either ``link_column`` or
     ``link_column_index`` must also be supplied so the service knows which
     column holds the Drive links.
 
     Attributes:
         sheet_id: Google Sheets file ID.  One of ``sheet_id`` or
-            ``sheet_url`` must be supplied.
+            ``sheet_url`` must be supplied.  Accepts the alias ``sheetId``
+            (camelCase) sent by the Gateway.
         sheet_url: Full URL of the Google Sheets file.  The service extracts
             the sheet ID from the URL automatically.  One of ``sheet_id`` or
-            ``sheet_url`` must be supplied.
+            ``sheet_url`` must be supplied.  Accepts the alias ``sheetUrl``
+            (camelCase) sent by the Gateway.
         sheet_name: Name of the sheet tab to read.  Defaults to the first
             (active) sheet when ``None``.
         has_header_row: Whether the first row of the sheet is a header row.
@@ -53,10 +55,12 @@ class IngestRequest(BaseModel):
 
     sheet_id: str | None = Field(
         default=None,
+        alias="sheetId",
         description="Google Sheets file ID.  One of sheet_id or sheet_url is required.",
     )
     sheet_url: str | None = Field(
         default=None,
+        alias="sheetUrl",
         description=(
             "Full URL of the Google Sheets file.  "
             "One of sheet_id or sheet_url is required."
@@ -226,3 +230,77 @@ class IngestResponse(BaseModel):
         default_factory=list,
         description="Rows skipped because the resume content already exists in the database.",
     )
+
+
+class DriveLinkIngestRequest(BaseModel):
+    """Request body for the ``POST /api/v1/ingest/drive`` endpoint.
+
+    Ingests a single resume document from a Google Drive link.
+
+    Attributes:
+        drive_link: Google Drive file URL or file ID pointing to the resume.
+        metadata: Optional extra metadata attached to the ingested resume
+            document in Firestore.
+        user_id: Firebase UID of the user who triggered the ingestion.
+            Injected by the Gateway API and included in DLQ messages for
+            user-oriented failure notifications.
+    """
+
+    drive_link: str = Field(
+        ...,
+        alias="driveLink",
+        description="Google Drive file URL or file ID pointing to the resume.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional extra metadata attached to the ingested resume document.",
+    )
+    user_id: str | None = Field(
+        default=None,
+        alias="userId",
+        description=(
+            "Firebase UID of the user who triggered the ingestion.  "
+            "Injected by the Gateway API and included in DLQ messages for "
+            "user-oriented failure notifications."
+        ),
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class SingleIngestResponse(BaseModel):
+    """Response body for single-document ingestion endpoints.
+
+    Returned by ``POST /api/v1/ingest/drive`` and
+    ``POST /api/v1/ingest/file``.
+
+    Attributes:
+        resume_id: Firestore document ID of the ingested resume, or ``None``
+            if ingestion failed.
+        ingested: ``1`` when the resume was successfully ingested, ``0``
+            otherwise.
+        errors: List of errors encountered during ingestion (at most one item
+            for a single-document ingest).
+        duplicates: Non-empty when the document was a duplicate of an already
+            ingested resume.
+    """
+
+    resume_id: str | None = Field(
+        default=None,
+        alias="resumeId",
+        description="Firestore document ID of the ingested resume, or null if ingestion failed.",
+    )
+    ingested: int = Field(
+        ...,
+        description="1 when the resume was successfully ingested, 0 otherwise.",
+    )
+    errors: list[IngestRowError] = Field(
+        default_factory=list,
+        description="Errors encountered during ingestion.",
+    )
+    duplicates: list[IngestDuplicate] = Field(
+        default_factory=list,
+        description="Non-empty when the document was a duplicate of an already-ingested resume.",
+    )
+
+    model_config = {"populate_by_name": True}

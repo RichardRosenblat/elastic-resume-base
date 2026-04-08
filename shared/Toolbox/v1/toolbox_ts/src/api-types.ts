@@ -135,6 +135,8 @@ export interface PreApprovedFilters {
 /** Request payload for triggering a resume ingest. */
 export interface IngestRequest {
   sheetId?: string;
+  /** Full Google Sheets URL (the service extracts the sheet ID from it). */
+  sheetUrl?: string;
   batchId?: string;
   metadata?: Record<string, unknown>;
   /** Firebase UID of the user who triggered the ingestion, injected by the Gateway. */
@@ -146,6 +148,22 @@ export interface IngestResponse {
   jobId: string;
   status: string;
   acceptedAt: string;
+}
+
+/** Request payload for ingesting a single resume from a Google Drive link. */
+export interface DriveLinkIngestRequest {
+  driveLink: string;
+  metadata?: Record<string, unknown>;
+  /** Firebase UID of the user who triggered the ingestion, injected by the Gateway. */
+  userId?: string;
+}
+
+/** Response from single-document ingest endpoints (drive link or direct file upload). */
+export interface SingleIngestResponse {
+  resumeId: string | null;
+  ingested: number;
+  errors: Array<{ row: number; error: string }>;
+  duplicates: Array<{ row: number; existingResumeId: string; message: string }>;
 }
 
 // ─── Search service API ───────────────────────────────────────────────────────

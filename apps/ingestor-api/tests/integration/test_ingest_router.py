@@ -374,3 +374,79 @@ async def test_ingest_upload_invalid_metadata_returns_400(app_client: AsyncClien
             data={"link_column": "resume_link", "metadata": "not-json"},
         )
     assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# /api/v1/ingest/drive endpoint
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_success(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/drive with a valid driveLink returns 200."""
+    from app.models.ingest import DriveLinkIngestRequest, SingleIngestResponse
+    from app.services.ingest_service import IngestService
+
+    mock_service = MagicMock(spec=IngestService)
+    mock_service.ingest_drive_link = AsyncMock(
+        return_value=SingleIngestResponse(resumeId="resume-abc", ingested=1)
+    )
+
+    with patch("app.routers.ingest._get_ingest_service", return_value=mock_service):
+        async with app_client as client:
+            response = await client.post(
+                "/api/v1/ingest/drive",
+                json={"driveLink": "https://drive.google.com/file/d/1abc/view"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["resumeId"] == "resume-abc"
+    assert body["data"]["ingested"] == 1
+
+
+@pytest.mark.asyncio
+async def test_ingest_drive_missing_field_returns_422(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/drive without driveLink returns 422."""
+    async with app_client as client:
+        response = await client.post("/api/v1/ingest/drive", json={})
+    assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# /api/v1/ingest/file endpoint
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_direct_success(app_client: AsyncClient) -> None:
+    """POST /api/v1/ingest/file with a valid docx file returns 200."""
+    import docx  # type: ignore[import-untyped]
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("Direct file resume")
+    d.save(buf)
+    docx_bytes = buf.getvalue()
+
+    from app.models.ingest import SingleIngestResponse
+    from app.services.ingest_service import IngestService
+
+    mock_service = MagicMock(spec=IngestService)
+    mock_service.ingest_direct_file = AsyncMock(
+        return_value=SingleIngestResponse(resumeId="file-resume-001", ingested=1)
+    )
+
+    with patch("app.routers.ingest._get_ingest_service", return_value=mock_service):
+        async with app_client as client:
+            response = await client.post(
+                "/api/v1/ingest/file",
+                files={"file": ("resume.docx", docx_bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["resumeId"] == "file-resume-001"
+    assert body["data"]["ingested"] == 1

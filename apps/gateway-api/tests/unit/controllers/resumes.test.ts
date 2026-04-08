@@ -8,6 +8,8 @@ jest.mock('../../../src/services/fileGeneratorClient', () => ({
 
 jest.mock('../../../src/services/downloaderClient', () => ({
   triggerIngest: jest.fn(),
+  triggerIngestDriveLink: jest.fn(),
+  triggerIngestSingleFile: jest.fn(),
 }));
 
 jest.mock('../../../src/services/userApiClient', () => ({
@@ -176,6 +178,22 @@ describe('Resumes Controller - ingest endpoint', () => {
     );
   });
 
+  it('POST /api/v1/resumes/ingest returns 202 with sheetUrl', async () => {
+    (downloaderClient.triggerIngest as jest.Mock).mockResolvedValue(mockIngestResponse);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/ingest',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { sheetUrl: 'https://docs.google.com/spreadsheets/d/1abc/edit' },
+    });
+
+    expect(res.statusCode).toBe(202);
+    expect(downloaderClient.triggerIngest).toHaveBeenCalledWith(
+      expect.objectContaining({ sheetUrl: 'https://docs.google.com/spreadsheets/d/1abc/edit' }),
+    );
+  });
+
   it('POST /api/v1/resumes/ingest returns 202 with batchId', async () => {
     (downloaderClient.triggerIngest as jest.Mock).mockResolvedValue(mockIngestResponse);
 
@@ -218,6 +236,125 @@ describe('Resumes Controller - ingest endpoint', () => {
       method: 'POST',
       url: '/api/v1/resumes/ingest',
       payload: { sheetId: 'sheet-1' },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('Resumes Controller - ingestDriveLink endpoint', () => {
+  let app: FastifyInstance;
+  const mockVerifier = { verifyToken: jest.fn() };
+
+  function setupAuth() {
+    mockVerifier.verifyToken.mockResolvedValue({ uid: 'user-uid', email: 'user@example.com' });
+  }
+
+  const mockDriveLinkResponse = {
+    resumeId: 'resume-abc123',
+    ingested: 1,
+    errors: [],
+    duplicates: [],
+  };
+
+  beforeAll(async () => {
+    _setTokenVerifier(mockVerifier);
+    setupAuth();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    _resetTokenVerifier();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setupAuth();
+  });
+
+  it('POST /api/v1/resumes/ingest/drive returns 200 with valid driveLink', async () => {
+    (downloaderClient.triggerIngestDriveLink as jest.Mock).mockResolvedValue(mockDriveLinkResponse);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/ingest/drive',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { driveLink: 'https://drive.google.com/file/d/1abc/view' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({ resumeId: 'resume-abc123', ingested: 1 });
+    expect(downloaderClient.triggerIngestDriveLink).toHaveBeenCalledWith(
+      expect.objectContaining({ driveLink: 'https://drive.google.com/file/d/1abc/view' }),
+    );
+  });
+
+  it('POST /api/v1/resumes/ingest/drive returns 400 when driveLink is missing', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/ingest/drive',
+      headers: { authorization: 'Bearer valid-token' },
+      payload: { metadata: {} },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('POST /api/v1/resumes/ingest/drive returns 401 when unauthenticated', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/ingest/drive',
+      payload: { driveLink: 'https://drive.google.com/file/d/1abc/view' },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('Resumes Controller - ingestSingleFile endpoint', () => {
+  let app: FastifyInstance;
+  const mockVerifier = { verifyToken: jest.fn() };
+
+  function setupAuth() {
+    mockVerifier.verifyToken.mockResolvedValue({ uid: 'user-uid', email: 'user@example.com' });
+  }
+
+  beforeAll(async () => {
+    _setTokenVerifier(mockVerifier);
+    setupAuth();
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    _resetTokenVerifier();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setupAuth();
+  });
+
+  it('POST /api/v1/resumes/ingest/file returns 400 when content-type is not multipart/form-data', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/ingest/file',
+      headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
+      payload: '{}',
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('BAD_REQUEST');
+  });
+
+  it('POST /api/v1/resumes/ingest/file returns 401 when unauthenticated', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/resumes/ingest/file',
+      payload: {},
     });
 
     expect(res.statusCode).toBe(401);

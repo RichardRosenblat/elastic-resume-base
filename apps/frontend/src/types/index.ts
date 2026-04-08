@@ -72,6 +72,16 @@ export interface ResumeIngestJob {
   acceptedAt: string;
 }
 
+/**
+ * Result from a single-document ingest (Drive link or direct file upload).
+ */
+export interface SingleIngestResult {
+  resumeId: string | null;
+  ingested: number;
+  errors: Array<{ row: number; error: string }>;
+  duplicates: Array<{ row: number; existingResumeId: string; message: string }>;
+}
+
 /** Async generation job returned by the Gateway API generate endpoint. */
 export interface ResumeGenerateJob {
   jobId: string;

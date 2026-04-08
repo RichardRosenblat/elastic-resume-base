@@ -93,7 +93,20 @@
 		"language": "Idioma",
 		"format": "Formato",
 		"loading": "Carregando currículos...",
-		"noResumesFound": "Nenhum currículo encontrado"
+		"noResumesFound": "Nenhum currículo encontrado",
+		"ingestType": "Tipo de Importação",
+		"spreadsheet": "Planilha",
+		"excelFile": "Arquivo Excel / CSV",
+		"driveLink": "Link do Drive",
+		"singleFile": "Arquivo PDF / DOCX",
+		"sheetIdOrUrl": "ID ou URL da planilha",
+		"driveLinkLabel": "Link do Google Drive",
+		"resumeFile": "Arquivo de Currículo",
+		"ingestedCount": "{{count}} currículo(s) importado(s)",
+		"errorsCount": "{{count}} erro(s)",
+		"resumeId": "ID do Currículo",
+		"excelFileDescription": "Envie um arquivo Excel (.xlsx, .xls, .xlsm) ou CSV (.csv) com links do Google Drive para os currículos.",
+		"singleFileDescription": "Envie um arquivo PDF ou DOCX de currículo para importação direta."
 	},
 	"documents": {
 		"title": "Documentos",
