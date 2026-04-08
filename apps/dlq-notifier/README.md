@@ -1,11 +1,11 @@
 # DLQ Notifier
 
-A Python microservice that monitors the Dead Letter Queue (DLQ) Pub/Sub topic
-and sends email notifications when failed messages are detected.  When a
-message is routed to the `dead-letter-queue` topic after exhausting its maximum
-delivery attempts, the DLQ Notifier consumes it, extracts relevant failure
-context, and dispatches an email alert to the configured recipients for manual
-investigation and re-processing.
+A Python microservice that monitors the Dead Letter Queue (DLQ) Pub/Sub topic,
+stores structured notification records in Firestore, and sends email alerts when
+failed messages are detected.  When a message is routed to the `dead-letter-queue`
+topic after exhausting its maximum delivery attempts, the DLQ Notifier consumes it,
+persists a notification record to Firestore, and dispatches an email alert to the
+configured recipients for manual investigation and re-processing.
 
 ## Responsibilities
 
@@ -13,9 +13,10 @@ investigation and re-processing.
 |---|---|
 | Dead-letter message consumption | ✅ DLQ Notifier (Pub/Sub push subscription) |
 | Failure context extraction | ✅ DLQ Notifier (`DlqMessagePayload` model) |
+| Notification persistence | ✅ DLQ Notifier (Firestore `notifications` collection, 30-day TTL) |
 | Email alert delivery | ✅ DLQ Notifier (`NotificationService` via Hermes SMTP) |
 | Message acknowledgement | ✅ DLQ Notifier (always HTTP 200 on valid envelope) |
-| Data persistence | ❌ Stateless — no Firestore writes |
+| User notification REST API | ✅ DLQ Notifier (proxied by Gateway) |
 | Re-processing failed messages | ❌ Manual operator action |
 
 ---
@@ -25,10 +26,16 @@ investigation and re-processing.
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/v1/pubsub/push` | Receives Pub/Sub push messages from `dead-letter-queue` |
+| `GET` | `/api/v1/notifications` | Get the authenticated user's notifications |
+| `GET` | `/api/v1/notifications/system` | Get system-level notifications (admin only) |
+| `PATCH` | `/api/v1/notifications/{id}/read` | Mark a notification as read |
+| `DELETE` | `/api/v1/notifications/{id}` | Delete a notification |
 | `GET` | `/health/live` | Liveness probe |
 | `GET` | `/health/ready` | Readiness probe |
 | `GET` | `/api/v1/docs` | Swagger UI |
 | `GET` | `/api/v1/redoc` | ReDoc UI |
+
+Notification endpoints use `X-User-Id` and `X-User-Role` headers injected by the Gateway for authorization.
 
 ---
 
@@ -42,7 +49,11 @@ can be overridden by environment variables.
 | `PORT` | – | `8007` | TCP port the service listens on |
 | `LOG_LEVEL` | – | `INFO` | Logging verbosity |
 | `PUBSUB_TOPIC_DLQ` | – | `dead-letter-queue` | DLQ Pub/Sub topic name |
-| `SMTP_HOST` | ✓ | – | SMTP server hostname |
+| `GCP_PROJECT_ID` | – | (from shared) | GCP project ID for Firestore (defaults to `FIREBASE_PROJECT_ID`) |
+| `FIREBASE_PROJECT_ID` | – | `demo-elastic-resume-base` | Firebase project ID |
+| `FIRESTORE_COLLECTION_NOTIFICATIONS` | – | `notifications` | Firestore collection for notification records |
+| `NOTIFICATION_TTL_DAYS` | – | `30` | Days before old notifications are purged |
+| `SMTP_HOST` | ✓ | – | SMTP server hostname (leave empty to disable email) |
 | `SMTP_PORT` | – | `587` | SMTP server port |
 | `SMTP_SECURE` | – | `false` | Use TLS from the start (SMTPS) |
 | `SMTP_USER` | – | – | SMTP authentication username |
@@ -50,6 +61,7 @@ can be overridden by environment variables.
 | `SMTP_FROM` | ✓ | – | Sender `From` address |
 | `NOTIFICATION_RECIPIENTS` | ✓ | – | Comma-separated recipient email addresses |
 | `GOOGLE_APPLICATION_CREDENTIALS` | – | – | Path to GCP service-account key (local dev only) |
+| `HTTP_REQUEST_TIMEOUT` | – | `300` | Maximum seconds a single HTTP request may take |
 
 ---
 
