@@ -133,6 +133,15 @@ apiClient.interceptors.response.use(
       if (error.response?.status === 401) {
         void auth.signOut();
       }
+      if (error.response?.status === 403) {
+        const responseMessage = (error.response?.data as { error?: { message?: string } } | undefined)
+          ?.error?.message ?? '';
+        if (responseMessage.toLowerCase().includes('been disabled')) {
+          const apiError = ensureApiRequestError(error, 'Your account has been disabled');
+          window.dispatchEvent(new CustomEvent('api:account-disabled', { detail: apiError }));
+          void auth.signOut();
+        }
+      }
       if (error.response?.status === 429) {
         const apiError = ensureApiRequestError(error, 'Too many requests. Please wait a moment and try again.');
         window.dispatchEvent(new CustomEvent('api:ratelimit', { detail: apiError }));

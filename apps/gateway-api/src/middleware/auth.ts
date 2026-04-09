@@ -13,9 +13,10 @@ export { _setTokenVerifier, _resetTokenVerifier } from '@elastic-resume-base/aeg
  * Flow:
  * 1. Validates the Bearer token using the Aegis token verifier.
  * 2. Extracts uid and email from the decoded token.
- * 3. Calls users-api /authorize to get role and enable status.
- * 4. If enable=false, returns 403 with a pending approval message.
- * 5. Sets request.user with uid, email, role, and enable for downstream handlers.
+ * 3. Calls users-api /authorize to get role, enable status, and optional reason.
+ * 4. If enable=false with reason=DISABLED, returns 403 with a disabled account message.
+ * 5. If enable=false without reason or with reason=PENDING_APPROVAL, returns 403 with a pending approval message.
+ * 6. Sets request.user with uid, email, role, and enable for downstream handlers.
  */
 export async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const authHeader = request.headers.authorization;
@@ -66,11 +67,16 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   // Call users-api to determine authorization status
   try {
     logger.trace({ correlationId: request.correlationId, uid, email }, 'authHook: calling UserAPI authorize');
-    const { role, enable } = await authorizeUser(uid, email);
+    const { role, enable, reason } = await authorizeUser(uid, email);
 
     if (!enable) {
-      logger.info({ correlationId: request.correlationId, uid, role }, 'authHook: user account is pending approval');
-      void reply.code(403).send(formatError('FORBIDDEN', 'Your account is pending approval. Please contact an administrator.'));
+      if (reason === 'DISABLED') {
+        logger.info({ correlationId: request.correlationId, uid, role }, 'authHook: user account is disabled');
+        void reply.code(403).send(formatError('FORBIDDEN', 'Your account has been disabled. Please contact an administrator.'));
+      } else {
+        logger.info({ correlationId: request.correlationId, uid, role }, 'authHook: user account is pending approval');
+        void reply.code(403).send(formatError('FORBIDDEN', 'Your account is pending approval. Please contact an administrator.'));
+      }
       return;
     }
 

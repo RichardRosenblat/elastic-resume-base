@@ -196,7 +196,8 @@
 		"unknown": "Ocurrió un error. Por favor, inténtalo de nuevo.",
 		"serverSupportContact": "Por favor, contacta al soporte técnico y proporciona el código de referencia: {{ref}}",
 		"referenceCode": "Referencia: {{ref}}",
-		"contactSupport": "Por favor, contacta al soporte técnico para obtener asistencia."
+		"contactSupport": "Por favor, contacta al soporte técnico para obtener asistencia.",
+		"USER_DISABLED": "Tu cuenta ha sido deshabilitada. Por favor, contacta a un administrador."
 	},
 	"theme": {
 		"switchToLight": "Cambiar a modo claro",
