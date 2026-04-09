@@ -200,7 +200,15 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
         );
       }
     }
-    return { role: user.role, enable: user.enable };
+    const result = { role: user.role, enable: user.enable } as {
+      role: string;
+      enable: boolean;
+      reason?: 'PENDING_APPROVAL' | 'DISABLED';
+    };
+    if (!user.enable) {
+      result.reason = 'DISABLED';
+    }
+    return result;
   } catch (err) {
     // Use code-based check instead of `instanceof` to guard against module identity
     // mismatches: error classes bundled inside external modules (e.g. Synapse) are
@@ -248,7 +256,7 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
       'authorizeUser: email matches user creation domains, creating user with enable=false',
     );
     await userStore.createUser({ uid, email, role: DEFAULT_ROLE, enable: false });
-    return { role: DEFAULT_ROLE, enable: false };
+    return { role: DEFAULT_ROLE, enable: false, reason: 'PENDING_APPROVAL' as const };
   }
 
   // Step 5: No access
