@@ -10,6 +10,8 @@ This document describes the root-level scripts available in the Elastic Resume B
 |---|---|---|---|
 | `build_shared.bat` | Windows | `.\build_shared.bat` | Builds all shared TypeScript libraries under `shared/` in order |
 | `build_shared.sh` | Linux / macOS | `./build_shared.sh` | Same as above, cross-platform |
+| `start_firebase_emulators.bat` | Windows | `.\start_firebase_emulators.bat` | Starts the Firebase Emulator Suite and seeds the emulators with test data |
+| `start_firebase_emulators.sh` | Linux / macOS | `./start_firebase_emulators.sh` | Same as above, cross-platform |
 
 ---
 
@@ -85,9 +87,43 @@ When a breaking change requires a new `v<N+1>/` directory (see
 
 ---
 
+---
+
+## Firebase Emulator Scripts
+
+The `start_firebase_emulators.sh` (Linux / macOS) and `start_firebase_emulators.bat` (Windows) scripts provide a single command to launch the full Firebase Emulator Suite **and** automatically seed it with test data.
+
+### When to Run
+
+Run the firebase emulator scripts in the following situations:
+
+- **During local development without Docker Compose** — when you want to run individual services directly (e.g., `npm run dev`) and still have a local Firestore, Auth, and Pub/Sub emulator available.
+- **When you need pre-populated test data** — the scripts run a seeder after the emulators boot, creating sample records so you can exercise the full pipeline immediately.
+- **When iterating on emulator configuration** — the scripts restart the emulators cleanly and re-seed on each invocation.
+
+> **Note:** When running the stack via Docker Compose (`docker compose up`), the Firebase Emulator is already started as the `firebase-emulator` container. These root-level scripts are intended for running the emulators **outside** of Docker.
+
+### What the Scripts Do
+
+Both scripts perform the same two steps in parallel:
+
+1. **Seeder (background):** Waits 45 seconds for the emulators to finish booting, then creates a Python virtual environment under `Scripts/emulator_scripts/venv/` (if one does not already exist), installs `google-cloud-pubsub` and `firebase-admin`, and runs `Scripts/emulator_scripts/seed_emulators.py` to populate Firestore and Pub/Sub with sample data.
+2. **Emulators (foreground):** Changes into the `firebase_logs/` directory and runs `firebase emulators:start`, which reads `firebase.json` and starts Firestore, Auth, and Pub/Sub emulators. The emulator process blocks the terminal window until stopped.
+
+On **Windows**, the seeder runs in a separate `cmd` window that can be closed once seeding completes. On **Linux / macOS**, the seeder runs as a background subshell (`&`) in the same terminal session.
+
+### Prerequisites
+
+- [Firebase CLI](https://firebase.google.com/docs/cli) installed and logged in (`firebase login`)
+- A `firebase_logs/` directory at the repository root (created automatically by the Firebase CLI on first use, or you can create it manually: `mkdir firebase_logs`)
+- Python 3.11+ available as `python3` (Linux / macOS) or `python` (Windows) for the seeder step
+
+---
+
 ## Related Documents
 
 - [Shared Library Standards](coding-standards/shared-libraries-standards.md) — how to develop and maintain shared libraries
 - [ADR-010: Folder-Based Major-Version Directory Structure](adr/ADR-010-shared-library-directory-architecture.md) — architectural rationale for the `v<N>/` directory layer
 - [Docker Orchestration](docker-orchestration.md) — using shared libraries inside Docker containers
+- [Getting Started](getting-started.md) — full local development setup guide, including Firebase emulator usage
 - [Troubleshooting](troubleshooting.md#shared-library-build-issues) — common build issues and fixes

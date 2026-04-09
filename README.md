@@ -321,6 +321,8 @@ elastic-resume-base/
 │                              # Copy to config.yaml (git-ignored) and edit
 ├── build_shared.sh            # Builds all TypeScript shared libraries (Linux/macOS)
 ├── build_shared.bat           # Builds all TypeScript shared libraries (Windows)
+├── start_firebase_emulators.sh  # Starts Firebase Emulator Suite + seeds test data (Linux/macOS)
+├── start_firebase_emulators.bat # Starts Firebase Emulator Suite + seeds test data (Windows)
 ├── .gitignore
 ├── docker-compose.yml
 ├── CONTRIBUTING.md
