@@ -173,6 +173,12 @@ const usersPlugin: FastifyPluginAsync = async (app) => {
   // ── Unauthenticated Routes ──────────────────────────────────────────────────
 
   app.post('/authorize', {
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '1 minute',
+      },
+    },
     schema: {
       tags: ['Users'],
       summary: 'Authorize a user (Gateway API login flow)',
