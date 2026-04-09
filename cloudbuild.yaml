@@ -271,7 +271,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/document-reader"
-        echo "=== [document-reader] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [document-reader] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -317,7 +317,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/gateway-api"
-        echo "=== [gateway-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [gateway-api] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -340,7 +340,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/users-api"
-        echo "=== [users-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [users-api] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -363,7 +363,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/ingestor-api"
-        echo "=== [ingestor-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [ingestor-api] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -386,7 +386,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/ai-worker"
-        echo "=== [ai-worker] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [ai-worker] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -409,7 +409,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/search-base"
-        echo "=== [search-base] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [search-base] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -432,7 +432,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/file-generator"
-        echo "=== [file-generator] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [file-generator] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -455,7 +455,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/dlq-notifier"
-        echo "=== [dlq-notifier] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [dlq-notifier] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \

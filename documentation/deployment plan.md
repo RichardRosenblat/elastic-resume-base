@@ -291,13 +291,13 @@ echo -n "bootstrap-admin@yourdomain.com" | \
 echo -n "yourdomain.com" | \
   gcloud secrets create ONBOARDABLE_EMAIL_DOMAINS --data-file=- --project $PROJECT
 
-# dlq-notifier SMTP secrets
-echo -n "smtp.example.com" | gcloud secrets create SMTP_HOST --data-file=- --project $PROJECT
-echo -n "587"              | gcloud secrets create SMTP_PORT --data-file=- --project $PROJECT
-echo -n "user@example.com" | gcloud secrets create SMTP_USER --data-file=- --project $PROJECT
-echo -n "s3cr3t"           | gcloud secrets create SMTP_PASSWORD --data-file=- --project $PROJECT
-echo -n "noreply@example.com" | gcloud secrets create SMTP_FROM --data-file=- --project $PROJECT
-echo -n "ops@example.com"  | gcloud secrets create NOTIFICATION_RECIPIENTS --data-file=- --project $PROJECT
+# dlq-notifier SMTP secrets — replace the placeholder values with your actual credentials
+echo -n "YOUR_SMTP_HOST"        | gcloud secrets create SMTP_HOST     --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_PORT"        | gcloud secrets create SMTP_PORT     --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_USER"        | gcloud secrets create SMTP_USER     --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_PASSWORD"    | gcloud secrets create SMTP_PASSWORD --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_FROM"        | gcloud secrets create SMTP_FROM     --data-file=- --project $PROJECT
+echo -n "YOUR_NOTIFICATION_RECIPIENTS" | gcloud secrets create NOTIFICATION_RECIPIENTS --data-file=- --project $PROJECT
 ```
 
 > **Rule of thumb**: Anything in `.env.example` that is an email, key, or credential → Secret Manager. Project IDs, ports, feature flags → plain `--set-env-vars`.
