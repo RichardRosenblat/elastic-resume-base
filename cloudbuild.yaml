@@ -32,8 +32,26 @@
 # Required Cloud Build service-account roles
 # ──────────────────────────────────────────
 #   roles/run.admin
-#   roles/iam.serviceAccountUser   (to act as the Cloud Run runtime SA)
+#   roles/iam.serviceAccountUser   (to act as each Cloud Run runtime SA)
 #   roles/storage.admin            (to push images to GCR / AR)
+#
+# Service account model (least-privilege)
+# ───────────────────────────────────────
+# Every Cloud Run service runs under its own dedicated service account
+# (svc-<service>@PROJECT.iam.gserviceaccount.com).  The gateway SA
+# (svc-gateway) is granted roles/run.invoker on every private backend
+# service so it is the only caller that can reach them.
+# See documentation/deployment plan.md §B2 for setup instructions.
+#
+# Currently deployed services (prod)
+# ────────────────────────────────────
+#   frontend        — Firebase Hosting (static SPA)
+#   gateway-api     — Cloud Run, public (--allow-unauthenticated)
+#   users-api       — Cloud Run, private
+#   document-reader — Cloud Run, private
+#
+# Services prepared but not yet deployed to prod (steps intentionally omitted):
+#   ingestor-api, ai-worker, search-base, file-generator, dlq-notifier
 # =============================================================================
 
 substitutions:
@@ -166,7 +184,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/document-reader"
-        echo "=== [document-reader] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [document-reader] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -212,7 +230,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/gateway-api"
-        echo "=== [gateway-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [gateway-api] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -235,7 +253,7 @@ steps:
       - |
         set -e
         IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/users-api"
-        echo "=== [users-api] Building image $${IMAGE}:$_SHORT_SHA ==="
+        echo "=== [users-api] Building image $${IMAGE}:$_COMMIT_SHA ==="
         docker build \
           -t "$${IMAGE}:$_COMMIT_SHA" \
           -t "$${IMAGE}:latest" \
@@ -251,9 +269,20 @@ steps:
   # Each service is deployed to Cloud Run after its own image has been pushed.
   # Deploy steps run in parallel across services (each waits for its own push).
   #
+  # Access control
+  # ──────────────
+  # - gateway-api is the only publicly accessible Cloud Run service
+  #   (--allow-unauthenticated).  Every other service uses
+  #   --no-allow-unauthenticated so it is reachable only by callers that
+  #   present a valid Google-signed OIDC token.
+  # - Each service runs under its own dedicated service account
+  #   (svc-<service>@PROJECT.iam.gserviceaccount.com) following the
+  #   least-privilege principle.  See documentation/deployment plan.md §B2
+  #   for the full IAM setup instructions.
+  #
   # Adjust Cloud Run flags (--memory, --cpu, --min-instances, --max-instances,
-  # --concurrency, --service-account, --set-env-vars, etc.) as required per
-  # service before going to production.
+  # --concurrency, --set-env-vars, etc.) as required per service before going
+  # to production.
   # ===========================================================================
 
   # ---------------------------------------------------------------------------
@@ -272,7 +301,7 @@ steps:
       - '--platform=managed'
       - '--port=8004'
       - '--no-allow-unauthenticated'
-      - '--service-account=cloud-run-runtime@$_PROJECT_ID.iam.gserviceaccount.com'
+      - '--service-account=svc-document-reader@$_PROJECT_ID.iam.gserviceaccount.com'
       - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO,MAX_FILE_SIZE_MB=10'
       - '--quiet'
 
@@ -298,7 +327,7 @@ steps:
         echo "=== [frontend] Firebase Hosting deploy complete ==="
 
   # ---------------------------------------------------------------------------
-  # gateway-api
+  # gateway-api — the only publicly reachable Cloud Run service
   # ---------------------------------------------------------------------------
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-gateway-api'
@@ -313,7 +342,7 @@ steps:
       - '--platform=managed'
       - '--port=3000'
       - '--allow-unauthenticated'
-      - '--service-account=cloud-run-runtime@$_PROJECT_ID.iam.gserviceaccount.com'
+      - '--service-account=svc-gateway@$_PROJECT_ID.iam.gserviceaccount.com'
       - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID,DOCUMENT_READER_SERVICE_URL=https://document-reader-xxxx-uc.a.run.app,USER_API_SERVICE_URL=https://users-api-xxxx-uc.a.run.app,ALLOWED_ORIGINS=https://$_PROJECT_ID.web.app'
       - '--quiet'
 
@@ -333,7 +362,7 @@ steps:
       - '--platform=managed'
       - '--port=8005'
       - '--no-allow-unauthenticated'
-      - '--service-account=cloud-run-runtime@$_PROJECT_ID.iam.gserviceaccount.com'
+      - '--service-account=svc-users-api@$_PROJECT_ID.iam.gserviceaccount.com'
       - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID'
       - '--update-secrets=BOOTSTRAP_ADMIN_USER_EMAIL=BOOTSTRAP_ADMIN_USER_EMAIL:latest,ONBOARDABLE_EMAIL_DOMAINS=ONBOARDABLE_EMAIL_DOMAINS:latest'
       - '--quiet'

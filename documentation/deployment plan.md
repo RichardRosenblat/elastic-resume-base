@@ -1,4 +1,4 @@
-# Deployment Plan: Frontend (Firebase Hosting) + Gateway, Users, Document Reader (Cloud Run)
+# Deployment Plan: Frontend (Firebase Hosting) + All Cloud Run Services
 
 ## Step-by-Step Deployment Guide
 
@@ -44,7 +44,11 @@ gcloud services enable \
   firebase.googleapis.com \
   firestore.googleapis.com \
   vision.googleapis.com \
-  iam.googleapis.com
+  iam.googleapis.com \
+  pubsub.googleapis.com \
+  aiplatform.googleapis.com \
+  translate.googleapis.com \
+  cloudkms.googleapis.com
 ```
 
 #### A4. Add Firebase Hosting to `firebase.json` if not already present
@@ -120,7 +124,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
 gcloud projects add-iam-policy-binding $PROJECT \
   --member="serviceAccount:$SA" --role="roles/storage.admin"
 
-# Act as the Cloud Run runtime service account
+# Act as every Cloud Run runtime service account (needed for --service-account flag)
 gcloud projects add-iam-policy-binding $PROJECT \
   --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
 
@@ -133,42 +137,153 @@ gcloud projects add-iam-policy-binding $PROJECT \
   --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
 ```
 
-#### B2. Create a dedicated Cloud Run runtime service account
+#### B2. Create per-service Cloud Run runtime service accounts
 
-This is the identity each Cloud Run service runs as — separate from the deployer SA:
+Each Cloud Run service runs under its own dedicated identity following the
+least-privilege principle.  Create one service account per service, then grant
+only the roles that service needs.
 
 ```bash
-gcloud iam service-accounts create cloud-run-runtime \
-  --display-name="Cloud Run Runtime SA" \
-  --project YOUR_PROJECT_ID
+PROJECT=YOUR_PROJECT_ID
 
-SA_RUNTIME=cloud-run-runtime@${PROJECT}.iam.gserviceaccount.com
+# Helper — create SA and print its email
+create_sa() {
+  local NAME=$1 DISPLAY=$2
+  gcloud iam service-accounts create "$NAME" \
+    --display-name="$DISPLAY" \
+    --project "$PROJECT"
+  echo "${NAME}@${PROJECT}.iam.gserviceaccount.com"
+}
 
-# Firestore access
-gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:$SA_RUNTIME" --role="roles/datastore.user"
-
-# Cloud Vision API (document-reader)
-gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:$SA_RUNTIME" --role="roles/visionai.viewer"
-
-# Pub/Sub (gateway, users)
-gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:$SA_RUNTIME" --role="roles/pubsub.publisher"
-
-# Secret Manager (if secrets are mounted at runtime)
-gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:$SA_RUNTIME" --role="roles/secretmanager.secretAccessor"
+create_sa svc-gateway       "Gateway API Runtime"
+create_sa svc-document-reader "Document Reader Runtime"
+create_sa svc-users-api     "Users API Runtime"
+create_sa svc-ingestor-api  "Ingestor API Runtime"
+create_sa svc-ai-worker     "AI Worker Runtime"
+create_sa svc-search-base   "Search Base Runtime"
+create_sa svc-file-generator "File Generator Runtime"
+create_sa svc-dlq-notifier  "DLQ Notifier Runtime"
 ```
 
-#### B3. Store sensitive configuration in Secret Manager (no `config.yaml` in prod)
+Grant each SA only the permissions its service requires:
+
+```bash
+# ── gateway-api ──────────────────────────────────────────────────────────────
+SA_GW="svc-gateway@${PROJECT}.iam.gserviceaccount.com"
+# Firestore (Firebase Admin SDK for token verification)
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_GW" --role="roles/datastore.user"
+# Pub/Sub (publish ingest events)
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_GW" --role="roles/pubsub.publisher"
+
+# ── document-reader ───────────────────────────────────────────────────────────
+SA_DR="svc-document-reader@${PROJECT}.iam.gserviceaccount.com"
+# Cloud Vision OCR
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_DR" --role="roles/visionai.viewer"
+
+# ── users-api ─────────────────────────────────────────────────────────────────
+SA_UA="svc-users-api@${PROJECT}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_UA" --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_UA" --role="roles/secretmanager.secretAccessor"
+
+# ── ingestor-api ──────────────────────────────────────────────────────────────
+SA_IN="svc-ingestor-api@${PROJECT}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_IN" --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_IN" --role="roles/pubsub.publisher"
+
+# ── ai-worker ─────────────────────────────────────────────────────────────────
+SA_AW="svc-ai-worker@${PROJECT}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_AW" --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_AW" --role="roles/pubsub.publisher"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_AW" --role="roles/aiplatform.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_AW" --role="roles/cloudkms.cryptoKeyEncrypterDecrypter"
+
+# ── search-base ───────────────────────────────────────────────────────────────
+SA_SB="svc-search-base@${PROJECT}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_SB" --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_SB" --role="roles/pubsub.subscriber"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_SB" --role="roles/aiplatform.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_SB" --role="roles/cloudkms.cryptoKeyDecrypter"
+
+# ── file-generator ────────────────────────────────────────────────────────────
+SA_FG="svc-file-generator@${PROJECT}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_FG" --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_FG" --role="roles/cloudtranslate.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_FG" --role="roles/cloudkms.cryptoKeyDecrypter"
+
+# ── dlq-notifier ──────────────────────────────────────────────────────────────
+SA_DQ="svc-dlq-notifier@${PROJECT}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_DQ" --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_DQ" --role="roles/pubsub.subscriber"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$SA_DQ" --role="roles/secretmanager.secretAccessor"
+```
+
+#### B3. Grant the gateway service account permission to invoke backend services
+
+The gateway SA (`svc-gateway`) is the only identity that may call the private
+backend Cloud Run services.  Run these bindings **after** the services have been
+deployed at least once (the service resource must exist for the binding to apply):
+
+```bash
+PROJECT=YOUR_PROJECT_ID
+SA_GW="svc-gateway@${PROJECT}.iam.gserviceaccount.com"
+REGION=us-central1   # adjust if different
+
+for SERVICE in document-reader users-api ingestor-api search-base file-generator dlq-notifier; do
+  gcloud run services add-iam-policy-binding "$SERVICE" \
+    --region="$REGION" \
+    --member="serviceAccount:$SA_GW" \
+    --role="roles/run.invoker"
+done
+```
+
+#### B4. Grant the Pub/Sub service agent permission to invoke push-target services
+
+Cloud Pub/Sub uses its own service agent to authenticate push delivery to Cloud
+Run endpoints.  Grant it `roles/run.invoker` on every service that receives
+Pub/Sub push messages (`ai-worker`, `search-base`, `dlq-notifier`):
+
+```bash
+PROJECT=YOUR_PROJECT_ID
+REGION=us-central1   # adjust if different
+
+# Look up the project number (needed for the Pub/Sub service agent email)
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format="value(projectNumber)")
+SA_PUBSUB="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+for SERVICE in ai-worker search-base dlq-notifier; do
+  gcloud run services add-iam-policy-binding "$SERVICE" \
+    --region="$REGION" \
+    --member="serviceAccount:$SA_PUBSUB" \
+    --role="roles/run.invoker"
+done
+```
+
+#### B5. Store sensitive configuration in Secret Manager (no `config.yaml` in prod)
 
 Never pass sensitive values as plain `--set-env-vars`; use Secret Manager:
 
 ```bash
-# gateway-api: Firebase project ID (non-sensitive, can be plain env var)
-# gateway-api: downstream service URLs (set after Cloud Run services are deployed)
-
 # users-api secrets
 echo -n "bootstrap-admin@yourdomain.com" | \
   gcloud secrets create BOOTSTRAP_ADMIN_USER_EMAIL --data-file=- --project $PROJECT
@@ -176,12 +291,18 @@ echo -n "bootstrap-admin@yourdomain.com" | \
 echo -n "yourdomain.com" | \
   gcloud secrets create ONBOARDABLE_EMAIL_DOMAINS --data-file=- --project $PROJECT
 
-# document-reader: GCP_PROJECT_ID (non-sensitive, plain env var is fine)
+# dlq-notifier SMTP secrets — replace the placeholder values with your actual credentials
+echo -n "YOUR_SMTP_HOST"        | gcloud secrets create SMTP_HOST     --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_PORT"        | gcloud secrets create SMTP_PORT     --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_USER"        | gcloud secrets create SMTP_USER     --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_PASSWORD"    | gcloud secrets create SMTP_PASSWORD --data-file=- --project $PROJECT
+echo -n "YOUR_SMTP_FROM"        | gcloud secrets create SMTP_FROM     --data-file=- --project $PROJECT
+echo -n "YOUR_NOTIFICATION_RECIPIENTS" | gcloud secrets create NOTIFICATION_RECIPIENTS --data-file=- --project $PROJECT
 ```
 
 > **Rule of thumb**: Anything in `.env.example` that is an email, key, or credential → Secret Manager. Project IDs, ports, feature flags → plain `--set-env-vars`.
 
-#### B4. Set up Workload Identity Federation for GitHub Actions
+#### B6. Set up Workload Identity Federation for GitHub Actions
 
 This allows GitHub Actions to authenticate to GCP without a long-lived service account key:
 
@@ -221,14 +342,14 @@ gcloud iam workload-identity-pools providers describe github-provider \
 # → paste this into GitHub secret GCP_WORKLOAD_IDENTITY_PROVIDER
 ```
 
-#### B5. Set up Firebase Hosting in the Firebase Console
+#### B7. Set up Firebase Hosting in the Firebase Console
 
 1.  Go to Firebase Console → your project → Hosting
 2.  Click **Get started** and follow the wizard (choose "Set up Firebase Hosting")
 3.  When prompted to deploy, skip — Cloud Build will deploy
 4.  Optionally add a custom domain under **Hosting** → **Add custom domain**
 
-#### B6. Configure Firebase Authentication
+#### B8. Configure Firebase Authentication
 
 1.  Go to Firebase Console → Authentication → Sign-in method
 2.  Enable Google sign-in (and any other providers your app uses)
@@ -243,14 +364,22 @@ gcloud iam workload-identity-pools providers describe github-provider \
 
 Because the Cloud Run service URLs are not known until after first deploy (they contain a random hash), follow this order:
 
-1.  Deploy `document-reader` and `users-api` first — push to prod with gateway's downstream URL env vars pointing at placeholder values (or the known URL pattern if you set a custom domain/Cloud Run service name with `--no-traffic`)
-2.  Note the assigned URLs from the Cloud Run console
-3.  Update `gateway-api`'s `--set-env-vars` in `cloudbuild.yaml` with the real `DOCUMENT_READER_SERVICE_URL` and `USER_API_SERVICE_URL` values
-4.  Re-push to prod — now the full pipeline runs and gateway deploys with correct downstream URLs
-5.  Update Firebase Hosting authorized domains in Firebase Console with the gateway Cloud Run URL
-6.  Update `VITE_GATEWAY_URL` in the `build-frontend` step with the gateway Cloud Run URL and push again
+1.  Deploy all backend services first (`document-reader`, `users-api`, `ingestor-api`, `ai-worker`, `search-base`, `file-generator`, `dlq-notifier`) — push to prod with the gateway's downstream URL env vars pointing at placeholder values (or the known URL pattern if you set a custom domain)
+2.  Note the assigned URLs from the Cloud Run console for each service
+3.  Update `gateway-api`'s `--set-env-vars` in `cloudbuild.yaml` with the real URLs for all downstream services:
+    -   `DOCUMENT_READER_SERVICE_URL`
+    -   `USER_API_SERVICE_URL`
+    -   `INGESTOR_SERVICE_URL`
+    -   `SEARCH_BASE_SERVICE_URL`
+    -   `FILE_GENERATOR_SERVICE_URL`
+    -   `DLQ_NOTIFIER_SERVICE_URL`
+4.  Run the gateway invoker grants from B3 now that all services exist
+5.  Run the Pub/Sub service agent grants from B4
+6.  Re-push to prod — now the full pipeline runs and gateway deploys with correct downstream URLs
+7.  Update Firebase Hosting authorized domains in Firebase Console with the gateway Cloud Run URL
+8.  Update `VITE_GATEWAY_URL` in the `build-frontend` step with the gateway Cloud Run URL and push again
 
-> **Tip**: Assign a Cloud Run custom domain or use a fixed service name with `--tag` to get stable URLs and avoid the circular URL dependency above.
+> **Tip**: Assign Cloud Run custom domains or use fixed service names with `--tag` to get stable URLs and avoid the circular URL dependency above.
 
 ---
 
@@ -258,10 +387,13 @@ Because the Cloud Run service URLs are not known until after first deploy (they 
 
 **In GCP Console / Cloud Run:**
 
-*   Confirm all 3 services show Revision deployed — serving 100% traffic
+*   Confirm all services show Revision deployed — serving 100% traffic
 *   Check logs: Cloud Run → service → Logs — no startup errors
 *   Verify health endpoints respond: `GET /health/live` on each service
-*   Confirm `document-reader` can call Vision API (check IAM binding for `cloud-run-runtime` SA)
+*   Confirm `document-reader` can call Vision API (check IAM binding for `svc-document-reader` SA)
+*   Confirm only `gateway-api` has **Allow unauthenticated invocations** enabled; all other services show **Require authentication**
+*   Confirm `svc-gateway` has `roles/run.invoker` on every private backend service
+*   Confirm the Pub/Sub service agent has `roles/run.invoker` on `ai-worker`, `search-base`, and `dlq-notifier`
 
 **In Firebase Console:**
 
@@ -274,4 +406,5 @@ Because the Cloud Run service URLs are not known until after first deploy (they 
 
 *   Confirm no `config.yaml` or `.env` files were committed (`git log --all -- config.yaml`)
 *   `GOOGLE_SERVICE_ACCOUNT_KEY` is NOT set in any Cloud Run env var
-*   All sensitive values (API keys, tokens) live in Secret Manager, not in `--set-env-vars`
+*   All sensitive values (API keys, tokens, SMTP credentials) live in Secret Manager, not in `--set-env-vars`
+*   Verify each Cloud Run service runs under its own dedicated SA (`svc-<service>@PROJECT...`) — no service uses the legacy `cloud-run-runtime` SA
