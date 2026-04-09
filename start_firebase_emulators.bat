@@ -5,7 +5,7 @@ set "SCRIPT_DIR=%~dp0"
 
 :: 1. Launch a new terminal window for the seeding script
 :: Notice the single '&' after the if statement. This ensures activation happens even if the venv already exists.
-start "Emulator Seeder" cmd /k "cd /d "%SCRIPT_DIR%Scripts\emulator_scripts" && timeout /t 45 && (if not exist venv python -m venv venv) & call venv\Scripts\activate && pip install google-cloud-pubsub firebase-admin && python seed_emulators.py"
+start "Emulator Seeder (close after finished)" cmd /k "cd /d "%SCRIPT_DIR%Scripts\emulator_scripts" && timeout /t 45 && (if not exist venv python -m venv venv) & call venv\Scripts\activate && pip install google-cloud-pubsub firebase-admin && python seed_emulators.py"
 
 :: 2. Navigate to the firebase_logs directory
 cd /d "%SCRIPT_DIR%firebase_logs" || (
