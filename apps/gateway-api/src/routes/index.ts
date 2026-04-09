@@ -33,6 +33,7 @@ const routes: FastifyPluginAsync = async (app) => {
       // before the expensive Firebase token-verification and users-api calls run.
       // This prevents denial-of-service attacks via token flooding.
       await api.register(rateLimit, {
+        global: true,
         max: config.apiV1RateLimitMax,
         timeWindow: config.apiV1RateLimitTimeWindow,
         errorResponseBuilder: buildRateLimitErrorResponseBuilder('API v1'),
