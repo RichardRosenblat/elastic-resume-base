@@ -40,10 +40,18 @@
 # Every Cloud Run service runs under its own dedicated service account
 # (svc-<service>@PROJECT.iam.gserviceaccount.com).  The gateway SA
 # (svc-gateway) is granted roles/run.invoker on every private backend
-# service so it is the only caller that can reach them.  Pub/Sub push
-# subscriptions use the Pub/Sub service agent, which is independently
-# granted roles/run.invoker on ai-worker, search-base, and dlq-notifier.
+# service so it is the only caller that can reach them.
 # See documentation/deployment plan.md §B2 for setup instructions.
+#
+# Currently deployed services (prod)
+# ────────────────────────────────────
+#   frontend        — Firebase Hosting (static SPA)
+#   gateway-api     — Cloud Run, public (--allow-unauthenticated)
+#   users-api       — Cloud Run, private
+#   document-reader — Cloud Run, private
+#
+# Services prepared but not yet deployed to prod (steps intentionally omitted):
+#   ingestor-api, ai-worker, search-base, file-generator, dlq-notifier
 # =============================================================================
 
 substitutions:
@@ -139,96 +147,6 @@ steps:
         NODE_OPTIONS='--experimental-vm-modules' npx jest --runInBand --forceExit --verbose 2>&1
         echo "=== [users-api] All tests PASSED ==="
 
-  # ---------------------------------------------------------------------------
-  # ingestor-api — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-ingestor-api'
-    waitFor: ['-']
-    dir: 'apps/ingestor-api'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [ingestor-api] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [ingestor-api] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [ingestor-api] All tests PASSED ==="
-
-  # ---------------------------------------------------------------------------
-  # ai-worker — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-ai-worker'
-    waitFor: ['-']
-    dir: 'apps/ai-worker'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [ai-worker] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [ai-worker] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [ai-worker] All tests PASSED ==="
-
-  # ---------------------------------------------------------------------------
-  # search-base — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-search-base'
-    waitFor: ['-']
-    dir: 'apps/search-base'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [search-base] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [search-base] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [search-base] All tests PASSED ==="
-
-  # ---------------------------------------------------------------------------
-  # file-generator — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-file-generator'
-    waitFor: ['-']
-    dir: 'apps/file-generator'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [file-generator] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [file-generator] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [file-generator] All tests PASSED ==="
-
-  # ---------------------------------------------------------------------------
-  # dlq-notifier — Python
-  # ---------------------------------------------------------------------------
-  - name: 'python:3.11-slim'
-    id: 'test-dlq-notifier'
-    waitFor: ['-']
-    dir: 'apps/dlq-notifier'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        echo "=== [dlq-notifier] Installing test dependencies ==="
-        pip install -q -r requirements/requirements-dev.txt
-        echo "=== [dlq-notifier] Running tests ==="
-        python -m pytest tests/ -v --tb=short 2>&1
-        echo "=== [dlq-notifier] All tests PASSED ==="
-
   # ===========================================================================
   # PHASE 2 — GATE
   # Waits for every test step. If any earlier step failed this step is never
@@ -242,11 +160,6 @@ steps:
       - 'test-frontend'
       - 'test-gateway-api'
       - 'test-users-api'
-      - 'test-ingestor-api'
-      - 'test-ai-worker'
-      - 'test-search-base'
-      - 'test-file-generator'
-      - 'test-dlq-notifier'
     entrypoint: sh
     args:
       - '-c'
@@ -351,121 +264,6 @@ steps:
         docker push "$${IMAGE}:latest"
         echo "=== [users-api] Image pushed ==="
 
-  # ---------------------------------------------------------------------------
-  # ingestor-api  — build context: repo root (Dockerfile references shared/ libs)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-ingestor-api'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/ingestor-api"
-        echo "=== [ingestor-api] Building image $${IMAGE}:$_COMMIT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/ingestor-api/Dockerfile \
-          .
-        echo "=== [ingestor-api] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [ingestor-api] Image pushed ==="
-
-  # ---------------------------------------------------------------------------
-  # ai-worker  — build context: repo root (Dockerfile references shared/ libs)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-ai-worker'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/ai-worker"
-        echo "=== [ai-worker] Building image $${IMAGE}:$_COMMIT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/ai-worker/Dockerfile \
-          .
-        echo "=== [ai-worker] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [ai-worker] Image pushed ==="
-
-  # ---------------------------------------------------------------------------
-  # search-base  — build context: repo root (Dockerfile references shared/ libs)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-search-base'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/search-base"
-        echo "=== [search-base] Building image $${IMAGE}:$_COMMIT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/search-base/Dockerfile \
-          .
-        echo "=== [search-base] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [search-base] Image pushed ==="
-
-  # ---------------------------------------------------------------------------
-  # file-generator  — build context: repo root (Dockerfile references shared/ libs)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-file-generator'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/file-generator"
-        echo "=== [file-generator] Building image $${IMAGE}:$_COMMIT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/file-generator/Dockerfile \
-          .
-        echo "=== [file-generator] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [file-generator] Image pushed ==="
-
-  # ---------------------------------------------------------------------------
-  # dlq-notifier  — build context: repo root (Dockerfile references shared/ libs)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-push-dlq-notifier'
-    waitFor: ['tests-gate']
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        set -e
-        IMAGE="$_IMAGE_REGISTRY/$_PROJECT_ID/dlq-notifier"
-        echo "=== [dlq-notifier] Building image $${IMAGE}:$_COMMIT_SHA ==="
-        docker build \
-          -t "$${IMAGE}:$_COMMIT_SHA" \
-          -t "$${IMAGE}:latest" \
-          -f apps/dlq-notifier/Dockerfile \
-          .
-        echo "=== [dlq-notifier] Pushing image ==="
-        docker push "$${IMAGE}:$_COMMIT_SHA"
-        docker push "$${IMAGE}:latest"
-        echo "=== [dlq-notifier] Image pushed ==="
-
   # ===========================================================================
   # PHASE 4 — DEPLOY
   # Each service is deployed to Cloud Run after its own image has been pushed.
@@ -545,7 +343,7 @@ steps:
       - '--port=3000'
       - '--allow-unauthenticated'
       - '--service-account=svc-gateway@$_PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID,DOCUMENT_READER_SERVICE_URL=https://document-reader-xxxx-uc.a.run.app,USER_API_SERVICE_URL=https://users-api-xxxx-uc.a.run.app,INGESTOR_SERVICE_URL=https://ingestor-api-xxxx-uc.a.run.app,SEARCH_BASE_SERVICE_URL=https://search-base-xxxx-uc.a.run.app,FILE_GENERATOR_SERVICE_URL=https://file-generator-xxxx-uc.a.run.app,DLQ_NOTIFIER_SERVICE_URL=https://dlq-notifier-xxxx-uc.a.run.app,ALLOWED_ORIGINS=https://$_PROJECT_ID.web.app'
+      - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID,DOCUMENT_READER_SERVICE_URL=https://document-reader-xxxx-uc.a.run.app,USER_API_SERVICE_URL=https://users-api-xxxx-uc.a.run.app,ALLOWED_ORIGINS=https://$_PROJECT_ID.web.app'
       - '--quiet'
 
   # ---------------------------------------------------------------------------
@@ -567,108 +365,6 @@ steps:
       - '--service-account=svc-users-api@$_PROJECT_ID.iam.gserviceaccount.com'
       - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$_PROJECT_ID,GCP_PROJECT_ID=$_PROJECT_ID'
       - '--update-secrets=BOOTSTRAP_ADMIN_USER_EMAIL=BOOTSTRAP_ADMIN_USER_EMAIL:latest,ONBOARDABLE_EMAIL_DOMAINS=ONBOARDABLE_EMAIL_DOMAINS:latest'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
-  # ingestor-api
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-ingestor-api'
-    waitFor: ['build-push-ingestor-api']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'ingestor-api'
-      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/ingestor-api:$_COMMIT_SHA'
-      - '--region=$_REGION'
-      - '--platform=managed'
-      - '--port=8001'
-      - '--no-allow-unauthenticated'
-      - '--service-account=svc-ingestor-api@$_PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
-  # ai-worker — invoked exclusively by Pub/Sub push subscriptions
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-ai-worker'
-    waitFor: ['build-push-ai-worker']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'ai-worker'
-      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/ai-worker:$_COMMIT_SHA'
-      - '--region=$_REGION'
-      - '--platform=managed'
-      - '--port=8006'
-      - '--no-allow-unauthenticated'
-      - '--service-account=svc-ai-worker@$_PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO,VERTEX_AI_LOCATION=$_REGION'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
-  # search-base — invoked by gateway (search) and Pub/Sub push (resume-indexed)
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-search-base'
-    waitFor: ['build-push-search-base']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'search-base'
-      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/search-base:$_COMMIT_SHA'
-      - '--region=$_REGION'
-      - '--platform=managed'
-      - '--port=8002'
-      - '--no-allow-unauthenticated'
-      - '--min-instances=1'
-      - '--service-account=svc-search-base@$_PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO,VERTEX_AI_LOCATION=$_REGION'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
-  # file-generator
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-file-generator'
-    waitFor: ['build-push-file-generator']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'file-generator'
-      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/file-generator:$_COMMIT_SHA'
-      - '--region=$_REGION'
-      - '--platform=managed'
-      - '--port=8003'
-      - '--no-allow-unauthenticated'
-      - '--service-account=svc-file-generator@$_PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO'
-      - '--quiet'
-
-  # ---------------------------------------------------------------------------
-  # dlq-notifier — invoked by gateway (notifications API) and Pub/Sub push
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-dlq-notifier'
-    waitFor: ['build-push-dlq-notifier']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'dlq-notifier'
-      - '--image=$_IMAGE_REGISTRY/$_PROJECT_ID/dlq-notifier:$_COMMIT_SHA'
-      - '--region=$_REGION'
-      - '--platform=managed'
-      - '--port=8007'
-      - '--no-allow-unauthenticated'
-      - '--service-account=svc-dlq-notifier@$_PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=GCP_PROJECT_ID=$_PROJECT_ID,LOG_LEVEL=INFO'
-      - '--update-secrets=SMTP_HOST=SMTP_HOST:latest,SMTP_PORT=SMTP_PORT:latest,SMTP_USER=SMTP_USER:latest,SMTP_PASSWORD=SMTP_PASSWORD:latest,SMTP_FROM=SMTP_FROM:latest,NOTIFICATION_RECIPIENTS=NOTIFICATION_RECIPIENTS:latest'
       - '--quiet'
 
 availableSecrets:
