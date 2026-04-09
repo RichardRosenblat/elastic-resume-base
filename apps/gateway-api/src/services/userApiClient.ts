@@ -142,7 +142,7 @@ export async function authorizeUser(uid: string, email: string): Promise<{ role:
     );
     const { role, enable, reason } = response.data.data;
     logger.debug({ uid, role, enable, reason }, 'authorizeUser: authorization result received');
-    return { role, enable, ...(reason !== undefined ? { reason } : {}) };
+    return { role, enable, reason };
   } catch (err) {
     handleUserApiError(err, {
       context: { uid, email },

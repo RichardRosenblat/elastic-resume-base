@@ -200,7 +200,15 @@ export async function authorizeUser(request: AuthorizeRequest): Promise<Authoriz
         );
       }
     }
-    return { role: user.role, enable: user.enable, ...(user.enable === false ? { reason: 'DISABLED' as const } : {}) };
+    const result = { role: user.role, enable: user.enable } as {
+      role: string;
+      enable: boolean;
+      reason?: 'PENDING_APPROVAL' | 'DISABLED';
+    };
+    if (!user.enable) {
+      result.reason = 'DISABLED';
+    }
+    return result;
   } catch (err) {
     // Use code-based check instead of `instanceof` to guard against module identity
     // mismatches: error classes bundled inside external modules (e.g. Synapse) are
