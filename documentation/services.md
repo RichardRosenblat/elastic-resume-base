@@ -38,6 +38,7 @@ A Node.js/TypeScript microservice that manages user records and implements the G
 - Exposes a `POST /api/v1/users/authorize` endpoint called by the Gateway API during every login
 - Manages a `pre_approved_users` collection for admin-controlled user onboarding
 - Supports auto-onboarding of users from configurable email domains
+- **Port:** 8005
 
 See [apps/users-api/README.md](../apps/users-api/README.md) for full API documentation.
 
@@ -104,7 +105,7 @@ See [apps/dlq-notifier/README.md](../apps/dlq-notifier/README.md) for full API d
 
 ### Search Base (✅ Implemented)
 
-A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 1 (to keep the in-memory index warm), activated through API calls from the Gateway API (for search queries) and through Pub/Sub (when new embeddings are indexed).
+A Python service responsible for handling search queries from the frontend and managing the FAISS vector index. Retrieves relevant resume data based on embeddings, runs FAISS similarity search for the top-k nearest vectors, and returns ranked results. Hosted on Cloud Run, minimum instance set to 0 at lower volumes; should be increased to 1 at enterprise scale (approximately 50,000+ resumes) once the FAISS index grows large enough that cold-start rebuild time becomes noticeable. Activated through API calls from the Gateway API (for search queries) and through Pub/Sub (when new embeddings are indexed).
 
 - Subscribes to `resume-indexed` Pub/Sub events; fetches embedding vectors from Firestore and adds them to the in-process FAISS index
 - Supports multiple embedding types per resume (`fullText`, `skills`, and field-specific embeddings)
