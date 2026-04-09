@@ -22,7 +22,7 @@
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage"
   },
   "dependencies": {
-    "axios": "1.13.6"
+    "axios": "1.15.0"
   },
   "devDependencies": {
     "@types/jest": "29.5.12",
