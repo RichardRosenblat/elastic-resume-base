@@ -34,6 +34,7 @@ import SystemStatusPage from './pages/SystemStatus/SystemStatusPage';
 import BrandingMetaManager from './components/BrandingMetaManager';
 import { ToastProvider } from './contexts/toast-context';
 import { useRateLimitNotifier } from './hooks/useRateLimitNotifier';
+import { useAccountStatusNotifier } from './hooks/useAccountStatusNotifier';
 
 /**
  * Mounts the global rate-limit toast notifier. Must be rendered inside
@@ -41,6 +42,15 @@ import { useRateLimitNotifier } from './hooks/useRateLimitNotifier';
  */
 function RateLimitNotifier() {
   useRateLimitNotifier();
+  return null;
+}
+
+/**
+ * Mounts the global account-status toast notifier. Must be rendered inside
+ * `ToastProvider`.
+ */
+function AccountStatusNotifier() {
+  useAccountStatusNotifier();
   return null;
 }
 
@@ -53,6 +63,7 @@ export default function App() {
     <AppThemeProvider>
       <ToastProvider>
         <RateLimitNotifier />
+        <AccountStatusNotifier />
         <BrowserRouter>
           <BrandingMetaManager />
           <AuthProvider>

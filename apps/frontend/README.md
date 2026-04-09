@@ -406,6 +406,7 @@ Gateway API errors are translated into the user's language using the `errors` se
 | `DOWNSTREAM_ERROR` | 502 | `errors.DOWNSTREAM_ERROR` |
 | `SERVICE_UNAVAILABLE` | 503 | `errors.SERVICE_UNAVAILABLE` |
 | `INTERNAL_ERROR` | 500 | `errors.INTERNAL_ERROR` |
+| `USER_DISABLED` | 403 | `errors.USER_DISABLED` |
 | *(unknown code)* | — | *(falls back to raw API message)* |
 
 **How it works:**

@@ -107,7 +107,7 @@ describe('usersService', () => {
   // ── authorizeUser ──────────────────────────────────────────────────────────
 
   describe('authorizeUser', () => {
-    it('returns role and enable when user exists in users store', async () => {
+    it('returns role and enable when user exists in users store with enable=true (no reason)', async () => {
       const { userStore } = setupMocks();
       userStore.getUserByUid.mockResolvedValue(MOCK_USER);
 
@@ -115,7 +115,19 @@ describe('usersService', () => {
 
       expect(result.role).toBe('user');
       expect(result.enable).toBe(true);
+      expect(result.reason).toBeUndefined();
       expect(userStore.getUserByUid).toHaveBeenCalledWith('uid123');
+    });
+
+    it('returns role and enable=false with reason=DISABLED when user is disabled in users store', async () => {
+      const { userStore } = setupMocks();
+      userStore.getUserByUid.mockResolvedValue({ ...MOCK_USER, enable: false });
+
+      const result = await authorizeUser({ uid: 'uid123', email: 'alice@example.com' });
+
+      expect(result.role).toBe('user');
+      expect(result.enable).toBe(false);
+      expect(result.reason).toBe('DISABLED');
     });
 
     it('promotes user from pre-approved store when not in users store', async () => {
@@ -133,7 +145,7 @@ describe('usersService', () => {
       expect(preApprovedStore.delete).toHaveBeenCalledWith('alice@example.com');
     });
 
-    it('creates user with enable=false when email domain is onboardable (legacy ONBOARDABLE_EMAIL_DOMAINS)', async () => {
+    it('creates user with enable=false and reason=PENDING_APPROVAL when email domain is onboardable (legacy ONBOARDABLE_EMAIL_DOMAINS)', async () => {
       (config as Record<string, unknown>)['onboardableEmailDomains'] = 'example.com';
       const { userStore, preApprovedStore } = setupMocks();
       userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
@@ -144,6 +156,7 @@ describe('usersService', () => {
 
       expect(result.role).toBe('user');
       expect(result.enable).toBe(false);
+      expect(result.reason).toBe('PENDING_APPROVAL');
       expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
     });
 
@@ -186,7 +199,7 @@ describe('usersService', () => {
 
     // ── AUTO_USER_CREATION_DOMAINS ────────────────────────────────────────────
 
-    it('creates user with role=user, enable=false when email domain matches AUTO_USER_CREATION_DOMAINS', async () => {
+    it('creates user with role=user, enable=false and reason=PENDING_APPROVAL when email domain matches AUTO_USER_CREATION_DOMAINS', async () => {
       (config as Record<string, unknown>)['autoUserCreationDomains'] = 'example.com';
       const { userStore, preApprovedStore } = setupMocks();
       userStore.getUserByUid.mockRejectedValue(new NotFoundError('not found'));
@@ -197,6 +210,7 @@ describe('usersService', () => {
 
       expect(result.role).toBe('user');
       expect(result.enable).toBe(false);
+      expect(result.reason).toBe('PENDING_APPROVAL');
       expect(userStore.createUser).toHaveBeenCalledWith({ uid: 'uid123', email: 'alice@example.com', role: 'user', enable: false });
     });
 

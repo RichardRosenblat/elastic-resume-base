@@ -105,7 +105,7 @@ describe('authHook', () => {
     expect(userApiClient.authorizeUser as jest.Mock).toHaveBeenCalledWith('user123', 'test@example.com');
   });
 
-  it('returns 403 with pending approval message when enable=false', async () => {
+  it('returns 403 with pending approval message when enable=false without reason', async () => {
     const decodedToken = { uid: 'pending-uid', email: 'pending@example.com', name: 'Pending User', picture: '' };
     mockVerifier.verifyToken.mockResolvedValue(decodedToken);
     (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: false });
@@ -118,6 +118,37 @@ describe('authHook', () => {
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('FORBIDDEN');
     expect(res.json().error.message).toContain('pending approval');
+  });
+
+  it('returns 403 with pending approval message when enable=false and reason=PENDING_APPROVAL', async () => {
+    const decodedToken = { uid: 'pending-uid', email: 'pending@example.com', name: 'Pending User', picture: '' };
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
+    (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: false, reason: 'PENDING_APPROVAL' });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/users/me',
+      headers: { authorization: 'Bearer valid-token-pending' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('FORBIDDEN');
+    expect(res.json().error.message).toContain('pending approval');
+  });
+
+  it('returns 403 with disabled message when enable=false and reason=DISABLED', async () => {
+    const decodedToken = { uid: 'disabled-uid', email: 'disabled@example.com', name: 'Disabled User', picture: '' };
+    mockVerifier.verifyToken.mockResolvedValue(decodedToken);
+    (userApiClient.authorizeUser as jest.Mock).mockResolvedValue({ role: 'user', enable: false, reason: 'DISABLED' });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/users/me',
+      headers: { authorization: 'Bearer valid-token-disabled' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('FORBIDDEN');
+    expect(res.json().error.message).toContain('been disabled');
+    expect(res.json().error.message).not.toContain('pending approval');
   });
 
   it('returns 403 when token is valid but user is not authorized (ForbiddenError)', async () => {

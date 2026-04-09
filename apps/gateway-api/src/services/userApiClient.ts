@@ -133,16 +133,16 @@ function handleUserApiError(
  * @throws {UnavailableError} If the UserAPI is unavailable.
  * @throws {DownstreamError} If the UserAPI returns an unexpected response.
  */
-export async function authorizeUser(uid: string, email: string): Promise<{ role: string; enable: boolean }> {
+export async function authorizeUser(uid: string, email: string): Promise<{ role: string; enable: boolean; reason?: 'PENDING_APPROVAL' | 'DISABLED' }> {
   logger.debug({ uid, email }, 'authorizeUser: calling UserAPI authorize endpoint');
   try {
-    const response = await client.post<{ success: boolean; data: { role: string; enable: boolean } }>(
+    const response = await client.post<{ success: boolean; data: { role: string; enable: boolean; reason?: 'PENDING_APPROVAL' | 'DISABLED' } }>(
       '/api/v1/users/authorize',
       { uid, email },
     );
-    const { role, enable } = response.data.data;
-    logger.debug({ uid, role, enable }, 'authorizeUser: authorization result received');
-    return { role, enable };
+    const { role, enable, reason } = response.data.data;
+    logger.debug({ uid, role, enable, reason }, 'authorizeUser: authorization result received');
+    return { role, enable, ...(reason !== undefined ? { reason } : {}) };
   } catch (err) {
     handleUserApiError(err, {
       context: { uid, email },

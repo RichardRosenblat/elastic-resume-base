@@ -33,6 +33,17 @@ export interface AuthorizeRequest {
 export interface AuthorizeResponse {
   role: string;
   enable: boolean;
+  /**
+   * Reason for `enable: false`. Present only when the user account is not
+   * fully active. Used by the gateway to return a descriptive error message
+   * that the frontend can display to the user.
+   *
+   * - `'PENDING_APPROVAL'` — new user created by domain auto-creation rules,
+   *   awaiting administrator approval.
+   * - `'DISABLED'` — existing user whose account was explicitly disabled by
+   *   an administrator.
+   */
+  reason?: 'PENDING_APPROVAL' | 'DISABLED';
 }
 
 /** Request payload for creating a new user. */
