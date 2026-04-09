@@ -38,5 +38,55 @@
     "buildContext": ".",
     "cloudRunService": "users-api",
     "port": 8005
+  },
+  {
+    "id": "ingestor-api",
+    "name": "Ingestor API",
+    "path": "apps/ingestor-api",
+    "runner": "python",
+    "dockerfile": "apps/ingestor-api/Dockerfile",
+    "buildContext": ".",
+    "cloudRunService": "ingestor-api",
+    "port": 8001
+  },
+  {
+    "id": "ai-worker",
+    "name": "AI Worker",
+    "path": "apps/ai-worker",
+    "runner": "python",
+    "dockerfile": "apps/ai-worker/Dockerfile",
+    "buildContext": ".",
+    "cloudRunService": "ai-worker",
+    "port": 8006
+  },
+  {
+    "id": "search-base",
+    "name": "Search Base",
+    "path": "apps/search-base",
+    "runner": "python",
+    "dockerfile": "apps/search-base/Dockerfile",
+    "buildContext": ".",
+    "cloudRunService": "search-base",
+    "port": 8002
+  },
+  {
+    "id": "file-generator",
+    "name": "File Generator",
+    "path": "apps/file-generator",
+    "runner": "python",
+    "dockerfile": "apps/file-generator/Dockerfile",
+    "buildContext": ".",
+    "cloudRunService": "file-generator",
+    "port": 8003
+  },
+  {
+    "id": "dlq-notifier",
+    "name": "DLQ Notifier",
+    "path": "apps/dlq-notifier",
+    "runner": "python",
+    "dockerfile": "apps/dlq-notifier/Dockerfile",
+    "buildContext": ".",
+    "cloudRunService": "dlq-notifier",
+    "port": 8007
   }
 ]
