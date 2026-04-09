@@ -17,7 +17,10 @@
  *    user has no application access), Firebase sign-out is called immediately
  *    so that the session is cleared, a toast is shown, and the user stays on
  *    the login page.
- * 5. `isAdmin` is `true` when `userProfile.role === 'admin'`.
+ * 5. If the profile fetch returns 403 FORBIDDEN with "has been disabled", the
+ *    user's account has been explicitly disabled by an administrator. Firebase
+ *    sign-out is called immediately and a clear toast is shown.
+ * 6. `isAdmin` is `true` when `userProfile.role === 'admin'`.
  */
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
@@ -87,6 +90,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             && normalizedError.code === 'FORBIDDEN'
             && normalizedError.message.toLowerCase().includes('pending approval');
 
+          const isDisabled = normalizedError.status === 403
+            && normalizedError.code === 'FORBIDDEN'
+            && normalizedError.message.toLowerCase().includes('been disabled');
+
           if (isPendingApproval) {
             setUserProfile({
               uid: user.uid,
@@ -96,6 +103,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
               role: 'user',
               enable: false,
             });
+          } else if (isDisabled) {
+            // Account explicitly disabled by an administrator — sign out immediately
+            // and show a clear message rather than the generic "pending approval" page.
+            await auth.signOut();
+            setUserProfile(null);
+            showToast(t('errors.USER_DISABLED'), { severity: 'error' });
           } else if (isRateLimitError(normalizedError)) {
             // A transient rate-limit on the profile fetch must not sign the user
             // out — it's a recoverable condition. Keep the existing session and

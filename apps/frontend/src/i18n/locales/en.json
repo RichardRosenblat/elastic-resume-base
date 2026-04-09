@@ -196,7 +196,8 @@
     "unknown": "An error occurred. Please try again.",
     "serverSupportContact": "Please contact support and provide reference code: {{ref}}",
     "referenceCode": "Reference: {{ref}}",
-    "contactSupport": "Please contact support for assistance."
+    "contactSupport": "Please contact support for assistance.",
+    "USER_DISABLED": "Your account has been disabled. Please contact an administrator."
   },
   "theme": {
     "switchToLight": "Switch to light mode",
@@ -241,7 +242,6 @@
         "description": "Handles queue notifications for failed tasks.",
         "impact": "Notifications for failed tasks will not be available."
       }
-
     },
     "statusReady": "Ready",
     "statusIdle": "Idle",
