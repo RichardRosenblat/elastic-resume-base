@@ -25,7 +25,8 @@ services:
   # 2. Node.js Gateway API
   gateway-api:
     build:
-      context: ./apps/gateway-api
+      context: .
+      dockerfile: apps/gateway-api/Dockerfile
     ports:
       - "3000:3000"
     volumes:
@@ -77,6 +78,56 @@ services:
       dockerfile: apps/document-reader/Dockerfile
     ports:
       - "8004:8004"
-    environment:
-      - PORT=8004
-      - LOG_LEVEL=INFO
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by load_config_yaml at startup
+    depends_on:
+      - firebase-emulator
+
+  # 7. Ingestor API (Python — port 8001)
+  ingestor-api:
+    build:
+      context: .
+      dockerfile: apps/ingestor-api/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by load_config_yaml at startup
+    depends_on:
+      - firebase-emulator
+
+  # 8. AI Worker (Python — port 8006)
+  ai-worker:
+    build:
+      context: .
+      dockerfile: apps/ai-worker/Dockerfile
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by load_config_yaml at startup
+    depends_on:
+      - firebase-emulator
+
+  # 9. File Generator (Python — port 8003)
+  file-generator:
+    build:
+      context: .
+      dockerfile: apps/file-generator/Dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by load_config_yaml at startup
+    depends_on:
+      - firebase-emulator
+
+  # 10. DLQ Notifier (Python — port 8007)
+  dlq-notifier:
+    build:
+      context: .
+      dockerfile: apps/dlq-notifier/Dockerfile
+    ports:
+      - "8007:8007"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # read by load_config_yaml at startup
+    depends_on:
+      - firebase-emulator
+

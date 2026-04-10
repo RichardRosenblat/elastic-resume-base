@@ -16,7 +16,7 @@ await build({
   packages: 'external',
   alias: {
     '@shared/toolbox': resolve(__dirname, '../../shared/Toolbox/v1/toolbox_ts/src/index.ts'),
-    '@elastic-resume-base/aegis': resolve(__dirname, '../../shared/Aegis/v1/aegis_ts/src/index.ts'),
+    '@elastic-resume-base/aegis': resolve(__dirname, '../../shared/Aegis/v2/aegis_ts/src/server/index.ts'),
   },
   outfile: 'dist/server.js',
   sourcemap: true,

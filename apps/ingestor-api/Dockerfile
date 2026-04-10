@@ -9,7 +9,7 @@ WORKDIR /app
 COPY shared/Toolbox/v1/toolbox_py/ ./shared/Toolbox/v1/toolbox_py/
 COPY shared/Hermes/v1/hermes_py/ ./shared/Hermes/v1/hermes_py/
 COPY shared/Bowltie/v1/bowltie_py/ ./shared/Bowltie/v1/bowltie_py/
-COPY shared/Bugle/v1/bugle_py/ ./shared/Bugle/v1/bugle_py/
+COPY shared/Bugle/v2/bugle_py/ ./shared/Bugle/v2/bugle_py/
 COPY shared/Synapse/v1/synapse_py/ ./shared/Synapse/v1/synapse_py/
 
 # Switch into the service sub-directory.  From here ../../shared/... resolves
