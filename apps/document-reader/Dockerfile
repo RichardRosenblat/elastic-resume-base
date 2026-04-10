@@ -6,9 +6,9 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy shared Python libraries first so pip can resolve local path references.
-COPY shared/Toolbox/toolbox_py/ ./shared/Toolbox/toolbox_py/
-COPY shared/Hermes/hermes_py/ ./shared/Hermes/hermes_py/
-COPY shared/Bowltie/bowltie_py/ ./shared/Bowltie/bowltie_py/
+COPY shared/Toolbox/v1/toolbox_py/ ./shared/Toolbox/v1/toolbox_py/
+COPY shared/Hermes/v1/hermes_py/ ./shared/Hermes/v1/hermes_py/
+COPY shared/Bowltie/v1/bowltie_py/ ./shared/Bowltie/v1/bowltie_py/
 
 # Switch into the service sub-directory.  From here ../../shared/... resolves
 # to /app/shared/... which was just copied above.

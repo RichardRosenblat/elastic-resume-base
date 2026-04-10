@@ -1,0 +1,22 @@
+{
+  "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "0.0.0.0"
+    },
+    "firestore": {
+      "port": 8080,
+      "host": "0.0.0.0"
+    },
+    "pubsub": {
+      "port": 8085,
+      "host": "0.0.0.0"
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000,
+      "host": "0.0.0.0"
+    },
+    "singleProjectMode": true
+  }
+}
