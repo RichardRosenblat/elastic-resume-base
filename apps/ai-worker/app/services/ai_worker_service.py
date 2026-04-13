@@ -94,6 +94,7 @@ class AIWorkerService:
         topic_resume_indexed: str,
         topic_dlq: str,
         encrypt_kms_key_name: str = "",
+        encrypt_local_key: str = "",
     ) -> None:
         """Initialise the AI Worker service.
 
@@ -105,8 +106,10 @@ class AIWorkerService:
             topic_resume_indexed: Pub/Sub topic to publish to on success.
             topic_dlq: Pub/Sub dead-letter queue topic.
             encrypt_kms_key_name: Cloud KMS key name for encrypting PII fields before
-                Firestore persistence.  Pass an empty string to skip encryption
-                (local development).
+                Firestore persistence.  Pass an empty string to skip KMS encryption.
+            encrypt_local_key: Fernet symmetric key for local development encryption.
+                Takes priority over *encrypt_kms_key_name* when non-empty.  Should
+                only be used in local development — never in production.
         """
         self._store = resume_store
         self._vertex_ai = vertex_ai_service
@@ -115,6 +118,7 @@ class AIWorkerService:
         self._topic_resume_indexed = topic_resume_indexed
         self._topic_dlq = topic_dlq
         self._encrypt_kms_key_name = encrypt_kms_key_name
+        self._encrypt_local_key = encrypt_local_key
 
     # ------------------------------------------------------------------
     # Public interface
@@ -169,7 +173,7 @@ class AIWorkerService:
                 extra={"resume_id": resume_id, "kms_configured": bool(self._encrypt_kms_key_name)},
             )
             structured_data_to_store = encrypt_pii_fields(
-                structured_data, PII_FIELDS, self._encrypt_kms_key_name
+                structured_data, PII_FIELDS, self._encrypt_kms_key_name, self._encrypt_local_key
             )
             merged_metadata = dict(resume.metadata)
             merged_metadata["structuredData"] = structured_data_to_store

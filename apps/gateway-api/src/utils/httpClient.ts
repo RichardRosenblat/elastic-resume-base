@@ -28,12 +28,14 @@ export type { HarborClient };
  *
  * @param baseURL    - The base URL of the downstream service.
  * @param serviceKey - Optional registry key used for passive health observation.
+ * @param timeoutMs  - Optional per-service timeout override in milliseconds.
+ *   Falls back to {@link config.requestTimeoutMs} when not provided.
  * @returns Configured HarborClient instance.
  */
-export function createHttpClient(baseURL: string, serviceKey?: string): HarborClient {
+export function createHttpClient(baseURL: string, serviceKey?: string, timeoutMs?: number): HarborClient {
   const client = new ServerHarborClient({
     baseURL,
-    timeoutMs: config.requestTimeoutMs,
+    timeoutMs: timeoutMs ?? config.requestTimeoutMs,
   });
 
   client.axiosInstance.interceptors.request.use((axiosConfig: InternalAxiosRequestConfig) => {

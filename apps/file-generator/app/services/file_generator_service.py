@@ -49,7 +49,9 @@ class FileGeneratorService:
         local_template_path: Local path to a ``.docx`` template file (used when
             *drive_template_file_id* is empty, for local development).
         decrypt_kms_key_name: Cloud KMS key name for decrypting PII fields.  Pass an
-            empty string to skip decryption.
+            empty string to skip KMS decryption.
+        decrypt_local_key: Fernet symmetric key for local development decryption.
+            When set, this key takes priority over ``decrypt_kms_key_name``.
 
     Example::
 
@@ -68,6 +70,7 @@ class FileGeneratorService:
         drive_template_file_id: str = "",
         local_template_path: str = "",
         decrypt_kms_key_name: str = "",
+        decrypt_local_key: str = "",
     ) -> None:
         """Initialise the FileGeneratorService.
 
@@ -76,13 +79,16 @@ class FileGeneratorService:
             translation_service: Optional translation service instance.
             drive_template_file_id: Google Drive file ID for the template.
             local_template_path: Local path to a template file (dev fallback).
-            decrypt_kms_key_name: Cloud KMS key name (empty to skip decryption).
+            decrypt_kms_key_name: Cloud KMS key name (empty to skip KMS decryption).
+            decrypt_local_key: Fernet key for local decryption.  Takes priority
+                over *decrypt_kms_key_name* when non-empty.  Local dev only.
         """
         self._store = resume_store
         self._translation_service = translation_service
         self._drive_template_file_id = drive_template_file_id
         self._local_template_path = local_template_path
         self._kms_key_name = decrypt_kms_key_name
+        self._local_key = decrypt_local_key
 
     # ------------------------------------------------------------------
     # Public interface
@@ -206,19 +212,19 @@ class FileGeneratorService:
         return structured
 
     def _decrypt_pii(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Decrypt PII fields in *data* using Cloud KMS.
+        """Decrypt PII fields in *data* using a local Fernet key or Cloud KMS.
 
         Args:
             data: Structured resume data dictionary.
 
         Returns:
-            Dictionary with PII fields decrypted (or unchanged when KMS is
-            not configured).
+            Dictionary with PII fields decrypted (or unchanged when no
+            decryption is configured).
         """
-        if not self._kms_key_name:
+        if not self._local_key and not self._kms_key_name:
             return data
 
-        return decrypt_pii_fields(data, PII_FIELDS, self._kms_key_name)  # type: ignore[return-value]
+        return decrypt_pii_fields(data, PII_FIELDS, self._kms_key_name, self._local_key)  # type: ignore[return-value]
 
     def _fetch_template(self) -> bytes:
         """Retrieve the ``.docx`` template file.

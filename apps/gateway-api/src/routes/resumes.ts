@@ -65,7 +65,7 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
                 acceptedAt: {
                   type: 'string',
                   format: 'date-time',
-                  description: 'ISO-8601 timestamp when the job was accepted by the downloader service.',
+                  description: 'ISO-8601 timestamp when the job was accepted by the ingestor service.',
                   example: '2026-01-15T10:30:00.000Z',
                 },
               },
