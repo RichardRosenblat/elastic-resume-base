@@ -186,7 +186,7 @@ export default function SearchPage() {
                   fields: [
                     {
                       key: 'resumeId',
-                      label: t('resumes.batchId'),
+                      label: t('resumes.resumeId'),
                       type: 'text',
                       size: 'small',
                       minWidth: 240,
