@@ -252,7 +252,7 @@ async def ingest(body: IngestRequest, request: Request) -> JSONResponse:
     "/ingest/upload",
     summary="Trigger a resume ingestion job from an uploaded file",
     description=(
-        "Upload an Excel (``.xlsx``, ``.xls``, ``.xlsm``) or CSV (``.csv``) file "
+        "Upload an Excel (``.xlsx``, ``.xls``) or CSV (``.csv``) file "
         "containing Google Drive links to resume files.  The service downloads each "
         "linked resume, extracts plain text, stores it in Firestore, and publishes a "
         "``{ resumeId }`` message to the ``resume-ingested`` Pub/Sub topic.\n\n"
@@ -282,7 +282,7 @@ async def ingest(body: IngestRequest, request: Request) -> JSONResponse:
 )
 async def ingest_upload(
     request: Request,
-    file: Annotated[UploadFile, File(description="Excel (.xlsx/.xls/.xlsm) or CSV (.csv) file.")],
+    file: Annotated[UploadFile, File(description="Excel (.xlsx/.xls) or CSV (.csv) file.")],
     sheet_name: Annotated[
         str | None,
         Form(description="Sheet tab name (Excel only).  Defaults to the first sheet."),

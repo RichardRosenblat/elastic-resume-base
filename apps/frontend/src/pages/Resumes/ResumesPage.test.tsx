@@ -23,7 +23,6 @@ vi.mock('../../firebase', () => ({
 // Mock API
 vi.mock('../../services/api', () => ({
   triggerResumeIngest: vi.fn(),
-  generateResume: vi.fn(),
 }));
 
 // Mock feature flags
@@ -59,21 +58,14 @@ describe('ResumesPage', () => {
     expect(screen.getByText('resumes.title')).toBeInTheDocument();
   });
 
-  it('renders ingest and generate sections', () => {
+  it('renders ingest section', () => {
     render(<ResumesPage />);
     expect(screen.getByText('resumes.ingestResumes')).toBeInTheDocument();
-    expect(screen.getByText('resumes.generateResume')).toBeInTheDocument();
+    expect(screen.queryByText('resumes.generateResume')).not.toBeInTheDocument();
   });
 
-  it('shows coming soon when features are disabled', () => {
+  it('shows coming soon for ingest when disabled', () => {
     render(<ResumesPage />);
     expect(screen.getAllByText('dashboard.comingSoon').length).toBeGreaterThan(0);
-  });
-
-  it('renders the generate resume language selector with English selected by default', () => {
-    const { container } = render(<ResumesPage />);
-    // The generate resume card should contain a language select (disabled when feature is off)
-    // The default value "en" maps to "English" which is shown as selected value
-    expect(container.querySelector('[id$="-label"]')).toBeTruthy();
   });
 });

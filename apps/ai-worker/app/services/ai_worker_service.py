@@ -25,7 +25,7 @@ from synapse_py.interfaces.resume_store import IResumeStore, UpdateResumeData
 from toolbox_py import get_logger
 
 from app.utils.exceptions import EmbeddingError, ExtractionError
-from app.utils.kms import PII_FIELDS, encrypt_pii_fields
+from app.utils.kms import PII_FIELDS, decrypt_field, encrypt_pii_fields
 
 logger = get_logger(__name__)
 
@@ -94,6 +94,7 @@ class AIWorkerService:
         topic_resume_indexed: str,
         topic_dlq: str,
         encrypt_kms_key_name: str = "",
+        decrypt_raw_text_kms_key_name: str = "",
     ) -> None:
         """Initialise the AI Worker service.
 
@@ -107,6 +108,10 @@ class AIWorkerService:
             encrypt_kms_key_name: Cloud KMS key name for encrypting PII fields before
                 Firestore persistence.  Pass an empty string to skip encryption
                 (local development).
+            decrypt_raw_text_kms_key_name: Cloud KMS key name for decrypting the raw
+                resume text stored by the Ingestor service.  Must match the key used
+                by the Ingestor to encrypt the text.  Pass an empty string to read the
+                raw text as-is (local development).
         """
         self._store = resume_store
         self._vertex_ai = vertex_ai_service
@@ -115,6 +120,7 @@ class AIWorkerService:
         self._topic_resume_indexed = topic_resume_indexed
         self._topic_dlq = topic_dlq
         self._encrypt_kms_key_name = encrypt_kms_key_name
+        self._decrypt_raw_text_kms_key_name = decrypt_raw_text_kms_key_name
 
     # ------------------------------------------------------------------
     # Public interface
@@ -125,7 +131,7 @@ class AIWorkerService:
 
         Steps:
             1. Mark resume as ``PROCESSING``.
-            2. Fetch raw text from Firestore.
+            2. Fetch raw text from Firestore and decrypt with Cloud KMS (if configured).
             3. Extract structured fields with Vertex AI.
             4. Encrypt PII fields with Cloud KMS (if configured).
             5. Update Firestore with structured fields.
@@ -150,9 +156,9 @@ class AIWorkerService:
         self._update_status(resume_id, STATUS_PROCESSING, extra_metadata={})
 
         try:
-            # Step 2 — fetch raw text.
+            # Step 2 — fetch raw text and decrypt if KMS is configured.
             resume = self._store.get_resume(resume_id)
-            raw_text = resume.raw_text
+            raw_text = decrypt_field(resume.raw_text, self._decrypt_raw_text_kms_key_name)
             if not raw_text.strip():
                 raise ValueError(f"Resume '{resume_id}' has empty raw_text.")
 

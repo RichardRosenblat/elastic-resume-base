@@ -299,7 +299,7 @@ export const batchUpdatePreApprovedUsers = async (emails: string[], role: 'admin
  */
 export const triggerResumeIngest = async (data: { sheetId?: string; sheetUrl?: string; batchId?: string }): Promise<ResumeIngestJob> => {
   if (!config.features.resumeIngest) {
-    return { jobId: 'mock-job-id', status: 'mock', acceptedAt: new Date().toISOString() };
+    return { ingested: 0, errors: [], duplicates: [] };
   }
   const res = await apiClient.post<SuccessResponse<ResumeIngestJob>>('/api/v1/resumes/ingest', data);
   return unwrapSuccessResponse(res.data);

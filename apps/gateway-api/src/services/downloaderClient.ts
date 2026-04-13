@@ -1,5 +1,6 @@
 import { isHarborError } from '@elastic-resume-base/harbor/server';
 import type { IncomingMessage } from 'node:http';
+import type { SuccessResponse } from '@elastic-resume-base/bowltie';
 import { createHttpClient } from '../utils/httpClient.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
@@ -16,9 +17,9 @@ const client = createHttpClient(config.ingestorServiceUrl, 'downloader');
 export async function triggerIngest(payload: IngestRequest): Promise<IngestResponse> {
   logger.debug({ sheetId: payload.sheetId, batchId: payload.batchId }, 'triggerIngest: forwarding request to downloader service');
   try {
-    const response = await client.post<IngestResponse>('/api/v1/ingest', payload);
-    logger.info({ jobId: response.data.jobId, status: response.data.status }, 'triggerIngest: ingest job accepted');
-    return response.data;
+    const response = await client.post<SuccessResponse<IngestResponse>>('/api/v1/ingest', payload);
+    logger.info({ ingested: response.data.data?.ingested }, 'triggerIngest: ingest completed');
+    return response.data.data;
   } catch (err) {
     if (isHarborError(err)) {
       if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || !err.response) {

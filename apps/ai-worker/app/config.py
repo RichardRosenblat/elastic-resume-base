@@ -59,6 +59,11 @@ class Settings(BaseSettings):
             ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
             When empty, PII fields are stored as plain text — suitable for local
             development only.
+        decrypt_raw_text_kms_key_name: Fully-qualified Cloud KMS key name used to
+            decrypt the raw resume text stored by the Ingestor service before AI
+            processing.  Must match the key used by the Ingestor to encrypt the text.
+            When empty, the raw text is read as-is — suitable for local development
+            only.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -80,6 +85,7 @@ class Settings(BaseSettings):
     pubsub_topic_dlq: str = "dead-letter-queue"
 
     encrypt_kms_key_name: str = ""
+    decrypt_raw_text_kms_key_name: str = ""
 
     http_request_timeout: int = 300
 

@@ -42,6 +42,7 @@ from app.models.ingest import (
 )
 from app.services.text_extractor import SUPPORTED_EXTENSIONS, extract_text
 from app.utils.exceptions import DriveDownloadError, DuplicateResumeError, SheetReadError, TextExtractionError
+from app.utils.kms import encrypt_field
 
 logger = get_logger(__name__)
 
@@ -78,7 +79,8 @@ _MIME_TO_EXT: dict[str, str] = {
 }
 
 #: Accepted MIME types / extensions for uploaded spreadsheet files.
-_EXCEL_EXTENSIONS = frozenset({".xlsx", ".xls", ".xlsm"})
+#: XLSM is excluded because macro-enabled workbooks pose a security risk.
+_EXCEL_EXTENSIONS = frozenset({".xlsx", ".xls"})
 _CSV_EXTENSIONS = frozenset({".csv"})
 _UPLOAD_EXTENSIONS = _EXCEL_EXTENSIONS | _CSV_EXTENSIONS
 
@@ -523,7 +525,7 @@ class IngestService:
     ) -> IngestResponse:
         """Execute the resume ingestion pipeline for an uploaded file.
 
-        Supports ``.xlsx``, ``.xls``, ``.xlsm`` (Excel) and ``.csv`` files.
+        Supports ``.xlsx``, ``.xls`` (Excel) and ``.csv`` files.
         Embedded cell hyperlinks in Excel files are extracted automatically,
         enabling badge-style Drive links to be discovered.
 
@@ -781,6 +783,7 @@ class IngestService:
             raise DuplicateResumeError(existing.id)
 
         # 5. Persist to Firestore via Synapse with INGESTED status.
+        encrypted_raw_text = encrypt_field(raw_text, settings.encrypt_kms_key_name)
         source: dict[str, Any] = {
             **source_context,
             "driveFileId": file_id,
@@ -796,7 +799,7 @@ class IngestService:
         }
         resume_doc = self._resume_store.create_resume(
             CreateResumeData(
-                raw_text=raw_text,
+                raw_text=encrypted_raw_text,
                 source=source,
                 metadata=ingesting_metadata,
                 content_hash=content_hash,
@@ -1001,9 +1004,10 @@ class IngestService:
         }
 
         try:
+            encrypted_raw_text = encrypt_field(raw_text, settings.encrypt_kms_key_name)
             resume_doc = self._resume_store.create_resume(
                 CreateResumeData(
-                    raw_text=raw_text,
+                    raw_text=encrypted_raw_text,
                     source=source,
                     metadata=ingesting_metadata,
                     content_hash=content_hash,

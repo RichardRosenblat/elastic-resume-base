@@ -1,4 +1,5 @@
-"""Cloud KMS utility for encrypting PII fields before Firestore persistence.
+"""Cloud KMS utility for encrypting PII fields before Firestore persistence
+and decrypting raw resume text written by the Ingestor service.
 
 When ``encrypt_kms_key_name`` is configured in settings, plain-text field values are
 encrypted using the Google Cloud KMS API and stored as base64-encoded
@@ -14,7 +15,7 @@ from __future__ import annotations
 import base64
 import logging
 
-from app.utils.exceptions import KmsEncryptionError
+from app.utils.exceptions import KmsDecryptionError, KmsEncryptionError
 
 logger = logging.getLogger(__name__)
 
@@ -95,3 +96,40 @@ def encrypt_pii_fields(
         if isinstance(value, str) and value:
             result[key] = encrypt_field(value, encrypt_kms_key_name)
     return result
+
+
+def decrypt_field(ciphertext_b64: str, decrypt_kms_key_name: str) -> str:
+    """Decrypt a base64-encoded ciphertext string using Cloud KMS.
+
+    When *decrypt_kms_key_name* is empty the function returns *ciphertext_b64*
+    unchanged — this allows local development without a real KMS key.
+
+    Args:
+        ciphertext_b64: Base64-encoded ciphertext string to decrypt.
+        decrypt_kms_key_name: Fully-qualified KMS key resource name, or empty
+            string to skip decryption.
+
+    Returns:
+        Plain-text string, or the original value when KMS is not configured.
+
+    Raises:
+        KmsDecryptionError: If the KMS API call fails.
+    """
+    if not decrypt_kms_key_name:
+        logger.debug("KMS key not configured — returning field value as-is")
+        return ciphertext_b64
+
+    try:
+        from google.cloud import kms  # type: ignore[import-untyped]
+
+        client = kms.KeyManagementServiceClient()
+        ciphertext_bytes = base64.b64decode(ciphertext_b64)
+        response = client.decrypt(
+            request={"name": decrypt_kms_key_name, "ciphertext": ciphertext_bytes}
+        )
+        plaintext: str = response.plaintext.decode("utf-8")
+        logger.debug("KMS decryption successful")
+        return plaintext
+    except Exception as exc:
+        logger.error("KMS decryption failed: %s", exc)
+        raise KmsDecryptionError(f"KMS decryption failed: {exc}") from exc
