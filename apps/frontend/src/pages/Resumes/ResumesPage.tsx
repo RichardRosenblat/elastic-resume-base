@@ -196,7 +196,7 @@ export default function ResumesPage() {
             </TableHead>
             <TableBody>
               {errors.map((entry, index) => (
-                <TableRow key={index}>
+                <TableRow key={`${entry.row}-${index}`}>
                   <TableCell>{entry.row}</TableCell>
                   <TableCell>{entry.error}</TableCell>
                 </TableRow>
