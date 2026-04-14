@@ -49,16 +49,16 @@ def _now_iso() -> str:
 
 
 def _skills_text(structured_data: dict[str, Any]) -> str:
-    """Build a plain-text skills string for embedding generation.
+    """Build a plain-text highlights string for embedding generation.
 
     Args:
         structured_data: Extracted resume fields dict.
 
     Returns:
-        Comma-joined skills string, or empty string if no skills were extracted.
+        Comma-joined highlights string, or empty string if no highlights were extracted.
     """
-    skills: list[Any] = structured_data.get("skills") or []
-    return ", ".join(str(s) for s in skills if s)
+    highlights: list[Any] = structured_data.get("highlights") or []
+    return ", ".join(str(h) for h in highlights if h)
 
 
 class AIWorkerService:

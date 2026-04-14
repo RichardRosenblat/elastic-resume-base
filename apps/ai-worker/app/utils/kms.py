@@ -20,7 +20,7 @@ from app.utils.exceptions import KmsDecryptionError, KmsEncryptionError
 logger = logging.getLogger(__name__)
 
 #: PII field names extracted by the AI Worker that should be encrypted.
-PII_FIELDS = ["name", "email", "phone", "address", "cpf", "rg"]
+PII_FIELDS = ["name", "cpf", "rg"]
 
 
 def encrypt_field(plaintext: str, encrypt_kms_key_name: str, local_key: str = "") -> str:

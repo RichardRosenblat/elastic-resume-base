@@ -58,21 +58,21 @@ def _make_resume(
 
 
 def test_skills_text_returns_joined_skills() -> None:
-    """_skills_text should join skill strings with commas."""
-    data = {"skills": ["Python", "Java", "AWS"]}
-    assert _skills_text(data) == "Python, Java, AWS"
+    """_skills_text should join highlight strings with commas."""
+    data = {"highlights": ["Python expert", "AWS certified", "Team lead"]}
+    assert _skills_text(data) == "Python expert, AWS certified, Team lead"
 
 
 def test_skills_text_empty_when_no_skills() -> None:
-    """_skills_text returns empty string when skills list is empty."""
+    """_skills_text returns empty string when highlights list is empty."""
     assert _skills_text({}) == ""
-    assert _skills_text({"skills": []}) == ""
+    assert _skills_text({"highlights": []}) == ""
 
 
 def test_skills_text_filters_falsy_values() -> None:
-    """_skills_text skips None and empty string skills."""
-    data = {"skills": ["Python", None, "", "Java"]}
-    assert _skills_text(data) == "Python, Java"
+    """_skills_text skips None and empty string highlights."""
+    data = {"highlights": ["Python expert", None, "", "Team lead"]}
+    assert _skills_text(data) == "Python expert, Team lead"
 
 
 # ---------------------------------------------------------------------------
@@ -90,11 +90,11 @@ def test_process_resume_happy_path() -> None:
     vertex_ai = MagicMock()
     vertex_ai.extract_structured_fields.return_value = {
         "name": "John Doe",
-        "skills": ["Python", "Java"],
+        "highlights": ["Python expert", "Java developer"],
     }
     vertex_ai.generate_embeddings.return_value = [
         [0.1, 0.2],  # full text
-        [0.3, 0.4],  # skills
+        [0.3, 0.4],  # highlights
     ]
 
     publisher = MagicMock()
@@ -124,7 +124,7 @@ def test_process_resume_generates_embeddings_with_skills() -> None:
     store.update_resume.return_value = resume
 
     vertex_ai = MagicMock()
-    vertex_ai.extract_structured_fields.return_value = {"skills": ["Python"]}
+    vertex_ai.extract_structured_fields.return_value = {"highlights": ["Python expert"]}
     vertex_ai.generate_embeddings.return_value = [[0.1], [0.2]]
 
     svc = _make_service(store=store, vertex_ai=vertex_ai)
@@ -132,7 +132,7 @@ def test_process_resume_generates_embeddings_with_skills() -> None:
     with patch("app.services.ai_worker_service.AIWorkerService._save_embeddings") as mock_save:
         svc.process_resume("abc-123")
 
-    # Two texts: full text and skills
+    # Two texts: full text and highlights
     vertex_ai.generate_embeddings.assert_called_once()
     args = vertex_ai.generate_embeddings.call_args.args[0]
     assert len(args) == 2
@@ -146,7 +146,7 @@ def test_process_resume_generates_only_full_text_embedding_when_no_skills() -> N
     store.update_resume.return_value = resume
 
     vertex_ai = MagicMock()
-    vertex_ai.extract_structured_fields.return_value = {"skills": []}
+    vertex_ai.extract_structured_fields.return_value = {"highlights": []}
     vertex_ai.generate_embeddings.return_value = [[0.1]]
 
     svc = _make_service(store=store, vertex_ai=vertex_ai)
@@ -202,7 +202,7 @@ def test_process_resume_handles_embedding_error() -> None:
     store.update_resume.return_value = resume
 
     vertex_ai = MagicMock()
-    vertex_ai.extract_structured_fields.return_value = {"skills": ["Python"]}
+    vertex_ai.extract_structured_fields.return_value = {"highlights": ["Python expert"]}
     vertex_ai.generate_embeddings.side_effect = EmbeddingError("Quota exceeded")
 
     publisher = MagicMock()
@@ -294,7 +294,7 @@ def test_process_resume_raises_on_embedding_count_mismatch() -> None:
     store.update_resume.return_value = resume
 
     vertex_ai = MagicMock()
-    vertex_ai.extract_structured_fields.return_value = {"skills": ["Python"]}
+    vertex_ai.extract_structured_fields.return_value = {"highlights": ["Python expert"]}
     # Two texts were submitted but only one vector returned.
     vertex_ai.generate_embeddings.return_value = [[0.1, 0.2]]
 
