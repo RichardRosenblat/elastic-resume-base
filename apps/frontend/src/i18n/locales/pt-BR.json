@@ -211,6 +211,11 @@
 		"loading": "Verificando a integridade dos serviços...",
 		"unavailable": "Status Indisponível — não foi possível acessar o endpoint de saúde.",
 		"services": {
+			"ingestor": {
+				"name": "Ingestor de Currículos",
+				"description": "Gerencia a ingestão de currículos de várias fontes e formatos.",
+				"impact": "A ingestão de novos currículos não estará disponível, mas os currículos existentes ainda estarão pesquisáveis."
+			},
 			"usersApi": {
 				"name": "Gestão de Usuários",
 				"description": "Gerencia contas de usuário, funções e permissões.",
