@@ -212,6 +212,11 @@
 		"loading": "Verificando el estado de los servicios...",
 		"unavailable": "Estado No Disponible — no se pudo alcanzar el endpoint de salud.",
 		"services": {
+			"ingestor": {
+				"name": "Ingestor de Currículums",
+				"description": "Gestiona la ingestión de currículums desde varias fuentes y formatos.",
+				"impact": "La ingestión de nuevos currículums no estará disponible, pero los currículums existentes aún serán buscables."
+			},
 			"usersApi": {
 				"name": "Gestión de Usuarios",
 				"description": "Administra cuentas de usuario, roles y permisos.",

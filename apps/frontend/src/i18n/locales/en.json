@@ -212,6 +212,11 @@
     "loading": "Checking service health...",
     "unavailable": "Status Unavailable — could not reach the health endpoint.",
     "services": {
+      "ingestor": {
+        "name": "Resume Ingestor",
+        "description": "Handles the ingestion of resumes from various sources and formats.",
+        "impact": "Ingesting new resumes will not be available, but existing resumes will still be searchable."
+      },
       "usersApi": {
         "name": "User Management",
         "description": "Manages user accounts, roles, and permissions.",
