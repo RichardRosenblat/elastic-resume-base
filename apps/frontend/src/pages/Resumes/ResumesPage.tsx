@@ -19,6 +19,13 @@ import {
   CircularProgress,
   Tab,
   Tabs,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from '@mui/material';
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -52,11 +59,13 @@ export default function ResumesPage() {
   const [spreadsheetValues, setSpreadsheetValues] = useState<Record<string, string>>({ sheetIdOrUrl: '' });
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
   const [spreadsheetSuccess, setSpreadsheetSuccess] = useState<string | null>(null);
+  const [spreadsheetErrors, setSpreadsheetErrors] = useState<Array<{ row: number; error: string }>>([]);
 
   // Excel / CSV file tab
   const [excelFiles, setExcelFiles] = useState<File[]>([]);
   const [excelLoading, setExcelLoading] = useState(false);
   const [excelSuccess, setExcelSuccess] = useState<string | null>(null);
+  const [excelErrors, setExcelErrors] = useState<Array<{ row: number; error: string }>>([]);
 
   // Drive link tab
   const [driveLinkValues, setDriveLinkValues] = useState<Record<string, string>>({ driveLink: '' });
@@ -81,6 +90,7 @@ export default function ResumesPage() {
   const handleIngestSpreadsheet = async () => {
     setSpreadsheetLoading(true);
     setSpreadsheetSuccess(null);
+    setSpreadsheetErrors([]);
     try {
       const payload = buildSpreadsheetPayload(spreadsheetValues.sheetIdOrUrl ?? '');
       const job = await triggerResumeIngest(payload);
@@ -89,6 +99,7 @@ export default function ResumesPage() {
         : '';
       const msg = t('resumes.ingestedCount', { count: job.ingested }) + errPart;
       setSpreadsheetSuccess(msg);
+      setSpreadsheetErrors(job.errors);
       showToast(msg, { severity: 'success' });
     } catch (error) {
       showApiError(error, t('common.error'));
@@ -101,6 +112,7 @@ export default function ResumesPage() {
     if (!excelFiles[0]) return;
     setExcelLoading(true);
     setExcelSuccess(null);
+    setExcelErrors([]);
     try {
       const result = await triggerResumeIngestUpload(excelFiles[0]);
       const errPart = result.errors.length > 0
@@ -108,6 +120,7 @@ export default function ResumesPage() {
         : '';
       const msg = t('resumes.ingestedCount', { count: result.ingested }) + errPart;
       setExcelSuccess(msg);
+      setExcelErrors(result.errors);
       showToast(msg, { severity: result.errors.length > 0 ? 'warning' : 'success' });
     } catch (error) {
       showApiError(error, t('common.error'));
@@ -164,6 +177,36 @@ export default function ResumesPage() {
       setSingleFileLoading(false);
     }
   };
+
+  /** Renders a table showing per-row error details after a batch ingest. */
+  function renderIngestErrors(errors: Array<{ row: number; error: string }>) {
+    if (errors.length === 0) return null;
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          {t('resumes.ingestErrorDetails')}
+        </Typography>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: 80 }}>{t('resumes.ingestErrorRow')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('resumes.ingestErrorMessage')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {errors.map((entry) => (
+                <TableRow key={entry.row}>
+                  <TableCell>{entry.row}</TableCell>
+                  <TableCell>{entry.error}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -228,6 +271,7 @@ export default function ResumesPage() {
                 }}
               />
               {spreadsheetSuccess && <Alert severity="success" sx={{ mt: 2 }}>{spreadsheetSuccess}</Alert>}
+              {renderIngestErrors(spreadsheetErrors)}
             </>
           )}
 
@@ -260,6 +304,7 @@ export default function ResumesPage() {
                   ],
                 }}
               />
+              {renderIngestErrors(excelErrors)}
             </>
           )}
 
