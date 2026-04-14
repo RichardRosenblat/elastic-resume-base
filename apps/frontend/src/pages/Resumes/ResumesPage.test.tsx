@@ -29,6 +29,32 @@ vi.mock('../../services/api', () => ({
   triggerResumeIngestSingleFile: vi.fn(),
 }));
 
+// Mock templates — FileUploadTemplate exposes a simple submit button for testing.
+// It also immediately sets a dummy file so the excelFiles guard passes.
+vi.mock('../../components/templates', async (importOriginal) => {
+  const { default: React } = await import('react');
+  const original = await importOriginal<typeof import('../../components/templates')>();
+  return {
+    ...original,
+    FileUploadTemplate: ({ config }: {
+      config: {
+        onFilesChange: (files: File[]) => void;
+        buttons: Array<{ label: string; onClick: () => void }>;
+      };
+    }) => {
+      React.useEffect(() => {
+        config.onFilesChange([new File(['x'], 'test.xlsx')]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+      return (
+        <button onClick={config.buttons[0].onClick}>
+          {config.buttons[0].label}
+        </button>
+      );
+    },
+  };
+});
+
 // Mock feature flags
 vi.mock('../../hooks/useFeatureFlags', () => ({
   useFeatureFlags: () => ({
@@ -130,5 +156,33 @@ describe('ResumesPage', () => {
     });
 
     expect(screen.queryByText('resumes.ingestErrorDetails')).not.toBeInTheDocument();
+  });
+
+  it('shows ingestion error details table after Excel/CSV ingest with errors', async () => {
+    const { triggerResumeIngestUpload } = await import('../../services/api');
+    vi.mocked(triggerResumeIngestUpload).mockResolvedValueOnce({
+      ingested: 1,
+      errors: [
+        { row: 5, error: 'Could not download file' },
+      ],
+      duplicates: [],
+    });
+
+    render(<ResumesPage />);
+
+    // Switch to the Excel / CSV tab (index 1)
+    const tabs = screen.getAllByRole('tab');
+    await userEvent.click(tabs[1]);
+
+    // The mocked FileUploadTemplate renders a button with the first button's label
+    const submitBtn = screen.getByRole('button', { name: /resumes.submit/ });
+    await userEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('resumes.ingestErrorDetails')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('Could not download file')).toBeInTheDocument();
   });
 });
