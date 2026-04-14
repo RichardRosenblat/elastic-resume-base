@@ -174,7 +174,7 @@ The `status` field on each `resumes/{resumeId}` Firestore document tracks the pr
 
 Updated by the AI Worker with:
 - `status`: `PROCESSED` or `FAILED`
-- `metadata.structuredData`: extracted resume fields (name, email, skills, …)
+- `metadata.structuredData`: extracted resume fields (name, category, position, professional_experience, education, highlights, experiences, languages, …)
 - `metadata.processingInfo.processedAt` / `metadata.processingInfo.errors`
 
 ### `embeddings/{resumeId}`

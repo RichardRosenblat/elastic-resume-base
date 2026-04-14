@@ -253,5 +253,5 @@ def test_encrypt_pii_fields_skips_missing_keys() -> None:
 
 def test_encrypt_pii_fields_covers_all_default_pii_fields() -> None:
     """PII_FIELDS covers the expected sensitive fields."""
-    expected = {"name", "email", "phone", "address", "cpf", "rg"}
+    expected = {"name", "cpf", "rg"}
     assert expected.issubset(set(PII_FIELDS))

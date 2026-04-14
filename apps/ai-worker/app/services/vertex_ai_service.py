@@ -3,10 +3,11 @@
 Provides :class:`VertexAIService` which wraps two Vertex AI calls:
 
 * **Structured extraction** — uses a Gemini generative model to parse raw
-  resume text into a JSON object with standardised fields (name, email, skills,
-  work experience, education, …).
+  resume text into a JSON object with standardised fields (name, category,
+  position, professional_experience, education, highlights, experiences,
+  languages, …).
 * **Embedding generation** — uses a text embedding model to produce semantic
-  vectors for the full resume text and for the extracted skills list.
+  vectors for the full resume text and for the extracted highlights list.
 """
 
 from __future__ import annotations
@@ -27,14 +28,14 @@ CRITICAL INSTRUCTIONS:
 - The arrays and lists in the template below only show the expected structure. You must extract ALL relevant items, entries, and bullet points found in the resume text, adding as many objects/items to the arrays as necessary to capture the full scope of the candidate's background.
 
 The JSON object must have exactly this structure:
-{
+{{
   "resume_language": "The primary language the resume is written in (e.g., English, Portuguese)",
   "name": "Full name of the candidate",
   "category": "Candidate's primary professional category or industry (e.g., Software Developer Junior)",
   "position": "Current or most recent job position/title",
   "experience_time": "Calculated or explicitly stated total years of professional experience",
   "professional_experience": [
-    {
+    {{
       "position": "Job title for this specific role",
       "company": "Company name",
       "start_date": "Start date (e.g., January 2020)",
@@ -43,15 +44,15 @@ The JSON object must have exactly this structure:
         "Role description, responsibility, or achievement 1",
         "Role description, responsibility, or achievement 2"
       ]
-    }
+    }}
   ],
   "education": [
-    {
+    {{
       "institution": "Institution or university name",
       "name": "Degree type and field of study (e.g., Bachelor of Computer Science)",
       "start_year": "Start year (e.g., 2014)",
       "end_year": "End year (e.g., 2018)"
-    }
+    }}
   ],
   "highlights": [
     "Key professional highlight, skill, or achievement 1",
@@ -61,12 +62,12 @@ The JSON object must have exactly this structure:
     "Brief summary string of an experience entry (e.g., 'Software Engineer at Tech Company (January 2020 - Present)')"
   ],
   "languages": [
-    {
+    {{
       "name": "Language name (e.g., Portuguese)",
       "level": "Proficiency level (e.g., Native, Fluent, Basic)"
-    }
+    }}
   ]
-}
+}}
 
 Resume text:
 {raw_text}
@@ -153,8 +154,9 @@ class VertexAIService:
             raw_text: Plain text content of the resume.
 
         Returns:
-            A dictionary with standardised resume fields (name, email, skills,
-            workExperience, education, …).
+            A dictionary with standardised resume fields (name, category,
+            position, professional_experience, education, highlights,
+            experiences, languages, …).
 
         Raises:
             ExtractionError: If the Gemini call fails or the response cannot
