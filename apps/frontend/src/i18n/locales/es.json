@@ -107,7 +107,10 @@
 		"errorsCount": "{{count}} error(es)",
 		"resumeId": "ID de Currículum",
 		"excelFileDescription": "Sube un archivo Excel (.xlsx, .xls, .xlsm) o CSV (.csv) con enlaces de Google Drive a los currículums.",
-		"singleFileDescription": "Sube un archivo PDF o DOCX de currículum para importación directa."
+		"singleFileDescription": "Sube un archivo PDF o DOCX de currículum para importación directa.",
+		"ingestErrorDetails": "Detalles de Errores de Importación",
+		"ingestErrorRow": "Fila",
+		"ingestErrorMessage": "Error"
 	},
 	"documents": {
 		"title": "Documentos",
