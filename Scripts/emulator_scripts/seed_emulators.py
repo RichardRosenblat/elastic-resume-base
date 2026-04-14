@@ -9,7 +9,7 @@ from google.cloud import pubsub_v1
 PROJECT_ID = "elastic-resume-base" # MUST match your local emulator project ID
 PUBSUB_EMULATOR_HOST = "127.0.0.1:8085"
 AUTH_EMULATOR_HOST = "127.0.0.1:9099" # Default Firebase Auth emulator port
-TOPICS = ["resume-ingested", "dlq-topic-name"] # Update with your actual topics
+TOPICS = ["resume-ingested", "dead-letter-queue", "resume-indexed"] # Update with your actual topics
 
 def seed_pubsub():
     print("\n--- Seeding Pub/Sub ---")

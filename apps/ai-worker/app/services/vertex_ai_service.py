@@ -22,35 +22,51 @@ logger = get_logger(__name__)
 
 _EXTRACTION_PROMPT_TEMPLATE = """You are a professional resume parser. Extract structured information from the following resume text and return ONLY a valid JSON object with no additional text or markdown.
 
-The JSON object must have exactly this structure (use null for missing fields, empty arrays [] for missing lists):
-{{
+CRITICAL INSTRUCTIONS:
+- Use null for missing string fields, and empty arrays [] for missing lists.
+- The arrays and lists in the template below only show the expected structure. You must extract ALL relevant items, entries, and bullet points found in the resume text, adding as many objects/items to the arrays as necessary to capture the full scope of the candidate's background.
+
+The JSON object must have exactly this structure:
+{
+  "resume_language": "The primary language the resume is written in (e.g., English, Portuguese)",
   "name": "Full name of the candidate",
-  "email": "Email address",
-  "phone": "Phone number",
-  "address": "Full address",
-  "summary": "Professional summary or objective statement",
-  "skills": ["skill1", "skill2"],
-  "workExperience": [
-    {{
-      "title": "Job title",
+  "category": "Candidate's primary professional category or industry (e.g., Software Developer Junior)",
+  "position": "Current or most recent job position/title",
+  "experience_time": "Calculated or explicitly stated total years of professional experience",
+  "professional_experience": [
+    {
+      "position": "Job title for this specific role",
       "company": "Company name",
-      "startDate": "Start date (e.g. 2020-01)",
-      "endDate": "End date or null if current",
-      "description": "Role description and achievements"
-    }}
+      "start_date": "Start date (e.g., January 2020)",
+      "end_date": "End date, or 'Present' if current",
+      "details": [
+        "Role description, responsibility, or achievement 1",
+        "Role description, responsibility, or achievement 2"
+      ]
+    }
   ],
   "education": [
-    {{
-      "institution": "Institution name",
-      "degree": "Degree type",
-      "fieldOfStudy": "Field of study",
-      "startDate": "Start date",
-      "endDate": "End date"
-    }}
+    {
+      "institution": "Institution or university name",
+      "name": "Degree type and field of study (e.g., Bachelor of Computer Science)",
+      "start_year": "Start year (e.g., 2014)",
+      "end_year": "End year (e.g., 2018)"
+    }
   ],
-  "languages": ["language1", "language2"],
-  "certifications": ["certification1", "certification2"]
-}}
+  "highlights": [
+    "Key professional highlight, skill, or achievement 1",
+    "Key professional highlight, skill, or achievement 2"
+  ],
+  "experiences": [
+    "Brief summary string of an experience entry (e.g., 'Software Engineer at Tech Company (January 2020 - Present)')"
+  ],
+  "languages": [
+    {
+      "name": "Language name (e.g., Portuguese)",
+      "level": "Proficiency level (e.g., Native, Fluent, Basic)"
+    }
+  ]
+}
 
 Resume text:
 {raw_text}
