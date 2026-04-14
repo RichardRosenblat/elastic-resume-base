@@ -377,75 +377,6 @@ class IngestService:
         except Exception as exc:
             logger.warning("Failed to publish DLQ message: %s", exc)
 
-    def _persist_failed_record(
-        self,
-        row_number: int,
-        drive_link: str,
-        source_context: dict[str, Any],
-        request_metadata: dict[str, Any],
-        error: Exception,
-    ) -> None:
-        """Persist a ``FAILED`` stub record to Firestore for a row that could not be ingested.
-
-        Creates a document with empty ``rawText`` and status ``FAILED`` so that
-        every attempted ingestion — including rows that failed before text
-        extraction — leaves an auditable Firestore record with error details.
-
-        Failures to persist the stub are logged but do not propagate so that the
-        main ingestion loop is never blocked.
-
-        Args:
-            row_number: The 1-based row number in the source spreadsheet.
-            drive_link: The Google Drive link for the failed row.
-            source_context: Provenance data (e.g. spreadsheetId or uploadedFile).
-            request_metadata: Caller-supplied metadata attached to every resume.
-            error: The exception that caused the row to fail.
-        """
-        try:
-            source: dict[str, Any] = {
-                **source_context,
-                "driveLink": drive_link,
-                "row": row_number,
-            }
-            # Infer the pipeline stage from the exception type for consistent
-            # error reporting across all ingestingInfo error objects.
-            if isinstance(error, DriveDownloadError):
-                stage = "download"
-            elif isinstance(error, TextExtractionError):
-                stage = "extraction"
-            else:
-                stage = "ingestion"
-            failed_metadata: dict[str, Any] = {
-                **request_metadata,
-                "ingestingInfo": {
-                    "failedAt": _now_iso(),
-                    "errors": [
-                        {
-                            "stage": stage,
-                            "errorType": type(error).__name__,
-                            "errorMessage": str(error),
-                        }
-                    ],
-                },
-            }
-            stub = self._resume_store.create_resume(
-                CreateResumeData(raw_text="", source=source, metadata=failed_metadata)
-            )
-            self._resume_store.update_resume(
-                stub.id,
-                UpdateResumeData(status=_STATUS_FAILED),
-            )
-            logger.debug(
-                "Persisted FAILED record to Firestore",
-                extra={"resume_id": stub.id, "row": row_number},
-            )
-        except Exception as persist_exc:
-            logger.warning(
-                "Could not persist FAILED record to Firestore: %s",
-                persist_exc,
-                extra={"row": row_number},
-            )
-
     async def ingest(self, request: IngestRequest) -> IngestResponse:
         """Execute the full resume ingestion pipeline for a Google Sheet.
 
@@ -674,13 +605,6 @@ class IngestService:
                     if user_id:
                         dlq_context["userId"] = user_id
                     self._publish_dlq_error(error_msg, context=dlq_context)
-                    self._persist_failed_record(
-                        row_number=row_number,
-                        drive_link=drive_link,
-                        source_context=source_context,
-                        request_metadata=request_metadata,
-                        error=exc,
-                    )
                     return (row_number, None, IngestRowError(row=row_number, error=error_msg), None)
 
         tasks = [_process_row(row_number, drive_link) for row_number, drive_link in row_links]
@@ -775,6 +699,11 @@ class IngestService:
             )
 
         raw_text = extract_text(content, extension)
+        if not raw_text.strip():
+            raise TextExtractionError(
+                f"No text could be extracted from Drive file '{file_id}'. "
+                "The file may be empty, image-only, or in an unsupported format."
+            )
 
         # 4. Compute content hash and check for duplicates.
         content_hash = hashlib.sha256(raw_text.encode()).hexdigest()
@@ -783,7 +712,7 @@ class IngestService:
             raise DuplicateResumeError(existing.id)
 
         # 5. Persist to Firestore via Synapse with INGESTED status.
-        encrypted_raw_text = encrypt_field(raw_text, settings.encrypt_kms_key_name)
+        encrypted_raw_text = encrypt_field(raw_text, settings.encrypt_kms_key_name, settings.local_fernet_key)
         source: dict[str, Any] = {
             **source_context,
             "driveFileId": file_id,
@@ -901,13 +830,6 @@ class IngestService:
             if request.user_id:
                 dlq_context["userId"] = request.user_id
             self._publish_dlq_error(error_msg, context=dlq_context)
-            self._persist_failed_record(
-                row_number=1,
-                drive_link=request.drive_link,
-                source_context={"driveLink": request.drive_link},
-                request_metadata=request.metadata,
-                error=exc,
-            )
             return SingleIngestResponse(
                 resumeId=None,
                 ingested=0,
@@ -975,6 +897,22 @@ class IngestService:
                 errors=[IngestRowError(row=1, error=error_msg)],
             )
 
+        if not raw_text.strip():
+            error_msg = (
+                f"No text could be extracted from '{filename}'. "
+                "The file may be empty, image-only, or in an unsupported format."
+            )
+            logger.warning("Empty raw text for uploaded file: %s", filename)
+            dlq_context = {"uploadedFile": filename}
+            if user_id:
+                dlq_context["userId"] = user_id
+            self._publish_dlq_error(error_msg, context=dlq_context)
+            return SingleIngestResponse(
+                resumeId=None,
+                ingested=0,
+                errors=[IngestRowError(row=1, error=error_msg)],
+            )
+
         content_hash = hashlib.sha256(raw_text.encode()).hexdigest()
         existing = self._resume_store.find_by_content_hash(content_hash)
         if existing is not None:
@@ -1004,7 +942,7 @@ class IngestService:
         }
 
         try:
-            encrypted_raw_text = encrypt_field(raw_text, settings.encrypt_kms_key_name)
+            encrypted_raw_text = encrypt_field(raw_text, settings.encrypt_kms_key_name, settings.local_fernet_key)
             resume_doc = self._resume_store.create_resume(
                 CreateResumeData(
                     raw_text=encrypted_raw_text,

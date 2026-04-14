@@ -1,7 +1,7 @@
 """Cloud KMS utility for encrypting PII fields before Firestore persistence
 and decrypting raw resume text written by the Ingestor service.
 
-When ``encrypt_local_key`` is configured, plain-text field values are encrypted
+When ``local_fernet_key`` is configured, plain-text field values are encrypted
 using a local Fernet symmetric key — intended for local development and testing
 only.  When ``encrypt_kms_key_name`` is configured, Cloud KMS is used instead.
 When neither is set, values are returned as-is (no encryption).
@@ -116,23 +116,39 @@ def encrypt_pii_fields(
     return result
 
 
-def decrypt_field(ciphertext_b64: str, decrypt_kms_key_name: str) -> str:
-    """Decrypt a base64-encoded ciphertext string using Cloud KMS.
+def decrypt_field(ciphertext_b64: str, decrypt_kms_key_name: str, local_key: str = "") -> str:
+    """Decrypt an encrypted string using a local Fernet key or Cloud KMS.
 
-    When *decrypt_kms_key_name* is empty the function returns *ciphertext_b64*
-    unchanged — this allows local development without a real KMS key.
+    Priority:
+        1. *local_key* set → Fernet symmetric decryption (local development).
+        2. *decrypt_kms_key_name* set → Cloud KMS decryption (production).
+        3. Neither set → return *ciphertext_b64* unchanged (no decryption).
 
     Args:
-        ciphertext_b64: Base64-encoded ciphertext string to decrypt.
+        ciphertext_b64: The encrypted value (Fernet token or base64 KMS ciphertext).
         decrypt_kms_key_name: Fully-qualified KMS key resource name, or empty
-            string to skip decryption.
+            string to skip KMS decryption.
+        local_key: Fernet key for local decryption.  Takes priority over
+            *decrypt_kms_key_name* when non-empty.  Local development only.
 
     Returns:
-        Plain-text string, or the original value when KMS is not configured.
+        Plain-text string, or the original value when neither key is configured.
 
     Raises:
-        KmsDecryptionError: If the KMS API call fails.
+        KmsDecryptionError: If the decryption operation fails.
     """
+    if local_key:
+        try:
+            from cryptography.fernet import Fernet  # type: ignore[import-untyped]
+
+            fernet = Fernet(local_key.encode())
+            plaintext: str = fernet.decrypt(ciphertext_b64.encode("utf-8")).decode("utf-8")
+            logger.debug("Local Fernet decryption successful")
+            return plaintext
+        except Exception as exc:
+            logger.error("Local Fernet decryption failed: %s", exc)
+            raise KmsDecryptionError(f"Local Fernet decryption failed: {exc}") from exc
+
     if not decrypt_kms_key_name:
         logger.debug("KMS key not configured — returning field value as-is")
         return ciphertext_b64
@@ -145,9 +161,9 @@ def decrypt_field(ciphertext_b64: str, decrypt_kms_key_name: str) -> str:
         response = client.decrypt(
             request={"name": decrypt_kms_key_name, "ciphertext": ciphertext_bytes}
         )
-        plaintext: str = response.plaintext.decode("utf-8")
+        plaintext_kms: str = response.plaintext.decode("utf-8")
         logger.debug("KMS decryption successful")
-        return plaintext
+        return plaintext_kms
     except Exception as exc:
         logger.error("KMS decryption failed: %s", exc)
         raise KmsDecryptionError(f"KMS decryption failed: {exc}") from exc

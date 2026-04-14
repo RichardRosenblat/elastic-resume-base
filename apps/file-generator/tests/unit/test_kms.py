@@ -29,6 +29,48 @@ def test_decrypt_field_returns_base64_as_is_when_no_key() -> None:
     assert result == b64_value
 
 
+# ---------------------------------------------------------------------------
+# decrypt_field — local Fernet key
+# ---------------------------------------------------------------------------
+
+
+def test_decrypt_field_uses_fernet_when_local_key_set() -> None:
+    """decrypt_field uses Fernet decryption when local_key is provided."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    fernet = Fernet(key.encode())
+    token = fernet.encrypt(b"hello world").decode()
+
+    result = decrypt_field(token, "", local_key=key)
+    assert result == "hello world"
+
+
+def test_decrypt_field_local_key_takes_priority_over_kms() -> None:
+    """When local_key is set, Fernet is used regardless of decrypt_kms_key_name."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    fernet = Fernet(key.encode())
+    token = fernet.encrypt(b"decrypted text").decode()
+
+    result = decrypt_field(token, "projects/p/.../cryptoKeys/k", local_key=key)
+    assert result == "decrypted text"
+
+
+def test_decrypt_field_raises_on_invalid_fernet_key() -> None:
+    """decrypt_field raises KmsDecryptionError when local_key is invalid."""
+    from cryptography.fernet import Fernet
+    from app.utils.exceptions import KmsDecryptionError
+
+    key = Fernet.generate_key().decode()
+    fernet = Fernet(key.encode())
+    token = fernet.encrypt(b"data").decode()
+
+    with pytest.raises(KmsDecryptionError, match="Local Fernet decryption failed"):
+        decrypt_field(token, "", local_key="not-a-valid-fernet-key")
+
+
 def test_decrypt_field_calls_kms_client() -> None:
     """decrypt_field calls the KMS client when a key name is provided."""
     import base64

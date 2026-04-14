@@ -54,6 +54,26 @@ systems:
     FIREBASE_AUTH_EMULATOR_HOST: "firebase-emulator:9099"
     PUBSUB_EMULATOR_HOST: "firebase-emulator:8085"
 
+    # ---------------------------------------------------------------------------
+    # Local Fernet key — shared symmetric key for local development only.
+    #
+    # When set, the Ingestor encrypts raw resume text, the AI Worker encrypts PII
+    # fields and decrypts the raw text, the Search Base decrypts PII fields, and
+    # the File Generator decrypts PII fields — all using this single Fernet key.
+    #
+    # This key is intentionally shared across all PII-handling services so that
+    # data encrypted by one service can be decrypted by another during local
+    # development and testing.
+    #
+    # IMPORTANT: This key is for LOCAL DEVELOPMENT AND TESTING ONLY.
+    # NEVER set this key in production — use Cloud KMS keys instead
+    # (ENCRYPT_KMS_KEY_NAME / DECRYPT_KMS_KEY_NAME per service).
+    #
+    # Generate a key:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # ---------------------------------------------------------------------------
+    LOCAL_FERNET_KEY: ""
+
   # ---------------------------------------------------------------------------
   # Gateway API (Node.js — port 3000)
   # ---------------------------------------------------------------------------
@@ -218,6 +238,8 @@ systems:
     # (suitable for local development only).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     ENCRYPT_KMS_KEY_NAME: ""
+    # Note: for local development encryption of raw text, set LOCAL_FERNET_KEY in
+    # systems.shared above instead of configuring a real KMS key.
 
   # ---------------------------------------------------------------------------
   # AI Worker (Python — Pub/Sub triggered)
@@ -247,14 +269,8 @@ systems:
     # When empty, raw text is read as-is (suitable for local development only).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     DECRYPT_RAW_TEXT_KMS_KEY_NAME: ""
-
-    # Local Fernet key for PII encryption in local development.
-    # When set, takes priority over ENCRYPT_KMS_KEY_NAME and uses local Fernet
-    # symmetric encryption — intended for local development and testing only.
-    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    # Must match DECRYPT_LOCAL_KEY in the file-generator section.
-    # NEVER set this in production — use ENCRYPT_KMS_KEY_NAME instead.
-    ENCRYPT_LOCAL_KEY: ""
+    # Note: for local development encryption/decryption, set LOCAL_FERNET_KEY in
+    # systems.shared above. It is used for both PII encryption and raw text decryption.
 
     # Maximum seconds a single HTTP request to this service may take before timeout.
     # Health endpoints are excluded from this limit.
@@ -286,6 +302,8 @@ systems:
     # returning search results. When empty, decryption is skipped (local dev).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     DECRYPT_KMS_KEY_NAME: ""
+    # Note: for local development decryption, set LOCAL_FERNET_KEY in
+    # systems.shared above instead of configuring a real KMS key.
 
     # Maximum seconds a single HTTP request to this service may take before timeout.
     # Health endpoints are excluded from this limit.
@@ -315,13 +333,8 @@ systems:
     # are returned as-is (for local development).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     DECRYPT_KMS_KEY_NAME: ""
-
-    # Local Fernet key for PII decryption in local development.
-    # When set, takes priority over DECRYPT_KMS_KEY_NAME and uses local Fernet
-    # symmetric decryption — intended for local development and testing only.
-    # Must match ENCRYPT_LOCAL_KEY in the ai-worker section.
-    # NEVER set this in production — use DECRYPT_KMS_KEY_NAME instead.
-    DECRYPT_LOCAL_KEY: ""
+    # Note: for local development decryption, set LOCAL_FERNET_KEY in
+    # systems.shared above instead of configuring a real KMS key.
 
     # Google Cloud region for the Translation API.
     TRANSLATION_API_LOCATION: global

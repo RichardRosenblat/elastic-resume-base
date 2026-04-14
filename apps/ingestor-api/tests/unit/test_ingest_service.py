@@ -695,19 +695,15 @@ async def test_ingest_success_includes_ingesting_info_in_metadata() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ingest_drive_error_creates_failed_firestore_record() -> None:
-    """A Drive download failure creates a FAILED Firestore stub with error details."""
+async def test_ingest_drive_error_does_not_create_firestore_record() -> None:
+    """A Drive download failure reports an error but does NOT create any Firestore record."""
     mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
     mock_drive = MagicMock()
     mock_drive.download_file.side_effect = Exception("Drive API unavailable")
     mock_drive.get_file_metadata.return_value = {"name": "resume.pdf", "mimeType": "application/pdf"}
     mock_publisher = _make_mock_publisher()
 
-    stub_doc = MagicMock()
-    stub_doc.id = "failed-stub-001"
     mock_store = MagicMock()
-    mock_store.create_resume.return_value = stub_doc
-    mock_store.update_resume.return_value = stub_doc
 
     service = IngestService(
         resume_store=mock_store,
@@ -723,34 +719,18 @@ async def test_ingest_drive_error_creates_failed_firestore_record() -> None:
     assert result.ingested == 0
     assert len(result.errors) == 1
 
-    # create_resume was called once (the FAILED stub).
-    mock_store.create_resume.assert_called_once()
-    stub_create_data = mock_store.create_resume.call_args.args[0]
-    assert stub_create_data.raw_text == ""
-    assert "ingestingInfo" in stub_create_data.metadata
-    assert "failedAt" in stub_create_data.metadata["ingestingInfo"]
-    assert len(stub_create_data.metadata["ingestingInfo"]["errors"]) == 1
-    # stage field is present for consistent error reporting.
-    assert "stage" in stub_create_data.metadata["ingestingInfo"]["errors"][0]
-    assert stub_create_data.metadata["ingestingInfo"]["errors"][0]["stage"] == "download"
-
-    # update_resume was called to set status to FAILED.
-    mock_store.update_resume.assert_called_once()
-    update_data = mock_store.update_resume.call_args.args[1]
-    assert update_data.status == "FAILED"
+    # No Firestore record should be created for failed ingestions.
+    mock_store.create_resume.assert_not_called()
+    mock_store.update_resume.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_invalid_drive_link_creates_failed_firestore_record() -> None:
-    """An invalid Drive link creates a FAILED stub record in Firestore."""
+async def test_ingest_invalid_drive_link_does_not_create_firestore_record() -> None:
+    """An invalid Drive link reports an error but does NOT create any Firestore record."""
     mock_sheets = _make_mock_sheets([(3, "not-a-drive-link")])
     mock_publisher = _make_mock_publisher()
 
-    stub_doc = MagicMock()
-    stub_doc.id = "failed-stub-002"
     mock_store = MagicMock()
-    mock_store.create_resume.return_value = stub_doc
-    mock_store.update_resume.return_value = stub_doc
 
     service = IngestService(
         resume_store=mock_store,
@@ -765,24 +745,20 @@ async def test_ingest_invalid_drive_link_creates_failed_firestore_record() -> No
     assert result.ingested == 0
     assert len(result.errors) == 1
 
-    # FAILED stub created and updated.
-    mock_store.create_resume.assert_called_once()
-    mock_store.update_resume.assert_called_once()
-    update_data = mock_store.update_resume.call_args.args[1]
-    assert update_data.status == "FAILED"
+    # No Firestore record should be created for failed ingestions.
+    mock_store.create_resume.assert_not_called()
+    mock_store.update_resume.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_persist_failed_record_does_not_block_on_error() -> None:
-    """If persisting a FAILED record raises, the ingestion loop continues."""
+async def test_ingest_drive_failure_continues_loop() -> None:
+    """If downloading a Drive file fails, the ingestion loop continues and reports an error."""
     mock_sheets = _make_mock_sheets([(2, "https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74/view")])
     mock_drive = MagicMock()
     mock_drive.download_file.side_effect = Exception("Drive error")
     mock_drive.get_file_metadata.return_value = {"name": "r.pdf", "mimeType": "application/pdf"}
 
     mock_store = MagicMock()
-    # create_resume raises when trying to persist the FAILED stub.
-    mock_store.create_resume.side_effect = Exception("Firestore unavailable")
     mock_publisher = _make_mock_publisher()
 
     service = IngestService(
@@ -792,12 +768,14 @@ async def test_ingest_persist_failed_record_does_not_block_on_error() -> None:
         drive_service=mock_drive,
     )
 
-    # Should not raise even though both Drive and Firestore fail.
+    # Should not raise even though Drive download fails.
     request = IngestRequest(sheet_id="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms")
     result = await service.ingest(request)
 
     assert result.ingested == 0
     assert len(result.errors) == 1
+    # No Firestore record should be created for a failed ingestion.
+    mock_store.create_resume.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -824,12 +802,9 @@ async def test_ingest_pubsub_failure_updates_doc_to_failed() -> None:
     ingested_doc = MagicMock()
     ingested_doc.id = "resume-pubsub-fail"
     ingested_doc.metadata = {}
-    stub_doc = MagicMock()
-    stub_doc.id = "failed-stub-pubsub"
-    # First create_resume returns the INGESTED doc;
-    # second create_resume (from _persist_failed_record) returns a stub.
+    # Only one create_resume call (for the INGESTED doc); no stub record is created on failure.
     mock_store = MagicMock()
-    mock_store.create_resume.side_effect = [ingested_doc, stub_doc]
+    mock_store.create_resume.return_value = ingested_doc
     mock_store.update_resume.return_value = ingested_doc
     mock_store.find_by_content_hash.return_value = None
 

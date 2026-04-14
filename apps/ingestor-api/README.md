@@ -136,6 +136,24 @@ Configuration is read from environment variables (or a `.env` file in the servic
 | `SHEETS_LINK_COLUMN` | `"resume_link"` | Default column header in the spreadsheet that contains Drive links |
 | `HTTP_REQUEST_TIMEOUT` | `120` | Maximum seconds per request before a 504 response is returned. Health endpoints are excluded. |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Maximum requests per client IP per minute before an HTTP 429 is returned |
+| `ENCRYPT_KMS_KEY_NAME` | `""` | Cloud KMS key for encrypting raw resume text before Firestore persistence (production) |
+| `LOCAL_FERNET_KEY` | `""` | Fernet key for local development encryption of raw resume text — **never use in production** |
+
+### Encryption
+
+The ingestor encrypts the raw resume text before storing it in Firestore so that downstream services (AI Worker) must decrypt it before processing.
+
+| Mode | Variable | When to use |
+|---|---|---|
+| **Production** | `ENCRYPT_KMS_KEY_NAME` | Set to a fully-qualified Cloud KMS key name. Encrypted ciphertext is stored in Firestore. |
+| **Local development** | `LOCAL_FERNET_KEY` (shared) | Set in `systems.shared` in `config.yaml`. Uses Fernet symmetric encryption. Takes priority over `ENCRYPT_KMS_KEY_NAME`. |
+| **No encryption** | *(leave both empty)* | Raw text is stored as plain text. Only suitable for development without encryption testing. |
+
+> ⚠️ **`LOCAL_FERNET_KEY` is for local development and testing only.** It must match the `LOCAL_FERNET_KEY` configured in the AI Worker service so the worker can decrypt the raw text.  Generate a key with:
+> ```bash
+> python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+> ```
+> Set the **same** key in `systems.shared.LOCAL_FERNET_KEY` in `config.yaml` — it is automatically propagated to all PII-handling services.
 
 ---
 

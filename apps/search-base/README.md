@@ -42,7 +42,20 @@ Configuration is loaded from environment variables and `config.yaml`:
 - `PUBSUB_TOPIC_RESUME_INDEXED` — Input topic name (default: resume-indexed)
 - `FAISS_INDEX_PATH` — Optional disk path for index persistence (default: empty/in-memory)
 - `FAISS_INDEX_METRIC` — Distance metric: cosine or l2 (default: cosine)
-- `DECRYPT_KMS_KEY_NAME` — Cloud KMS key for PII decryption (default: empty)
+- `DECRYPT_KMS_KEY_NAME` — Cloud KMS key for PII decryption in production (default: empty)
+- `LOCAL_FERNET_KEY` — Fernet key for local development PII decryption — **never use in production** (default: empty)
+
+### PII Decryption
+
+The Search Base decrypts PII fields (name, email, phone, address, etc.) before returning search results.
+
+| Mode | Variable | When to use |
+|---|---|---|
+| **Production** | `DECRYPT_KMS_KEY_NAME` | Set to a fully-qualified Cloud KMS key name. Must match `ENCRYPT_KMS_KEY_NAME` used by the AI Worker. |
+| **Local development** | `LOCAL_FERNET_KEY` (shared) | Set in `systems.shared` in `config.yaml`. Uses Fernet symmetric decryption. Takes priority over `DECRYPT_KMS_KEY_NAME`. |
+| **No decryption** | *(leave both empty)* | PII fields are returned as-is (suitable only when data was stored without encryption). |
+
+> ⚠️ **`LOCAL_FERNET_KEY` is for local development and testing only.** It must match the `LOCAL_FERNET_KEY` used by the AI Worker to encrypt PII fields.  Set the **same** key in `systems.shared.LOCAL_FERNET_KEY` in `config.yaml` — it is automatically propagated to all PII-handling services.  **Never set it in production.**
 
 ## Development
 
