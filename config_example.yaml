@@ -71,8 +71,18 @@ systems:
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
 
-    # Timeout (milliseconds) applied to every downstream service call
+    # Timeout (milliseconds) applied to every downstream service call (default/fallback).
     REQUEST_TIMEOUT_MS: "30000"
+
+    # Per-service timeout overrides (milliseconds).
+    # When set, these override REQUEST_TIMEOUT_MS for the specific service.
+    # Leave unset to use REQUEST_TIMEOUT_MS for all services.
+    # INGESTOR_SERVICE_TIMEOUT_MS: "30000"
+    # SEARCH_BASE_SERVICE_TIMEOUT_MS: "30000"
+    # FILE_GENERATOR_SERVICE_TIMEOUT_MS: "60000"
+    # DOCUMENT_READER_SERVICE_TIMEOUT_MS: "60000"
+    # USER_API_SERVICE_TIMEOUT_MS: "30000"
+    # DLQ_NOTIFIER_SERVICE_TIMEOUT_MS: "30000"
 
     # Service registry — downstream health tracking
     # A downstream service is considered "warm" if it was seen alive within this window (ms).
@@ -224,6 +234,14 @@ systems:
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     ENCRYPT_KMS_KEY_NAME: ""
 
+    # Local Fernet key for PII encryption in local development.
+    # When set, takes priority over ENCRYPT_KMS_KEY_NAME and uses local Fernet
+    # symmetric encryption — intended for local development and testing only.
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Must match DECRYPT_LOCAL_KEY in the file-generator section.
+    # NEVER set this in production — use ENCRYPT_KMS_KEY_NAME instead.
+    ENCRYPT_LOCAL_KEY: ""
+
     # Maximum seconds a single HTTP request to this service may take before timeout.
     # Health endpoints are excluded from this limit.
     HTTP_REQUEST_TIMEOUT: 300
@@ -283,6 +301,13 @@ systems:
     # are returned as-is (for local development).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     DECRYPT_KMS_KEY_NAME: ""
+
+    # Local Fernet key for PII decryption in local development.
+    # When set, takes priority over DECRYPT_KMS_KEY_NAME and uses local Fernet
+    # symmetric decryption — intended for local development and testing only.
+    # Must match ENCRYPT_LOCAL_KEY in the ai-worker section.
+    # NEVER set this in production — use DECRYPT_KMS_KEY_NAME instead.
+    DECRYPT_LOCAL_KEY: ""
 
     # Google Cloud region for the Translation API.
     TRANSLATION_API_LOCATION: global
