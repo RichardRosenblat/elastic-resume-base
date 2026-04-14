@@ -62,6 +62,23 @@ class KmsEncryptionError(Exception):
         self.message = message
 
 
+class KmsDecryptionError(Exception):
+    """Raised when Cloud KMS decryption fails.
+
+    Attributes:
+        message: Human-readable description of the failure.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Initialise a KmsDecryptionError.
+
+        Args:
+            message: Human-readable description of the failure.
+        """
+        super().__init__(message)
+        self.message = message
+
+
 class PubSubMessageError(Exception):
     """Raised when a Pub/Sub push message cannot be decoded or is malformed.
 

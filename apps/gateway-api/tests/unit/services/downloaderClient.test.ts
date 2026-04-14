@@ -58,20 +58,22 @@ describe('downloaderClient – triggerIngest', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('returns IngestResponse on success', async () => {
-    const fakeResponse = { jobId: 'job-1', status: 'accepted' };
+    const fakeData = { ingested: 3, errors: [], duplicates: [] };
+    const fakeResponse = { success: true, data: fakeData, meta: { timestamp: '2024-01-01T00:00:00.000Z' } };
     mockPost.mockResolvedValue({ data: fakeResponse });
 
     const result = await triggerIngest({ sheetId: 'sheet-1' });
-    expect(result).toEqual(fakeResponse);
+    expect(result).toEqual(fakeData);
     expect(mockPost).toHaveBeenCalledWith('/api/v1/ingest', { sheetId: 'sheet-1' });
   });
 
   it('returns IngestResponse with batchId', async () => {
-    const fakeResponse = { jobId: 'job-2', status: 'accepted' };
+    const fakeData = { ingested: 1, errors: [], duplicates: [] };
+    const fakeResponse = { success: true, data: fakeData, meta: { timestamp: '2024-01-01T00:00:00.000Z' } };
     mockPost.mockResolvedValue({ data: fakeResponse });
 
     const result = await triggerIngest({ batchId: 'batch-1' });
-    expect(result).toEqual(fakeResponse);
+    expect(result).toEqual(fakeData);
   });
 
   it('throws UnavailableError on ECONNABORTED', async () => {

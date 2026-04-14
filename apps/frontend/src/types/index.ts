@@ -64,12 +64,12 @@ export interface PreApprovedUser {
 }
 
 /**
- * Represents a background resume-ingest job submitted to the Gateway API.
+ * Result returned by the spreadsheet resume-ingest endpoint.
  */
 export interface ResumeIngestJob {
-  jobId: string;
-  status: string;
-  acceptedAt: string;
+  ingested: number;
+  errors: Array<{ row: number; error: string }>;
+  duplicates: Array<{ row: number; existingResumeId: string; message: string }>;
 }
 
 /**

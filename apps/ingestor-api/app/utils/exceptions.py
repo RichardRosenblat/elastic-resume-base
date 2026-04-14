@@ -40,3 +40,20 @@ class DuplicateResumeError(IngestorError):
             f"Resume already ingested (existing document: {existing_resume_id!r})."
         )
         self.existing_resume_id = existing_resume_id
+
+
+class KmsEncryptionError(IngestorError):
+    """Raised when Cloud KMS encryption of raw text fails.
+
+    Attributes:
+        message: Human-readable description of the failure.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Initialise a KmsEncryptionError.
+
+        Args:
+            message: Human-readable description of the failure.
+        """
+        super().__init__(message)
+        self.message = message

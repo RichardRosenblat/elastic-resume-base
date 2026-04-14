@@ -65,6 +65,11 @@ class Settings(BaseSettings):
             for local development and testing only — never use in production.
             Generate with: ``python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"``
             Must match the ``decrypt_local_key`` set in the File Generator service.
+        decrypt_raw_text_kms_key_name: Fully-qualified Cloud KMS key name used to
+            decrypt the raw resume text stored by the Ingestor service before AI
+            processing.  Must match the key used by the Ingestor to encrypt the text.
+            When empty, the raw text is read as-is — suitable for local development
+            only.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -87,6 +92,7 @@ class Settings(BaseSettings):
 
     encrypt_kms_key_name: str = ""
     encrypt_local_key: str = ""
+    decrypt_raw_text_kms_key_name: str = ""
 
     http_request_timeout: int = 300
 

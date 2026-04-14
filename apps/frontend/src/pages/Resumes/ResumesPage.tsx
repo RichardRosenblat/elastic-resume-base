@@ -1,17 +1,13 @@
 /**
- * @file ResumesPage.tsx — Resume ingest and generation page.
+ * @file ResumesPage.tsx — Resume ingestion page (admin function).
  *
- * Provides two feature-flagged workflows:
- * 1. **Ingest** (`resumeIngest` flag) — supports four ingest modes:
- *    - Spreadsheet (Google Sheets ID or URL)
- *    - Excel / CSV file upload
- *    - Single Google Drive link
- *    - Single PDF or DOCX file upload
- * 2. **Generate** (`resumeGenerate` flag) — generates a resume document
- *    (PDF / DOCX) in the selected language and immediately downloads it.
+ * Provides the resume ingest workflow (admin function) with four ingest modes:
+ *  - Spreadsheet (Google Sheets ID or URL)
+ *  - Excel / CSV file upload
+ *  - Single Google Drive link
+ *  - Single PDF or DOCX file upload
  *
- * When both flags are disabled an informational banner is shown instead of
- * the controls.
+ * Generate (user function) has moved to SearchPage.
  */
 import { useState } from 'react';
 import {
@@ -21,11 +17,10 @@ import {
   CardContent,
   Alert,
   CircularProgress,
-  Divider,
   Tab,
   Tabs,
 } from '@mui/material';
-import { CloudUpload as CloudUploadIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import {
@@ -33,7 +28,6 @@ import {
   triggerResumeIngestUpload,
   triggerResumeIngestDriveLink,
   triggerResumeIngestSingleFile,
-  generateResume,
 } from '../../services/api';
 import { useShowApiError } from '../../hooks/useShowApiError';
 import { useToast } from '../../contexts/use-toast';
@@ -74,15 +68,6 @@ export default function ResumesPage() {
   const [singleFileLoading, setSingleFileLoading] = useState(false);
   const [singleFileSuccess, setSingleFileSuccess] = useState<string | null>(null);
 
-  // ── Generate state ────────────────────────────────────────────────────────
-  const [generateValues, setGenerateValues] = useState<Record<string, string>>({
-    resumeId: '',
-    language: 'en',
-    format: 'pdf',
-  });
-  const [generateLoading, setGenerateLoading] = useState(false);
-  const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
-
   // ── Ingest handlers ───────────────────────────────────────────────────────
 
   /** Determines whether the raw input looks like a URL or a bare sheet ID. */
@@ -99,7 +84,10 @@ export default function ResumesPage() {
     try {
       const payload = buildSpreadsheetPayload(spreadsheetValues.sheetIdOrUrl ?? '');
       const job = await triggerResumeIngest(payload);
-      const msg = `Job ${job.jobId} submitted`;
+      const errPart = job.errors.length > 0
+        ? ` (${t('resumes.errorsCount', { count: job.errors.length })})`
+        : '';
+      const msg = t('resumes.ingestedCount', { count: job.ingested }) + errPart;
       setSpreadsheetSuccess(msg);
       showToast(msg, { severity: 'success' });
     } catch (error) {
@@ -177,41 +165,11 @@ export default function ResumesPage() {
     }
   };
 
-  // ── Generate handler ──────────────────────────────────────────────────────
-
-  const handleGenerate = async () => {
-    setGenerateLoading(true);
-    setGenerateSuccess(null);
-    try {
-      const job = await generateResume(generateValues.resumeId, {
-        language: generateValues.language,
-        format: generateValues.format,
-      });
-
-      let successMessage: string;
-      if ('downloadUrl' in job && typeof job.downloadUrl === 'string' && job.downloadUrl.length > 0) {
-        window.open(job.downloadUrl, '_blank', 'noopener,noreferrer');
-        successMessage = `Generation job ${job.jobId} submitted. Download opened.`;
-      } else if ('driveLink' in job && typeof job.driveLink === 'string' && job.driveLink.length > 0) {
-        window.open(job.driveLink, '_blank', 'noopener,noreferrer');
-        successMessage = `Generation job ${job.jobId} submitted. Drive link opened.`;
-      } else {
-        successMessage = `Generation job ${job.jobId} submitted.`;
-      }
-      setGenerateSuccess(successMessage);
-      showToast(successMessage, { severity: 'success' });
-    } catch (error) {
-      showApiError(error, t('common.error'));
-    } finally {
-      setGenerateLoading(false);
-    }
-  };
-
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ mb: 2.5 }}>{t('resumes.title')}</Typography>
 
-      {!features.resumeIngest && !features.resumeGenerate && (
+      {!features.resumeIngest && (
         <Alert severity="info" sx={{ mb: 3 }}>
           {t('common.featureNotAvailable')}
         </Alert>
@@ -278,14 +236,14 @@ export default function ResumesPage() {
             <>
               <FileUploadTemplate
                 config={{
-                  accept: '.xlsx,.xls,.xlsm,.csv',
+                  accept: '.xlsx,.xls,.csv',
                   multiple: false,
                   disabled: !features.resumeIngest,
                   loading: excelLoading,
                   files: excelFiles,
                   onFilesChange: setExcelFiles,
                   description: t('resumes.excelFileDescription'),
-                  acceptedFormats: ['XLSX', 'XLS', 'XLSM', 'CSV'],
+                  acceptedFormats: ['XLSX', 'XLS', 'CSV'],
                   showSuccess: !!excelSuccess,
                   successMessage: excelSuccess ?? undefined,
                   selectFilesLabel: t('documents.selectFiles'),
@@ -368,72 +326,6 @@ export default function ResumesPage() {
               />
             </>
           )}
-        </CardContent>
-      </Card>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* ── Generate card ─────────────────────────────────────────────────── */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            <DownloadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            {t('resumes.generateResume')}
-          </Typography>
-          {!features.resumeGenerate && (
-            <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>{t('dashboard.comingSoon')}</Alert>
-          )}
-          <FormTemplate
-            config={{
-              fields: [
-                {
-                  key: 'resumeId',
-                  label: t('resumes.batchId'),
-                  type: 'text',
-                  size: 'small',
-                  minWidth: 240,
-                  disabled: !features.resumeGenerate,
-                },
-                {
-                  key: 'language',
-                  label: t('resumes.language'),
-                  type: 'select',
-                  size: 'small',
-                  minWidth: 120,
-                  disabled: !features.resumeGenerate,
-                  options: [
-                    { value: 'en', label: 'English' },
-                    { value: 'pt-BR', label: 'Português' },
-                    { value: 'es', label: 'Español' },
-                  ],
-                },
-                {
-                  key: 'format',
-                  label: t('resumes.format'),
-                  type: 'select',
-                  size: 'small',
-                  minWidth: 100,
-                  disabled: !features.resumeGenerate,
-                  options: [
-                    { value: 'pdf', label: 'PDF' },
-                    { value: 'docx', label: 'DOCX' },
-                  ],
-                },
-              ],
-              buttons: [
-                {
-                  label: t('resumes.submit'),
-                  onClick: () => { void handleGenerate(); },
-                  variant: 'contained',
-                  disabled: !features.resumeGenerate || generateLoading || !generateValues.resumeId,
-                  startIcon: generateLoading ? <CircularProgress size={16} /> : undefined,
-                },
-              ],
-              values: generateValues,
-              onChange: (key, value) => setGenerateValues((prev) => ({ ...prev, [key]: value })),
-            }}
-          />
-          {generateSuccess && <Alert severity="success" sx={{ mt: 2 }}>{generateSuccess}</Alert>}
         </CardContent>
       </Card>
     </Box>

@@ -212,6 +212,13 @@ systems:
     # Maximum number of resumes processed concurrently during a single ingest batch.
     INGEST_CONCURRENCY: 10
 
+    # Cloud KMS — raw text encryption key name
+    # Fully-qualified Cloud KMS key name used to encrypt raw resume text before
+    # storing in Firestore. When empty, raw text is stored as plain text
+    # (suitable for local development only).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    ENCRYPT_KMS_KEY_NAME: ""
+
   # ---------------------------------------------------------------------------
   # AI Worker (Python — Pub/Sub triggered)
   # Extracts structured data and generates embeddings using Vertex AI.
@@ -233,6 +240,13 @@ systems:
     # (suitable for local development only).
     # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
     ENCRYPT_KMS_KEY_NAME: ""
+
+    # Cloud KMS — raw text decryption key name
+    # Fully-qualified Cloud KMS key name used to decrypt raw resume text before AI
+    # processing. Must match ENCRYPT_KMS_KEY_NAME configured in the ingestor service.
+    # When empty, raw text is read as-is (suitable for local development only).
+    # Format: projects/<project>/locations/<location>/keyRings/<keyring>/cryptoKeys/<key>
+    DECRYPT_RAW_TEXT_KMS_KEY_NAME: ""
 
     # Local Fernet key for PII encryption in local development.
     # When set, takes priority over ENCRYPT_KMS_KEY_NAME and uses local Fernet

@@ -50,6 +50,11 @@ class Settings(BaseSettings):
             concurrently during a spreadsheet / sheet ingestion run.  A
             semaphore of this size limits simultaneous Drive API calls to
             prevent rate-limiting.  Defaults to ``10``.
+        encrypt_kms_key_name: Fully-qualified Cloud KMS key name used to
+            encrypt the raw resume text before persisting to Firestore (e.g.
+            ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
+            When empty, raw text is stored as plain text — suitable for local
+            development only.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -65,6 +70,7 @@ class Settings(BaseSettings):
     http_request_timeout: int = 120
     rate_limit_per_minute: int = 60
     ingest_concurrency: int = 10
+    encrypt_kms_key_name: str = ""
 
 
 load_config_yaml("ingestor-service")
