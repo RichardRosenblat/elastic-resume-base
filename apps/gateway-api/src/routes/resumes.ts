@@ -13,9 +13,9 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
       tags: ['Resumes'],
       summary: 'Trigger a resume ingest job',
       description:
-        'Enqueues an asynchronous ingest job that downloads and parses resume data from a ' +
-        'Google Sheet or a batch identifier. Either `sheetId` or `batchId` must be supplied. ' +
-        'Returns HTTP 202 immediately with a `jobId` that can be used to track progress.',
+        'Triggers an ingest run that downloads and parses resume data from a ' +
+        'Google Sheet or a batch identifier. Either `sheetId`, `sheetUrl`, or `batchId` must be supplied. ' +
+        'Returns HTTP 202 with the count of ingested resumes and any per-row errors.',
       security: [{ bearerAuth: [] }],
       body: {
         type: 'object',
@@ -45,28 +45,40 @@ const resumesPlugin: FastifyPluginAsync = async (app) => {
       },
       response: {
         202: {
-          description: 'Ingest job accepted and enqueued.',
+          description: 'Ingest completed (with possible partial errors).',
           type: 'object',
           properties: {
             success: { type: 'boolean', example: true },
             data: {
               type: 'object',
               properties: {
-                jobId: {
-                  type: 'string',
-                  description: 'Unique identifier for the submitted ingest job.',
-                  example: 'job-7f3c9a2e-1b4d-4e8f-a1c3-0d2e5b6f7890',
+                ingested: {
+                  type: 'integer',
+                  description: 'Number of resumes successfully ingested.',
+                  example: 5,
                 },
-                status: {
-                  type: 'string',
-                  description: 'Current status of the ingest job.',
-                  example: 'accepted',
+                errors: {
+                  type: 'array',
+                  description: 'Per-row errors encountered during ingestion.',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      row: { type: 'integer', description: 'Row number in the source sheet.', example: 3 },
+                      error: { type: 'string', description: 'Human-readable error message.', example: 'Drive download failed' },
+                    },
+                  },
                 },
-                acceptedAt: {
-                  type: 'string',
-                  format: 'date-time',
-                  description: 'ISO-8601 timestamp when the job was accepted by the downloader service.',
-                  example: '2026-01-15T10:30:00.000Z',
+                duplicates: {
+                  type: 'array',
+                  description: 'Rows whose content hash matched an already-ingested resume.',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      row: { type: 'integer', description: 'Row number in the source sheet.', example: 2 },
+                      existingResumeId: { type: 'string', description: 'Firestore document ID of the existing resume.', example: 'abc-123' },
+                      message: { type: 'string', description: 'Human-readable duplicate message.', example: 'Resume already ingested' },
+                    },
+                  },
                 },
               },
             },

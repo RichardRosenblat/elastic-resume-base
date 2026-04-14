@@ -25,6 +25,100 @@ AI Worker (this service)
 | `GET` | `/health/live` | Liveness probe |
 | `GET` | `/health/ready` | Readiness probe |
 
+### `POST /api/v1/pubsub/push`
+
+Receives a Google Cloud Pub/Sub push message for a newly ingested resume and runs the AI processing pipeline.
+
+**Request body:**
+
+```json
+{
+  "message": {
+    "data": "<base64-encoded JSON>",
+    "messageId": "string",
+    "publishTime": "string"
+  },
+  "subscription": "string"
+}
+```
+
+The `message.data` field is a base64-encoded JSON object:
+
+```json
+{
+  "resumeId": "string"
+}
+```
+
+**Response (200 OK — permanent failure, no retry):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "resumeId": "string",
+    "status": "FAILED",
+    "message": "string"
+  },
+  "meta": {
+    "correlationId": "string",
+    "timestamp": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**Response (202 Accepted — processing succeeded):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "resumeId": "string",
+    "status": "PROCESSED"
+  },
+  "meta": {
+    "correlationId": "string",
+    "timestamp": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**Response (500 Internal Server Error — transient failure, triggers Pub/Sub retry):**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "string"
+  },
+  "meta": {
+    "correlationId": "string",
+    "timestamp": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+### `GET /health/live`
+
+Liveness probe used by container orchestrators.
+
+**Response (200 OK):**
+
+```json
+{ "status": "ok" }
+```
+
+### `GET /health/ready`
+
+Readiness probe — confirms the service is ready to process messages.
+
+**Response (200 OK):**
+
+```json
+{ "status": "ok" }
+```
+
 ## Configuration
 
 | Environment Variable | Default | Description |
@@ -42,6 +136,8 @@ AI Worker (this service)
 | `PUBSUB_TOPIC_RESUME_INDEXED` | `resume-indexed` | Output Pub/Sub topic |
 | `PUBSUB_TOPIC_DLQ` | `dead-letter-queue` | Dead-letter queue topic |
 | `HTTP_REQUEST_TIMEOUT` | `300` | Max request duration in seconds |
+| `ENCRYPT_KMS_KEY_NAME` | `""` | Cloud KMS key for encrypting PII fields before Firestore persistence |
+| `DECRYPT_RAW_TEXT_KMS_KEY_NAME` | `""` | Cloud KMS key for decrypting raw resume text written by the Ingestor |
 
 All variables can also be set via `config.yaml` under `systems.ai-worker`.
 

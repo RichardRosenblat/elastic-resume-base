@@ -42,7 +42,7 @@ export async function ingest(request: FastifyRequest, reply: FastifyReply): Prom
   // Include the authenticated user's UID so the DLQ Notifier can route
   // failure notifications to the right user if the ingest fails.
   const result = await triggerIngest({ ...body, userId: request.user.uid });
-  logger.debug({ correlationId: request.correlationId, jobId: result.jobId }, 'ingest: job accepted');
+  logger.debug({ correlationId: request.correlationId, ingested: result.ingested }, 'ingest: completed');
   void reply.code(202).send(formatSuccess(result, request.correlationId));
 }
 

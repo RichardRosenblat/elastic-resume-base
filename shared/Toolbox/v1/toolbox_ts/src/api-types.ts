@@ -156,9 +156,9 @@ export interface IngestRequest {
 
 /** Response from the ingest endpoint. */
 export interface IngestResponse {
-  jobId: string;
-  status: string;
-  acceptedAt: string;
+  ingested: number;
+  errors: Array<{ row: number; error: string }>;
+  duplicates: Array<{ row: number; existingResumeId: string; message: string }>;
 }
 
 /** Request payload for ingesting a single resume from a Google Drive link. */

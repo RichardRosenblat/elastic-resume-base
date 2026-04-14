@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js';
 import { GenerateRequest, GenerateResponse } from '../models/index.js';
 import { DownstreamError, RateLimitError, UnavailableError } from '../errors.js';
 
-const client = createHttpClient(config.fileGeneratorServiceUrl, 'fileGenerator');
+const client = createHttpClient(config.fileGeneratorServiceUrl, 'fileGenerator', config.fileGeneratorServiceTimeoutMs);
 
 /**
  * Triggers resume file generation via the file generator service.

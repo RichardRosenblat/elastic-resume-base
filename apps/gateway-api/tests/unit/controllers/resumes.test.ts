@@ -139,8 +139,9 @@ describe('Resumes Controller - ingest endpoint', () => {
   }
 
   const mockIngestResponse = {
-    jobId: 'job-ingest-1',
-    status: 'accepted',
+    ingested: 1,
+    errors: [],
+    duplicates: [],
   };
 
   beforeAll(async () => {
@@ -172,7 +173,7 @@ describe('Resumes Controller - ingest endpoint', () => {
     expect(res.statusCode).toBe(202);
     const body = res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toMatchObject({ jobId: 'job-ingest-1', status: 'accepted' });
+    expect(body.data).toMatchObject({ ingested: 1, errors: [], duplicates: [] });
     expect(downloaderClient.triggerIngest).toHaveBeenCalledWith(
       expect.objectContaining({ sheetId: 'sheet-1' }),
     );

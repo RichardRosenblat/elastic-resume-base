@@ -11,7 +11,7 @@ import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { DownstreamError, UnavailableError } from '../errors.js';
 
-const client = createHttpClient(config.dlqNotifierServiceUrl, 'dlqNotifier');
+const client = createHttpClient(config.dlqNotifierServiceUrl, 'dlqNotifier', config.dlqNotifierServiceTimeoutMs);
 
 export interface NotificationRecord {
   id: string;
