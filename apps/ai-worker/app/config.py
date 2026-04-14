@@ -59,6 +59,12 @@ class Settings(BaseSettings):
             ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
             When empty, PII fields are stored as plain text — suitable for local
             development only.
+        encrypt_local_key: Fernet symmetric key used for local development encryption
+            of PII fields.  When set, this key takes priority over ``encrypt_kms_key_name``
+            and uses local Fernet encryption instead of Cloud KMS.  This is intended
+            for local development and testing only — never use in production.
+            Generate with: ``python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"``
+            Must match the ``decrypt_local_key`` set in the File Generator service.
         decrypt_raw_text_kms_key_name: Fully-qualified Cloud KMS key name used to
             decrypt the raw resume text stored by the Ingestor service before AI
             processing.  Must match the key used by the Ingestor to encrypt the text.
@@ -85,6 +91,7 @@ class Settings(BaseSettings):
     pubsub_topic_dlq: str = "dead-letter-queue"
 
     encrypt_kms_key_name: str = ""
+    encrypt_local_key: str = ""
     decrypt_raw_text_kms_key_name: str = ""
 
     http_request_timeout: int = 300

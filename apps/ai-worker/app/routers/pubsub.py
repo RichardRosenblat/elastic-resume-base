@@ -68,6 +68,7 @@ def _get_ai_worker_service() -> AIWorkerService:
         topic_resume_indexed=settings.pubsub_topic_resume_indexed,
         topic_dlq=settings.pubsub_topic_dlq,
         encrypt_kms_key_name=settings.encrypt_kms_key_name,
+        encrypt_local_key=settings.encrypt_local_key,
         decrypt_raw_text_kms_key_name=settings.decrypt_raw_text_kms_key_name,
     )
 

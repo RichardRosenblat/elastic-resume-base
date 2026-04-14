@@ -6,7 +6,7 @@ import { ensureEntry, ensureFreshHealth, getRegistry } from '../services/service
 /** Service key → URL mapping for all registered downstream services. */
 const DOWNSTREAM_SERVICES: Record<string, string> = {
   usersApi: config.userApiServiceUrl,
-  downloader: config.ingestorServiceUrl,
+  ingestor: config.ingestorServiceUrl,
   searchBase: config.searchBaseServiceUrl,
   fileGenerator: config.fileGeneratorServiceUrl,
   documentReader: config.documentReaderServiceUrl,
