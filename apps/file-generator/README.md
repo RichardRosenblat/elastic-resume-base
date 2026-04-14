@@ -56,8 +56,21 @@ All settings are read from environment variables (or a `.env` file):
 | `FIRESTORE_COLLECTION_TRANSLATION_CACHE` | `translation-cache` | Translation cache collection |
 | `DRIVE_TEMPLATE_FILE_ID` | `` | Google Drive file ID for the `.docx` template |
 | `LOCAL_TEMPLATE_PATH` | `` | Local template path (dev fallback) |
-| `DECRYPT_KMS_KEY_NAME` | `` | Cloud KMS key for PII decryption |
+| `DECRYPT_KMS_KEY_NAME` | `` | Cloud KMS key for PII decryption (production) |
+| `LOCAL_FERNET_KEY` | `` | Fernet key for local development PII decryption — **never use in production** |
 | `TRANSLATION_API_LOCATION` | `global` | Cloud Translation API region |
+
+### PII Decryption
+
+The File Generator decrypts PII fields (name, email, phone, address, etc.) from Firestore before rendering the resume document template.
+
+| Mode | Variable | When to use |
+|---|---|---|
+| **Production** | `DECRYPT_KMS_KEY_NAME` | Set to a fully-qualified Cloud KMS key name. Must match `ENCRYPT_KMS_KEY_NAME` used by the AI Worker. |
+| **Local development** | `LOCAL_FERNET_KEY` (shared) | Set in `systems.shared` in `config.yaml`. Uses Fernet symmetric decryption. Takes priority over `DECRYPT_KMS_KEY_NAME`. |
+| **No decryption** | *(leave both empty)* | PII fields are returned as-is (suitable only when data was stored without encryption). |
+
+> ⚠️ **`LOCAL_FERNET_KEY` is for local development and testing only.** It must match the `LOCAL_FERNET_KEY` used by the AI Worker to encrypt PII fields.  Set the **same** key in `systems.shared.LOCAL_FERNET_KEY` in `config.yaml` — it is automatically propagated to all PII-handling services.  **Never set it in production.**
 
 ## Local Development
 

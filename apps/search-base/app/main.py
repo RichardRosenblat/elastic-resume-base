@@ -92,6 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         index_path=settings.faiss_index_path,
         metric=settings.faiss_index_metric,
         decrypt_kms_key_name=settings.decrypt_kms_key_name,
+        local_fernet_key=settings.local_fernet_key,
     )
     search_service.initialize()
     set_search_service(search_service)

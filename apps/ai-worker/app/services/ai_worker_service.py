@@ -94,7 +94,7 @@ class AIWorkerService:
         topic_resume_indexed: str,
         topic_dlq: str,
         encrypt_kms_key_name: str = "",
-        encrypt_local_key: str = "",
+        local_fernet_key: str = "",
         decrypt_raw_text_kms_key_name: str = "",
     ) -> None:
         """Initialise the AI Worker service.
@@ -108,9 +108,11 @@ class AIWorkerService:
             topic_dlq: Pub/Sub dead-letter queue topic.
             encrypt_kms_key_name: Cloud KMS key name for encrypting PII fields before
                 Firestore persistence.  Pass an empty string to skip KMS encryption.
-            encrypt_local_key: Fernet symmetric key for local development encryption.
-                Takes priority over *encrypt_kms_key_name* when non-empty.  Should
-                only be used in local development — never in production.
+            local_fernet_key: Fernet symmetric key for local development encryption and
+                decryption.  Takes priority over both *encrypt_kms_key_name* (for PII
+                encryption) and *decrypt_raw_text_kms_key_name* (for raw-text
+                decryption) when non-empty.  Should only be used in local development
+                — never in production.
             decrypt_raw_text_kms_key_name: Cloud KMS key name for decrypting the raw
                 resume text stored by the Ingestor service.  Must match the key used
                 by the Ingestor to encrypt the text.  Pass an empty string to read the
@@ -123,7 +125,7 @@ class AIWorkerService:
         self._topic_resume_indexed = topic_resume_indexed
         self._topic_dlq = topic_dlq
         self._encrypt_kms_key_name = encrypt_kms_key_name
-        self._encrypt_local_key = encrypt_local_key
+        self._local_fernet_key = local_fernet_key
         self._decrypt_raw_text_kms_key_name = decrypt_raw_text_kms_key_name
 
     # ------------------------------------------------------------------
@@ -162,7 +164,7 @@ class AIWorkerService:
         try:
             # Step 2 — fetch raw text and decrypt if KMS is configured.
             resume = self._store.get_resume(resume_id)
-            raw_text = decrypt_field(resume.raw_text, self._decrypt_raw_text_kms_key_name)
+            raw_text = decrypt_field(resume.raw_text, self._decrypt_raw_text_kms_key_name, self._local_fernet_key)
             if not raw_text.strip():
                 raise ValueError(f"Resume '{resume_id}' has empty raw_text.")
 
@@ -179,7 +181,7 @@ class AIWorkerService:
                 extra={"resume_id": resume_id, "kms_configured": bool(self._encrypt_kms_key_name)},
             )
             structured_data_to_store = encrypt_pii_fields(
-                structured_data, PII_FIELDS, self._encrypt_kms_key_name, self._encrypt_local_key
+                structured_data, PII_FIELDS, self._encrypt_kms_key_name, self._local_fernet_key
             )
             merged_metadata = dict(resume.metadata)
             merged_metadata["structuredData"] = structured_data_to_store

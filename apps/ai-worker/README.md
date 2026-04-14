@@ -136,10 +136,26 @@ Readiness probe — confirms the service is ready to process messages.
 | `PUBSUB_TOPIC_RESUME_INDEXED` | `resume-indexed` | Output Pub/Sub topic |
 | `PUBSUB_TOPIC_DLQ` | `dead-letter-queue` | Dead-letter queue topic |
 | `HTTP_REQUEST_TIMEOUT` | `300` | Max request duration in seconds |
-| `ENCRYPT_KMS_KEY_NAME` | `""` | Cloud KMS key for encrypting PII fields before Firestore persistence |
-| `DECRYPT_RAW_TEXT_KMS_KEY_NAME` | `""` | Cloud KMS key for decrypting raw resume text written by the Ingestor |
+| `ENCRYPT_KMS_KEY_NAME` | `""` | Cloud KMS key for encrypting PII fields before Firestore persistence (production) |
+| `DECRYPT_RAW_TEXT_KMS_KEY_NAME` | `""` | Cloud KMS key for decrypting raw resume text written by the Ingestor (production) |
+| `LOCAL_FERNET_KEY` | `""` | Fernet key for local development encryption/decryption — **never use in production** |
 
 All variables can also be set via `config.yaml` under `systems.ai-worker`.
+
+### Encryption and Decryption
+
+The AI Worker both decrypts the incoming raw resume text (encrypted by the Ingestor) and encrypts extracted PII fields before storing them in Firestore.
+
+| Operation | Production variable | Local development variable |
+|---|---|---|
+| Decrypt raw text | `DECRYPT_RAW_TEXT_KMS_KEY_NAME` | `LOCAL_FERNET_KEY` (shared) |
+| Encrypt PII fields | `ENCRYPT_KMS_KEY_NAME` | `LOCAL_FERNET_KEY` (shared) |
+
+> ⚠️ **`LOCAL_FERNET_KEY` is for local development and testing only.** It is shared across all PII-handling services (`systems.shared.LOCAL_FERNET_KEY` in `config.yaml`) so that data encrypted by one service can be decrypted by another.  Generate a key with:
+> ```bash
+> python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+> ```
+> **Never set `LOCAL_FERNET_KEY` in production** — use `ENCRYPT_KMS_KEY_NAME` and `DECRYPT_RAW_TEXT_KMS_KEY_NAME` instead.
 
 ## Resume Processing Status
 

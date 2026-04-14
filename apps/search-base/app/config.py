@@ -58,6 +58,14 @@ class Settings(BaseSettings):
             ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
             When empty, PII fields are assumed to be stored as plain text —
             suitable for local development only.
+        local_fernet_key: Fernet symmetric key used for local development decryption
+            of PII fields.  When set, this key takes priority over
+            ``decrypt_kms_key_name`` and uses local Fernet decryption instead of
+            Cloud KMS.  This is intended for local development and testing only —
+            never use in production.  Must match the ``local_fernet_key`` set in the
+            AI Worker service (which encrypts the PII fields).
+            Generate with: ``python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"``
+            Set via the shared ``LOCAL_FERNET_KEY`` variable in ``config.yaml``.
         http_request_timeout: Maximum seconds a single HTTP request to this
             service may take before a 504 Gateway Timeout is returned.
             Defaults to ``300``.  Health endpoints are excluded from this limit.
@@ -83,6 +91,7 @@ class Settings(BaseSettings):
     faiss_index_metric: str = "cosine"
 
     decrypt_kms_key_name: str = ""
+    local_fernet_key: str = ""
 
     http_request_timeout: int = 300
 

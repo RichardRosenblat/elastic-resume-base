@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.utils.kms import PII_FIELDS, encrypt_field, encrypt_pii_fields
-from app.utils.exceptions import KmsEncryptionError
+from app.utils.kms import PII_FIELDS, decrypt_field, encrypt_field, encrypt_pii_fields
+from app.utils.exceptions import KmsDecryptionError, KmsEncryptionError
 
 
 # ---------------------------------------------------------------------------
@@ -21,6 +21,105 @@ def test_encrypt_field_returns_value_unchanged_when_no_kms_key() -> None:
     """encrypt_field returns the plain-text unchanged when encrypt_kms_key_name is empty."""
     result = encrypt_field("John Doe", "")
     assert result == "John Doe"
+
+
+# ---------------------------------------------------------------------------
+# encrypt_field — local Fernet key
+# ---------------------------------------------------------------------------
+
+
+def test_encrypt_field_uses_fernet_when_local_key_set() -> None:
+    """encrypt_field uses Fernet encryption when local_key is provided."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    result = encrypt_field("sensitive data", "", local_key=key)
+
+    assert result != "sensitive data"
+    fernet = Fernet(key.encode())
+    assert fernet.decrypt(result.encode()).decode() == "sensitive data"
+
+
+def test_encrypt_field_local_key_takes_priority_over_kms() -> None:
+    """When local_key is set, Fernet is used regardless of encrypt_kms_key_name."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    result = encrypt_field("secret", "projects/p/.../cryptoKeys/k", local_key=key)
+
+    fernet = Fernet(key.encode())
+    assert fernet.decrypt(result.encode()).decode() == "secret"
+
+
+def test_encrypt_field_raises_on_invalid_fernet_key() -> None:
+    """encrypt_field raises KmsEncryptionError when local_key is invalid."""
+    with pytest.raises(KmsEncryptionError, match="Local Fernet encryption failed"):
+        encrypt_field("data", "", local_key="not-a-valid-fernet-key")
+
+
+# ---------------------------------------------------------------------------
+# decrypt_field — no key configured
+# ---------------------------------------------------------------------------
+
+
+def test_decrypt_field_returns_value_unchanged_when_no_keys() -> None:
+    """decrypt_field returns the value unchanged when neither key is configured."""
+    result = decrypt_field("some-ciphertext", "")
+    assert result == "some-ciphertext"
+
+
+# ---------------------------------------------------------------------------
+# decrypt_field — local Fernet key
+# ---------------------------------------------------------------------------
+
+
+def test_decrypt_field_uses_fernet_when_local_key_set() -> None:
+    """decrypt_field uses Fernet decryption when local_key is provided."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    fernet = Fernet(key.encode())
+    token = fernet.encrypt(b"hello world").decode()
+
+    result = decrypt_field(token, "", local_key=key)
+    assert result == "hello world"
+
+
+def test_decrypt_field_local_key_takes_priority_over_kms() -> None:
+    """When local_key is set, Fernet is used regardless of decrypt_kms_key_name."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    fernet = Fernet(key.encode())
+    token = fernet.encrypt(b"decrypted text").decode()
+
+    result = decrypt_field(token, "projects/p/.../cryptoKeys/k", local_key=key)
+    assert result == "decrypted text"
+
+
+def test_decrypt_field_encrypt_decrypt_round_trip() -> None:
+    """Data encrypted with local_key can be decrypted with the same local_key."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    plaintext = "Alice Smith"
+
+    encrypted = encrypt_field(plaintext, "", local_key=key)
+    decrypted = decrypt_field(encrypted, "", local_key=key)
+
+    assert decrypted == plaintext
+
+
+def test_decrypt_field_raises_on_invalid_fernet_key() -> None:
+    """decrypt_field raises KmsDecryptionError when local_key is invalid."""
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    fernet = Fernet(key.encode())
+    token = fernet.encrypt(b"data").decode()
+
+    with pytest.raises(KmsDecryptionError, match="Local Fernet decryption failed"):
+        decrypt_field(token, "", local_key="not-a-valid-fernet-key")
 
 
 def test_encrypt_field_returns_base64_encoded_ciphertext() -> None:

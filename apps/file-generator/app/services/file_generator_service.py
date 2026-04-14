@@ -50,7 +50,7 @@ class FileGeneratorService:
             *drive_template_file_id* is empty, for local development).
         decrypt_kms_key_name: Cloud KMS key name for decrypting PII fields.  Pass an
             empty string to skip KMS decryption.
-        decrypt_local_key: Fernet symmetric key for local development decryption.
+        local_fernet_key: Fernet symmetric key for local development decryption.
             When set, this key takes priority over ``decrypt_kms_key_name``.
 
     Example::
@@ -70,7 +70,7 @@ class FileGeneratorService:
         drive_template_file_id: str = "",
         local_template_path: str = "",
         decrypt_kms_key_name: str = "",
-        decrypt_local_key: str = "",
+        local_fernet_key: str = "",
     ) -> None:
         """Initialise the FileGeneratorService.
 
@@ -80,7 +80,7 @@ class FileGeneratorService:
             drive_template_file_id: Google Drive file ID for the template.
             local_template_path: Local path to a template file (dev fallback).
             decrypt_kms_key_name: Cloud KMS key name (empty to skip KMS decryption).
-            decrypt_local_key: Fernet key for local decryption.  Takes priority
+            local_fernet_key: Fernet key for local decryption.  Takes priority
                 over *decrypt_kms_key_name* when non-empty.  Local dev only.
         """
         self._store = resume_store
@@ -88,7 +88,7 @@ class FileGeneratorService:
         self._drive_template_file_id = drive_template_file_id
         self._local_template_path = local_template_path
         self._kms_key_name = decrypt_kms_key_name
-        self._local_key = decrypt_local_key
+        self._local_key = local_fernet_key
 
     # ------------------------------------------------------------------
     # Public interface

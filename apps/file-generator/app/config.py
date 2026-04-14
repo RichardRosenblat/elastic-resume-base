@@ -46,11 +46,13 @@ class Settings(BaseSettings):
             ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
             When empty, decryption is skipped and field values are returned
             as-is (for local development).
-        decrypt_local_key: Fernet symmetric key used for local development decryption
+        local_fernet_key: Fernet symmetric key used for local development decryption
             of PII fields.  When set, this key takes priority over ``decrypt_kms_key_name``
             and uses local Fernet decryption instead of Cloud KMS.  This is intended
             for local development and testing only — never use in production.
-            Must match the ``encrypt_local_key`` set in the AI Worker service.
+            Must match the ``local_fernet_key`` set in the AI Worker service.
+            Generate with: ``python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"``
+            Set via the shared ``LOCAL_FERNET_KEY`` variable in ``config.yaml``.
         translation_api_location: Google Cloud region for the Translation API.
             Defaults to ``"global"``.
         http_request_timeout: Maximum seconds a single HTTP request to this
@@ -72,7 +74,7 @@ class Settings(BaseSettings):
     local_template_path: str = ""
 
     decrypt_kms_key_name: str = ""
-    decrypt_local_key: str = ""
+    local_fernet_key: str = ""
     translation_api_location: str = "global"
 
     http_request_timeout: int = 300

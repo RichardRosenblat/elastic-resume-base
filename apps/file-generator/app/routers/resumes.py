@@ -69,7 +69,7 @@ def _get_file_generator_service(include_translation: bool = False) -> FileGenera
         drive_template_file_id=settings.drive_template_file_id,
         local_template_path=settings.local_template_path,
         decrypt_kms_key_name=settings.decrypt_kms_key_name,
-        decrypt_local_key=settings.decrypt_local_key,
+        local_fernet_key=settings.local_fernet_key,
     )
 
 

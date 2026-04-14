@@ -1,6 +1,6 @@
 """Cloud KMS utility for decrypting PII fields before template rendering.
 
-When ``decrypt_local_key`` is configured, ciphertext field values are decrypted
+When ``local_fernet_key`` is configured, ciphertext field values are decrypted
 using a local Fernet symmetric key — intended for local development and testing
 only.  When ``decrypt_kms_key_name`` is configured, Cloud KMS is used instead.
 When neither is set, values are returned as-is (no decryption).

@@ -55,6 +55,15 @@ class Settings(BaseSettings):
             ``projects/my-proj/locations/global/keyRings/my-ring/cryptoKeys/my-key``).
             When empty, raw text is stored as plain text — suitable for local
             development only.
+        local_fernet_key: Fernet symmetric key used for local development
+            encryption of the raw resume text.  When set, this key takes priority
+            over ``encrypt_kms_key_name`` and uses local Fernet encryption instead
+            of Cloud KMS.  This is intended for local development and testing only
+            — never use in production.  The same key must be configured as
+            ``local_fernet_key`` in the AI Worker service so it can decrypt the raw
+            text during local development.
+            Generate with: ``python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"``
+            Set via the shared ``LOCAL_FERNET_KEY`` variable in ``config.yaml``.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -71,6 +80,7 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     ingest_concurrency: int = 10
     encrypt_kms_key_name: str = ""
+    local_fernet_key: str = ""
 
 
 load_config_yaml("ingestor-service")

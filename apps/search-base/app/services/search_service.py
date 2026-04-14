@@ -110,6 +110,7 @@ class SearchService:
         index_path: str = "",
         metric: str = "cosine",
         decrypt_kms_key_name: str = "",
+        local_fernet_key: str = "",
     ):
         """Initialize the search service.
 
@@ -118,11 +119,14 @@ class SearchService:
             index_path: Optional file path for disk persistence (default empty).
             metric: Distance metric, either "cosine" or "l2" (default "cosine").
             decrypt_kms_key_name: KMS key name for PII decryption (default empty).
+            local_fernet_key: Fernet key for local PII decryption.  Takes priority
+                over *decrypt_kms_key_name* when non-empty.  Local development only.
         """
         self.embedding_dim = embedding_dim
         self.index_path = index_path
         self.metric = metric
         self.decrypt_kms_key_name = decrypt_kms_key_name
+        self.local_fernet_key = local_fernet_key
 
         # FAISS index and positional vector-key list.
         # Each entry in _vector_keys maps positionally to the corresponding
@@ -141,7 +145,7 @@ class SearchService:
                 "embedding_dim": embedding_dim,
                 "index_path": index_path or "(in-memory only)",
                 "metric": metric,
-                "decrypt_enabled": bool(decrypt_kms_key_name),
+                "decrypt_enabled": bool(decrypt_kms_key_name or local_fernet_key),
             },
         )
 
@@ -641,12 +645,13 @@ class SearchService:
         if not structured_data:
             raise ValueError(f"No structured data for resume: {resume_id}")
 
-        # Decrypt PII fields if KMS is configured
-        if self.decrypt_kms_key_name:
+        # Decrypt PII fields if KMS or local key is configured
+        if self.decrypt_kms_key_name or self.local_fernet_key:
             structured_data = decrypt_pii_fields(
                 structured_data,
                 PII_FIELDS,
                 self.decrypt_kms_key_name,
+                self.local_fernet_key,
             )
 
         return structured_data
