@@ -107,7 +107,10 @@
     "errorsCount": "{{count}} error(s)",
     "resumeId": "Resume ID",
     "excelFileDescription": "Upload an Excel (.xlsx, .xls, .xlsm) or CSV (.csv) file containing Google Drive links to resume files.",
-    "singleFileDescription": "Upload a single PDF or DOCX resume file for direct ingestion."
+    "singleFileDescription": "Upload a single PDF or DOCX resume file for direct ingestion.",
+    "ingestErrorDetails": "Ingestion Error Details",
+    "ingestErrorRow": "Row",
+    "ingestErrorMessage": "Error"
   },
   "documents": {
     "title": "Documents",

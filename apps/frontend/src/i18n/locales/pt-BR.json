@@ -106,7 +106,10 @@
 		"errorsCount": "{{count}} erro(s)",
 		"resumeId": "ID do Currículo",
 		"excelFileDescription": "Envie um arquivo Excel (.xlsx, .xls, .xlsm) ou CSV (.csv) com links do Google Drive para os currículos.",
-		"singleFileDescription": "Envie um arquivo PDF ou DOCX de currículo para importação direta."
+		"singleFileDescription": "Envie um arquivo PDF ou DOCX de currículo para importação direta.",
+		"ingestErrorDetails": "Detalhes dos Erros de Importação",
+		"ingestErrorRow": "Linha",
+		"ingestErrorMessage": "Erro"
 	},
 	"documents": {
 		"title": "Documentos",
